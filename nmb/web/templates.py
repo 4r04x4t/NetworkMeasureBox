@@ -81,6 +81,28 @@ def get_dashboard_html() -> str:
     }
     .meta-lbl { color: #ffffff; font-weight: 600; }
     .meta-val { color: #38bdf8; font-weight: 500; }
+    .btn-logout {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .btn-logout:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #ef4444;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
+      transform: translateY(-1px);
+    }
 
     /* Tab Bar */
     .app-tabs {
@@ -780,6 +802,14 @@ def get_dashboard_html() -> str:
       </div>
     </div>
     <div class="app-header-right">
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 4px;">
+        <span id="hdr-auth-badge" style="display: none; font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+          👤 <span id="hdr-auth-user">admin</span>
+        </span>
+        <button id="btn-logout" class="btn-logout" onclick="performLogout()" title="Logout" data-i18n-title="logout_btn">
+          🚪 <span data-i18n="logout_btn">Logout</span>
+        </button>
+      </div>
       <div><span class="meta-lbl" data-i18n="public_ip">Public IP:</span> <span id="hdr-wan-ip" class="meta-val">--</span></div>
       <div><span class="meta-lbl" data-i18n="wan_iface">WAN Interface:</span> <span id="hdr-wan-iface" class="meta-val">eth0</span></div>
       <div><span class="meta-lbl" data-i18n="system_time">System Time:</span> <span id="hdr-uptime" class="meta-val">--</span></div>
@@ -3172,9 +3202,12 @@ def get_dashboard_html() -> str:
               <div class="form-hint">Password required to authenticate to this web management dashboard.</div>
             </div>
           </div>
-          <div style="margin-top: 12px;">
+          <div style="margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <button class="btn-primary" style="padding: 7px 18px; font-size: 12.5px;" onclick="updateAdminCredentials()">
               Update Credentials
+            </button>
+            <button class="btn-logout" style="padding: 7px 16px; font-size: 12.5px;" onclick="performLogout()">
+              🚪 <span data-i18n="logout_btn">Logout</span>
             </button>
           </div>
         </div>
@@ -3633,6 +3666,15 @@ def get_dashboard_html() -> str:
         }
         document.getElementById('hdr-wan-iface').innerText = data.system_info.wan_interface || 'eth0';
         document.getElementById('hdr-uptime').innerText = data.system_info.uptime || '--';
+      }
+
+      if (data.auth_enabled) {
+        const badge = document.getElementById('hdr-auth-badge');
+        const userSpan = document.getElementById('hdr-auth-user');
+        if (badge && userSpan) {
+          userSpan.textContent = data.admin_username || 'admin';
+          badge.style.display = 'inline-flex';
+        }
       }
 
       // Measuring banner tracking
@@ -6933,6 +6975,34 @@ def get_dashboard_html() -> str:
     }
   }
 
+  // Logout Handler
+  function performLogout() {
+    if (!confirm(t('logout_confirm', 'Are you sure you want to log out from NetworkMeasureBox?'))) {
+      return;
+    }
+    showToast(t('logging_out', 'Logging out...'));
+    try {
+      localStorage.removeItem('nmb_token');
+      sessionStorage.clear();
+    } catch (e) {}
+
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", "/api/auth/logout", true, "logout_purge_user", "invalid_password");
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          window.location.href = "/logout";
+        }
+      };
+      xhr.send();
+      setTimeout(() => {
+        window.location.href = "/logout";
+      }, 400);
+    } catch (err) {
+      window.location.href = "/logout";
+    }
+  }
+
   // ==========================================
   // Distro-Aware Package Management
   // ==========================================
@@ -7829,3 +7899,214 @@ ${pkgList}`;
 </script>
 </body>
 </html>"""
+
+
+def get_logout_html() -> str:
+    """Return standalone, responsive dark-mode Logout page."""
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetworkMeasureBox - Logged Out</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>">
+  <style>
+    :root {
+      --bg: #090e1a;
+      --card-bg: linear-gradient(180deg, #131d35 0%, #0d1424 100%);
+      --border: #1e293b;
+      --accent: #38bdf8;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .logout-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 32px;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      animation: fadeIn 0.3s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .icon-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      font-size: 32px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.2);
+    }
+    .app-brand {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.2px;
+      margin-bottom: 4px;
+    }
+    .app-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 22px;
+    }
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+    .title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 10px;
+    }
+    .desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+    .hint {
+      font-size: 11.5px;
+      color: #64748b;
+      line-height: 1.5;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px dashed #334155;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    .btn-login {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px 20px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border: 1px solid #38bdf8;
+      border-radius: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+    }
+    .btn-login:hover {
+      background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(2, 132, 199, 0.55);
+    }
+    .lang-wrap {
+      margin-top: 24px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(30, 41, 59, 0.7);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+    }
+    select {
+      background: transparent;
+      color: #f1f5f9;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+    }
+    select option {
+      background: #0d1424;
+      color: #f1f5f9;
+    }
+  </style>
+</head>
+<body>
+  <div class="logout-card">
+    <div class="icon-badge">🔒</div>
+    <div class="app-brand">NetworkMeasureBox</div>
+    <div class="app-sub" data-i18n="app_subtitle">Universal Network Quality, Speed Benchmark & Diagnostics Suite</div>
+    <div class="divider"></div>
+    <div class="title" data-i18n="logout_title">Successfully Logged Out</div>
+    <div class="desc" data-i18n="logout_desc">Your administrative session has ended and cached credentials have been cleared.</div>
+    <div class="hint" data-i18n="logout_hint">To completely terminate the HTTP Basic Authentication session in some browsers, you can also close this browser tab.</div>
+    <a href="/" class="btn-login">
+      <span>🔑</span>
+      <span data-i18n="logout_btn_login_again">Log In Again</span>
+    </a>
+    <div class="lang-wrap">
+      <span>🌐</span>
+      <select id="lang-select" onchange="switchLanguage(this.value)">
+        <option value="en">English (EN)</option>
+        <option value="hu">Magyar (HU)</option>
+        <option value="de">Deutsch (DE)</option>
+        <option value="uk">Українська (UK)</option>
+        <option value="fr">Français (FR)</option>
+      </select>
+    </div>
+  </div>
+
+  <script>
+    let currentTranslations = {};
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {}
+
+    async function loadTranslations(lang) {
+      try {
+        const res = await fetch('/api/i18n?lang=' + encodeURIComponent(lang));
+        if (res.ok) {
+          const d = await res.json();
+          currentTranslations = d.translations || {};
+          applyTranslations();
+        }
+      } catch (e) {}
+    }
+
+    function applyTranslations() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k = el.getAttribute('data-i18n');
+        if (currentTranslations[k]) el.textContent = currentTranslations[k];
+      });
+    }
+
+    async function switchLanguage(lang) {
+      await loadTranslations(lang);
+    }
+
+    // Auto-detect language
+    const preferredLang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+    const activeLang = ['en', 'hu', 'de', 'uk', 'fr'].includes(preferredLang) ? preferredLang : 'en';
+    const sel = document.getElementById('lang-select');
+    if (sel) sel.value = activeLang;
+    loadTranslations(activeLang);
+  </script>
+</body>
+</html>"""
+

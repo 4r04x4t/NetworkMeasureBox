@@ -42,7 +42,7 @@ from nmb.speed.runner import run_measurement_cycle
 from nmb.speed.scheduler import AutonomousScheduler, get_cron_description
 from nmb.speed.traceroute import run_traceroute, get_latest_traceroute, is_traceroute_running
 from nmb.web.i18n import get_translations_for_lang, TRANSLATIONS
-from nmb.web.templates import get_dashboard_html
+from nmb.web.templates import get_dashboard_html, get_logout_html
 
 log = logging.getLogger("nmb.web.server")
 
@@ -83,6 +83,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     def _check_auth(self) -> bool:
         """Enforce HTTP Basic Authentication if auth_enabled is true with rate limiting."""
         if not self.server.cfg.web.auth_enabled:
+            return True
+
+        req_path = urlparse(self.path).path
+        if req_path in ("/logout", "/api/auth/logout", "/api/i18n"):
             return True
 
         client_ip = self.client_address[0] if hasattr(self, "client_address") else self.address_string()
@@ -163,6 +167,21 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         parsed = urlparse(self.path)
         path = parsed.path
+
+        # 0. Logout UI and Auth Purge Endpoints
+        if path == "/logout":
+            self._send_html(get_logout_html())
+            return
+
+        if path == "/api/auth/logout":
+            self.send_response(HTTPStatus.UNAUTHORIZED)
+            self.send_header("WWW-Authenticate", 'Basic realm="NetworkMeasureBox"')
+            self.send_header("Clear-Site-Data", '"cache", "cookies", "storage"')
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.end_headers()
+            self.wfile.write(b'{"status": "logged_out", "message": "Successfully logged out"}\n')
+            return
 
         # 1. Main Dashboard UI
         if path in ("/", "/index.html"):
@@ -670,6 +689,17 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         if not self._check_auth():
+            return
+
+        parsed_req = urlparse(self.path)
+        if parsed_req.path == "/api/auth/logout":
+            self.send_response(HTTPStatus.UNAUTHORIZED)
+            self.send_header("WWW-Authenticate", 'Basic realm="NetworkMeasureBox"')
+            self.send_header("Clear-Site-Data", '"cache", "cookies", "storage"')
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.end_headers()
+            self.wfile.write(b'{"status": "logged_out", "message": "Successfully logged out"}\n')
             return
 
         # 1. CSRF Protection: check Origin / Referer against Host
@@ -1757,6 +1787,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "speed_tests": report.speed_tests[:25],
             "latest_per_engine": latest_per_engine,
             "chart_svg": svg,
+            "auth_enabled": bool(getattr(self.server.cfg.web, "auth_enabled", True)),
+            "admin_username": getattr(self.server.cfg.web, "admin_username", "admin"),
         }
         self._send_json(status_dict)
 
@@ -1820,6 +1852,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "speedtest_server_name": getattr(cfg.speedtest, "server_name", ""),
             "speedtest_server_host": getattr(cfg.speedtest, "server_host", ""),
             "sqm_algorithm": getattr(cfg.system, "sqm_algorithm", "cake"),
+            "auth_enabled": bool(getattr(cfg.web, "auth_enabled", True)),
             "admin_username": getattr(cfg.web, "admin_username", "admin"),
             "language": getattr(cfg.web, "language", "en"),
             "iperf_target_host": getattr(cfg.iperf, "target_host", ""),

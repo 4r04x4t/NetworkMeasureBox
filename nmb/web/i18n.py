@@ -12,6 +12,13 @@ SUPPORTED_LANGUAGES = ("en", "hu", "de", "uk", "fr")
 
 TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "en": {
+        "logging_out": "Logging out...",
+        "logout_btn": "Logout",
+        "logout_btn_login_again": "Log In Again",
+        "logout_confirm": "Are you sure you want to log out from NetworkMeasureBox?",
+        "logout_desc": "Your administrative session has ended and cached credentials have been cleared.",
+        "logout_hint": "To completely terminate the HTTP Basic Authentication session in some browsers, you can also close this browser tab.",
+        "logout_title": "Successfully Logged Out",
         "accuracy_gate": "Accuracy Gate:",
         "ai_diag_btn_copy": "📋 Copy Full Diagnostic Report to Clipboard",
         "ai_diag_btn_download": "📥 Download diagnostic-bundle.md",
@@ -452,6 +459,13 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     },
 
     "hu": {
+        "logging_out": "Kijelentkezés...",
+        "logout_btn": "Kijelentkezés",
+        "logout_btn_login_again": "Bejelentkezés újra",
+        "logout_confirm": "Biztosan ki szeretnél jelentkezni a NetworkMeasureBox felületéről?",
+        "logout_desc": "A felügyeleti munkamenet befejeződött, a gyorsítótárazott hitelesítési adatok törlésre kerültek.",
+        "logout_hint": "Egyes böngészőkben a HTTP Basic azonosítás teljes eldobásához a böngészőlap vagy ablak bezárása is javasolt.",
+        "logout_title": "Sikeres kijelentkezés",
         "accuracy_gate": "Pontossági kapu:",
         "ai_diag_btn_copy": "📋 Teljes Diagnosztika Másolása a Vágólapra",
         "ai_diag_btn_download": "📥 diagnostic-bundle.md Letöltése",
@@ -892,6 +906,13 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     },
 
     "de": {
+        "logging_out": "Abmeldung läuft...",
+        "logout_btn": "Abmelden",
+        "logout_btn_login_again": "Erneut anmelden",
+        "logout_confirm": "Möchten Sie sich wirklich von NetworkMeasureBox abmelden?",
+        "logout_desc": "Ihre Administratorsitzung wurde beendet und zwischengespeicherte Anmeldedaten wurden gelöscht.",
+        "logout_hint": "Um die HTTP-Basisauthentifizierungssitzung in einigen Browsern vollständig zu beenden, können Sie diesen Tab auch schließen.",
+        "logout_title": "Erfolgreich abgemeldet",
         "accuracy_gate": "Genauigkeitsschranke:",
         "ai_diag_btn_copy": "📋 Vollständigen Bericht in die Zwischenablage kopieren",
         "ai_diag_btn_download": "📥 diagnostic-bundle.md herunterladen",
@@ -1332,6 +1353,13 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     },
 
     "uk": {
+        "logging_out": "Вихід із системи...",
+        "logout_btn": "Вийти",
+        "logout_btn_login_again": "Увійти знову",
+        "logout_confirm": "Ви дійсно бажаєте вийти з NetworkMeasureBox?",
+        "logout_desc": "Ваш сеанс адміністратора завершено, кешовані облікові дані очищено.",
+        "logout_hint": "Щоб повністю завершити сеанс HTTP Basic в деяких браузерах, ви також можете закрити цю вкладку.",
+        "logout_title": "Успішно вийшли",
         "accuracy_gate": "Шлюз точності:",
         "ai_diag_btn_copy": "📋 Скопіювати повний звіт у буфер",
         "ai_diag_btn_download": "📥 Завантажити diagnostic-bundle.md",
@@ -1772,6 +1800,13 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     },
 
     "fr": {
+        "logging_out": "Déconnexion en cours...",
+        "logout_btn": "Déconnexion",
+        "logout_btn_login_again": "Se reconnecter",
+        "logout_confirm": "Êtes-vous sûr de vouloir vous déconnecter de NetworkMeasureBox ?",
+        "logout_desc": "Votre session administrateur est terminée et les identifiants mis en cache ont été effacés.",
+        "logout_hint": "Pour terminer complètement la session HTTP Basic dans certains navigateurs, vous pouvez également fermer cet onglet.",
+        "logout_title": "Déconnexion réussie",
         "accuracy_gate": "Barrière de précision :",
         "ai_diag_btn_copy": "📋 Copier le Rapport dans le Presse-Papier",
         "ai_diag_btn_download": "📥 Télécharger diagnostic-bundle.md",
