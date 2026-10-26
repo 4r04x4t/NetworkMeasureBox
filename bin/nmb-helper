@@ -80,8 +80,25 @@ case "${1:-}" in
             iptables -t nat -C POSTROUTING -s 10.9.0.0/24 -o "$WAN_IFACE" -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 10.9.0.0/24 -o "$WAN_IFACE" -j MASQUERADE
         fi
         ;;
+    logs-purge)
+        # 1. Safely rotate and vacuum system journal
+        if command -v journalctl >/dev/null 2>&1; then
+            journalctl --rotate >/dev/null 2>&1 || true
+            journalctl --vacuum-time=1s >/dev/null 2>&1 || true
+        fi
+        # 2. Truncate standard syslog files if they exist
+        for f in /var/log/syslog /var/log/messages /var/log/kern.log /var/log/daemon.log; do
+            if [ -f "$f" ]; then
+                : > "$f" 2>/dev/null || true
+            fi
+        done
+        # 3. Truncate kernel ring buffer
+        if command -v dmesg >/dev/null 2>&1; then
+            dmesg -c >/dev/null 2>&1 || true
+        fi
+        ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge}" >&2
         exit 1
         ;;
 esac

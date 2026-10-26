@@ -1846,11 +1846,18 @@ def get_dashboard_html() -> str:
   <!-- TAB 5: SYSTEM & DEVELOPER LOGS -->
   <div id="tab-syslog" class="tab-content">
     <div class="app-box">
-      <!-- Subtab Selector -->
-      <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #1e293b; padding-bottom: 12px; flex-wrap: wrap;">
-        <button id="btn-subtab-syslog" class="app-tab-btn active" onclick="switchSyslogSubtab('syslog')" style="font-size: 13px;" data-i18n="subtab_system_syslog">🐧 Kernel & Hardware Syslog</button>
-        <button id="btn-subtab-devlog" class="app-tab-btn" onclick="switchSyslogSubtab('devlog')" style="font-size: 13px;" data-i18n="subtab_devlog">🛠️ Developer Deep Console</button>
-        <button id="btn-subtab-audit" class="app-tab-btn" onclick="switchSyslogSubtab('audit')" style="font-size: 13px;" data-i18n="subtab_audit">📋 System Audit Events</button>
+      <!-- Subtab Selector & Action Toolbar -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #1e293b; padding-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btn-subtab-syslog" class="app-tab-btn active" onclick="switchSyslogSubtab('syslog')" style="font-size: 13px;" data-i18n="subtab_system_syslog">🐧 Kernel & Hardware Syslog</button>
+          <button id="btn-subtab-devlog" class="app-tab-btn" onclick="switchSyslogSubtab('devlog')" style="font-size: 13px;" data-i18n="subtab_devlog">🛠️ Developer Deep Console</button>
+          <button id="btn-subtab-audit" class="app-tab-btn" onclick="switchSyslogSubtab('audit')" style="font-size: 13px;" data-i18n="subtab_audit">📋 System Audit Events</button>
+        </div>
+        <div>
+          <button class="btn-danger" style="font-size: 12.5px; padding: 6px 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);" onclick="triggerTotalLogPurge()" data-i18n="btn_total_log_purge" title="Completely purge all system, kernel, file, and database logs">
+            🔥 Total Log Purge
+          </button>
+        </div>
       </div>
 
       <!-- SUBTAB 0: HARDWARE & LINUX KERNEL SYSLOG (ROUTER GRADE) -->
@@ -1897,6 +1904,7 @@ def get_dashboard_html() -> str:
 
           <div class="devlog-toolbar-right" style="gap: 8px;">
             <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="downloadSystemSyslog()" title="Download raw system syslog file">📥 Download Raw Syslog (.log)</button>
+            <button class="btn-danger" style="padding:4px 10px; font-size:12px; font-weight: 700;" onclick="triggerTotalLogPurge()" title="Purge all system, file, and database logs" data-i18n="btn_total_log_purge">🔥 Total Log Purge</button>
             <button class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="fetchSystemSyslog(true)">🔄 Refresh</button>
           </div>
         </div>
@@ -1965,6 +1973,7 @@ def get_dashboard_html() -> str:
 
             <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="downloadDevLog()" title="Download full un-truncated developer log file">📥 Download (.log)</button>
             <button class="btn-danger" style="padding:4px 10px; font-size:12px;" onclick="clearDevLogBuffer()" title="Clear in-memory log buffer">🗑️ Clear Buffer</button>
+            <button class="btn-danger" style="padding:4px 10px; font-size:12px; font-weight: 700;" onclick="triggerTotalLogPurge()" title="Purge all system, file, and database logs" data-i18n="btn_total_log_purge">🔥 Total Log Purge</button>
             <button class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="fetchDevLogs(true)">🔄 Refresh</button>
           </div>
         </div>
@@ -1985,7 +1994,10 @@ def get_dashboard_html() -> str:
       <div id="syslog-subtab-audit" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
           <div class="section-subtitle" style="margin: 0;" data-i18n="syslog_title">System Event Log & Audit Trail</div>
-          <input type="text" id="log-filter-input" placeholder="Filter system events..." class="form-input" style="max-width: 280px; padding: 6px 12px; font-size: 12px;" onkeyup="filterLogTable(this.value)">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="log-filter-input" placeholder="Filter system events..." class="form-input" style="max-width: 280px; padding: 6px 12px; font-size: 12px;" onkeyup="filterLogTable(this.value)">
+            <button class="btn-danger" style="padding:6px 12px; font-size:12px; font-weight: 700;" onclick="triggerTotalLogPurge()" data-i18n="btn_total_log_purge">🔥 Total Log Purge</button>
+          </div>
         </div>
 
         <div class="data-table-wrap">
@@ -4009,6 +4021,9 @@ def get_dashboard_html() -> str:
           </tr>`;
         });
         document.getElementById('syslog-table-body').innerHTML = lHtml;
+      } else {
+        const tbody = document.getElementById('syslog-table-body');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">No system events recorded.</td></tr>';
       }
 
       // Live Traffic gauges & clients (Tab 8 QoS)
@@ -4560,6 +4575,32 @@ def get_dashboard_html() -> str:
       }
     } catch (e) {
       showToast('Error clearing log buffer: ' + e);
+    }
+  }
+
+  async function triggerTotalLogPurge() {
+    const confirmMsg = getTranslation('confirm_total_log_purge', localStorage.getItem('nmb_lang') || 'en', 'Are you sure you want to completely purge ALL system logs, kernel buffers, developer files, and audit records? This cannot be undone.');
+    if (!confirm(confirmMsg)) return;
+
+    showToast('Executing total log purge (journal, files, database, memory)...');
+    try {
+      const res = await fetch('/api/system/logs/purge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ include_db: true, include_journal: true }),
+      });
+      const d = await res.json();
+      if (res.ok && d.status === 'ok') {
+        const doneMsg = getTranslation('msg_total_log_purge_done', localStorage.getItem('nmb_lang') || 'en', 'Total log purge completed successfully!');
+        showToast(doneMsg);
+        if (typeof fetchSystemSyslog === 'function') fetchSystemSyslog(true);
+        if (typeof fetchDevLogs === 'function') fetchDevLogs(true);
+        if (typeof refreshStatus === 'function') refreshStatus();
+      } else {
+        showToast('Log purge error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('Log purge request failed: ' + e);
     }
   }
 

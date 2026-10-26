@@ -1,11 +1,14 @@
-"""
-Internationalization (i18n) & Multi-Language Dictionary for NetworkMeasureBox.
-Supports English (default), Hungarian, German, Ukrainian, and French.
-"""
+"""NetworkMeasureBox Internationalization (i18n) Module.
 
-from typing import Any, Dict
+Provides complete multilingual UI translations across English (en), Hungarian (hu),
+German (de), Ukrainian (uk), and French (fr) with 100% key parity.
+"""
+from __future__ import annotations
+
+from typing import Dict
 
 DEFAULT_LANGUAGE = "en"
+SUPPORTED_LANGUAGES = ("en", "hu", "de", "uk", "fr")
 
 TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "en": {
@@ -25,10 +28,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_refresh": "Refresh",
         "btn_save": "Save",
         "btn_stop_measure": "⏹️ Stop Measurement",
+        "btn_total_log_purge": "🔥 Total Log Purge",
         "bufferbloat_grade": "Bufferbloat Score:",
         "clients_count": "clients",
         "cmd_copied": "Command copied to clipboard!",
         "confirm_reboot": "Are you sure you want to reboot the NetworkMeasureBox device?",
+        "confirm_total_log_purge": "Are you sure you want to completely purge ALL system logs, kernel buffers, developer files, and audit records? This cannot be undone.",
         "device_hostname": "Hostname / Device Name",
         "device_interface": "Interface",
         "device_ip": "IP Address",
@@ -132,6 +137,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "mode_router": "Gateway Router (NAT & DHCP Server)",
         "mode_scheduled": "🟢 Automated Schedule Active",
         "mode_title": "Device Operating Mode",
+        "msg_total_log_purge_done": "Total log purge completed successfully!",
         "net_mode": "Net Mode",
         "no_hops_captured": "No hops captured.",
         "no_servers_found": "No matching servers found. Try another city or server ID.",
@@ -462,10 +468,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_refresh": "Frissítés",
         "btn_save": "Mentés",
         "btn_stop_measure": "⏹️ Mérés leállítása",
+        "btn_total_log_purge": "🔥 Teljes Naplótörlés",
         "bufferbloat_grade": "Bufferbloat értékelés:",
         "clients_count": "kliens",
         "cmd_copied": "Parancs a vágólapra másolva!",
         "confirm_reboot": "Biztosan újraindítja a hálózati mérőeszközt?",
+        "confirm_total_log_purge": "Biztosan törölni szeretnéd az ÖSSZES rendszernaplót, kernel puffert, fejlesztői naplófájlt és audit eseményt? A művelet nem visszavonható.",
         "device_hostname": "Hosztnév / Eszköz",
         "device_interface": "Csatoló",
         "device_ip": "IP Cím",
@@ -569,6 +577,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "mode_router": "Átjáró Router (NAT & DHCP Szerver)",
         "mode_scheduled": "🟢 Automata mérés aktív",
         "mode_title": "Eszköz Működési Üzemmódja",
+        "msg_total_log_purge_done": "A teljes naplótörlés sikeresen befejeződött!",
         "net_mode": "Hálózati Mód",
         "no_hops_captured": "Nem sikerült útvonal-ugrásokat rögzíteni.",
         "no_servers_found": "Nincs találat. Próbálja meg szerver ID vagy városnév alapján.",
@@ -899,10 +908,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_refresh": "Aktualisieren",
         "btn_save": "Speichern",
         "btn_stop_measure": "⏹️ Messung anhalten",
+        "btn_total_log_purge": "🔥 Protokolle vollständig leeren",
         "bufferbloat_grade": "Bufferbloat-Bewertung:",
         "clients_count": "Clients",
         "cmd_copied": "Befehl in Zwischenablage kopiert!",
         "confirm_reboot": "Möchten Sie das Netzwerk-Messgerät wirklich neu starten?",
+        "confirm_total_log_purge": "Sind Sie sicher, dass Sie ALLE Systemprotokolle, Kernel-Puffer, Entwicklerdateien und Audit-Einträge vollständig löschen möchten? Dies kann nicht rückgängig gemacht werden.",
         "device_hostname": "Hostname / Gerät",
         "device_interface": "Schnittstelle",
         "device_ip": "IP-Adresse",
@@ -1006,6 +1017,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "mode_router": "Gateway-Router (NAT & DHCP-Server)",
         "mode_scheduled": "🟢 Automatische Messung aktiv",
         "mode_title": "Geräte-Betriebsmodus",
+        "msg_total_log_purge_done": "Vollständige Protokollbereinigung erfolgreich abgeschlossen!",
         "net_mode": "Netzmodus",
         "no_hops_captured": "Keine Hops erfasst.",
         "no_servers_found": "Keine Server gefunden. Versuchen Sie eine andere Server-ID oder Stadt.",
@@ -1336,10 +1348,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_refresh": "Оновити",
         "btn_save": "Зберегти",
         "btn_stop_measure": "⏹️ Зупинити тест",
+        "btn_total_log_purge": "🔥 Повне очищення журналів",
         "bufferbloat_grade": "Оцінка Bufferbloat:",
         "clients_count": "клієнтів",
         "cmd_copied": "Команду скопійовано в буфер!",
         "confirm_reboot": "Ви дійсно бажаєте перезавантажити мережевий зонд?",
+        "confirm_total_log_purge": "Ви впевнені, що хочете повністю очистити ВСІ системні журнали, буфери ядра, файли розробника та аудит? Цю дію неможливо скасувати.",
         "device_hostname": "Ім'я пристрою",
         "device_interface": "Інтерфейс",
         "device_ip": "IP-адреса",
@@ -1443,6 +1457,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "mode_router": "Шлюзовий маршрутизатор (NAT та DHCP)",
         "mode_scheduled": "🟢 Автоматичний графік активний",
         "mode_title": "Режим роботи пристрою",
+        "msg_total_log_purge_done": "Повне очищення журналів успішно завершено!",
         "net_mode": "Режим мережі",
         "no_hops_captured": "Хопи не зафіксовано.",
         "no_servers_found": "Серверів не знайдено. Спробуйте інше місто або ID.",
@@ -1773,10 +1788,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_refresh": "Actualiser",
         "btn_save": "Enregistrer",
         "btn_stop_measure": "⏹️ Arrêter la mesure",
+        "btn_total_log_purge": "🔥 Purge totale des journaux",
         "bufferbloat_grade": "Score Bufferbloat :",
         "clients_count": "clients",
         "cmd_copied": "Commande copiée dans le presse-papier !",
         "confirm_reboot": "Êtes-vous sûr de vouloir redémarrer la sonde réseau ?",
+        "confirm_total_log_purge": "Êtes-vous sûr de vouloir purger complètement TOUS les journaux système, tampons noyau, fichiers développeur et enregistrements d'audit ? Cette action est irréversible.",
         "device_hostname": "Nom de l'Hôte / Appareil",
         "device_interface": "Interface",
         "device_ip": "Adresse IP",
@@ -1880,6 +1897,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "mode_router": "Routeur Passerelle (NAT & Serveur DHCP)",
         "mode_scheduled": "🟢 Mesure Automatique Active",
         "mode_title": "Mode de Fonctionnement de l'Appareil",
+        "msg_total_log_purge_done": "Purge totale des journaux terminée avec succès !",
         "net_mode": "Mode Réseau",
         "no_hops_captured": "Aucun saut capturé.",
         "no_servers_found": "Aucun serveur trouvé. Essayez un autre ID ou une autre ville.",

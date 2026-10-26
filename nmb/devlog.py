@@ -690,3 +690,98 @@ def get_raw_system_syslog(
     data = get_system_syslog(lines=lines, source=source, severity=severity, search=search)
     entries = data.get("entries", [])
     return "\n".join(e["raw"] for e in entries)
+
+
+def purge_all_logs(
+    include_database_events: bool = True,
+    include_system_journal: bool = True,
+) -> Dict[str, Any]:
+    """Perform a comprehensive total log purge across memory, files, database, and system journal."""
+    res: Dict[str, Any] = {
+        "status": "ok",
+        "buffer_cleared": False,
+        "files_truncated": [],
+        "rotated_deleted": [],
+        "db_events_purged": 0,
+        "journal_purged": False,
+    }
+
+    # 1. Clear in-memory developer log ring buffer
+    try:
+        buf = get_dev_log_buffer()
+        if buf:
+            buf.clear()
+            res["buffer_cleared"] = True
+    except Exception as e:
+        res["buffer_error"] = str(e)
+
+    # 2. Truncate active log files and delete rotated archives
+    log_dirs = [Path("/var/log/nmb"), Path("/var/lib/nmb"), Path("/tmp")]
+    for ldir in log_dirs:
+        if not ldir.exists() or not ldir.is_dir():
+            continue
+        try:
+            for item in ldir.iterdir():
+                if not item.is_file():
+                    continue
+                name = item.name
+                # Active log files
+                if name.endswith(".log") and (name.startswith("nmb") or name.startswith("speedtest") or name.startswith("ping") or name.startswith("iperf") or name.startswith("ooni") or name.startswith("proxy")):
+                    try:
+                        with open(item, "w", encoding="utf-8") as fp:
+                            fp.truncate(0)
+                        res["files_truncated"].append(str(item))
+                    except Exception:
+                        pass
+                # Rotated archive files (e.g. .log.1, .log.2.gz, .old)
+                elif re.search(r"\.(log\.\d+|log\.\d+\.gz|old|\d+)$", name) and ("nmb" in name or "syslog" in name or "speed" in name):
+                    try:
+                        item.unlink()
+                        res["rotated_deleted"].append(str(item))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    # Ensure active log file is truncated if known
+    act_file = get_active_log_file()
+    if act_file and os.path.exists(act_file):
+        try:
+            with open(act_file, "w", encoding="utf-8") as fp:
+                fp.truncate(0)
+            if act_file not in res["files_truncated"]:
+                res["files_truncated"].append(act_file)
+        except Exception:
+            pass
+
+    # 3. Purge SQLite database event & audit trail table
+    if include_database_events:
+        try:
+            from nmb.db.database import connect, tx
+            conn = connect(readonly=False)
+            with tx(conn):
+                cur = conn.execute("DELETE FROM event")
+                res["db_events_purged"] = cur.rowcount if hasattr(cur, "rowcount") else 1
+            try:
+                conn.execute("PRAGMA optimize")
+            except Exception:
+                pass
+            conn.close()
+        except Exception as e:
+            res["db_error"] = str(e)
+
+    # 4. Systemd journal & hardware syslog purge via helper
+    if include_system_journal:
+        try:
+            cmd = ["/usr/local/bin/nmb-helper", "logs-purge"]
+            if os.geteuid() != 0:
+                cmd = ["sudo", "-n"] + cmd
+            p = subprocess.run(cmd, capture_output=True, timeout=8)
+            res["journal_purged"] = (p.returncode == 0)
+        except Exception as e:
+            res["journal_error"] = str(e)
+
+    log = logging.getLogger("nmb.devlog")
+    log.info("Total log purge completed: %s", res)
+
+    return res

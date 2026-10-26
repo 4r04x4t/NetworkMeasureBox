@@ -1285,6 +1285,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok", "message": "Developer log buffer cleared successfully"})
             return
 
+        # 15b. Total Log Purge
+        if path in ("/api/system/logs/purge", "/api/logs/purge"):
+            from nmb.devlog import purge_all_logs
+            inc_db = bool(body_json.get("include_db", True))
+            inc_journal = bool(body_json.get("include_journal", True))
+            result = purge_all_logs(include_database_events=inc_db, include_system_journal=inc_journal)
+            self._send_json(result)
+            return
+
         # 16. DuckDNS DynDNS Settings & Update
         if path == "/api/duckdns/save":
             from nmb.netd.duckdns import start_duckdns_service, stop_duckdns_service
