@@ -45,9 +45,11 @@ if [ "$OS_TYPE" = "debian" ]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
     apt-get install -y --no-install-recommends \
-        python3 iproute2 nftables iptables ethtool \
+        python3 iproute2 nftables iptables ethtool pciutils usbutils \
         dnsmasq hostapd ppp pppoe udhcpc curl ca-certificates procps libcap2-bin \
         wireguard-tools openvpn easy-rsa python3-qrcode qrencode
+    # Install common hardware firmware if available in repositories
+    apt-get install -y --no-install-recommends firmware-realtek 2>/dev/null || true
 
     # Stop and disable OS-packaged dnsmasq & hostapd so nmb-netd has exclusive control
     systemctl disable --now dnsmasq hostapd 2>/dev/null || true

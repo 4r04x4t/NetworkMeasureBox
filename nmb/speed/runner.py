@@ -124,13 +124,22 @@ def _run_single_engine(
     trigger: str,
     target_server_id: Optional[int],
     conn: db.sqlite3.Connection,
-    now_ms: int
+    now_ms: int,
+    target_iface: Optional[str] = None,
 ) -> SpeedtestResult:
     """Execute a single measurement engine and persist results."""
     t_start = time.monotonic()
-    log.info("launching speedtest engine=%s (target_server_id=%s, trigger=%s)", engine, target_server_id, trigger)
-    # Bind measurement traffic to WAN interface / IP to prevent accidental Wi-Fi routing
-    wan_iface = cfg.network.wan_interface or "eth0"
+    log.info("launching speedtest engine=%s (target_server_id=%s, trigger=%s, target_iface=%s)", engine, target_server_id, trigger, target_iface)
+    # Determine target interface (supports Multi-WAN selection)
+    meas_target = getattr(cfg.network, "measurement_interface", "wan")
+    if target_iface:
+        chosen_iface = target_iface
+    elif meas_target in ("wan2", "secondary") and getattr(cfg.network, "wan2_interface", ""):
+        chosen_iface = cfg.network.wan2_interface
+    else:
+        chosen_iface = cfg.network.wan_interface or "eth0"
+
+    wan_iface = chosen_iface
     from nmb.netd.interfaces import get_ip_addresses
     wan_addrs = get_ip_addresses(wan_iface)
     bound_ip = wan_addrs[0].split("/")[0] if wan_addrs else None
@@ -451,12 +460,13 @@ def run_measurement_cycle(
     custom_ports: Optional[List[int]] = None,
     server_id: Optional[int] = None,
     engine: Optional[str] = None,
+    target_iface: Optional[str] = None,
 ) -> bool:
     """Execute complete measurement cycle (Traffic Gate -> Speedtest -> Port Checker)."""
     now_ms = db.now_ms()
     if not engine:
         engine = getattr(cfg.speedtest, "automated_engine", "ookla")
-    log.info("starting measurement cycle (trigger=%s, force=%s, server_id=%s, engine=%s)", trigger, force, server_id, engine)
+    log.info("starting measurement cycle (trigger=%s, force=%s, server_id=%s, engine=%s, iface=%s)", trigger, force, server_id, engine, target_iface)
 
     # 0. Check if automated scheduled measurements are disabled (manual mode)
     if trigger == "schedule" and getattr(cfg.speedtest, "schedule_mode", "scheduled") == "manual":
@@ -484,14 +494,15 @@ def run_measurement_cycle(
     # For scheduled automated tests, cap wait time to 60s so test cycles don't overlap or hang
     wait_timeout = min(max_wait, 60.0) if trigger == "schedule" else min(max_wait, 30.0)
 
+    check_gate_iface = target_iface or (cfg.network.wan2_interface if getattr(cfg.network, "measurement_interface", "wan") in ("wan2", "secondary") and getattr(cfg.network, "wan2_interface", "") else cfg.network.wan_interface)
     if not force:
-        gate = TrafficGate(cfg.network.wan_interface)
-        cap_mbps = gate.get_interface_capacity_mbps(cfg.network.wan_interface, contract_down_mbps=cfg.isp.contract_down_mbps)
+        gate = TrafficGate(check_gate_iface)
+        cap_mbps = gate.get_interface_capacity_mbps(check_gate_iface, contract_down_mbps=cfg.isp.contract_down_mbps)
         gate_res = gate.wait_for_idle(
             threshold_kbps=fixed_kbps,
             max_wait_sec=wait_timeout,
             consecutive_idle_sec=3.0,
-            iface=cfg.network.wan_interface,
+            iface=check_gate_iface,
             capacity_mbps=cap_mbps,
             threshold_percent=thresh_pct,
             mode=tg_mode,
@@ -529,7 +540,7 @@ def run_measurement_cycle(
             net_dns.ensure_dns_fallback(
                 servers=getattr(cfg.network, "dns_fallback_servers", None),
                 force=False,
-                iface=cfg.network.wan_interface,
+                iface=check_gate_iface,
             )
         except Exception as e:
             log.debug("dns fallback check exception: %s", e)
@@ -542,7 +553,7 @@ def run_measurement_cycle(
     all_ok = True
     last_res = None
     for eng in engines_to_run:
-        res = _run_single_engine(eng, cfg, trigger, target_server_id, conn, now_ms)
+        res = _run_single_engine(eng, cfg, trigger, target_server_id, conn, now_ms, target_iface=target_iface)
         last_res = res
         if res.status != "ok":
             all_ok = False
@@ -564,6 +575,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="nmb-speed", description="NetworkMeasureBox speedtest & net-neutrality runner")
     parser.add_argument("--config", "-c", help="Path to nmb.conf")
     parser.add_argument("--trigger", choices=["schedule", "manual", "telegram", "web"], default="manual")
+    parser.add_argument("--interface", "-i", help="Target network interface (WAN1, WAN2, or specific NIC)")
     parser.add_argument("--server-id", "-s", type=int, help="Target Ookla Speedtest server ID")
     parser.add_argument("--force", "-f", action="store_true", help="Bypass traffic gate idle check")
     parser.add_argument("--no-port-check", action="store_true", help="Skip port throttling tests")

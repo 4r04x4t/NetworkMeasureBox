@@ -892,7 +892,13 @@ def get_dashboard_html() -> str:
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="script_interval">⏱️ Interval:</span>
+        <div style="display: flex; align-items: center; gap: 8px;" id="home-target-iface-wrap">
+          <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="speedtest_target_iface">🌐 Interface:</span>
+          <select id="speedtest-target-iface" class="form-input" style="width: auto; min-width: 170px; padding: 7px 12px; font-size: 13px;">
+            <option value="auto" data-i18n="target_iface_default">🌐 Default (Routing)</option>
+          </select>
+        </div>
+                  <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="script_interval">⏱️ Interval:</span>
           <select id="home-interval-select" class="form-input" style="width: auto; min-width: 170px; padding: 7px 12px; font-size: 13px;" onchange="onHomeIntervalSelect(this.value)">
             <option value="*/5 * * * *">⚡ 5m (&lt; 2%)</option>
             <option value="*/10 * * * *">⚡ 10m</option>
@@ -2377,6 +2383,7 @@ def get_dashboard_html() -> str:
         <button class="router-subtab-btn" id="btn-rsub-lan" onclick="switchRouterSubtab('rsub-lan')" data-i18n="subtab_lan">🏠 LAN / Local Network</button>
         <button class="router-subtab-btn" id="btn-rsub-wifi" onclick="switchRouterSubtab('rsub-wifi')" data-i18n="subtab_wifi">📶 Wi-Fi Network (AP)</button>
         <button class="router-subtab-btn" id="btn-rsub-guest" onclick="switchRouterSubtab('rsub-guest')" data-i18n="subtab_guest_wifi">📶 Guest Wi-Fi Receiver</button>
+        <button class="router-subtab-btn" id="btn-rsub-ports" onclick="switchRouterSubtab('rsub-ports')" data-i18n="subtab_ports">🔀 Ports & Drivers</button>
         <button class="router-subtab-btn" id="btn-rsub-mode" onclick="switchRouterSubtab('rsub-mode')" data-i18n="subtab_mode">⚙️ Operation Mode</button>
         <button class="router-subtab-btn" id="btn-rsub-schedule" onclick="switchRouterSubtab('rsub-schedule')" data-i18n="subtab_schedule">⏱️ Measurement Schedule</button>
         <button class="router-subtab-btn" id="btn-rsub-isp" onclick="switchRouterSubtab('rsub-isp')" data-i18n="subtab_isp">📋 ISP Subscription</button>
@@ -3331,6 +3338,148 @@ def get_dashboard_html() -> str:
         </div>
       </div>
 
+
+      <!-- SUBTAB: MULTI-PORT & HARDWARE DRIVERS MATRIX -->
+      <div id="rsub-ports" class="router-subtab-content">
+        <!-- 1. Port Role Assignment Matrix Card -->
+        <div class="app-box">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div class="section-subtitle" style="margin: 0;" data-i18n="port_matrix_title">🔀 Multi-Port & Network Card Role Matrix</div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n="port_matrix_desc">Map physical NICs, USB adapters, and PCIe ports to WAN1, Secondary WAN2, Bridged LAN (br-lan), Guest Wi-Fi, or DMZ.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadInterfaceMatrix(); loadDriverStatus();" data-i18n="btn_refresh_ports">🔄 Refresh Ports</button>
+              <button class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveInterfaceMatrix()" data-i18n="btn_save_ports">💾 Save & Apply Port Roles</button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 13px; font-weight: 600;" data-i18n="wan_mode_label">WAN Uplink Topology:</span>
+              <select id="matrix-wan-mode" class="form-input" style="width: auto; min-width: 180px; padding: 6px 12px; font-size: 13px;">
+                <option value="single" data-i18n="wan_mode_single">Single WAN (Primary Only)</option>
+                <option value="failover" data-i18n="wan_mode_failover">Failover (WAN2 Backup on Outage)</option>
+                <option value="loadbalance" data-i18n="wan_mode_loadbalance">Load Balancing (Dual Active Uplink)</option>
+              </select>
+            </div>
+            <div style="font-size: 12px; color: #94a3b8;" data-i18n="lan_bridge_info">
+              💡 Selecting multiple LAN ports will bridge them automatically under <code style="color: #38bdf8;">br-lan</code> (192.168.100.1/24).
+            </div>
+          </div>
+
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th data-i18n="port_col_name">Interface</th>
+                  <th data-i18n="port_col_chipset">Controller / Chipset</th>
+                  <th data-i18n="port_col_driver">Driver & Firmware</th>
+                  <th data-i18n="port_col_bus">Bus / Slot</th>
+                  <th data-i18n="port_col_link">Link Status & Speed</th>
+                  <th data-i18n="port_col_addr">MAC & IP Address</th>
+                  <th data-i18n="port_col_role">Assigned Role</th>
+                </tr>
+              </thead>
+              <tbody id="port-matrix-tbody">
+                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">Detecting physical network interfaces and controllers...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Secondary WAN Settings Modal/Card -->
+          <div id="wan2-config-card" style="margin-top: 20px; padding: 16px; background: rgba(30, 41, 59, 0.5); border-radius: 8px; border: 1px solid rgba(14, 165, 233, 0.3);">
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 12px;" data-i18n="wan2_config_title">🌐 Secondary WAN (WAN2) Parameters</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+              <div>
+                <label style="font-size: 12px; color: #94a3b8; display: block; margin-bottom: 4px;" data-i18n="wan2_proto_lbl">WAN2 Protocol</label>
+                <select id="cfg-wan2-proto" class="form-input" style="width: 100%; padding: 6px 10px; font-size: 13px;" onchange="toggleWan2StaticFields(this.value)">
+                  <option value="dhcp">DHCP (Automatic)</option>
+                  <option value="static">Static IP</option>
+                </select>
+              </div>
+              <div id="wan2-static-ip-wrap" style="display: none;">
+                <label style="font-size: 12px; color: #94a3b8; display: block; margin-bottom: 4px;" data-i18n="wan2_ip_lbl">Static IP</label>
+                <input type="text" id="cfg-wan2-ip" class="form-input" style="width: 100%; padding: 6px 10px; font-size: 13px;" placeholder="192.168.1.50">
+              </div>
+              <div id="wan2-static-netmask-wrap" style="display: none;">
+                <label style="font-size: 12px; color: #94a3b8; display: block; margin-bottom: 4px;" data-i18n="wan2_netmask_lbl">Netmask</label>
+                <input type="text" id="cfg-wan2-netmask" class="form-input" style="width: 100%; padding: 6px 10px; font-size: 13px;" placeholder="255.255.255.0">
+              </div>
+              <div id="wan2-static-gw-wrap" style="display: none;">
+                <label style="font-size: 12px; color: #94a3b8; display: block; margin-bottom: 4px;" data-i18n="wan2_gw_lbl">Gateway</label>
+                <input type="text" id="cfg-wan2-gateway" class="form-input" style="width: 100%; padding: 6px 10px; font-size: 13px;" placeholder="192.168.1.1">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Hardware Drivers & Firmware Installation Card -->
+        <div class="app-box" style="margin-top: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div class="section-subtitle" style="margin: 0;" data-i18n="drivers_title">🔌 Network Hardware Drivers & Firmware Packages</div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n="drivers_desc">Inspect PCI/USB hardware controllers, kernel drivers, dmesg firmware loading status, and install recommended driver packages.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-primary" id="btn-install-all-drivers" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="installDrivers('all')" data-i18n="btn_install_drivers">📦 Install / Update Network Drivers</button>
+            </div>
+          </div>
+
+          <!-- Driver Status Health Banner -->
+          <div id="driver-health-banner" style="margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
+            <span style="font-size: 20px;">✅</span>
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px; color: #34d399;" id="driver-health-title">All Network Drivers Operational</div>
+              <div style="font-size: 12px; color: #94a3b8;" id="driver-health-desc">Kernel drivers and firmware blobs loaded for all active controllers.</div>
+            </div>
+          </div>
+
+          <!-- Missing Firmware Alert Box (dynamic) -->
+          <div id="missing-firmware-box" style="display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444;">
+            <div style="font-weight: 700; color: #f87171; font-size: 13px; margin-bottom: 6px;" data-i18n="missing_firmware_title">⚠️ Missing Kernel Firmware Detected in dmesg:</div>
+            <div id="missing-firmware-list" style="font-size: 12px; color: #fca5a5; font-family: monospace;"></div>
+          </div>
+
+          <!-- Detected Hardware Controllers Table -->
+          <div class="section-subtitle" style="font-size: 13px; margin-bottom: 8px;" data-i18n="detected_controllers_title">Detected Physical Network Controllers (PCI / PCIe / USB / Onboard):</div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th data-i18n="ctrl_col_type">Bus / Type</th>
+                  <th data-i18n="ctrl_col_slot">Slot / Address</th>
+                  <th data-i18n="ctrl_col_vendor">Vendor & Model</th>
+                  <th data-i18n="ctrl_col_ids">Hardware IDs</th>
+                  <th data-i18n="ctrl_col_driver">Active Driver</th>
+                  <th data-i18n="ctrl_col_status">Status</th>
+                </tr>
+              </thead>
+              <tbody id="controllers-table-tbody">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">Scanning hardware controllers...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Recommended Packages & Actions -->
+          <div style="margin-top: 18px;">
+            <div class="section-subtitle" style="font-size: 13px; margin-bottom: 8px;" data-i18n="recommended_drivers_title">Recommended Driver & Firmware Packages for This Architecture:</div>
+            <div id="recommended-packages-wrap" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+              <div style="color: var(--text-muted); font-size: 12px;">Loading recommended packages...</div>
+            </div>
+          </div>
+
+          <!-- Real-Time Driver Installation Output Terminal -->
+          <div id="driver-install-terminal-card" style="margin-top: 20px; display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-weight: 600; font-size: 12px; color: #94a3b8;" data-i18n="terminal_install_log">Installation Terminal Output:</span>
+              <span id="driver-install-badge" class="badge-pill" style="font-size: 11px;">Running</span>
+            </div>
+            <pre id="driver-install-terminal" class="terminal-box" style="height: 180px; overflow-y: auto; font-size: 11px;"></pre>
+          </div>
+        </div>
+      </div>
+
       <!-- Bottom Sticky Save Bar -->
       <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
         <button class="btn-primary" style="padding: 10px 28px; font-size: 14px;" onclick="saveRouterSettings()">
@@ -3557,7 +3706,332 @@ def get_dashboard_html() -> str:
       loadRemoteAccessStatus();
     }
     if (tabId === 'tab-explorer') {
-      loadNetworkDevices();
+    
+  // =========================================================================
+  // Multi-Port Matrix & Hardware Network Drivers Subsystem
+  // =========================================================================
+  let cachedPortsData = null;
+  let driverInstallPollTimer = null;
+
+  async function loadInterfaceMatrix() {
+    try {
+      const res = await fetch('/api/system/ports');
+      if (!res.ok) return;
+      const data = await res.json();
+      cachedPortsData = data;
+      renderInterfaceMatrix(data);
+      updateSpeedtestInterfaceDropdown(data.interfaces);
+    } catch (e) {
+      console.error('Failed to load interface matrix:', e);
+    }
+  }
+
+  function renderInterfaceMatrix(data) {
+    const tbody = document.getElementById('port-matrix-tbody');
+    if (!tbody) return;
+    if (!data.interfaces || data.interfaces.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">No physical network controllers detected.</td></tr>';
+      return;
+    }
+
+    if (data.wan_mode && document.getElementById('matrix-wan-mode')) {
+      document.getElementById('matrix-wan-mode').value = data.wan_mode;
+    }
+
+    let rowsHtml = '';
+    data.interfaces.forEach((iface, idx) => {
+      const isUp = iface.carrier || iface.operstate === 'up';
+      const statusBadge = isUp
+        ? `<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">🟢 UP (${iface.speed_mbps ? iface.speed_mbps + ' Mbps' : 'Active'})</span>`
+        : `<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;">🔴 DOWN</span>`;
+
+      const ipList = (iface.ipv4 && iface.ipv4.length) ? iface.ipv4.join(', ') : '<span style="color: var(--text-muted);">None</span>';
+      const macStr = iface.mac ? `<code style="font-size: 11px; color: #94a3b8;">${iface.mac}</code>` : '--';
+
+      const drvStr = iface.driver ? `<b>${iface.driver}</b>${iface.firmware_version ? ' (' + iface.firmware_version + ')' : ''}` : '<span style="color: #ef4444;">No Driver</span>';
+
+      const busIcon = iface.bus_type === 'pci' ? '🖥️ PCIe' : iface.bus_type === 'usb' ? '🔌 USB' : '📦 Onboard';
+      const busStr = `${busIcon} <span style="font-size: 11px; color: #94a3b8;">${iface.bus_path || ''}</span>`;
+
+      rowsHtml += `<tr>
+        <td style="font-weight: 700; color: #f1f5f9; font-size: 13px;">
+          ${iface.name} ${iface.is_wireless ? '📶' : '🌐'}
+        </td>
+        <td style="font-size: 12px; color: #cbd5e1;">${iface.chipset || 'Standard Ethernet'}</td>
+        <td style="font-size: 12px;">${drvStr}</td>
+        <td style="font-size: 12px;">${busStr}</td>
+        <td>${statusBadge}</td>
+        <td style="font-size: 12px;">${macStr}<br><span style="font-size: 11px; color: #38bdf8;">${ipList}</span></td>
+        <td>
+          <select id="matrix-role-${iface.name}" class="form-input port-role-select" data-iface="${iface.name}" style="padding: 5px 8px; font-size: 12px; width: 100%;">
+            <option value="wan1" ${iface.role === 'wan1' ? 'selected' : ''}>🌐 WAN 1 (Primary)</option>
+            <option value="wan2" ${iface.role === 'wan2' ? 'selected' : ''}>🌐 WAN 2 (Secondary)</option>
+            <option value="lan" ${iface.role === 'lan' ? 'selected' : ''}>🏠 LAN (br-lan Bridge)</option>
+            <option value="guest" ${iface.role === 'guest' ? 'selected' : ''}>📶 Guest Wi-Fi</option>
+            <option value="dmz" ${iface.role === 'dmz' ? 'selected' : ''}>🛡️ DMZ (Isolated)</option>
+            <option value="unassigned" ${iface.role === 'unassigned' ? 'selected' : ''}>⚪ Unassigned / Disabled</option>
+          </select>
+        </td>
+      </tr>`;
+    });
+    tbody.innerHTML = rowsHtml;
+  }
+
+  function updateSpeedtestInterfaceDropdown(interfaces) {
+    const sel = document.getElementById('speedtest-target-iface');
+    if (!sel || !interfaces) return;
+    const curVal = sel.value || 'auto';
+    let opts = '<option value="auto">' + t('target_iface_default', '🌐 Default (Routing)') + '</option>';
+    interfaces.forEach(i => {
+      opts += `<option value="${i.name}">🌐 ${i.name} (${i.chipset || i.driver || 'NIC'}${i.role ? ' - ' + i.role.toUpperCase() : ''})</option>`;
+    });
+    sel.innerHTML = opts;
+    if (curVal) sel.value = curVal;
+  }
+
+  function toggleWan2StaticFields(val) {
+    const isStatic = val === 'static';
+    const ipWrap = document.getElementById('wan2-static-ip-wrap');
+    const nmWrap = document.getElementById('wan2-static-netmask-wrap');
+    const gwWrap = document.getElementById('wan2-static-gw-wrap');
+    if (ipWrap) ipWrap.style.display = isStatic ? 'block' : 'none';
+    if (nmWrap) nmWrap.style.display = isStatic ? 'block' : 'none';
+    if (gwWrap) gwWrap.style.display = isStatic ? 'block' : 'none';
+  }
+
+  async function saveInterfaceMatrix() {
+    const selects = document.querySelectorAll('.port-role-select');
+    let wan1 = '';
+    let wan2 = '';
+    const lanPorts = [];
+    let guest = '';
+    let dmz = '';
+
+    selects.forEach(sel => {
+      const iface = sel.dataset.iface;
+      const role = sel.value;
+      if (role === 'wan1') wan1 = iface;
+      else if (role === 'wan2') wan2 = iface;
+      else if (role === 'lan') lanPorts.push(iface);
+      else if (role === 'guest') guest = iface;
+      else if (role === 'dmz') dmz = iface;
+    });
+
+    if (!wan1 && selects.length > 0) {
+      wan1 = selects[0].dataset.iface;
+    }
+
+    const wanMode = document.getElementById('matrix-wan-mode') ? document.getElementById('matrix-wan-mode').value : 'single';
+    const payload = {
+      wan1: wan1,
+      wan2: wan2,
+      wan_mode: wanMode,
+      lan_ports: lanPorts,
+      guest: guest,
+      dmz: dmz,
+    };
+
+    try {
+      showToast(t('saving_settings', 'Saving port matrix & network routing...'));
+      const res = await fetch('/api/system/interface_roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || t('settings_saved', 'Port roles saved and applied successfully!'));
+        loadInterfaceMatrix();
+      } else {
+        showToast('Error: ' + (data.message || 'Failed to save port assignments'));
+      }
+    } catch (e) {
+      showToast('Error saving port roles: ' + e);
+    }
+  }
+
+  async function loadDriverStatus() {
+    try {
+      const res = await fetch('/api/system/drivers');
+      if (!res.ok) return;
+      const data = await res.json();
+      renderDriverStatus(data);
+    } catch (e) {
+      console.error('Failed to load driver status:', e);
+    }
+  }
+
+  function renderDriverStatus(data) {
+    const banner = document.getElementById('driver-health-banner');
+    const bannerTitle = document.getElementById('driver-health-title');
+    const bannerDesc = document.getElementById('driver-health-desc');
+    const missingBox = document.getElementById('missing-firmware-box');
+    const missingList = document.getElementById('missing-firmware-list');
+
+    if (data.all_drivers_ready) {
+      if (banner) {
+        banner.style.background = 'rgba(16, 185, 129, 0.1)';
+        banner.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        const iconSpan = banner.querySelector('span');
+        if (iconSpan) iconSpan.innerText = '✅';
+      }
+      if (bannerTitle) {
+        bannerTitle.innerText = 'All Network Drivers Operational';
+        bannerTitle.style.color = '#34d399';
+      }
+      if (bannerDesc) bannerDesc.innerText = 'All physical network controllers have active kernel drivers and loaded firmware.';
+      if (missingBox) missingBox.style.display = 'none';
+    } else {
+      if (banner) {
+        banner.style.background = 'rgba(239, 68, 68, 0.12)';
+        banner.style.borderColor = '#ef4444';
+        const iconSpan = banner.querySelector('span');
+        if (iconSpan) iconSpan.innerText = '⚠️';
+      }
+      if (bannerTitle) {
+        bannerTitle.innerText = `Driver Attention Needed (${data.unsupported_controllers_count} unsupported / ${data.missing_firmware_count} missing firmware)`;
+        bannerTitle.style.color = '#f87171';
+      }
+      if (bannerDesc) bannerDesc.innerText = 'Some network controllers require vendor firmware or kernel driver package installation.';
+
+      if (data.missing_firmware && data.missing_firmware.length > 0 && missingBox && missingList) {
+        missingBox.style.display = 'block';
+        missingList.innerHTML = data.missing_firmware.map(f => `• ${f}`).join('<br>');
+      } else if (missingBox) {
+        missingBox.style.display = 'none';
+      }
+    }
+
+    // Render Controllers Table
+    const ctrlTbody = document.getElementById('controllers-table-tbody');
+    if (ctrlTbody && data.controllers) {
+      if (data.controllers.length === 0) {
+        ctrlTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">No physical controllers detected.</td></tr>';
+      } else {
+        let ctrlRows = '';
+        data.controllers.forEach(c => {
+          const typeIcon = c.type === 'pci' ? '🖥️ PCIe' : c.type === 'usb' ? '🔌 USB' : '📦 Onboard';
+          const hasDrv = c.has_driver;
+          const stBadge = hasDrv
+            ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">Ready</span>'
+            : '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;">No Driver</span>';
+
+          const hwIds = `<code style="font-size: 11px;">${c.vendor_id || ''}:${c.device_id || ''}</code>`;
+          ctrlRows += `<tr>
+            <td style="font-weight: 600;">${typeIcon}</td>
+            <td style="font-size: 12px; color: #94a3b8;">${c.slot || '--'}</td>
+            <td style="font-size: 12px; font-weight: 600; color: #f1f5f9;">${c.chipset_name || 'Generic Network Controller'}</td>
+            <td>${hwIds}</td>
+            <td style="font-size: 12px;"><b>${c.driver || 'none'}</b></td>
+            <td>${stBadge}</td>
+          </tr>`;
+        });
+        ctrlTbody.innerHTML = ctrlRows;
+      }
+    }
+
+    // Render Recommended Packages
+    const recsWrap = document.getElementById('recommended-packages-wrap');
+    if (recsWrap && data.recommended_packages) {
+      if (data.recommended_packages.length === 0) {
+        recsWrap.innerHTML = '<div style="color: #94a3b8; font-size: 12px;">All default Linux kernel network drivers are up to date.</div>';
+      } else {
+        let recsHtml = '';
+        data.recommended_packages.forEach(pkg => {
+          recsHtml += `<div style="padding: 10px 14px; background: rgba(30, 41, 59, 0.6); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+            <div>
+              <div style="font-weight: 700; font-size: 13px; color: #38bdf8; font-family: monospace;">${pkg.package}</div>
+              <div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">${pkg.description}</div>
+            </div>
+            <div>
+              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="installDrivers('${pkg.package}')">📦 Install ${pkg.package}</button>
+            </div>
+          </div>`;
+        });
+        recsWrap.innerHTML = recsHtml;
+      }
+    }
+
+    // Check if installation is in progress
+    if (data.install_status && data.install_status.in_progress) {
+      showDriverInstallTerminal(data.install_status);
+      startDriverInstallPolling();
+    }
+  }
+
+  async function installDrivers(pkgName) {
+    try {
+      showToast(t('installing_drivers', 'Starting driver & firmware installation: ') + pkgName);
+      const res = await fetch('/api/system/install_drivers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ package: pkgName || 'all' })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showDriverInstallTerminal({ in_progress: true, output: `Starting driver installation [${pkgName}]...\n` });
+        startDriverInstallPolling();
+      } else {
+        showToast('Error: ' + (data.message || 'Driver installation could not be started'));
+      }
+    } catch (e) {
+      showToast('Error triggering driver installation: ' + e);
+    }
+  }
+
+  function showDriverInstallTerminal(status) {
+    const card = document.getElementById('driver-install-terminal-card');
+    const term = document.getElementById('driver-install-terminal');
+    const badge = document.getElementById('driver-install-badge');
+    if (!card || !term) return;
+    card.style.display = 'block';
+    term.textContent = status.output || 'Installation task running...';
+    term.scrollTop = term.scrollHeight;
+
+    if (badge) {
+      if (status.in_progress) {
+        badge.innerText = 'Installing...';
+        badge.style.background = 'rgba(234, 179, 8, 0.2)';
+        badge.style.color = '#facc15';
+        badge.style.border = '1px solid #eab308';
+      } else if (status.status === 'ok') {
+        badge.innerText = 'Completed Successfully';
+        badge.style.background = 'rgba(16, 185, 129, 0.2)';
+        badge.style.color = '#34d399';
+        badge.style.border = '1px solid #10b981';
+      } else {
+        badge.innerText = 'Failed';
+        badge.style.background = 'rgba(239, 68, 68, 0.2)';
+        badge.style.color = '#f87171';
+        badge.style.border = '1px solid #ef4444';
+      }
+    }
+  }
+
+  function startDriverInstallPolling() {
+    if (driverInstallPollTimer) clearInterval(driverInstallPollTimer);
+    driverInstallPollTimer = setInterval(async () => {
+      try {
+        const res = await fetch('/api/system/drivers/status');
+        if (!res.ok) return;
+        const status = await res.json();
+        showDriverInstallTerminal(status);
+        if (!status.in_progress) {
+          clearInterval(driverInstallPollTimer);
+          driverInstallPollTimer = null;
+          showToast(status.status === 'ok' ? 'Driver installation finished successfully!' : 'Driver installation encountered an error.');
+          loadDriverStatus();
+          loadInterfaceMatrix();
+        }
+      } catch (e) {
+        console.error('Polling driver install status error:', e);
+      }
+    }, 2000);
+  }
+
+
+  loadInterfaceMatrix();
+  loadNetworkDevices();
       loadGuestWifiStatus();
     }
     if (tabId === 'tab-llm') {
@@ -4365,6 +4839,10 @@ def get_dashboard_html() -> str:
 
     try {
       const payload = { engine: selectedEngine };
+      const targetIfaceEl = document.getElementById('speedtest-target-iface');
+      if (targetIfaceEl && targetIfaceEl.value && targetIfaceEl.value !== 'auto') {
+        payload.interface = targetIfaceEl.value;
+      }
       if (customServerId) {
         payload.server_id = parseInt(customServerId);
       }
@@ -5033,6 +5511,10 @@ def get_dashboard_html() -> str:
     if (b) b.classList.add('active');
     if (subtabId === 'rsub-guest') {
       loadGuestWifiStatus();
+    }
+    if (subtabId === 'rsub-ports') {
+      loadInterfaceMatrix();
+      loadDriverStatus();
     }
     if (subtabId === 'rsub-system') {
       loadSystemInfo();

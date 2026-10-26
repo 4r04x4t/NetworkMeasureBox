@@ -25,6 +25,7 @@ from urllib.parse import parse_qs, urlparse
 from nmb.config import Config, load_config, save_config, CONNECTION_TYPES
 from nmb.db import database as db
 from nmb.netd import interfaces, dns
+from nmb.netd.drivers import get_full_driver_status, trigger_driver_install, get_driver_install_status, get_interfaces_matrix
 from nmb.netd.os_detector import detect_os_info, get_dynamic_interfaces, check_updates_available, trigger_system_upgrade, get_upgrade_status
 from nmb.netd.explorer import scan_network_devices, get_cached_devices, get_explorer_summary
 from nmb.netd.guest_wifi import scan_wifi_networks, get_guest_wifi_status, connect_guest_wifi, disconnect_guest_wifi, sync_guest_wifi_connection
@@ -299,8 +300,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(detect_os_info())
             return
 
-        if path == "/api/system/interfaces":
-            self._send_json({"interfaces": get_dynamic_interfaces()})
+        if path in ("/api/system/interfaces", "/api/system/ports"):
+            self._send_json(get_interfaces_matrix(self.server.cfg))
+            return
+
+        if path == "/api/system/drivers":
+            self._send_json(get_full_driver_status())
+            return
+
+        if path == "/api/system/drivers/status":
+            self._send_json(get_driver_install_status())
             return
 
         # 12. Distro-Aware System Updates
@@ -745,6 +754,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             if engine not in ("ookla", "cloudflare", "rtr", "iperf3", "all"):
                 engine = "ookla"
 
+            target_iface = body_json.get("interface") or body_json.get("target_iface")
+            if target_iface:
+                target_iface = str(target_iface).strip()
+                if not target_iface or target_iface.lower() in ("auto", "default", "none", "all"):
+                    target_iface = None
+
             server_id = None
             if raw_sid:
                 try:
@@ -759,8 +774,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             def _async_speedtest():
                 self.server.is_measuring = True
                 try:
-                    log.info("API trigger: starting async speedtest (engine=%s, server_id=%s)", engine, server_id)
-                    run_measurement_cycle(self.server.cfg, trigger="web", force=True, run_port_check=True, server_id=server_id, engine=engine)
+                    log.info("API trigger: starting async speedtest (engine=%s, server_id=%s, iface=%s)", engine, server_id, target_iface)
+                    run_measurement_cycle(self.server.cfg, trigger="web", force=True, run_port_check=True, server_id=server_id, engine=engine, target_iface=target_iface)
                 except Exception as e:
                     log.error("speedtest async error: %s", e)
                     self.server.last_measure_error = str(e)
@@ -769,7 +784,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
             t = threading.Thread(target=_async_speedtest, daemon=True, name="nmb-speedtest-worker")
             t.start()
-            self._send_json({"status": "started", "engine": engine, "message": "Measurement cycle initiated."})
+            self._send_json({"status": "started", "engine": engine, "interface": target_iface or "default", "message": "Measurement cycle initiated."})
             return
 
         if path in ("/api/speedtest/stop", "/api/speedtest/cancel"):
@@ -1335,6 +1350,46 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             })
             return
 
+        # Network Driver and Firmware Installation
+        if path in ("/api/system/install_drivers", "/api/system/drivers/install"):
+            pkg = body_json.get("package", "all")
+            res = trigger_driver_install(pkg)
+            self._send_json(res)
+            return
+
+        # Interface Role Matrix Configuration
+        if path in ("/api/system/interface_roles", "/api/system/ports"):
+            cfg = self.server.cfg
+            if "wan1" in body_json:
+                cfg.network.wan_interface = str(body_json["wan1"]).strip()
+            if "wan2" in body_json:
+                cfg.network.wan2_interface = str(body_json["wan2"]).strip()
+            if "wan_mode" in body_json:
+                wm = str(body_json["wan_mode"]).strip().lower()
+                if wm in ("single", "failover", "loadbalance"):
+                    cfg.network.wan_mode = wm
+            if "lan_ports" in body_json:
+                lp = body_json["lan_ports"]
+                if isinstance(lp, list):
+                    cfg.network.lan_ports = [str(x).strip() for x in lp if str(x).strip()]
+                else:
+                    cfg.network.lan_ports = [p.strip() for p in str(lp).split(",") if p.strip()]
+                if len(cfg.network.lan_ports) > 1:
+                    cfg.network.lan_interface = "br-lan"
+                elif len(cfg.network.lan_ports) == 1:
+                    cfg.network.lan_interface = cfg.network.lan_ports[0]
+            if "guest" in body_json:
+                cfg.guest_wifi.interface = str(body_json["guest"]).strip()
+            if "dmz" in body_json:
+                cfg.network.dmz_interface = str(body_json["dmz"]).strip()
+            if "measurement_interface" in body_json:
+                cfg.network.measurement_interface = str(body_json["measurement_interface"]).strip()
+
+            save_config(cfg)
+            self._notify_daemon_reload()
+            self._send_json({"status": "ok", "message": "Interface roles updated and applied successfully!"})
+            return
+
         # 13. System Upgrade Trigger
         if path == "/api/system/updates/upgrade":
             res = trigger_system_upgrade()
@@ -1856,6 +1911,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "wan_ip": getattr(cfg.network, "wan_ip", ""),
             "wan_netmask": getattr(cfg.network, "wan_netmask", "255.255.255.0"),
             "wan_gateway": getattr(cfg.network, "wan_gateway", ""),
+            "wan2_interface": getattr(cfg.network, "wan2_interface", ""),
+            "wan2_proto": getattr(cfg.network, "wan2_proto", "dhcp"),
+            "wan2_ip": getattr(cfg.network, "wan2_ip", ""),
+            "wan2_netmask": getattr(cfg.network, "wan2_netmask", "255.255.255.0"),
+            "wan2_gateway": getattr(cfg.network, "wan2_gateway", ""),
+            "wan2_mac": getattr(cfg.network, "wan2_mac", ""),
+            "wan_mode": getattr(cfg.network, "wan_mode", "single"),
+            "lan_ports": ",".join(cfg.network.lan_ports) if isinstance(getattr(cfg.network, "lan_ports", None), list) else str(getattr(cfg.network, "lan_ports", "")),
+            "dmz_interface": getattr(cfg.network, "dmz_interface", ""),
+            "measurement_interface": getattr(cfg.network, "measurement_interface", ""),
             "current_mac": interfaces.get_mac_address(wan_iface),
             "factory_mac": interfaces.get_factory_mac_address(wan_iface),
             "wan_mac": getattr(cfg.network, "wan_mac", ""),
@@ -1970,6 +2035,32 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             cfg.network.wan_netmask = str(body["wan_netmask"]).strip()
         if "wan_gateway" in body:
             cfg.network.wan_gateway = str(body["wan_gateway"]).strip()
+        if "wan2_interface" in body:
+            cfg.network.wan2_interface = str(body["wan2_interface"]).strip()
+        if "wan2_proto" in body:
+            cfg.network.wan2_proto = str(body["wan2_proto"]).strip().lower()
+        if "wan2_ip" in body:
+            cfg.network.wan2_ip = str(body["wan2_ip"]).strip()
+        if "wan2_netmask" in body:
+            cfg.network.wan2_netmask = str(body["wan2_netmask"]).strip()
+        if "wan2_gateway" in body:
+            cfg.network.wan2_gateway = str(body["wan2_gateway"]).strip()
+        if "wan2_mac" in body:
+            cfg.network.wan2_mac = str(body["wan2_mac"]).strip().lower()
+        if "wan_mode" in body:
+            wm = str(body["wan_mode"]).strip().lower()
+            if wm in ("single", "failover", "loadbalance"):
+                cfg.network.wan_mode = wm
+        if "lan_ports" in body:
+            lp = body["lan_ports"]
+            if isinstance(lp, list):
+                cfg.network.lan_ports = [str(x).strip() for x in lp if str(x).strip()]
+            else:
+                cfg.network.lan_ports = [p.strip() for p in str(lp).split(",") if p.strip()]
+        if "dmz_interface" in body:
+            cfg.network.dmz_interface = str(body["dmz_interface"]).strip()
+        if "measurement_interface" in body:
+            cfg.network.measurement_interface = str(body["measurement_interface"]).strip()
 
         if "isp_name" in body:
             cfg.isp.name = str(body["isp_name"]).strip()

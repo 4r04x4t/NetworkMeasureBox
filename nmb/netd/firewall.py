@@ -88,6 +88,27 @@ table inet {NFT_TABLE} {{
     return False
 
 
+def enable_nat_for_wan2(wan2_iface: str, lan_ifaces: List[str]) -> bool:
+    """Add NAT masquerade and forwarding rules for secondary WAN2 interface."""
+    if not wan2_iface:
+        return False
+    ipt_bin = shutil.which("iptables")
+    if ipt_bin:
+        try:
+            subprocess.run([ipt_bin, "-t", "nat", "-A", "POSTROUTING", "-o", wan2_iface, "-j", "MASQUERADE"],
+                           check=False)
+            for lan in lan_ifaces:
+                subprocess.run([ipt_bin, "-A", "FORWARD", "-i", lan, "-o", wan2_iface, "-j", "ACCEPT"],
+                               check=False)
+            subprocess.run([ipt_bin, "-I", "INPUT", "-i", wan2_iface, "-p", "tcp", "--dport", "8080", "-j", "DROP"],
+                           check=False)
+            log.info("NAT masquerading enabled for secondary WAN interface: %s", wan2_iface)
+            return True
+        except Exception as e:
+            log.warning("enable_nat_for_wan2 error: %s", e)
+    return False
+
+
 def disable_nat() -> bool:
     """Flush and tear down all NMB NAT and forwarding rules."""
     success = True

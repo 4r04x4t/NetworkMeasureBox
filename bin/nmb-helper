@@ -111,8 +111,49 @@ case "${1:-}" in
             dmesg -c >/dev/null 2>&1 || true
         fi
         ;;
+    install-drivers)
+        # Parameterized installation of network driver and firmware packages
+        PKG="${2:-all}"
+        if command -v apt-get >/dev/null 2>&1; then
+            export DEBIAN_FRONTEND=noninteractive
+            if [ -f /etc/debian_version ] && ! grep -q "non-free" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
+                sed -i 's/main$/main contrib non-free non-free-firmware/' /etc/apt/sources.list 2>/dev/null || true
+            fi
+            apt-get update -y
+            if [ "$PKG" = "all" ]; then
+                apt-get install -y --no-install-recommends \
+                    firmware-realtek firmware-linux-nonfree firmware-misc-nonfree \
+                    firmware-atheros firmware-iwlwifi firmware-brcm80211 \
+                    ethtool pciutils usbutils 2>&1
+            else
+                apt-get install -y --no-install-recommends "$PKG" 2>&1
+            fi
+        elif command -v opkg >/dev/null 2>&1; then
+            opkg update
+            if [ "$PKG" = "all" ]; then
+                opkg install kmod-usb-net-rtl8152 kmod-usb-net-asix kmod-usb-net-asix-ax88179 kmod-r8169 kmod-e1000e 2>&1
+            else
+                opkg install "$PKG" 2>&1
+            fi
+        elif command -v apk >/dev/null 2>&1; then
+            apk update
+            if [ "$PKG" = "all" ]; then
+                apk add --no-cache linux-firmware-realtek linux-firmware-other ethtool pciutils usbutils 2>&1
+            else
+                apk add --no-cache "$PKG" 2>&1
+            fi
+        elif command -v pacman >/dev/null 2>&1; then
+            pacman -Sy --noconfirm linux-firmware ethtool pciutils usbutils 2>&1
+        elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y linux-firmware ethtool pciutils usbutils 2>&1
+        else
+            echo "No supported package manager found for driver installation." >&2
+            exit 1
+        fi
+        command -v udevadm >/dev/null 2>&1 && udevadm trigger 2>/dev/null || true
+        ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]}" >&2
         exit 1
         ;;
 esac

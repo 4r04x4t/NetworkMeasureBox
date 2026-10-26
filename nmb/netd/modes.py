@@ -78,9 +78,30 @@ class ModeA(NetworkMode):
             self.svc_mgr.start_pppd(wan)
             self.active_wan = "ppp0"
 
-        # 2. Configure LAN interface
-        if interfaces.interface_exists(self.cfg.lan_interface):
-            log.info("configuring LAN interface %s with %s", self.cfg.lan_interface, self.cfg.gateway_ip)
+        # 2. Configure LAN interfaces (Single LAN or Bridge br-lan for Multi-LAN ports)
+        lan_ports = getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]
+        lan_ports = [p.strip() for p in lan_ports if p.strip() and interfaces.interface_exists(p.strip())]
+
+        if len(lan_ports) > 1:
+            br_name = "br-lan"
+            log.info("multi-LAN detected (%s): establishing bridge %s", lan_ports, br_name)
+            for p in lan_ports:
+                interfaces.flush_ip_addresses(p)
+                interfaces.set_link_up(p)
+            interfaces.setup_bridge(br_name, lan_ports)
+            interfaces.flush_ip_addresses(br_name)
+            interfaces.set_link_up(br_name)
+            interfaces.add_ip_address(br_name, f"{self.cfg.gateway_ip}/24")
+            self.lan_ifaces.append(br_name)
+        elif len(lan_ports) == 1:
+            single_lan = lan_ports[0]
+            log.info("configuring single LAN interface %s with %s", single_lan, self.cfg.gateway_ip)
+            interfaces.flush_ip_addresses(single_lan)
+            interfaces.set_link_up(single_lan)
+            interfaces.add_ip_address(single_lan, f"{self.cfg.gateway_ip}/24")
+            self.lan_ifaces.append(single_lan)
+        elif interfaces.interface_exists(self.cfg.lan_interface):
+            log.info("configuring fallback LAN interface %s with %s", self.cfg.lan_interface, self.cfg.gateway_ip)
             interfaces.flush_ip_addresses(self.cfg.lan_interface)
             interfaces.set_link_up(self.cfg.lan_interface)
             interfaces.add_ip_address(self.cfg.lan_interface, f"{self.cfg.gateway_ip}/24")
@@ -99,12 +120,24 @@ class ModeA(NetworkMode):
 
         # 5. Enable NAT and IPv4 forwarding
         firewall.enable_nat_mode_a(self.active_wan, self.lan_ifaces)
+
+        # 6. Bring up Secondary WAN2 if configured
+        wan2 = getattr(self.cfg, "wan2_interface", "")
+        if wan2 and interfaces.interface_exists(wan2):
+            interfaces.set_link_up(wan2)
+            log.info("secondary WAN2 interface %s brought up", wan2)
+            firewall.enable_nat_for_wan2(wan2, self.lan_ifaces)
+
         return True
 
     def teardown(self) -> bool:
         log.info("tearing down Mode A")
         firewall.disable_nat()
         self.svc_mgr.stop_all()
+
+        if interfaces.interface_exists("br-lan"):
+            lan_ports = getattr(self.cfg, "lan_ports", None) or []
+            interfaces.teardown_bridge("br-lan", [p for p in lan_ports if p != "br-lan"])
 
         if interfaces.interface_exists(self.cfg.lan_interface):
             interfaces.flush_ip_addresses(self.cfg.lan_interface)
@@ -120,14 +153,19 @@ class ModeA(NetworkMode):
         return True
 
     def get_status(self) -> dict:
+        wan2_iface = getattr(self.cfg, "wan2_interface", "")
         return {
             "mode": "mode_a",
             "wan_interface": self.active_wan,
             "wan_carrier": interfaces.get_carrier(self.cfg.wan_interface),
             "wan_addrs": interfaces.get_ip_addresses(self.active_wan),
+            "wan2_interface": wan2_iface,
+            "wan2_carrier": interfaces.get_carrier(wan2_iface) if wan2_iface else False,
+            "wan2_addrs": interfaces.get_ip_addresses(wan2_iface) if wan2_iface else [],
             "lan_interfaces": self.lan_ifaces,
+            "lan_ports": getattr(self.cfg, "lan_ports", [self.cfg.lan_interface]),
             "lan_carrier": interfaces.get_carrier(self.cfg.lan_interface),
-            "lan_addrs": interfaces.get_ip_addresses(self.cfg.lan_interface),
+            "lan_addrs": interfaces.get_ip_addresses(self.lan_ifaces[0]) if self.lan_ifaces else [],
             "dnsmasq_running": self.svc_mgr.processes.get("dnsmasq") is not None and self.svc_mgr.processes["dnsmasq"].is_running(),
             "hostapd_running": self.svc_mgr.processes.get("hostapd") is not None and self.svc_mgr.processes["hostapd"].is_running(),
             "pppoe_running": self.svc_mgr.processes.get("pppd") is not None and self.svc_mgr.processes["pppd"].is_running(),

@@ -23,11 +23,24 @@ memory_profile = auto
 #   mode_b     - Forced Passive Inline Probe (Transparent Bridge)
 mode = standalone
 
-# Network Interfaces
+# Primary WAN Uplink
 wan_interface = eth0
+
+# Secondary WAN Uplink (Multi-WAN / Backup / Dual Measurement)
+# wan2_interface = eth2
+# wan_mode = single               ; single | failover | dual
+
+# Multi-LAN Ports & Bridge
 lan_interface = eth1
-wlan_interface = wlan0
+# Comma-separated list of physical Ethernet ports bridged to br-lan (e.g. eth1,eth2,eth3)
+lan_ports = eth1
 bridge_interface = br0
+
+# Dedicated Diagnostic / Isolated DMZ Port (optional)
+# dmz_interface = eth3
+
+# Interface target for automated speedtests (wan | wan2 | all | specific iface)
+measurement_interface = wan
 
 # Mode A: Active Gateway / LAN Subnet
 gateway_ip = 192.168.100.1

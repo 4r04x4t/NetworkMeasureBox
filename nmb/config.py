@@ -27,9 +27,18 @@ memory_profile = auto
 # Operational mode: auto, mode_a (active gateway), mode_b (passive inline), standalone (endpoint probe)
 mode = standalone
 wan_interface = eth0
+wan2_interface = 
+wan2_proto = dhcp
+wan2_ip = 
+wan2_netmask = 255.255.255.0
+wan2_gateway = 
+wan2_mac = 
+wan_mode = single
 lan_interface = eth1
-wlan_interface = wlan0
+lan_ports = eth1
 bridge_interface = br0
+dmz_interface = 
+measurement_interface = wan
 
 # Mode A (Active Gateway / PPPoE / NAT / Wi-Fi) settings
 gateway_ip = 192.168.100.1
@@ -183,7 +192,18 @@ class SystemConfig:
 class NetworkConfig:
     mode: str = "standalone"  # auto, mode_a, mode_b, standalone
     wan_interface: str = "eth0"
+    wan2_interface: str = ""
+    wan2_proto: str = "dhcp"   # dhcp, static, pppoe
+    wan2_ip: str = ""
+    wan2_netmask: str = "255.255.255.0"
+    wan2_gateway: str = ""
+    wan2_mac: str = ""
+    wan_mode: str = "single"   # single, failover, dual
+
     lan_interface: str = "eth1"
+    lan_ports: List[str] = field(default_factory=lambda: ["eth1"])
+    dmz_interface: str = ""
+    measurement_interface: str = "wan"  # wan, wan2, all, or interface name
     wlan_interface: str = "wlan0"
     bridge_interface: str = "br0"
 
@@ -428,7 +448,22 @@ def load_config(path: Path | None = None) -> Config:
         n = parser["network"]
         cfg.network.mode = n.get("mode", cfg.network.mode).lower().strip()
         cfg.network.wan_interface = n.get("wan_interface", cfg.network.wan_interface).strip()
+        cfg.network.wan2_interface = n.get("wan2_interface", getattr(cfg.network, "wan2_interface", "")).strip()
+        cfg.network.wan2_proto = n.get("wan2_proto", getattr(cfg.network, "wan2_proto", "dhcp")).strip()
+        cfg.network.wan2_ip = n.get("wan2_ip", getattr(cfg.network, "wan2_ip", "")).strip()
+        cfg.network.wan2_netmask = n.get("wan2_netmask", getattr(cfg.network, "wan2_netmask", "255.255.255.0")).strip()
+        cfg.network.wan2_gateway = n.get("wan2_gateway", getattr(cfg.network, "wan2_gateway", "")).strip()
+        cfg.network.wan2_mac = n.get("wan2_mac", getattr(cfg.network, "wan2_mac", "")).strip()
+        cfg.network.wan_mode = n.get("wan_mode", getattr(cfg.network, "wan_mode", "single")).strip().lower()
+
         cfg.network.lan_interface = n.get("lan_interface", cfg.network.lan_interface).strip()
+        lp = n.get("lan_ports", "")
+        if lp:
+            cfg.network.lan_ports = [p.strip() for p in lp.split(",") if p.strip()]
+        else:
+            cfg.network.lan_ports = [cfg.network.lan_interface] if cfg.network.lan_interface else ["eth1"]
+        cfg.network.dmz_interface = n.get("dmz_interface", getattr(cfg.network, "dmz_interface", "")).strip()
+        cfg.network.measurement_interface = n.get("measurement_interface", getattr(cfg.network, "measurement_interface", "wan")).strip()
         cfg.network.wlan_interface = n.get("wlan_interface", cfg.network.wlan_interface).strip()
         cfg.network.bridge_interface = n.get("bridge_interface", cfg.network.bridge_interface).strip()
 
@@ -660,7 +695,17 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     # Network
     parser["network"]["mode"] = str(cfg.network.mode)
     parser["network"]["wan_interface"] = str(cfg.network.wan_interface)
+    parser["network"]["wan2_interface"] = str(getattr(cfg.network, "wan2_interface", ""))
+    parser["network"]["wan2_proto"] = str(getattr(cfg.network, "wan2_proto", "dhcp"))
+    parser["network"]["wan2_ip"] = str(getattr(cfg.network, "wan2_ip", ""))
+    parser["network"]["wan2_netmask"] = str(getattr(cfg.network, "wan2_netmask", "255.255.255.0"))
+    parser["network"]["wan2_gateway"] = str(getattr(cfg.network, "wan2_gateway", ""))
+    parser["network"]["wan2_mac"] = str(getattr(cfg.network, "wan2_mac", ""))
+    parser["network"]["wan_mode"] = str(getattr(cfg.network, "wan_mode", "single"))
     parser["network"]["lan_interface"] = str(cfg.network.lan_interface)
+    parser["network"]["lan_ports"] = ",".join(getattr(cfg.network, "lan_ports", ["eth1"]))
+    parser["network"]["dmz_interface"] = str(getattr(cfg.network, "dmz_interface", ""))
+    parser["network"]["measurement_interface"] = str(getattr(cfg.network, "measurement_interface", "wan"))
     parser["network"]["wlan_interface"] = str(cfg.network.wlan_interface)
     parser["network"]["bridge_interface"] = str(cfg.network.bridge_interface)
     parser["network"]["gateway_ip"] = str(cfg.network.gateway_ip)
