@@ -33,7 +33,7 @@ def get_public_geoip(ip: Optional[str] = None, timeout: float = 2.5) -> Dict[str
         "city": str,
         "asn": str,
         "isp": str,
-        "summary": str,  # e.g. "176.241.34.134 (Country: HU / Hungary, City: Szeged, ASN: AS20845 - DIGI Kft.)"
+        "summary": str,  # e.g. "203.0.113.195 (Country: US / United States, City: Seattle, ASN: AS15169 - Example ISP)"
       }
     """
     clean_ip = (ip or "").strip()
@@ -84,7 +84,7 @@ def get_public_geoip(ip: Optional[str] = None, timeout: float = 2.5) -> Dict[str
                 as_raw = data.get("as") or ""
                 isp = data.get("org") or data.get("isp") or "Unknown ISP"
 
-                # Parse ASN (e.g. "AS20845 DIGI Tavkozlesi es Szolgaltato Kft." -> "AS20845 - DIGI Kft.")
+                # Parse ASN (e.g. "AS15169 Google LLC" -> "AS15169 - Google LLC")
                 asn_short = "N/A"
                 if as_raw.startswith("AS"):
                     parts = as_raw.split(" ", 1)

@@ -856,7 +856,7 @@ def get_dashboard_html() -> str:
             <option value="custom" data-i18n="target_server_custom">✏️ Enter Custom Server ID...</option>
           </select>
           <div id="home-custom-server-wrap" style="display: none; align-items: center; gap: 6px;">
-            <input type="text" id="home-custom-server-id" placeholder="pl. 31717" class="form-input" style="width: 100px; padding: 7px 10px; font-size: 13px;">
+            <input type="text" id="home-custom-server-id" placeholder="e.g. 31717" class="form-input" style="width: 100px; padding: 7px 10px; font-size: 13px;">
             <button class="btn-primary" style="padding: 7px 12px; font-size: 12px;" onclick="applyHomeCustomServer()">Select</button>
           </div>
         </div>

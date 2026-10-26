@@ -206,7 +206,7 @@ def run_traceroute(target: str = "", max_hops: int = 30, host: str = "") -> Dict
 
             # Parse lines like:
             #  1  192.168.1.1 (192.168.1.1)  0.812 ms  0.789 ms  0.755 ms
-            #  2  2a01:36d:2800::1 (2a01:36d:2800::1)  2.451 ms  2.312 ms  2.198 ms
+            #  2  2001:db8:1::1 (2001:db8:1::1)  2.451 ms  2.312 ms  2.198 ms
             #  3  * * *
             for line in lines:
                 line = line.strip()

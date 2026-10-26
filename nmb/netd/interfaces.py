@@ -361,7 +361,7 @@ def get_dual_stack_ips(iface: Optional[str] = None, force_refresh: bool = False)
       - 'public_ipv6': externally resolved or global IPv6
       - 'local_ipv4': interface IPv4 (e.g. LAN/DHCP WAN)
       - 'local_ipv6': interface global IPv6
-      - 'display': human-readable dual-stack string (e.g. 'IPv4: 176.241.34.134 | IPv6: 2a01:36d:...')
+      - 'display': human-readable dual-stack string (e.g. 'IPv4: 203.0.113.195 | IPv6: 2001:db8::1')
     """
     global _cached_dual_stack_ips, _cached_dual_stack_ts
     import ipaddress
@@ -573,7 +573,7 @@ def sync_gateway_ping_targets(conn, iface: Optional[str] = None) -> None:
     """Enroll and maintain Local Gateway and ISP First Hop in the ping probe targets table.
     
     Dynamically identifies:
-      1. Local Default Gateway (e.g. 192.168.50.1) -> Role: 'Local Gateway'
+      1. Local Default Gateway (e.g. 192.168.1.1) -> Role: 'Local Gateway'
       2. ISP First Hop / WAN Gateway (e.g. 10.0.0.1) -> Role: 'ISP First Hop'
     """
     try:

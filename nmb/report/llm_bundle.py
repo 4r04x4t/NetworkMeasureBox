@@ -715,16 +715,16 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         try:
             wlan_subnet = str(ipaddress.ip_network(wlan_ifc["ipv4"][0], strict=False))
         except Exception:
-            wlan_subnet = "192.168.50.0/24"
+            wlan_subnet = "--"
 
     wlan_chan = guest_wifi_info.get("channel") or 0
     wlan_freq = guest_wifi_info.get("freq_mhz")
     dfs_suffix = ", DFS" if (52 <= wlan_chan <= 144) else ""
     freq_str = f"{wlan_freq} MHz" if wlan_freq else (f"{5000 + wlan_chan * 5} MHz" if wlan_chan > 14 else (f"{2407 + wlan_chan * 5} MHz" if wlan_chan > 0 else "-- MHz"))
-    chan_str = f"{wlan_chan} ({freq_str}{dfs_suffix})" if wlan_chan else "104 (5520 MHz, DFS)"
+    chan_str = f"{wlan_chan} ({freq_str}{dfs_suffix})" if wlan_chan else "--"
 
     wlan_mac = guest_wifi_info.get("mac") or guest_wifi_info.get("mac_address") or (wlan_ifc.get("mac") if wlan_ifc else "--")
-    wlan_gw = guest_wifi_info.get("gateway") or "192.168.50.1"
+    wlan_gw = guest_wifi_info.get("gateway") or "--"
     wlan_sig = guest_wifi_info.get("signal") or guest_wifi_info.get("signal_percent") or 0
 
     lines.extend([
@@ -735,7 +735,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         f"- **Target Guest SSID**: `{guest_wifi_info.get('ssid') or 'None'}` (BSSID: `{guest_wifi_info.get('bssid') or '--'}`)",
         f"- **Assigned IP & Subnet**: `{wlan_ip or 'None'}` (Subnet: `{wlan_subnet or 'None'}`, Gateway: `{wlan_gw}`)",
         f"- **Wi-Fi Regulatory Domain**: `{eff_reg_cc}` ({reg_origin}) | **Operating Channel**: {chan_str}",
-        f"- **Signal & Channel**: `{wlan_sig}%` (`{wlan_freq or '5520'} MHz`, Channel `{wlan_chan or '104'}`)",
+        f"- **Signal & Channel**: `{wlan_sig}%` (`{wlan_freq or '--'} MHz`, Channel `{wlan_chan or '--'}`)",
         f"- **Subnet Isolation vs Wired LAN (`eth0`)**: {guest_wifi_info.get('isolation_verdict', 'Unknown')}",
         f"- **Routing Metric Protection**: `{guest_wifi_info.get('metric', 600)}` (Ensures primary internet traffic, speedtest, and ping telemetry remain bound to `eth0`)",
         "",
@@ -962,7 +962,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
                 isp_val += f" ({h.get('as')})"
             lines.append(f"| {h['hop']} | {h.get('host', '*')} | `{h.get('ip', '*')}` | {country_val} | {isp_val} | {rtt_val} | {h.get('loss_pct', 0.0):.1f}% |")
 
-    primary_lan_ip = "192.168.50.162"
+    primary_lan_ip = "<DEVICE_IP>"
     for ifc in interfaces:
         if ifc.get("name") in ("eth0", "wlan0", wan_iface) and ifc.get("ipv4"):
             primary_lan_ip = ifc["ipv4"][0].split("/")[0]
