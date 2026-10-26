@@ -1,0 +1,33 @@
+#!/bin/sh
+# NetworkMeasureBox Hardened Sudo Privilege Isolation Helper
+# Provides strictly parameterized, non-arbitrary root commands for nmb services.
+set -eu
+
+case "${1:-}" in
+    upgrade)
+        if command -v systemd-run >/dev/null 2>&1; then
+            exec systemd-run --pipe --wait --quiet /bin/sh -c "export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get -y -o Dpkg::Options::=\"--force-confdef\" -o Dpkg::Options::=\"--force-confold\" upgrade"
+        else
+            export DEBIAN_FRONTEND=noninteractive
+            exec apt-get update && exec apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
+        fi
+        ;;
+    check-updates)
+        if command -v systemd-run >/dev/null 2>&1; then
+            exec systemd-run --pipe --wait --quiet /bin/sh -c "apt-get update && apt-get -s upgrade"
+        else
+            exec apt-get update && exec apt-get -s upgrade
+        fi
+        ;;
+    tune)
+        if [ -x /opt/nmb/os/nic-tune.sh ]; then
+            exec /opt/nmb/os/nic-tune.sh
+        elif [ -x "$(dirname "$0")/../os/nic-tune.sh" ]; then
+            exec "$(dirname "$0")/../os/nic-tune.sh"
+        fi
+        ;;
+    *)
+        echo "Usage: nmb-helper {upgrade|check-updates|tune}" >&2
+        exit 1
+        ;;
+esac

@@ -140,9 +140,9 @@ if ! id "$NMB_USER" >/dev/null 2>&1; then
     fi
 fi
 
-# Grant network administration rights for MAC modification via sudoers
+# Grant strictly parameterized administration rights via nmb-helper in sudoers
 if [ -d /etc/sudoers.d ]; then
-    echo "$NMB_USER ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/ip, /usr/sbin/ip, /usr/bin/tee, /bin/tee, /usr/bin/mtr, /usr/bin/systemd-run, /bin/systemd-run" > /etc/sudoers.d/020_nmb-net
+    echo "$NMB_USER ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/ip, /usr/sbin/ip, /usr/bin/mtr, /usr/local/bin/nmb-helper" > /etc/sudoers.d/020_nmb-net
     chmod 0440 /etc/sudoers.d/020_nmb-net
 fi
 
@@ -188,18 +188,26 @@ cp -r "$SCRIPT_DIR/docs" "$INSTALL_DIR/" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/bin/"* "$INSTALL_DIR/os/"*.sh
 
 # Configuration file
-install -d -m 0775 -o root -g "$NMB_USER" "$CONFIG_DIR"
+install -d -m 0770 -o root -g "$NMB_USER" "$CONFIG_DIR"
 if [ ! -f "$CONFIG_FILE" ]; then
     if [ -f "$SCRIPT_DIR/config/nmb.conf.example" ]; then
         cp "$SCRIPT_DIR/config/nmb.conf.example" "$CONFIG_FILE"
     fi
     info "Created default configuration at $CONFIG_FILE"
 fi
-chown root:"$NMB_USER" "$CONFIG_FILE"
-chmod 0664 "$CONFIG_FILE"
+
+# Generate strong random admin password on installation if default "admin"
+if grep -q "admin_password = admin" "$CONFIG_FILE" 2>/dev/null; then
+    NEW_ADMIN_PASS=$(head -c 16 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 14)
+    sed -i "s/admin_password = admin/admin_password = $NEW_ADMIN_PASS/" "$CONFIG_FILE"
+    info "Generated secure random Web UI admin password: $NEW_ADMIN_PASS"
+fi
+
+chown "$NMB_USER":"$NMB_USER" "$CONFIG_FILE"
+chmod 0600 "$CONFIG_FILE"
 
 # Symlink executables into /usr/local/bin
-for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web; do
+for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper; do
     ln -sf "$INSTALL_DIR/bin/$b" "/usr/local/bin/$b"
 done
 

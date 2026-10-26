@@ -41,6 +41,19 @@ tune_interface() {
     if command -v ip >/dev/null 2>&1; then
         ip link set dev "$dev" txqueuelen 10000 2>/dev/null || true
     fi
+
+    # 6. Multi-core Packet Steering (RPS/RFS/XPS)
+    cpus=$(nproc 2>/dev/null || echo 1)
+    mask=$(printf '%x' $(( (1 << cpus) - 1 )))
+    for rq in /sys/class/net/"$dev"/queues/rx-*; do
+        [ -e "$rq" ] || continue
+        echo "$mask" > "$rq/rps_cpus" 2>/dev/null || true
+        echo 4096 > "$rq/rps_flow_cnt" 2>/dev/null || true
+    done
+    for tq in /sys/class/net/"$dev"/queues/tx-*; do
+        [ -e "$tq" ] || continue
+        echo "$mask" > "$tq/xps_cpus" 2>/dev/null || true
+    done
 }
 
 if [ -n "$IFACE" ]; then

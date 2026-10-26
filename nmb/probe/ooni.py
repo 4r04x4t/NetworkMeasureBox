@@ -168,6 +168,37 @@ def get_ooni_status() -> Dict[str, Any]:
     }
 
 
+def validate_target_url(url: str) -> tuple[bool, str]:
+    """Validate target URL for OONI probe to prevent SSRF and argument injection."""
+    if not url:
+        return True, ""
+    clean = url.strip()
+    if clean.startswith("-") or any(c in clean for c in " \t\r\n'\"`$<>|;&"):
+        return False, "Target URL contains invalid characters or starts with hyphen."
+    if not clean.startswith(("http://", "https://")):
+        clean = f"https://{clean}"
+    try:
+        from urllib.parse import urlparse
+        import ipaddress
+        parsed = urlparse(clean)
+        if parsed.scheme not in ("http", "https"):
+            return False, "Only HTTP and HTTPS URLs are permitted."
+        host = (parsed.hostname or "").strip().lower()
+        if not host:
+            return False, "Invalid host in target URL."
+        if host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") or host.endswith(".local") or host.endswith(".internal"):
+            return False, "Scanning local loopback or internal addresses is not permitted."
+        try:
+            ip = ipaddress.ip_address(host)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return False, f"Scanning private IP address {ip} is not permitted."
+        except ValueError:
+            pass
+        return True, clean
+    except Exception as e:
+        return False, f"URL parse error: {e}"
+
+
 def run_ooni_test_sync(
     test_type: str = "websites",
     target_url: Optional[str] = None,
@@ -182,6 +213,13 @@ def run_ooni_test_sync(
 
     ensure_onboarding()
 
+    validated_url = None
+    if test_type == "websites" and target_url:
+        is_valid, clean_or_err = validate_target_url(target_url)
+        if not is_valid:
+            return {"status": "error", "message": f"Invalid target URL: {clean_or_err}"}
+        validated_url = clean_or_err
+
     with _ooni_lock:
         if _ooni_running:
             return {"status": "busy", "message": "An OONI Probe test is already in progress."}
@@ -189,17 +227,14 @@ def run_ooni_test_sync(
         _ooni_current_test = test_type
         _ooni_progress = 0
 
-    log.info("starting OONI probe test: type=%s, target=%s, upload=%s", test_type, target_url, upload_results)
+    log.info("starting OONI probe test: type=%s, target=%s, upload=%s", test_type, validated_url, upload_results)
 
     cmd = [str(bin_path), "run", test_type, "--batch"]
     if not upload_results:
         cmd.append("--no-collector")
 
-    if test_type == "websites" and target_url:
-        clean_url = target_url.strip()
-        if not clean_url.startswith(("http://", "https://")):
-            clean_url = f"https://{clean_url}"
-        cmd.extend(["--input", clean_url])
+    if test_type == "websites" and validated_url:
+        cmd.extend(["--input", validated_url])
 
     start_ts = time.time()
     findings: List[str] = []

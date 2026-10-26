@@ -39,19 +39,12 @@ def get_cpu_affinity_mask_hex() -> str:
 
 
 def _write_kernel_param(path: Path | str, value: str) -> bool:
-    """Write parameter to sysfs or procfs; if PermissionError, use sudo tee fallback."""
+    """Write parameter to sysfs or procfs safely."""
     p = Path(path)
     val_str = str(value).strip() + "\n"
     try:
         p.write_text(val_str)
         return True
-    except PermissionError:
-        try:
-            cmd = ["sudo", "tee", str(p)]
-            proc = subprocess.run(cmd, input=val_str, capture_output=True, text=True, check=False)
-            return proc.returncode == 0
-        except Exception:
-            return False
     except Exception:
         return False
 

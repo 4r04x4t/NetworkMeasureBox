@@ -250,6 +250,9 @@ class WebConfig:
     admin_username: str = "admin"
     admin_password: str = "admin"
     language: str = "en"
+    tls_enabled: bool = False
+    tls_cert: str = "/etc/nmb/server.crt"
+    tls_key: str = "/etc/nmb/server.key"
 
 
 @dataclass
@@ -509,6 +512,9 @@ def load_config(path: Path | None = None) -> Config:
         cfg.web.admin_username = w.get("admin_username", getattr(cfg.web, "admin_username", "admin"))
         cfg.web.admin_password = w.get("admin_password", cfg.web.admin_password)
         cfg.web.language = w.get("language", getattr(cfg.web, "language", "en"))
+        cfg.web.tls_enabled = w.getboolean("tls_enabled", fallback=getattr(cfg.web, "tls_enabled", False))
+        cfg.web.tls_cert = w.get("tls_cert", getattr(cfg.web, "tls_cert", "/etc/nmb/server.crt"))
+        cfg.web.tls_key = w.get("tls_key", getattr(cfg.web, "tls_key", "/etc/nmb/server.key"))
 
     if parser.has_section("logging"):
         lg = parser["logging"]
@@ -664,6 +670,9 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["web"]["admin_username"] = str(getattr(cfg.web, "admin_username", "admin"))
     parser["web"]["admin_password"] = str(cfg.web.admin_password)
     parser["web"]["language"] = str(getattr(cfg.web, "language", "en"))
+    parser["web"]["tls_enabled"] = str(getattr(cfg.web, "tls_enabled", False)).lower()
+    parser["web"]["tls_cert"] = str(getattr(cfg.web, "tls_cert", "/etc/nmb/server.crt"))
+    parser["web"]["tls_key"] = str(getattr(cfg.web, "tls_key", "/etc/nmb/server.key"))
 
     # Logging
     parser["logging"]["level"] = str(cfg.logging.level)
@@ -681,6 +690,10 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
             parser.write(f)
             f.flush()
             os.fsync(f.fileno())
+        try:
+            os.chmod(tmp_path, 0o600)
+        except OSError:
+            pass
         os.replace(tmp_path, path)
         return True
     except Exception:

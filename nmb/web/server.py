@@ -47,6 +47,32 @@ from nmb.web.templates import get_dashboard_html
 log = logging.getLogger("nmb.web.server")
 
 
+_AUTH_FAILURES: Dict[str, list[float]] = {}
+_AUTH_LOCK = threading.Lock()
+MAX_BODY_SIZE = 1 * 1024 * 1024  # 1 MB maximum POST request body
+
+
+def _is_ip_rate_limited(ip: str) -> bool:
+    now = time.time()
+    with _AUTH_LOCK:
+        attempts = [t for t in _AUTH_FAILURES.get(ip, []) if now - t < 60.0]
+        _AUTH_FAILURES[ip] = attempts
+        return len(attempts) >= 5
+
+
+def _record_auth_failure(ip: str) -> None:
+    now = time.time()
+    with _AUTH_LOCK:
+        attempts = [t for t in _AUTH_FAILURES.get(ip, []) if now - t < 60.0]
+        attempts.append(now)
+        _AUTH_FAILURES[ip] = attempts
+
+
+def _record_auth_success(ip: str) -> None:
+    with _AUTH_LOCK:
+        _AUTH_FAILURES.pop(ip, None)
+
+
 class WebRequestHandler(BaseHTTPRequestHandler):
     server: NMBServer  # type hint
 
@@ -55,9 +81,19 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         log.debug("[HTTP] %s %s - %s", self.address_string(), getattr(self, "command", ""), msg)
 
     def _check_auth(self) -> bool:
-        """Enforce HTTP Basic Authentication if auth_enabled is true."""
+        """Enforce HTTP Basic Authentication if auth_enabled is true with rate limiting."""
         if not self.server.cfg.web.auth_enabled:
             return True
+
+        client_ip = self.client_address[0] if hasattr(self, "client_address") else self.address_string()
+        if _is_ip_rate_limited(client_ip):
+            log.warning("[AUTH] Rate limited IP %s due to too many failed attempts", client_ip)
+            self.send_response(HTTPStatus.TOO_MANY_REQUESTS)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Retry-After", "60")
+            self.end_headers()
+            self.wfile.write(b"429 Too Many Requests - IP temporarily blocked due to repeated failed login attempts. Retry in 60s.\n")
+            return False
 
         auth_header = self.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Basic "):
@@ -72,11 +108,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 configured_user = getattr(self.server.cfg.web, "admin_username", "admin")
                 configured_pass = getattr(self.server.cfg.web, "admin_password", "admin")
                 if secrets.compare_digest(user, configured_user) and secrets.compare_digest(password, configured_pass):
+                    _record_auth_success(client_ip)
                     return True
                 else:
-                    log.warning("[AUTH] Failed login attempt from %s for user '%s'", self.address_string(), user[:32])
+                    _record_auth_failure(client_ip)
+                    log.warning("[AUTH] Failed login attempt from %s for user '%s'", client_ip, user[:32])
         except Exception as e:
-            log.warning("[AUTH] Failed to decode authorization header from %s: %s", self.address_string(), e)
+            _record_auth_failure(client_ip)
+            log.warning("[AUTH] Failed to decode authorization header from %s: %s", client_ip, e)
 
         self._send_auth_required()
         return False
@@ -506,10 +545,35 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if not self._check_auth():
             return
 
+        # 1. CSRF Protection: check Origin / Referer against Host
+        origin = self.headers.get("Origin") or self.headers.get("Referer")
+        host = self.headers.get("Host")
+        if origin and host:
+            origin_parsed = urlparse(origin)
+            if origin_parsed.netloc and origin_parsed.netloc != host:
+                log.warning("[CSRF] Blocked cross-origin POST from %s to host %s", origin, host)
+                self.send_error(HTTPStatus.FORBIDDEN, "Cross-Origin Request Blocked")
+                return
+
+        # 2. Content-Length & Size Limits (DoS Protection)
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid Content-Length header")
+            return
+
+        if length < 0:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Negative Content-Length header")
+            return
+
+        if length > MAX_BODY_SIZE:
+            log.warning("[SECURITY] Rejected oversized POST body: %d bytes (limit: %d)", length, MAX_BODY_SIZE)
+            self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Payload exceeds 1MB limit")
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path
 
-        length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length) if length > 0 else b"{}"
 
         try:
@@ -1785,6 +1849,21 @@ class NMBServer(ThreadingHTTPServer):
         addr = (cfg.web.host, cfg.web.port)
         super().__init__(addr, WebRequestHandler)
 
+        # Optional TLS / HTTPS Encryption
+        tls_cert = getattr(cfg.web, "tls_cert", "") or "/etc/nmb/server.crt"
+        tls_key = getattr(cfg.web, "tls_key", "") or "/etc/nmb/server.key"
+        self.is_tls = False
+        if getattr(cfg.web, "tls_enabled", False) and Path(tls_cert).exists() and Path(tls_key).exists():
+            try:
+                import ssl
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                context.load_cert_chain(certfile=tls_cert, keyfile=tls_key)
+                self.socket = context.wrap_socket(self.socket, server_side=True)
+                self.is_tls = True
+                log.info("TLS / HTTPS encryption enabled for web management (cert: %s)", tls_cert)
+            except Exception as e:
+                log.error("failed to enable TLS encryption: %s", e)
+
 
 class WebDaemon:
     def __init__(self, cfg: Config):
@@ -1822,7 +1901,8 @@ class WebDaemon:
             log.debug("kernel tuning background error: %s", e)
 
         host, port = self.server.server_address
-        log.info("NetworkMeasureBox web server listening on http://%s:%d (AutonomousScheduler active)", host, port)
+        proto = "https" if getattr(self.server, "is_tls", False) else "http"
+        log.info("NetworkMeasureBox web server listening on %s://%s:%d (AutonomousScheduler active)", proto, host, port)
 
         try:
             self.server.serve_forever()

@@ -189,6 +189,13 @@ def get_dynamic_interfaces() -> List[Dict[str, Any]]:
 
 def _run_privileged_cmd(cmd_str: str, timeout: int = 60) -> subprocess.CompletedProcess:
     """Run command with root elevation and sandbox escape if needed."""
+    if shutil.which("nmb-helper") and os.geteuid() != 0:
+        if "update" in cmd_str and "-s" in cmd_str:
+            args = ["sudo", "nmb-helper", "check-updates"]
+            return subprocess.run(args, capture_output=True, text=True, check=False, timeout=timeout)
+        elif "upgrade" in cmd_str:
+            args = ["sudo", "nmb-helper", "upgrade"]
+            return subprocess.run(args, capture_output=True, text=True, check=False, timeout=timeout)
     if shutil.which("systemd-run") and os.geteuid() != 0:
         args = ["sudo", "systemd-run", "--pipe", "--wait", "--quiet", "/bin/sh", "-c", cmd_str]
     elif os.geteuid() != 0:
@@ -218,9 +225,7 @@ def check_updates_available() -> Dict[str, Any]:
 
     try:
         if pm == "apt":
-            # Refresh list first
-            _run_privileged_cmd("apt-get update", timeout=45)
-            res = _run_privileged_cmd("apt-get -s upgrade", timeout=30)
+            res = _run_privileged_cmd("apt-get update && apt-get -s upgrade", timeout=60)
             if res.returncode == 0:
                 pkgs = []
                 for line in res.stdout.splitlines():
@@ -294,7 +299,9 @@ def trigger_system_upgrade() -> Dict[str, Any]:
                     else:
                         raw_cmd = "echo 'Unsupported package manager'"
 
-                    if shutil.which("systemd-run") and os.geteuid() != 0:
+                    if shutil.which("nmb-helper") and os.geteuid() != 0:
+                        full_cmd = ["sudo", "nmb-helper", "upgrade"]
+                    elif shutil.which("systemd-run") and os.geteuid() != 0:
                         full_cmd = ["sudo", "systemd-run", "--pipe", "--wait", "--quiet", "/bin/sh", "-c", raw_cmd]
                     elif os.geteuid() != 0:
                         full_cmd = ["sudo", "/bin/sh", "-c", raw_cmd]
