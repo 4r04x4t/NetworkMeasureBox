@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+description="NetworkMeasureBox Embedded Web UI & REST API"
+
+command="/usr/bin/python3"
+command_args="-m nmb.web.server --port 8080"
+command_background="yes"
+command_user="nmb:nmb"
+pidfile="/run/nmb/web.pid"
+output_log="/var/log/nmb/web.log"
+error_log="/var/log/nmb/web.err"
+
+depend() {
+    need nmb-db
+    after net
+}
+
+start_pre() {
+    export PYTHONPATH=/opt/nmb
+    checkpath -d -m 0750 -o nmb:nmb /run/nmb /var/log/nmb
+}

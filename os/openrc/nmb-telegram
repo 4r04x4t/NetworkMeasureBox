@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+description="NetworkMeasureBox Telegram Management Bot"
+
+command="/usr/bin/python3"
+command_args="-m nmb.bot.daemon"
+command_background="yes"
+command_user="nmb:nmb"
+pidfile="/run/nmb/telegram.pid"
+output_log="/var/log/nmb/telegram.log"
+error_log="/var/log/nmb/telegram.err"
+
+depend() {
+    need nmb-db
+    after net
+}
+
+start_pre() {
+    export PYTHONPATH=/opt/nmb
+    checkpath -d -m 2775 -o nmb:nmb /run/nmb /var/log/nmb
+}

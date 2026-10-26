@@ -1,0 +1,20 @@
+[Unit]
+Description=NetworkMeasureBox: Scheduled Speedtest and Port-Throttling Verification
+After=nmb-db.service nmb-probe.service
+Wants=nmb-db.service
+
+[Service]
+Type=oneshot
+User=nmb
+Group=nmb
+Environment=PYTHONPATH=/opt/nmb HOME=/var/lib/nmb
+ExecStart=/opt/nmb/bin/nmb-speed --trigger schedule
+TimeoutStartSec=1800
+Nice=15
+IOSchedulingClass=idle
+
+# Security sandbox
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/nmb /var/log/nmb /run/nmb

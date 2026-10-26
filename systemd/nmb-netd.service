@@ -1,0 +1,31 @@
+[Unit]
+Description=NetworkMeasureBox: Dynamic Network Detection & Mode Switching Daemon
+After=nmb-db.service network-pre.target
+Wants=nmb-db.service
+Before=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+Environment=PYTHONPATH=/opt/nmb
+ExecStart=/usr/bin/python3 -m nmb.netd.daemon
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5s
+KillMode=mixed
+TimeoutStopSec=15
+
+UMask=0002
+SupplementaryGroups=nmb
+
+# Security hardening while allowing required network management capabilities
+# Note: CAP_SETUID and CAP_SETGID allow spawned dnsmasq to drop privileges to 'nobody'
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE CAP_SYS_MODULE CAP_KILL CAP_SETUID CAP_SETGID
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

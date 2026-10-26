@@ -1,0 +1,19 @@
+#!/sbin/openrc-run
+description="NetworkMeasureBox Dynamic Network Detection & Mode Daemon"
+
+command="/usr/bin/python3"
+command_args="-m nmb.netd.daemon"
+command_background="yes"
+pidfile="/run/nmb/netd.pid"
+output_log="/var/log/nmb/netd.log"
+error_log="/var/log/nmb/netd.err"
+
+depend() {
+    need nmb-db
+    after net
+}
+
+start_pre() {
+    export PYTHONPATH=/opt/nmb
+    checkpath -d -m 0750 -o root:root /run/nmb /var/log/nmb
+}

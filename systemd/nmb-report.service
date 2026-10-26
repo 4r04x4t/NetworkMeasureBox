@@ -1,0 +1,19 @@
+[Unit]
+Description=NetworkMeasureBox: Daily HTML Dossier Generation and ISP Fault Reporting
+After=nmb-db.service nmb-maintain.service
+Wants=nmb-db.service
+
+[Service]
+Type=oneshot
+User=nmb
+Group=nmb
+Environment=PYTHONPATH=/opt/nmb
+ExecStart=/opt/nmb/bin/nmb-report --window 24h
+Nice=10
+IOSchedulingClass=idle
+
+# Security sandbox
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/nmb/persist /var/lib/nmb/live /var/log/nmb

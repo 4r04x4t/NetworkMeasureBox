@@ -1,0 +1,106 @@
+# NetworkMeasureBox Production Configuration
+# Place at /etc/nmb/nmb.conf
+
+[system]
+box_id = nmb-01
+data_dir = /var/lib/nmb
+run_dir = /run/nmb
+log_dir = /var/log/nmb
+
+[network]
+# Operational Mode:
+#   standalone - Endpoint Probe on existing LAN (leaves interfaces untouched, monitors via default route)
+#   auto       - Detects topology automatically:
+#                Both WAN & LAN links up -> Mode B (Passive Inline Bridge)
+#                WAN-only with PPPoE or LAN-only diagnostic -> Mode A (Active Gateway)
+#   mode_a     - Forced Active Gateway (NAT, DHCP server, diagnostic AP)
+#   mode_b     - Forced Passive Inline Probe (Transparent Bridge)
+mode = standalone
+
+# Network Interfaces
+wan_interface = eth0
+lan_interface = eth1
+wlan_interface = wlan0
+bridge_interface = br0
+
+# Mode A: Active Gateway / LAN Subnet
+gateway_ip = 192.168.100.1
+gateway_netmask = 255.255.255.0
+dhcp_range_start = 192.168.100.100
+dhcp_range_end = 192.168.100.200
+dhcp_lease_time = 12h
+
+# Mode A: PPPoE Settings (Optional upstream auth)
+pppoe_enabled = false
+pppoe_user = 
+pppoe_password = 
+# 802.1Q VLAN Tagging (e.g., VLAN 835 for typical fiber ONTs; 0 to disable)
+pppoe_vlan = 0
+
+# Mode A: Emergency Diagnostic Wi-Fi AP (hostapd)
+wifi_enabled = true
+wifi_ssid = NMB-Diagnostic
+wifi_psk = NetworkMeasureBox123
+wifi_channel = 6
+
+# Auto-Detection & Failover Tuning
+check_interval_sec = 5
+failover_timeout_sec = 15
+detection_targets = 1.1.1.1,8.8.8.8,9.9.9.9
+
+[probe]
+# Target IPs to poll sub-second for latency and jitter
+targets = 1.1.1.1,8.8.8.8,9.9.9.9,185.222.222.222
+ping_interval_ms = 500
+socket_buffer_kb = 256
+batch_flush_sec = 10
+# Continuous packet drop duration (seconds) across all targets to declare an ISP outage
+outage_loss_seconds = 15.0
+
+[traffic_gate]
+# Minimum bandwidth threshold (kbps) to declare network "active" vs "idle"
+threshold_kbps = 500
+sample_window_sec = 3
+cooldown_sec = 10
+
+[speedtest]
+# Scheduled Ookla Speedtest
+schedule_cron = 0 */6 * * *
+# Maximum seconds to wait for network to become idle before delaying test
+idle_wait_max_sec = 1800
+# Target ports to check for net-neutrality throttling
+port_throttle_ports = 80,443,8080,8443,5060,53
+
+[isp]
+name = Example Fiber Internet
+account_id = CUST-104928
+circuit_id = CKT-FIBER-01
+contract_down_mbps = 1000.0
+contract_up_mbps = 500.0
+
+[smtp]
+enabled = false
+host = localhost
+port = 587
+tls = true
+user = 
+password = 
+from_addr = nmb-reports@example.com
+to_addrs = support@isp.com,admin@example.com
+
+[telegram]
+enabled = false
+token = 
+# Security: Comma-separated authorized Telegram chat IDs (daemon refuses to start if empty)
+allowed_chat_ids = 
+alert_loss_threshold_pct = 5.0
+alert_latency_threshold_ms = 100.0
+
+[web]
+enabled = true
+# Bind address (use 127.0.0.1 or LAN IP for restricted access, 0.0.0.0 with auth enabled)
+host = 0.0.0.0
+port = 8080
+auth_enabled = true
+admin_password = admin
+

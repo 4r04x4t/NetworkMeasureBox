@@ -1,0 +1,12 @@
+[Unit]
+Description=NMB: rollup, prune, optimize DB
+Requires=nmb-db.service
+After=nmb-db.service
+
+[Service]
+Type=oneshot
+User=nmb
+Group=nmb
+Environment=PYTHONPATH=/opt/nmb
+Nice=10
+ExecStart=/usr/bin/python3 -m nmb.db.database maintain

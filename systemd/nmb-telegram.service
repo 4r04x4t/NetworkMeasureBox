@@ -1,0 +1,22 @@
+[Unit]
+Description=NetworkMeasureBox: Management Telegram Bot Daemon
+After=nmb-db.service network-online.target
+Wants=nmb-db.service network-online.target
+
+[Service]
+Type=simple
+User=nmb
+Group=nmb
+Environment=PYTHONPATH=/opt/nmb
+ExecStart=/opt/nmb/bin/nmb-telegram
+Restart=always
+RestartSec=10s
+
+# Security sandbox
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/nmb/live /var/log/nmb /run/nmb
+
+[Install]
+WantedBy=multi-user.target

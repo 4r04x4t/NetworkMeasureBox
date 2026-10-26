@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+description="NetworkMeasureBox Latency and Jitter Probe Engine"
+
+command="/usr/bin/python3"
+command_args="-m nmb.probe.engine"
+command_background="yes"
+command_user="nmb:nmb"
+pidfile="/run/nmb/probe.pid"
+output_log="/var/log/nmb/probe.log"
+error_log="/var/log/nmb/probe.err"
+
+depend() {
+    need nmb-db
+    after nmb-netd
+}
+
+start_pre() {
+    export PYTHONPATH=/opt/nmb
+    checkpath -d -m 0750 -o nmb:nmb /run/nmb /var/log/nmb /var/lib/nmb/live
+}

@@ -1,0 +1,22 @@
+[Unit]
+Description=NMB: restore live DB from SD into tmpfs
+DefaultDependencies=no
+RequiresMountsFor=/var/lib/nmb/live /var/lib/nmb/persist
+After=local-fs.target
+Before=nmb.target
+# Snapshot on shutdown: ExecStop runs while filesystems are still mounted
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=nmb
+Group=nmb
+Environment=PYTHONPATH=/opt/nmb
+ExecStart=/usr/bin/python3 -m nmb.db.database restore
+ExecStop=/usr/bin/python3 -m nmb.db.database snapshot
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

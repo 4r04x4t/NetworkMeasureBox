@@ -1,0 +1,19 @@
+#!/sbin/openrc-run
+description="NetworkMeasureBox Database Boot Restore & Shutdown Snapshot"
+
+depend() {
+    after localmount
+    before net
+}
+
+start() {
+    ebegin "Restoring NetworkMeasureBox live DB into tmpfs"
+    PYTHONPATH=/opt/nmb /usr/bin/python3 -m nmb.db.database restore
+    eend $?
+}
+
+stop() {
+    ebegin "Snapshoting NetworkMeasureBox live DB to persistent storage"
+    PYTHONPATH=/opt/nmb /usr/bin/python3 -m nmb.db.database snapshot
+    eend $?
+}

@@ -1,0 +1,29 @@
+[Unit]
+Description=NetworkMeasureBox: High-Performance Latency and Jitter Probe Engine
+After=nmb-db.service nmb-netd.service
+Wants=nmb-db.service
+PartOf=nmb.target
+
+[Service]
+Type=simple
+User=nmb
+Group=nmb
+Environment=PYTHONPATH=/opt/nmb
+ExecStart=/opt/nmb/bin/nmb-probe
+Restart=always
+RestartSec=3s
+
+# Network capabilities to send ICMP Echo Requests and apply kernel QoS / timestamps
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+
+# Security sandbox
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ReadWritePaths=/var/lib/nmb/live /var/log/nmb /run/nmb
+
+[Install]
+WantedBy=multi-user.target
