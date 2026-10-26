@@ -295,7 +295,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # 13. LLM Diagnostic Bundle (Copy-Pasteable Markdown Report)
         if path == "/api/diagnostics/llm":
-            bundle_md = generate_llm_diagnostic_bundle(self.server.cfg)
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            force = bool(qs.get("force", ["0"])[0] in ("1", "true", "yes"))
+            bundle_md = generate_llm_diagnostic_bundle(self.server.cfg, force_refresh=force)
             self._send_json({"status": "ok", "markdown": bundle_md})
             return
 
@@ -320,13 +322,26 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(summary)
             return
 
-        # 15. iPerf3 Status
-        if path == "/api/iperf/status":
+        # 15. iPerf3 Status & Server Toggle
+        if path in ("/api/iperf/status", "/api/iperf/server"):
             self._send_json({
                 "is_running": is_iperf_running(),
                 "latest": get_latest_iperf_result(),
                 "server": get_iperf_server_status(),
             })
+            return
+
+        if path == "/api/iperf/server/toggle":
+            cur_status = get_iperf_server_status()
+            if cur_status.get("is_running") or cur_status.get("server_running"):
+                res = stop_iperf_server()
+                self.server.cfg.iperf.server_enabled = False
+            else:
+                port = int(getattr(self.server.cfg.iperf, "server_port", 5201))
+                res = start_iperf_server(port)
+                self.server.cfg.iperf.server_enabled = (res.get("status") == "ok")
+            save_config(self.server.cfg)
+            self._send_json({"status": "ok", "server": get_iperf_server_status()})
             return
 
         # 15b. iPerf3 Public Server Directory
@@ -1144,8 +1159,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 10. iPerf3 Server Daemon Control
-        if path == "/api/iperf/server":
-            action = str(body_json.get("action", "status")).strip().lower()
+        if path in ("/api/iperf/server", "/api/iperf/server/toggle"):
+            action = str(body_json.get("action", "toggle" if path.endswith("/toggle") else "status")).strip().lower()
+            if action == "toggle":
+                cur_status = get_iperf_server_status()
+                action = "stop" if (cur_status.get("is_running") or cur_status.get("server_running")) else "start"
             try:
                 port = max(1024, min(65535, int(body_json.get("port") or getattr(self.server.cfg.iperf, "server_port", 5201))))
             except (ValueError, TypeError):

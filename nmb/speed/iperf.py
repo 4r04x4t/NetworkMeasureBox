@@ -446,26 +446,53 @@ def start_iperf_server(port: int = 5201) -> Dict[str, Any]:
         return {"status": "error", "message": f"Failed to start iperf3 server: {e}"}
 
 
+def is_iperf_port_listening(port: int = 5201) -> bool:
+    """Quickly check if port is currently open and accepting connections on localhost."""
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.2)
+            return s.connect_ex(("127.0.0.1", port)) == 0
+    except Exception:
+        return False
+
+
 def stop_iperf_server() -> Dict[str, Any]:
     """Stop local iperf3 server daemon."""
     global _iperf_server_proc
+    stopped_any = False
     if _iperf_server_proc and _iperf_server_proc.poll() is None:
         try:
             _iperf_server_proc.terminate()
             _iperf_server_proc.wait(timeout=3)
             _iperf_server_proc = None
-            return {"status": "ok", "message": "iPerf3 server stopped.", "server": get_iperf_server_status()}
+            stopped_any = True
         except Exception:
             _iperf_server_proc.kill()
             _iperf_server_proc = None
-            return {"status": "ok", "message": "iPerf3 server killed.", "server": get_iperf_server_status()}
-    return {"status": "ok", "message": "iPerf3 server was not running.", "server": get_iperf_server_status()}
+            stopped_any = True
+
+    # If port is still listening from external or orphaned process, try pkill
+    if is_iperf_port_listening(_iperf_server_port):
+        try:
+            subprocess.run(["pkill", "-f", "iperf3 -s"], timeout=2.0)
+            stopped_any = True
+        except Exception:
+            pass
+
+    msg = "iPerf3 server stopped." if stopped_any else "iPerf3 server was not running."
+    return {"status": "ok", "message": msg, "server": get_iperf_server_status()}
 
 
 def get_iperf_server_status() -> Dict[str, Any]:
     """Get the running status of local iperf3 server."""
     running = _iperf_server_proc is not None and _iperf_server_proc.poll() is None
     pid = _iperf_server_proc.pid if running else None
+    
+    # Also check if port is listening (e.g. started by external service or prior daemon)
+    if not running and is_iperf_port_listening(_iperf_server_port):
+        running = True
+
     return {
         "server_running": running,
         "is_running": running,
@@ -473,3 +500,4 @@ def get_iperf_server_status() -> Dict[str, Any]:
         "port": _iperf_server_port,
         "available": is_iperf_available(),
     }
+

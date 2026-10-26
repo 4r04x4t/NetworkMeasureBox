@@ -417,7 +417,28 @@ def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, D
             eff_channel = 6 if 6 in valid_channels else (valid_channels[0] if valid_channels else 6)
 
     # 5. Build hostapd parameters
-    country = str(getattr(cfg, "wifi_country_code", "HU")).strip().upper() or "HU"
+    cfg_country = str(getattr(cfg, "wifi_country_code", "auto")).strip().upper() or "AUTO"
+    if cfg_country == "AUTO":
+        try:
+            from nmb.netd.geoip import get_public_geoip, get_wifi_regulatory_domain
+            reg = get_wifi_regulatory_domain()
+            if not reg.get("is_unset"):
+                country = reg.get("country_code", "HU")
+            else:
+                geo = get_public_geoip()
+                country = geo.get("country_code") if geo.get("country_code") != "--" else "HU"
+        except Exception:
+            country = "HU"
+    else:
+        country = cfg_country
+
+    # Synchronize kernel regulatory domain with iw
+    try:
+        from nmb.netd.geoip import set_wifi_regulatory_domain
+        set_wifi_regulatory_domain(country)
+    except Exception:
+        pass
+
     ssid = getattr(cfg, "wifi_ssid", "NetworkMeasureBox-AP")
     psk = getattr(cfg, "wifi_psk", "NetworkMeasureBox123")
     security = getattr(cfg, "wifi_security", "wpa2").strip().lower()

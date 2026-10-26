@@ -50,7 +50,7 @@ wifi_band = auto
 wifi_standard = auto
 wifi_channel = 0
 wifi_channel_width = auto
-wifi_country_code = HU
+wifi_country_code = auto
 wifi_security = wpa2
 
 # Auto-detection & failover tuning
@@ -81,7 +81,7 @@ idle_threshold_mode = percent
 idle_threshold_percent = 2.0
 idle_threshold_kbps = 500
 port_throttle_ports = 80,443,8080,8443,5060,53
-server_id = 
+server_id = auto
 server_name = 
 server_host = 
 
@@ -215,7 +215,7 @@ class NetworkConfig:
     wifi_standard: str = "auto"          # "auto", "be", "ax", "ac", "n", "g", "a", "b"
     wifi_channel: int = 0                # 0 = auto channel selection
     wifi_channel_width: str = "auto"     # "auto", "20", "40", "80", "160", "320"
-    wifi_country_code: str = "HU"        # ISO regulatory domain (HU, US, DE, 00)
+    wifi_country_code: str = "auto"      # ISO regulatory domain (auto, HU, US, DE, 00)
     wifi_security: str = "wpa2"
 
     # Detection & failover
@@ -456,7 +456,9 @@ def load_config(path: Path | None = None) -> Config:
         cfg.network.wifi_standard = n.get("wifi_standard", getattr(cfg.network, "wifi_standard", "auto")).strip().lower()
         cfg.network.wifi_channel = n.getint("wifi_channel", fallback=cfg.network.wifi_channel)
         cfg.network.wifi_channel_width = n.get("wifi_channel_width", getattr(cfg.network, "wifi_channel_width", "auto")).strip().lower()
-        cfg.network.wifi_country_code = n.get("wifi_country_code", getattr(cfg.network, "wifi_country_code", "HU")).strip().upper()
+        cfg.network.wifi_country_code = n.get("wifi_country_code", getattr(cfg.network, "wifi_country_code", "auto")).strip().upper()
+        if not cfg.network.wifi_country_code:
+            cfg.network.wifi_country_code = "AUTO"
         cfg.network.wifi_security = n.get("wifi_security", getattr(cfg.network, "wifi_security", "wpa2")).strip()
 
         cfg.network.check_interval_sec = n.getfloat("check_interval_sec", fallback=cfg.network.check_interval_sec)
@@ -496,7 +498,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.speedtest.idle_threshold_percent = st.getfloat("idle_threshold_percent", fallback=getattr(cfg.speedtest, "idle_threshold_percent", 2.0))
         cfg.speedtest.idle_threshold_kbps = st.getint("idle_threshold_kbps", fallback=getattr(cfg.speedtest, "idle_threshold_kbps", 500))
         sid_raw = st.get("server_id", "").strip()
-        if sid_raw:
+        if sid_raw and sid_raw.lower() not in ("auto", "none", "null", "closest", "dynamic", "0", ""):
             try:
                 cfg.speedtest.server_id = int(sid_raw)
             except ValueError:
@@ -682,7 +684,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["network"]["wifi_standard"] = str(getattr(cfg.network, "wifi_standard", "auto"))
     parser["network"]["wifi_channel"] = str(cfg.network.wifi_channel)
     parser["network"]["wifi_channel_width"] = str(getattr(cfg.network, "wifi_channel_width", "auto"))
-    parser["network"]["wifi_country_code"] = str(getattr(cfg.network, "wifi_country_code", "HU"))
+    parser["network"]["wifi_country_code"] = str(getattr(cfg.network, "wifi_country_code", "auto")).upper()
     parser["network"]["wifi_security"] = str(getattr(cfg.network, "wifi_security", "wpa2"))
     parser["network"]["check_interval_sec"] = str(cfg.network.check_interval_sec)
     parser["network"]["failover_timeout_sec"] = str(cfg.network.failover_timeout_sec)
@@ -719,7 +721,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["speedtest"]["idle_threshold_mode"] = str(getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower()
     parser["speedtest"]["idle_threshold_percent"] = str(getattr(cfg.speedtest, "idle_threshold_percent", 2.0))
     parser["speedtest"]["idle_threshold_kbps"] = str(getattr(cfg.speedtest, "idle_threshold_kbps", 500))
-    parser["speedtest"]["server_id"] = str(cfg.speedtest.server_id) if cfg.speedtest.server_id else ""
+    parser["speedtest"]["server_id"] = str(cfg.speedtest.server_id) if cfg.speedtest.server_id else "auto"
     parser["speedtest"]["server_name"] = str(cfg.speedtest.server_name or "")
     parser["speedtest"]["server_host"] = str(cfg.speedtest.server_host or "")
     parser["speedtest"]["port_throttle_ports"] = ",".join(str(p) for p in cfg.speedtest.port_throttle_ports)

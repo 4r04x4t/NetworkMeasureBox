@@ -80,6 +80,20 @@ case "${1:-}" in
             iptables -t nat -C POSTROUTING -s 10.9.0.0/24 -o "$WAN_IFACE" -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 10.9.0.0/24 -o "$WAN_IFACE" -j MASQUERADE
         fi
         ;;
+    wifi-reg-set)
+        CC="${2:-00}"
+        IW_BIN=""
+        if [ -x /usr/sbin/iw ]; then
+            IW_BIN="/usr/sbin/iw"
+        elif command -v iw >/dev/null 2>&1; then
+            IW_BIN="$(command -v iw)"
+        fi
+        if [ -n "$IW_BIN" ]; then
+            if echo "$CC" | grep -Eq '^[A-Za-z0-9]{2}$'; then
+                exec "$IW_BIN" reg set "$CC"
+            fi
+        fi
+        ;;
     logs-purge)
         # 1. Safely rotate and vacuum system journal
         if command -v journalctl >/dev/null 2>&1; then
@@ -98,7 +112,7 @@ case "${1:-}" in
         fi
         ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>}" >&2
         exit 1
         ;;
 esac

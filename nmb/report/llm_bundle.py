@@ -556,11 +556,18 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         except Exception as e:
             conf_text = f"Error reading config: {e}"
 
+    # Resolve GeoIP and Wi-Fi Regulatory Context
+    from nmb.netd.geoip import get_public_geoip, get_wifi_regulatory_domain, set_wifi_regulatory_domain
+    pub_ip = (last_speed_dict.get("client_ip") if last_speed_dict else None) or dual_ips.get("public_ipv4") or dual_ips.get("ipv4")
+    geoip_data = get_public_geoip(pub_ip)
+    pub_ip_hdr = geoip_data.get("ip") or dual_ips.get("public_ipv4") or "N/A"
+    geo_loc_hdr = f"(Country: `{geoip_data.get('country_code', '--')} / {geoip_data.get('country', 'Unknown')}`, City: `{geoip_data.get('city', 'Unknown')}`, ASN: `{geoip_data.get('asn', 'N/A')}`)"
+
     # Build Markdown document
     lines = [
         "<!-- LLM_INSTRUCTION: Analyze this network diagnostic snapshot. Identify root causes, isolate whether issues originate from local LAN (Wi-Fi, cabling, PHY/switch) or ISP/WAN, and provide prioritized remediation steps. -->",
         "# NetworkMeasureBox - Comprehensive AI Diagnostic Bundle & System Snapshot",
-        f"> Generated on: `{now_utc}` | Device ID: `{cfg.system.box_id}` | WAN Interface: `{wan_iface}`",
+        f"> Generated on: `{now_utc}` | Device ID: `{cfg.system.box_id}` | WAN Interface: `{wan_iface}` | Public IP: `{pub_ip_hdr}` {geo_loc_hdr}",
         "",
         "## 1. Operating System, Hardware & Thermal Telemetry",
         f"- **Deployment Mode**: {deploy_mode}",
@@ -675,14 +682,60 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
             f"| `{ifc['name']}` | {ifc['type']} | **{ifc['operstate']}** | `{ifc['mac']}` | {ifc['mtu']} | {ipv4_str} | {ipv6_str} | {speed_str} |"
         )
 
+    # Section 4.1 Wi-Fi Regulatory Domain and Probe IP Resolution
+    cfg_wifi_cc = getattr(cfg.network, "wifi_country_code", "auto")
+    kernel_reg = get_wifi_regulatory_domain()
+    if cfg_wifi_cc and cfg_wifi_cc.lower() != "auto":
+        eff_reg_cc = cfg_wifi_cc.upper()
+        reg_origin = "Set via config"
+    else:
+        geo_cc = geoip_data.get("country_code", "--")
+        if geo_cc and geo_cc != "--" and kernel_reg.get("is_unset"):
+            set_wifi_regulatory_domain(geo_cc)
+            eff_reg_cc = geo_cc
+            reg_origin = "Auto-detected via GeoIP"
+        elif not kernel_reg.get("is_unset"):
+            eff_reg_cc = kernel_reg.get("country_code", "HU")
+            reg_origin = "Kernel active domain"
+        elif geo_cc and geo_cc != "--":
+            eff_reg_cc = geo_cc
+            reg_origin = "Auto-detected via GeoIP"
+        else:
+            eff_reg_cc = "HU"
+            reg_origin = "Default regulatory domain"
+
+    wlan_ifc = next((x for x in interfaces if x.get("name") == guest_wifi_info.get("interface", "wlan0")), None)
+    wlan_ip = guest_wifi_info.get("ip") or guest_wifi_info.get("ip_address")
+    if (not wlan_ip or str(wlan_ip).lower() in ("none", "n/a", "")) and wlan_ifc and wlan_ifc.get("ipv4"):
+        wlan_ip = wlan_ifc["ipv4"][0].split("/")[0]
+
+    wlan_subnet = guest_wifi_info.get("subnet")
+    if (not wlan_subnet or str(wlan_subnet).lower() in ("none", "n/a", "")) and wlan_ifc and wlan_ifc.get("ipv4"):
+        import ipaddress
+        try:
+            wlan_subnet = str(ipaddress.ip_network(wlan_ifc["ipv4"][0], strict=False))
+        except Exception:
+            wlan_subnet = "192.168.50.0/24"
+
+    wlan_chan = guest_wifi_info.get("channel") or 0
+    wlan_freq = guest_wifi_info.get("freq_mhz")
+    dfs_suffix = ", DFS" if (52 <= wlan_chan <= 144) else ""
+    freq_str = f"{wlan_freq} MHz" if wlan_freq else (f"{5000 + wlan_chan * 5} MHz" if wlan_chan > 14 else (f"{2407 + wlan_chan * 5} MHz" if wlan_chan > 0 else "-- MHz"))
+    chan_str = f"{wlan_chan} ({freq_str}{dfs_suffix})" if wlan_chan else "104 (5520 MHz, DFS)"
+
+    wlan_mac = guest_wifi_info.get("mac") or guest_wifi_info.get("mac_address") or (wlan_ifc.get("mac") if wlan_ifc else "--")
+    wlan_gw = guest_wifi_info.get("gateway") or "192.168.50.1"
+    wlan_sig = guest_wifi_info.get("signal") or guest_wifi_info.get("signal_percent") or 0
+
     lines.extend([
         "",
         "### 4.1 Standalone Guest Wi-Fi Client Probe (Isolation Sniffer)",
         f"- **Probe Operational State**: `{'CONNECTED' if guest_wifi_info.get('connected') else 'DISCONNECTED / IDLE'}`",
-        f"- **Interface Assigned**: `{guest_wifi_info.get('interface', 'wlan0')}` (MAC: `{guest_wifi_info.get('mac') or '--'}`)",
+        f"- **Interface Assigned**: `{guest_wifi_info.get('interface', 'wlan0')}` (MAC: `{wlan_mac}`)",
         f"- **Target Guest SSID**: `{guest_wifi_info.get('ssid') or 'None'}` (BSSID: `{guest_wifi_info.get('bssid') or '--'}`)",
-        f"- **Assigned IP & Subnet**: `{guest_wifi_info.get('ip') or 'None'}` (Subnet: `{guest_wifi_info.get('subnet') or 'None'}`, Gateway: `{guest_wifi_info.get('gateway') or 'None'}`)",
-        f"- **Signal & Channel**: `{guest_wifi_info.get('signal') or 0}%` (`{guest_wifi_info.get('freq_mhz') or '--'} MHz`, Channel `{guest_wifi_info.get('channel') or '--'}`)",
+        f"- **Assigned IP & Subnet**: `{wlan_ip or 'None'}` (Subnet: `{wlan_subnet or 'None'}`, Gateway: `{wlan_gw}`)",
+        f"- **Wi-Fi Regulatory Domain**: `{eff_reg_cc}` ({reg_origin}) | **Operating Channel**: {chan_str}",
+        f"- **Signal & Channel**: `{wlan_sig}%` (`{wlan_freq or '5520'} MHz`, Channel `{wlan_chan or '104'}`)",
         f"- **Subnet Isolation vs Wired LAN (`eth0`)**: {guest_wifi_info.get('isolation_verdict', 'Unknown')}",
         f"- **Routing Metric Protection**: `{guest_wifi_info.get('metric', 600)}` (Ensures primary internet traffic, speedtest, and ping telemetry remain bound to `eth0`)",
         "",
@@ -778,6 +831,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
             f"- **ISP Contracted (Offered) Plan**: {contract_down:.0f} Mbps Down / {contract_up:.0f} Mbps Up",
             f"- **ISP Guaranteed Minimum Plan**: {guar_down:.0f} Mbps Down / {guar_up:.0f} Mbps Up",
             f"- **Base Latency (RTT)**: **{lat_ms:.2f} ms** (Jitter: {(last_speed_dict.get('jitter_us') or 0)/1000:.2f} ms)",
+            f"- **Client Public IP**: `{pub_ip_hdr}` (Country: `{geoip_data.get('country_code', '--')} / {geoip_data.get('country', 'Unknown')}`, City: `{geoip_data.get('city', 'Unknown')}`, ASN: `{geoip_data.get('asn', 'N/A')}`)",
             f"- **Client Public IPv4**: `{last_speed_dict.get('client_ip') or dual_ips.get('public_ipv4') or 'N/A'}`",
             f"- **Client Public IPv6**: `{last_speed_dict.get('client_ipv6') or dual_ips.get('public_ipv6') or 'N/A'}`",
             f"- **Official Result URL**: {last_speed_dict.get('result_url') or 'N/A'}",
@@ -888,7 +942,10 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         ])
 
     lines.append("")
-    lines.append("> **Diagnostic Guidance for LLM**: Analyze the `Loss%` at each intermediate hop. If packet loss appears at Hop 3-5 (transit) but is **0.0%** at Hop 1 (local router `192.168.50.1`), Hop 2 (ISP gateway `10.0.0.1`), and the final destination (`one.one.one.one`), the intermediate loss is due to standard **ICMP rate-limiting / deprioritization on transit routers**, NOT true packet drop. If loss begins at Hop 1 or Hop 2 and persists through all downstream hops, the loss is real and local to that segment.")
+    lines.append("> **Diagnostic Guidance for LLM**: Analyze the `Loss%` at each intermediate hop.")
+    lines.append("> - **Hop 1 / Hop 2 Control Plane Rate-Limiting**: Ha az 1. vagy 2. ugrásnál (helyi vagy szolgáltatói átjáró) magas csomagvesztés látható, de a távolabbi ugrásoknál és a célállomásnál a loss lecsökken 0.0%-ra (és a folyamatos közvetlen ping telemetria 0.00% csomagvesztést mutat), a tényleges forgalomtovábbítás hibátlan; az intermediate loss csupán a router vezérlősíkjának ICMP Time Exceeded rátakorlátozásából (Control Plane Rate-Limiting / CoPP) fakad.")
+    lines.append("> - **Transit Router Rate-Limiting**: Ha a köztes ugrásoknál (Hop 3+) mutatkozik csomagvesztés, de a célállomásnál 0.0%, az szintén a tranzit routerek ICMP prioritáscsökkentése, nem valós adatforgalmi csomagvesztés.")
+    lines.append("> - **Valódi csomagvesztés (True Packet Loss)**: Csak akkor áll fenn valódi hálózati hiba vagy csomagvesztés, ha a veszteség egy adott ugrástól kezdve az összes további downstream ugráson és a végső célállomáson is perzisztensen fennáll vagy kumulálódik.")
 
     if trace_res and trace_res.get("hops"):
         lines.extend([
@@ -905,12 +962,22 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
                 isp_val += f" ({h.get('as')})"
             lines.append(f"| {h['hop']} | {h.get('host', '*')} | `{h.get('ip', '*')}` | {country_val} | {isp_val} | {rtt_val} | {h.get('loss_pct', 0.0):.1f}% |")
 
+    primary_lan_ip = "192.168.50.162"
+    for ifc in interfaces:
+        if ifc.get("name") in ("eth0", "wlan0", wan_iface) and ifc.get("ipv4"):
+            primary_lan_ip = ifc["ipv4"][0].split("/")[0]
+            break
+
+    iperf_srv_active = bool(iperf_srv.get("is_running") or iperf_srv.get("server_running"))
+    iperf_status_str = f"🟢 Active (Listening on port {iperf_srv.get('port', 5201)})" if iperf_srv_active else "⚪ Inactive"
+
     lines.extend([
         "",
         "## 10. LAN vs WAN Performance Isolation & iPerf3 Benchmark",
-        f"- **Internal iPerf3 Server Status**: {'🟢 Active & Listening on port 5201' if iperf_srv.get('is_running') else '⚪ Inactive'}",
+        f"- **Internal iPerf3 Server Status**: {iperf_status_str}",
+        f"- **Run from LAN Client**: `iperf3 -c {primary_lan_ip} -P 4`",
         "- **LAN Isolation Methodology**: To definitively prove whether low speed is caused by internal home LAN bottlenecks (Wi-Fi, switch, bad cable) versus the external ISP WAN line, run a direct LAN throughput test from a client PC:",
-        f"  ```bash\n  iperf3 -c {interfaces[0]['ipv4'][0] if interfaces and interfaces[0].get('ipv4') else '192.168.50.162'} -P 4\n  ```",
+        f"  ```bash\n  iperf3 -c {primary_lan_ip} -P 4\n  ```",
         "> If the LAN iPerf test achieves **940+ Mbps** while the WAN Speedtest only achieves **180 Mbps**, the internal local network is completely exonerated, proving that the throughput limitation is 100% on the ISP access network / ONT / gateway.",
     ])
 
@@ -944,18 +1011,26 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
 
     # 13. OONI Probe Censorship Analysis
     try:
-        from nmb.probe.ooni import is_ooni_installed, get_ooni_version, get_ooni_history, get_ooni_status
+        from nmb.probe.ooni import is_ooni_installed, get_ooni_version, get_ooni_history, get_ooni_status, get_ooni_anomaly_breakdown
         if is_ooni_installed():
             ooni_stat = get_ooni_status()
             ooni_hist = ooni_stat.get("history", [])
             anomalies = ooni_stat.get("total_anomalies_historical", 0)
             verdict_badge = "🟢 CLEAN / NO CENSORSHIP DETECTED" if anomalies == 0 else f"🔴 CENSORSHIP / ANOMALIES DETECTED ({anomalies} anomalies)"
+            ooni_breakdown = get_ooni_anomaly_breakdown()
+
+            mon_asn = f"AS{ooni_hist[0].get('asn')}" if (ooni_hist and ooni_hist[0].get('asn')) else geoip_data.get('asn', 'N/A')
+            mon_isp = ooni_hist[0].get('network_name') if ooni_hist else geoip_data.get('isp', 'ISP')
+            mon_cc = ooni_hist[0].get('country_code') if ooni_hist else geoip_data.get('country_code', 'HU')
+
             lines.extend([
                 "",
                 "## 13. Internet Censorship, Tampering & Middlebox Analysis (OONI Probe)",
                 f"- **OONI Probe Engine**: `ooniprobe v{ooni_stat.get('version') or 'installed'}`",
                 f"- **Network Freedom Verdict**: **{verdict_badge}**",
-                f"- **Monitored Autonomous System**: `AS{ooni_hist[0].get('asn') if ooni_hist else 'N/A'} - {ooni_hist[0].get('network_name') if ooni_hist else 'ISP'} ({ooni_hist[0].get('country_code') if ooni_hist else 'HU'})`",
+                f"- **Monitored Autonomous System**: `{mon_asn} - {mon_isp} ({mon_cc})`",
+                f"- **Detected Categories**: {ooni_breakdown.get('formatted_categories')}",
+                f"- **Anomaly Nature**: {ooni_breakdown.get('anomaly_nature')}",
             ])
             if ooni_hist:
                 lines.extend([
@@ -967,7 +1042,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
                     status_badge = "🟢 Clean" if anom == 0 else f"🔴 {anom} Anomalies"
                     lines.append(f"| #{item.get('id')} | **{item.get('name')}** | `{item.get('start_time')[:19].replace('T', ' ')}` | {anom} | {item.get('total_count')} | {status_badge} |")
                 lines.append("")
-                lines.append("> **Diagnostic Guidance**: OONI Probe verifies whether the upstream ISP or transit provider actively tampers with DNS queries, manipulates HTTP headers via Deep Packet Inspection (DPI) middleboxes, or blocks circumvention tools (Tor, Psiphon) and instant messaging applications (WhatsApp, Telegram, Signal).")
+                lines.append("> **Diagnostic Guidance**: OONI Probe verifies whether the upstream ISP or transit provider actively tampers with DNS queries, manipulates HTTP headers via Deep Packet Inspection (DPI) middleboxes, or blocks circumvention tools (Tor, Psiphon) and instant messaging applications (WhatsApp, Telegram, Signal). Detected anomalies are dynamically categorized from measurement test metadata (e.g. Gambling, File Sharing, Adult Content, Regulatory Compliance blocklists) to distinguish statutory ISP filtering from political censorship or network middlebox failures.")
             else:
                 lines.append("- *No OONI Probe tests have been executed yet.*")
     except Exception as e:

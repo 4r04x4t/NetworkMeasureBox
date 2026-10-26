@@ -279,6 +279,29 @@ def get_guest_wifi_status(
     else:
         res["isolation_verdict"] = "⚪ Guest Wi-Fi client is inactive or disconnected."
 
+    # 5. Fallback IP resolution via iproute2 if nmcli omitted IP
+    if not res.get("ip_address") and iface:
+        try:
+            ret, stdout, _ = _run_cmd(["ip", "-o", "-4", "addr", "show", iface], timeout=2.0)
+            if ret == 0 and stdout:
+                parts = stdout.strip().split()
+                if len(parts) >= 4:
+                    cidr_val = parts[3]
+                    res["cidr"] = cidr_val
+                    res["ip_address"] = cidr_val.split("/")[0]
+                    try:
+                        res["subnet"] = str(ipaddress.ip_network(cidr_val, strict=False))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    # Ensure alias keys exist for consumers querying either naming scheme
+    res["ip"] = res.get("ip_address", "")
+    res["mac"] = res.get("mac_address", "")
+    res["signal"] = res.get("signal_percent", 0)
+    res["metric"] = res.get("route_metric", 600)
+
     return res
 
 

@@ -216,6 +216,126 @@ def get_ooni_run_measurements(run_id: int) -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 
+OONI_CATEGORIES: Dict[str, str] = {
+    "GMB": "Gambling/Betting",
+    "FILE": "File Sharing",
+    "PORN": "Adult Content",
+    "NEWS": "Major News",
+    "POL": "Political",
+    "HOST": "Hosting/Blogging",
+    "COMT": "Communications",
+    "ANON": "Anonymization/Circumvention",
+    "ALDR": "Alcohol/Drugs",
+    "HATE": "Hate Speech",
+    "PUBH": "Public Health",
+    "REL": "Religion",
+    "XCG": "Provocative Attire",
+    "LGBT": "LGBTQ+",
+    "GRP": "Social Groups",
+    "GAME": "Gaming",
+    "ENV": "Environment",
+    "ECON": "Economics",
+    "MMED": "Media Sharing",
+    "SRCH": "Search Engines",
+    "MISC": "Miscellaneous",
+}
+
+
+def get_ooni_anomaly_breakdown(run_id: Optional[int] = None) -> Dict[str, Any]:
+    """Extract tested categories, anomaly counts, and blocking types from OONI run measurements.
+    
+    Returns structured summary:
+      {
+        "total_anomalies": int,
+        "category_counts": {"GMB": 12, "FILE": 3},
+        "formatted_categories": "15 anomalies [12x Gambling/Betting (GMB), 3x File Sharing (FILE)]",
+        "anomaly_nature": "Likely regulatory / ISP compliance blocklist (DNS sinkhole / HTTP 451)",
+        "blocking_types": ["dns", "http-failure"],
+      }
+    """
+    if run_id is None:
+        hist = get_ooni_history(limit=5)
+        # Find latest run that has anomalies, or fallback to first
+        target_run = next((h for h in hist if h.get("anomaly_count", 0) > 0), None)
+        if not target_run and hist:
+            target_run = hist[0]
+        if target_run:
+            run_id = target_run.get("id")
+
+    if not run_id:
+        return {
+            "total_anomalies": 0,
+            "category_counts": {},
+            "formatted_categories": "None (0 anomalies detected)",
+            "anomaly_nature": "Clean (No regulatory blocklists or DPI tampering detected)",
+            "blocking_types": [],
+        }
+
+    meas_data = get_ooni_run_measurements(run_id)
+    measurements = meas_data.get("measurements", []) if isinstance(meas_data, dict) else []
+
+    cat_counts: Dict[str, int] = {}
+    total_anomalies = 0
+    blocking_types = set()
+
+    for m in measurements:
+        if m.get("is_anomaly"):
+            total_anomalies += 1
+            code = (m.get("category") or "MISC").upper()
+            cat_counts[code] = cat_counts.get(code, 0) + 1
+            blk = m.get("blocking")
+            if blk and blk != "clean":
+                blocking_types.add(blk)
+
+    if total_anomalies == 0:
+        return {
+            "total_anomalies": 0,
+            "category_counts": {},
+            "formatted_categories": "None (0 anomalies detected across all tested categories)",
+            "anomaly_nature": "Clean (No regulatory blocklists or DPI tampering detected)",
+            "blocking_types": [],
+        }
+
+    # Format sorted category items: e.g. [12x Gambling/Betting (GMB), 3x File Sharing (FILE)]
+    items_str = []
+    for code, count in sorted(cat_counts.items(), key=lambda x: -x[1]):
+        name = OONI_CATEGORIES.get(code, code)
+        items_str.append(f"{count}x {name} ({code})")
+
+    formatted = f"{total_anomalies} anomalies [{', '.join(items_str)}]"
+
+    # Formulate Anomaly Nature based on detected blocking methods and categories
+    blk_terms = []
+    if any("dns" in b.lower() for b in blocking_types):
+        blk_terms.append("DNS sinkhole")
+    if any("http" in b.lower() for b in blocking_types):
+        blk_terms.append("HTTP 451")
+    if any("tcp" in b.lower() or "reset" in b.lower() for b in blocking_types):
+        blk_terms.append("TCP reset")
+
+    blk_suffix = f" ({' / '.join(blk_terms)})" if blk_terms else " (DNS sinkhole / HTTP 451)"
+
+    compliance_codes = {"GMB", "FILE", "PORN", "ALDR", "MISC", "HOST", "MMED", "SRCH"}
+    pol_codes = {"POL", "NEWS", "COMT", "ANON", "LGBT", "REL"}
+
+    comp_count = sum(cnt for c, cnt in cat_counts.items() if c in compliance_codes)
+    pol_count = sum(cnt for c, cnt in cat_counts.items() if c in pol_codes)
+
+    if comp_count >= pol_count:
+        anomaly_nature = f"Likely regulatory / ISP compliance blocklist{blk_suffix}"
+    else:
+        anomaly_nature = f"Potential information controls / access restrictions{blk_suffix}"
+
+    return {
+        "total_anomalies": total_anomalies,
+        "category_counts": cat_counts,
+        "formatted_categories": formatted,
+        "anomaly_nature": anomaly_nature,
+        "blocking_types": list(blocking_types),
+    }
+
+
+
 def get_ooni_measurement_detail(msmt_id: int) -> Dict[str, Any]:
     """Retrieve complete deep inspection details for a single OONI measurement."""
     bin_path = find_ooniprobe_bin()
