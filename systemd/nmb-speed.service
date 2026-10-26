@@ -7,7 +7,7 @@ Wants=nmb-db.service
 Type=oneshot
 User=nmb
 Group=nmb
-Environment=PYTHONPATH=/opt/nmb HOME=/var/lib/nmb
+Environment=PYTHONPATH=/opt/nmb HOME=/var/lib/nmb MALLOC_ARENA_MAX=2 PYTHONUNBUFFERED=1
 ExecStart=/opt/nmb/bin/nmb-speed --trigger schedule
 TimeoutStartSec=1800
 Nice=15

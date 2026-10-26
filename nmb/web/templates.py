@@ -786,6 +786,7 @@ def get_dashboard_html() -> str:
       <div><span class="meta-lbl" data-i18n="box_id">Device ID:</span> <span id="hdr-box-id" class="meta-val">nmb-01</span></div>
       <div><span class="meta-lbl" data-i18n="firmware">Firmware:</span> <span id="hdr-fw-ver" class="meta-val">2.5.0</span></div>
       <div><span class="meta-lbl" data-i18n="net_mode">Net Mode:</span> <span id="hdr-mode" class="meta-val">standalone</span></div>
+      <div><span class="meta-lbl" data-i18n="hdr_ram">RAM:</span> <span id="hdr-ram-val" class="meta-val">--</span></div>
     </div>
     <div class="app-header-center">
       <h1 class="app-title">NetworkMeasureBox</h1>
@@ -3172,6 +3173,95 @@ def get_dashboard_html() -> str:
 
       <!-- SUBTAB 9: SYSTEM & FIREWALL -->
       <div id="rsub-system" class="router-subtab-content">
+        <!-- Hardware RAM & Memory Optimization Profile Card -->
+        <div class="router-section-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+                <span>🧠</span>
+                <span data-i18n="mem_card_title">Hardware RAM & Memory Optimization Profile</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n="mem_card_desc">
+                Dynamic resource tuning for embedded routers (512 MB RAM), single-board computers, and high-performance appliances.
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span id="mem-profile-pill" class="badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #0284c7;">
+                Profile: Auto
+              </span>
+              <span id="mem-low-pill" class="badge-pill" style="display: none; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #d97706;">
+                ⚡ 512MB Router Mode
+              </span>
+            </div>
+          </div>
+
+          <!-- Memory Telemetry Gauges -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">
+            <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="mem_total_ram">Total Physical RAM</div>
+              <div id="mem-stat-total" style="font-size: 18px; font-weight: 800; color: #38bdf8; font-family: monospace; margin-top: 4px;">-- MB</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" id="mem-stat-target">Target: Auto-detected</div>
+            </div>
+            <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="mem_avail_ram">Available / Free RAM</div>
+              <div id="mem-stat-avail" style="font-size: 18px; font-weight: 800; color: #10b981; font-family: monospace; margin-top: 4px;">-- MB</div>
+              <div style="font-size: 11px; color: #10b981; margin-top: 2px;" id="mem-stat-avail-pct">--% Free</div>
+            </div>
+            <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="mem_effective_profile">Active Engine Profile</div>
+              <div id="mem-stat-active-prof" style="font-size: 18px; font-weight: 800; color: #a855f7; font-family: monospace; margin-top: 4px;">AUTO</div>
+              <div style="font-size: 11px; color: #a855f7; margin-top: 2px;" id="mem-stat-sqlite-cache">SQLite: 4MB Cache</div>
+            </div>
+            <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="mem_socket_buffers">Socket & Kernel VM</div>
+              <div id="mem-stat-vm-buffers" style="font-size: 18px; font-weight: 800; color: #fbbf24; font-family: monospace; margin-top: 4px;">Bounded 4MB</div>
+              <div style="font-size: 11px; color: #fbbf24; margin-top: 2px;" id="mem-stat-arena">glibc Arena: Max 2</div>
+            </div>
+          </div>
+
+          <!-- Memory Usage Bar -->
+          <div style="margin-bottom: 16px; background: #0f172a; padding: 10px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px;">
+              <span style="color: var(--text-muted);" data-i18n="mem_utilization">System RAM Utilization:</span>
+              <span id="mem-used-pct-label" style="font-weight: 700; color: #e2e8f0; font-family: monospace;">--%</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: #1e293b; border-radius: 4px; overflow: hidden;">
+              <div id="mem-used-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #10b981, #38bdf8); transition: width 0.4s ease, background 0.4s ease;"></div>
+            </div>
+          </div>
+
+          <!-- Configuration Row -->
+          <div class="router-row-2">
+            <div class="form-group">
+              <label class="form-label" data-i18n="mem_profile_label">Memory Optimization Profile:</label>
+              <select id="cfg-memory-profile" class="form-input" onchange="onMemoryProfileSelectChange(this.value)">
+                <option value="auto" data-i18n="mem_profile_opt_auto">Automatic (Auto-detects RAM; low profile on &le; 768MB)</option>
+                <option value="low" data-i18n="mem_profile_opt_low">Embedded Router / Low RAM (512MB RAM, 4MB SQLite cache, bounded buffers)</option>
+                <option value="standard" data-i18n="mem_profile_opt_std">Standard (1 GB - 2 GB RAM, balanced cache & buffers)</option>
+                <option value="performance" data-i18n="mem_profile_opt_perf">High Performance (4 GB+ RAM, 64MB buffers, 256MB mmap)</option>
+              </select>
+              <div class="form-hint" data-i18n="mem_profile_hint">
+                Controls SQLite page cache, mmap threshold, live DB size cap (48MB vs 192MB), TCP socket buffer limits, and glibc heap trimming.
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="mem_actions_label">Process & Memory Maintenance:</label>
+              <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
+                <button type="button" class="btn-primary" style="padding: 7px 16px; font-size: 12.5px;" onclick="saveMemoryProfileOnly()" data-i18n="mem_btn_save_prof">
+                  💾 Apply Profile
+                </button>
+                <button type="button" class="btn-secondary" style="padding: 7px 16px; font-size: 12.5px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" onclick="trimMemoryNow()" data-i18n="mem_btn_trim">
+                  🧹 Trim & Free RAM Now
+                </button>
+              </div>
+              <div class="form-hint" data-i18n="mem_trim_hint">
+                Calls libc malloc_trim(0) and garbage collector to immediately release unmapped heap memory back to the Linux kernel.
+              </div>
+            </div>
+          </div>
+        </div>
+
+
         <div class="router-section-card">
           <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;" data-i18n="fw_title">NAT Routing & Firewall Security</div>
           <div class="router-row-2">
@@ -3397,7 +3487,54 @@ def get_dashboard_html() -> str:
     if (b) b.classList.add('active');
 
     if (tabId === 'tab-script' && serverList.length === 0) {
-      loadServers();
+    
+  function onMemoryProfileSelectChange(val) {
+    window.memoryProfileDirty = true;
+  }
+
+  async function saveMemoryProfileOnly() {
+    const sel = document.getElementById('cfg-memory-profile');
+    const prof = sel ? sel.value : 'auto';
+    showToast(t('toast_saving', 'Saving...'));
+    try {
+      const res = await fetch('/api/system/memory_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memory_profile: prof })
+      });
+      if (res.ok) {
+        window.memoryProfileDirty = false;
+        showToast(t('toast_mem_saved', 'Memory profile updated successfully!'));
+        refreshStatus();
+      } else {
+        const err = await res.json();
+        showToast('Error: ' + (err.message || 'Failed to save profile'));
+      }
+    } catch (e) {
+      showToast('Error saving memory profile');
+    }
+  }
+
+  async function trimMemoryNow() {
+    const btn = document.querySelector('button[onclick="trimMemoryNow()"]');
+    if (btn) btn.disabled = true;
+    showToast('🧹 Trimming process heap...');
+    try {
+      const res = await fetch('/api/system/trim_memory', { method: 'POST' });
+      if (res.ok) {
+        showToast(t('toast_mem_trimmed', 'Process heap trimmed and memory released to the OS!'));
+        refreshStatus();
+      } else {
+        showToast('Error trimming memory');
+      }
+    } catch (e) {
+      showToast('Error trimming memory');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+    loadServers();
     }
     if (tabId === 'tab-info') {
       loadConfig();
@@ -3674,6 +3811,70 @@ def get_dashboard_html() -> str:
         if (badge && userSpan) {
           userSpan.textContent = data.admin_username || 'admin';
           badge.style.display = 'inline-flex';
+        }
+      }
+
+            // Memory Telemetry & Profile
+      if (data.memory) {
+        const memTot = data.memory.ram_total_mb || 0;
+        const memAvail = data.memory.ram_available_mb || 0;
+        const memUsed = Math.max(0, memTot - memAvail);
+        const memPct = memTot > 0 ? Math.min(100, Math.max(0, Math.round((memUsed / memTot) * 100))) : 0;
+        const isLow = !!data.memory.is_low_memory;
+        const confProf = data.memory.configured_profile || 'auto';
+        const effProf = data.memory.effective_profile || (isLow ? 'low' : 'standard');
+
+        const hdrRam = document.getElementById('hdr-ram-val');
+        if (hdrRam) {
+          hdrRam.innerText = `${memAvail} / ${memTot} MB`;
+          hdrRam.title = `Total: ${memTot} MB, Avail: ${memAvail} MB (${100 - memPct}% free)`;
+        }
+
+        const elTot = document.getElementById('mem-stat-total');
+        if (elTot) elTot.innerText = `${memTot} MB`;
+
+        const elAvail = document.getElementById('mem-stat-avail');
+        if (elAvail) elAvail.innerText = `${memAvail} MB`;
+
+        const elAvailPct = document.getElementById('mem-stat-avail-pct');
+        if (elAvailPct) elAvailPct.innerText = `${100 - memPct}% Free`;
+
+        const elTarget = document.getElementById('mem-stat-target');
+        if (elTarget) elTarget.innerText = isLow ? '≤ 768MB (Router Target)' : 'Standard / High RAM';
+
+        const elProf = document.getElementById('mem-stat-active-prof');
+        if (elProf) elProf.innerText = effProf.toUpperCase();
+
+        const elSqlite = document.getElementById('mem-stat-sqlite-cache');
+        if (elSqlite) {
+          elSqlite.innerText = effProf === 'low' ? 'SQLite: 4MB Cache (File Temp)' : (effProf === 'performance' ? 'SQLite: 64MB Cache' : 'SQLite: 16MB Cache');
+        }
+
+        const elVm = document.getElementById('mem-stat-vm-buffers');
+        if (elVm) {
+          elVm.innerText = effProf === 'low' ? 'Bounded 4MB (min_free: 8M)' : (effProf === 'performance' ? 'High 64MB (min_free: 64M)' : 'Standard 16MB');
+        }
+
+        const elPill = document.getElementById('mem-profile-pill');
+        if (elPill) elPill.innerText = `Profile: ${confProf.toUpperCase()} (${effProf.toUpperCase()})`;
+
+        const elLowPill = document.getElementById('mem-low-pill');
+        if (elLowPill) elLowPill.style.display = isLow ? 'inline-flex' : 'none';
+
+        const elUsedLbl = document.getElementById('mem-used-pct-label');
+        if (elUsedLbl) elUsedLbl.innerText = `${memPct}% (${memUsed} MB used)`;
+
+        const elBar = document.getElementById('mem-used-bar');
+        if (elBar) {
+          elBar.style.width = `${memPct}%`;
+          if (memPct > 85) elBar.style.background = '#ef4444';
+          else if (memPct > 70) elBar.style.background = '#f59e0b';
+          else elBar.style.background = 'linear-gradient(90deg, #10b981, #38bdf8)';
+        }
+
+        const selProf = document.getElementById('cfg-memory-profile');
+        if (selProf && document.activeElement !== selProf && !window.memoryProfileDirty) {
+          selProf.value = confProf;
         }
       }
 
@@ -5473,6 +5674,7 @@ def get_dashboard_html() -> str:
 
       // System
       if (document.getElementById('cfg-sqm-algo')) document.getElementById('cfg-sqm-algo').value = d.sqm_algorithm || 'cake';
+      if (document.getElementById('cfg-memory-profile')) document.getElementById('cfg-memory-profile').value = d.memory_profile || 'auto';
 
     } catch (e) {
       console.error('loadConfig error:', e);
@@ -5546,6 +5748,7 @@ def get_dashboard_html() -> str:
       guaranteed_up_mbps: parseFloat(document.getElementById('cfg-guaranteed-up').value) || 0,
 
       sqm_algorithm: document.getElementById('cfg-sqm-algo').value,
+      memory_profile: document.getElementById('cfg-memory-profile') ? document.getElementById('cfg-memory-profile').value : 'auto',
     };
 
     if (pppoePass) payload.pppoe_password = pppoePass;

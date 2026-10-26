@@ -8,7 +8,7 @@ PartOf=nmb.target
 Type=simple
 User=nmb
 Group=nmb
-Environment=PYTHONPATH=/opt/nmb
+Environment=PYTHONPATH=/opt/nmb MALLOC_ARENA_MAX=2 PYTHONUNBUFFERED=1
 ExecStart=/opt/nmb/bin/nmb-probe
 Restart=always
 RestartSec=3s

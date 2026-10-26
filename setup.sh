@@ -204,6 +204,23 @@ if grep -q "admin_password = admin" "$CONFIG_FILE" 2>/dev/null; then
     info "Generated secure random Web UI admin password: $NEW_ADMIN_PASS"
 fi
 
+# Detect low-memory embedded target (512MB RAM router / Pi Zero)
+TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo 1048576)
+if [ "$TOTAL_RAM_KB" -le 800000 ]; then
+    info "Low-memory target detected (${TOTAL_RAM_KB} kB RAM). Optimizing for 512MB RAM embedded router..."
+    if grep -q "memory_profile = " "$CONFIG_FILE" 2>/dev/null; then
+        sed -i "s/memory_profile = .*/memory_profile = low/" "$CONFIG_FILE"
+    fi
+    SWAP_TOTAL=$(free -m 2>/dev/null | awk '/Swap:/ {print $2}' || echo 0)
+    if [ "$SWAP_TOTAL" -eq 0 ]; then
+        warn "No swap space detected on 512MB system. Enabling compressed zram swap for maximum stability..."
+        if [ "$OS_TYPE" = "debian" ] && command -v apt-get >/dev/null 2>&1; then
+            apt-get install -y zram-tools 2>/dev/null || true
+            systemctl enable --now zramswap 2>/dev/null || true
+        fi
+    fi
+fi
+
 chown "$NMB_USER":"$NMB_USER" "$CONFIG_FILE"
 chmod 0600 "$CONFIG_FILE"
 

@@ -58,6 +58,9 @@ class SnifferEngine:
     """Multi-threaded AF_PACKET raw frame sniffer and flow analyzer."""
 
     def __init__(self, default_iface: str = "eth0", max_packets: int = 250):
+        from nmb.common.memory import is_low_memory_system
+        if is_low_memory_system():
+            max_packets = min(max_packets, 100)
         self.default_iface = default_iface
         self.max_packets = max_packets
         self.running = False
@@ -119,6 +122,8 @@ class SnifferEngine:
             self.tcp_rst_count = 0
             self._pcap_frames.clear()
             self._packet_counter = 0
+        from nmb.common.memory import trim_process_memory
+        trim_process_memory()
         log.info("packet sniffer telemetry cleared")
 
     def _capture_loop(self) -> None:

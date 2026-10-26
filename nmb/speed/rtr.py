@@ -59,8 +59,10 @@ def execute_rtr_speedtest(
         protocol, params.token, min(params.num_threads, 12)
     )
 
-    dl_threads = max(1, min(force_threads or pt.dl_threads, 8))
-    ul_threads = max(1, min(force_threads or pt.ul_threads, 8))
+    from nmb.common.memory import is_low_memory_system, trim_process_memory
+    max_th = 3 if is_low_memory_system() else 8
+    dl_threads = max(1, min(force_threads or pt.dl_threads, max_th))
+    ul_threads = max(1, min(force_threads or pt.ul_threads, max_th))
     dl_chunk = pt.chunk_size
     ul_chunk = min(dl_chunk, tests.MAX_UL_CHUNK)
     test_duration = max(3, min(params.duration, duration_sec))
@@ -197,3 +199,5 @@ def execute_rtr_speedtest(
         engine="rtr",
         colo="VIE",
     )
+    trim_process_memory()
+    return res

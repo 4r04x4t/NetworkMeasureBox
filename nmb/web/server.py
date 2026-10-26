@@ -1114,6 +1114,36 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             })
             return
 
+        # 8.1 Memory Profile & Heap Trimming
+        if path == "/api/system/memory_profile":
+            new_prof = str(body_json.get("memory_profile", body_json.get("profile", "auto"))).strip().lower()
+            if new_prof in ("auto", "low", "standard", "performance"):
+                self.server.cfg.system.memory_profile = new_prof
+                save_config(self.server.cfg)
+                from nmb.common.memory import get_effective_memory_profile, trim_process_memory
+                trim_process_memory()
+                eff = get_effective_memory_profile(new_prof)
+                self._send_json({
+                    "status": "ok",
+                    "profile": new_prof,
+                    "effective_profile": eff,
+                    "message": f"Memory profile updated to {new_prof} ({eff})."
+                })
+            else:
+                self._send_json({"status": "error", "message": "Invalid memory profile"}, status=400)
+            return
+
+        if path == "/api/system/trim_memory":
+            from nmb.common.memory import get_available_ram_mb, get_total_ram_mb, trim_process_memory
+            trim_process_memory()
+            self._send_json({
+                "status": "ok",
+                "message": "Garbage collection executed and glibc heap arenas trimmed.",
+                "ram_total_mb": get_total_ram_mb(),
+                "ram_available_mb": get_available_ram_mb(),
+            })
+            return
+
         # 9. iPerf3 Client Run
         if path == "/api/iperf/run":
             target_host = str(body_json.get("host") or getattr(self.server.cfg.iperf, "target_host", "speedtest.serverius.net")).strip()
@@ -1790,6 +1820,19 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "auth_enabled": bool(getattr(self.server.cfg.web, "auth_enabled", True)),
             "admin_username": getattr(self.server.cfg.web, "admin_username", "admin"),
         }
+        from nmb.common.memory import (
+            get_available_ram_mb,
+            get_effective_memory_profile,
+            get_total_ram_mb,
+            is_low_memory_system,
+        )
+        status_dict["memory"] = {
+            "ram_total_mb": get_total_ram_mb(),
+            "ram_available_mb": get_available_ram_mb(),
+            "configured_profile": getattr(self.server.cfg.system, "memory_profile", "auto"),
+            "effective_profile": get_effective_memory_profile(getattr(self.server.cfg.system, "memory_profile", "auto")),
+            "is_low_memory": is_low_memory_system(),
+        }
         self._send_json(status_dict)
 
     def _handle_api_get_config(self) -> None:
@@ -1797,6 +1840,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         wan_iface = cfg.network.wan_interface
         data = {
             "box_id": cfg.system.box_id,
+            "memory_profile": getattr(cfg.system, "memory_profile", "auto"),
             "network_mode": cfg.network.mode,
             "wan_interface": wan_iface,
             "lan_interface": cfg.network.lan_interface,
@@ -2083,6 +2127,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             cfg.speedtest.server_name = str(body["speedtest_server_name"]).strip()
         if "speedtest_server_host" in body:
             cfg.speedtest.server_host = str(body["speedtest_server_host"]).strip()
+        if "memory_profile" in body:
+            cfg.system.memory_profile = str(body["memory_profile"]).strip().lower()
         if "admin_username" in body and str(body["admin_username"]).strip():
             cfg.web.admin_username = str(body["admin_username"]).strip()
         if "admin_password" in body and body["admin_password"]:

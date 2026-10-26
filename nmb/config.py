@@ -20,6 +20,8 @@ box_id = nmb-01
 data_dir = /var/lib/nmb
 run_dir = /run/nmb
 log_dir = /var/log/nmb
+# Memory profile: auto (auto-detects <= 512MB RAM), low (embedded router mode), standard (1GB-2GB), performance (4GB+)
+memory_profile = auto
 
 [network]
 # Operational mode: auto, mode_a (active gateway), mode_b (passive inline), standalone (endpoint probe)
@@ -174,6 +176,7 @@ class SystemConfig:
     run_dir: Path = Path("/run/nmb")
     log_dir: Path = Path("/var/log/nmb")
     sqm_algorithm: str = "cake"
+    memory_profile: str = "auto"  # auto, low, standard, performance
 
 
 @dataclass
@@ -419,6 +422,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.system.run_dir = Path(s.get("run_dir", str(cfg.system.run_dir)))
         cfg.system.log_dir = Path(s.get("log_dir", str(cfg.system.log_dir)))
         cfg.system.sqm_algorithm = s.get("sqm_algorithm", getattr(cfg.system, "sqm_algorithm", "cake")).strip().lower()
+        cfg.system.memory_profile = s.get("memory_profile", getattr(cfg.system, "memory_profile", "auto")).strip().lower()
 
     if parser.has_section("network"):
         n = parser["network"]
@@ -651,6 +655,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["system"]["run_dir"] = str(cfg.system.run_dir)
     parser["system"]["log_dir"] = str(cfg.system.log_dir)
     parser["system"]["sqm_algorithm"] = str(getattr(cfg.system, "sqm_algorithm", "cake"))
+    parser["system"]["memory_profile"] = str(getattr(cfg.system, "memory_profile", "auto")).lower()
 
     # Network
     parser["network"]["mode"] = str(cfg.network.mode)

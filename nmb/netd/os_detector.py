@@ -25,6 +25,18 @@ _update_in_progress = False
 
 def detect_os_info() -> Dict[str, Any]:
     """Detect operating system distribution, release, architecture and package manager."""
+    from nmb.common.memory import (
+        get_available_ram_mb,
+        get_effective_memory_profile,
+        get_total_ram_mb,
+        is_low_memory_system,
+    )
+
+    ram_tot = get_total_ram_mb()
+    ram_avail = get_available_ram_mb()
+    low_mem = is_low_memory_system()
+    eff_profile = get_effective_memory_profile()
+
     info: Dict[str, Any] = {
         "system": platform.system(),
         "node": platform.node(),
@@ -37,6 +49,11 @@ def detect_os_info() -> Dict[str, Any]:
         "distro_version": "",
         "package_manager": None,
         "is_raspberry_pi": False,
+        "is_router": False,
+        "is_low_memory": low_mem,
+        "ram_total_mb": ram_tot,
+        "ram_available_mb": ram_avail,
+        "memory_profile": eff_profile,
         "hardware_model": "Generic Linux Device",
     }
 
@@ -63,7 +80,21 @@ def detect_os_info() -> Dict[str, Any]:
                 log.debug("could not parse %s: %s", path, e)
             break
 
-    # 2. Check for Raspberry Pi model
+    # 1.1 Check OpenWrt Router System
+    if Path("/etc/openwrt_release").exists() or Path("/etc/openwrt_version").exists():
+        info["is_router"] = True
+        info["distro_id"] = "openwrt"
+        info["distro_name"] = "OpenWrt Embedded Linux"
+        try:
+            owrt_rel = Path("/etc/openwrt_release")
+            if owrt_rel.exists():
+                for line in owrt_rel.read_text().splitlines():
+                    if "DISTRIB_RELEASE=" in line:
+                        info["distro_version"] = line.split("=", 1)[1].strip("\"'")
+        except Exception:
+            pass
+
+    # 2. Check for Raspberry Pi model or Embedded Router
     dt_model = Path("/proc/device-tree/model")
     if dt_model.exists():
         try:
@@ -72,20 +103,27 @@ def detect_os_info() -> Dict[str, Any]:
                 info["hardware_model"] = model_str
                 if "raspberry pi" in model_str.lower():
                     info["is_raspberry_pi"] = True
+                if any(x in model_str.lower() for x in ("router", "gl-", "nanopi", "orangepi", "banana pi")):
+                    info["is_router"] = True
         except Exception:
             pass
+
+    if low_mem:
+        info["hardware_model"] += " (512MB Low-RAM Profile)"
 
     # 3. Detect available package manager
     if shutil.which("apt-get"):
         info["package_manager"] = "apt"
+    elif shutil.which("opkg"):
+        info["package_manager"] = "opkg"
+    elif shutil.which("apk"):
+        info["package_manager"] = "apk"
     elif shutil.which("dnf"):
         info["package_manager"] = "dnf"
     elif shutil.which("yum"):
         info["package_manager"] = "yum"
     elif shutil.which("pacman"):
         info["package_manager"] = "pacman"
-    elif shutil.which("apk"):
-        info["package_manager"] = "apk"
     elif shutil.which("zypper"):
         info["package_manager"] = "zypper"
 

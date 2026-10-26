@@ -6,6 +6,12 @@ box_id = nmb-01
 data_dir = /var/lib/nmb
 run_dir = /run/nmb
 log_dir = /var/log/nmb
+# Hardware Memory Profile:
+#   auto        - Automatically detects host RAM (activates 'low' if RAM <= 512MB / 768MB)
+#   low         - Embedded Router Mode: 4MB SQLite cache, 16MB mmap, 4MB socket limits, gc trim
+#   standard    - Standard Mode: 16MB SQLite cache, 64MB mmap (Raspberry Pi 3/4, 1-2GB RAM)
+#   performance - High Throughput: 64MB SQLite cache, 256MB mmap, 64MB sockets (4GB+ RAM)
+memory_profile = auto
 
 [network]
 # Operational Mode:

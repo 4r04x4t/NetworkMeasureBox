@@ -438,6 +438,8 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
     elapsed = time.monotonic() - t_start
     log.info("speedtest engine=%s completed in %.2fs (status=%s, down=%.1f Mbps, up=%.1f Mbps, ping=%.2f ms, error=%s)",
              engine, elapsed, res.status, down_mbps, up_mbps, ping_ms_val, res.error or "none")
+    from nmb.common.memory import trim_process_memory
+    trim_process_memory()
     return res
 
 
@@ -553,6 +555,8 @@ def run_measurement_cycle(
 
     conn.close()
     log.info("measurement cycle complete successfully")
+    from nmb.common.memory import trim_process_memory
+    trim_process_memory()
     return all_ok
 
 

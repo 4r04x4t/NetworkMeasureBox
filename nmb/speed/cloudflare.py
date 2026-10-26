@@ -194,19 +194,28 @@ def _probe_loaded_latency(stop_event: threading.Event, output_list: List[float])
 
 
 def measure_download_tier(byte_count: int, stop_loaded_probe: Optional[threading.Event] = None) -> Tuple[int, float]:
-    """Download specific chunk tier and return (bytes_read, duration_sec)."""
+    """Download specific chunk tier in small streamed blocks to prevent RAM bloat."""
     url = f"{BASE_URL}/__down?bytes={byte_count}"
     t0 = time.monotonic()
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    b_read = 0
     with urllib.request.urlopen(req, timeout=25.0) as resp:
-        data = resp.read()
+        while True:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            b_read += len(chunk)
     dur = max(0.001, time.monotonic() - t0)
-    return len(data), dur
+    return b_read, dur
 
 
 def measure_upload_tier(byte_count: int) -> Tuple[int, float]:
     """Upload byte chunk and return (bytes_written, duration_sec)."""
-    payload = b"0" * byte_count
+    # Bound upload payload in memory (max 10MB) to protect 512MB RAM devices
+    from nmb.common.memory import is_low_memory_system
+    max_payload = 10_000_000 if is_low_memory_system() else 25_000_000
+    actual_count = min(byte_count, max_payload)
+    payload = b"0" * actual_count
     url = f"{BASE_URL}/__up"
     t0 = time.monotonic()
     req = urllib.request.Request(
@@ -217,7 +226,7 @@ def measure_upload_tier(byte_count: int) -> Tuple[int, float]:
     with urllib.request.urlopen(req, timeout=25.0) as resp:
         _ = resp.read()
     dur = max(0.001, time.monotonic() - t0)
-    return len(payload), dur
+    return actual_count, dur
 
 
 def execute_cloudflare_speedtest() -> SpeedtestResult:
@@ -324,4 +333,6 @@ def execute_cloudflare_speedtest() -> SpeedtestResult:
         tier_downloads=tier_downloads,
         tier_uploads=tier_uploads,
     )
+    from nmb.common.memory import trim_process_memory
+    trim_process_memory()
     return res.to_speedtest_result()

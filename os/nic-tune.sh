@@ -39,7 +39,9 @@ tune_interface() {
 
     # 5. Interface transmit queue length (txqueuelen)
     if command -v ip >/dev/null 2>&1; then
-        ip link set dev "$dev" txqueuelen 10000 2>/dev/null || true
+        TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo 1048576)
+        TXQ=$([ "$TOTAL_RAM_KB" -le 800000 ] && echo 1000 || echo 10000)
+        ip link set dev "$dev" txqueuelen "$TXQ" 2>/dev/null || true
     fi
 
     # 6. Multi-core Packet Steering (RPS/RFS/XPS)

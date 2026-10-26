@@ -4,7 +4,21 @@
 set -eu
 
 NMB_USER=nmb
-TMPFS_DB_SIZE=${TMPFS_DB_SIZE:-256M}
+TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo 1048576)
+if [ "$TOTAL_RAM_KB" -le 800000 ]; then
+    TMPFS_DB_SIZE=${TMPFS_DB_SIZE:-48M}
+    TMPFS_TMP_SIZE="64M"
+    TMPFS_LOG_SIZE="16M"
+    JOURNAL_MAX="8M"
+    JOURNAL_FILE_MAX="2M"
+else
+    TMPFS_DB_SIZE=${TMPFS_DB_SIZE:-256M}
+    TMPFS_TMP_SIZE="256M"
+    TMPFS_LOG_SIZE="48M"
+    JOURNAL_MAX="32M"
+    JOURNAL_FILE_MAX="4M"
+fi
+
 FSTAB=/etc/fstab
 MARK="# nmb-managed"
 
@@ -31,9 +45,9 @@ install -d -m 2775 -o "$NMB_USER" -g "$NMB_USER" /var/lib/nmb/live /var/log/nmb 
 # 3. fstab: tmpfs mounts (+ noatime/commit on root)
 sed -i "/$MARK/d" "$FSTAB"
 cat >>"$FSTAB" <<EOF
-tmpfs /tmp              tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=512M 0 0 $MARK
-tmpfs /var/tmp          tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=512M  0 0 $MARK
-tmpfs /var/log          tmpfs defaults,noatime,nosuid,nodev,mode=0755,size=48M  0 0 $MARK
+tmpfs /tmp              tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=$TMPFS_TMP_SIZE 0 0 $MARK
+tmpfs /var/tmp          tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=$TMPFS_TMP_SIZE 0 0 $MARK
+tmpfs /var/log          tmpfs defaults,noatime,nosuid,nodev,mode=0755,size=$TMPFS_LOG_SIZE 0 0 $MARK
 tmpfs /var/lib/nmb/live tmpfs defaults,noatime,nosuid,nodev,noexec,mode=2775,uid=$NMB_UID,gid=$NMB_GID,size=$TMPFS_DB_SIZE 0 0 $MARK
 EOF
 
@@ -47,11 +61,11 @@ fi
 # 4. Logging to RAM
 if [ -d /etc/systemd ]; then
     install -d /etc/systemd/journald.conf.d
-    cat >/etc/systemd/journald.conf.d/50-nmb-volatile.conf <<'EOF'
+    cat >/etc/systemd/journald.conf.d/50-nmb-volatile.conf <<EOF
 [Journal]
 Storage=volatile
-RuntimeMaxUse=32M
-RuntimeMaxFileSize=4M
+RuntimeMaxUse=$JOURNAL_MAX
+RuntimeMaxFileSize=$JOURNAL_FILE_MAX
 Compress=yes
 ForwardToSyslog=no
 EOF

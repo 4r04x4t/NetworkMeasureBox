@@ -79,44 +79,95 @@ def apply_kernel_network_tuning() -> Dict[str, Any]:
         results["errors"].append(f"sysctl apply error: {e}")
         log.debug("sysctl apply exception: %s", e)
 
-    # 2. Configure Direct /proc/sys/net Parameters in case sysctl binary had partial errors
-    direct_sysctls = {
-        "/proc/sys/net/core/default_qdisc": "fq",
-        "/proc/sys/net/ipv4/tcp_congestion_control": "bbr",
-        "/proc/sys/net/core/rmem_max": "67108864",
-        "/proc/sys/net/core/wmem_max": "67108864",
-        "/proc/sys/net/core/rmem_default": "1048576",
-        "/proc/sys/net/core/wmem_default": "1048576",
-        "/proc/sys/net/core/optmem_max": "2097152",
-        "/proc/sys/net/core/netdev_max_backlog": "250000",
-        "/proc/sys/net/core/somaxconn": "65535",
-        "/proc/sys/net/core/busy_poll": "50",
-        "/proc/sys/net/core/busy_read": "50",
-        "/proc/sys/net/core/rps_sock_flow_entries": "32768",
-        "/proc/sys/net/ipv4/tcp_slow_start_after_idle": "0",
-        "/proc/sys/net/ipv4/tcp_window_scaling": "1",
-        "/proc/sys/net/ipv4/tcp_timestamps": "1",
-        "/proc/sys/net/ipv4/tcp_sack": "1",
-        "/proc/sys/net/ipv4/tcp_dsack": "1",
-        "/proc/sys/net/ipv4/tcp_adv_win_scale": "1",
-        "/proc/sys/net/ipv4/tcp_tw_reuse": "1",
-        "/proc/sys/net/ipv4/tcp_fin_timeout": "15",
-        "/proc/sys/net/ipv4/tcp_mtu_probing": "1",
-        "/proc/sys/net/ipv4/tcp_fastopen": "3",
-        "/proc/sys/net/ipv4/tcp_notsent_lowat": "16384",
-        "/proc/sys/net/ipv4/ping_group_range": "0 2147483647",
-        "/proc/sys/net/ipv4/conf/all/arp_ignore": "1",
-        "/proc/sys/net/ipv4/conf/all/arp_announce": "2",
-        "/proc/sys/net/ipv4/conf/default/arp_ignore": "1",
-        "/proc/sys/net/ipv4/conf/default/arp_announce": "2",
-        "/proc/sys/vm/vfs_cache_pressure": "50",
-        "/proc/sys/vm/swappiness": "1",
-        "/proc/sys/vm/dirty_background_ratio": "5",
-        "/proc/sys/vm/dirty_ratio": "20",
-        "/proc/sys/vm/dirty_expire_centisecs": "3000",
-        "/proc/sys/vm/dirty_writeback_centisecs": "500",
-        "/proc/sys/vm/min_free_kbytes": "65536",
-    }
+    # 2. Configure Direct /proc/sys/net Parameters tailored to hardware memory profile
+    from nmb.common.memory import get_effective_memory_profile
+    eff_profile = get_effective_memory_profile()
+    results["memory_profile"] = eff_profile
+
+    if eff_profile == "low":
+        # Embedded Router Profile (<= 512 MB RAM): bounded buffers, zero busy-poll, memory safety
+        direct_sysctls = {
+            "/proc/sys/net/core/default_qdisc": "fq",
+            "/proc/sys/net/ipv4/tcp_congestion_control": "bbr",
+            "/proc/sys/net/core/rmem_max": "4194304",        # 4 MB ceiling
+            "/proc/sys/net/core/wmem_max": "4194304",        # 4 MB ceiling
+            "/proc/sys/net/core/rmem_default": "262144",     # 256 KB
+            "/proc/sys/net/core/wmem_default": "262144",     # 256 KB
+            "/proc/sys/net/core/optmem_max": "262144",       # 256 KB
+            "/proc/sys/net/core/netdev_max_backlog": "5000", # 5K packets
+            "/proc/sys/net/core/somaxconn": "2048",
+            "/proc/sys/net/core/busy_poll": "0",             # Disabled to protect router CPU
+            "/proc/sys/net/core/busy_read": "0",
+            "/proc/sys/net/core/rps_sock_flow_entries": "4096",
+            "/proc/sys/net/ipv4/tcp_rmem": "4096 65536 4194304",
+            "/proc/sys/net/ipv4/tcp_wmem": "4096 65536 4194304",
+            "/proc/sys/net/ipv4/tcp_slow_start_after_idle": "0",
+            "/proc/sys/net/ipv4/tcp_window_scaling": "1",
+            "/proc/sys/net/ipv4/tcp_timestamps": "1",
+            "/proc/sys/net/ipv4/tcp_sack": "1",
+            "/proc/sys/net/ipv4/tcp_dsack": "1",
+            "/proc/sys/net/ipv4/tcp_adv_win_scale": "1",
+            "/proc/sys/net/ipv4/tcp_tw_reuse": "1",
+            "/proc/sys/net/ipv4/tcp_fin_timeout": "15",
+            "/proc/sys/net/ipv4/tcp_max_syn_backlog": "4096",
+            "/proc/sys/net/ipv4/tcp_mtu_probing": "1",
+            "/proc/sys/net/ipv4/tcp_fastopen": "3",
+            "/proc/sys/net/ipv4/tcp_notsent_lowat": "16384",
+            "/proc/sys/net/ipv4/ping_group_range": "0 2147483647",
+            "/proc/sys/net/ipv4/conf/all/arp_ignore": "1",
+            "/proc/sys/net/ipv4/conf/all/arp_announce": "2",
+            "/proc/sys/net/ipv4/conf/default/arp_ignore": "1",
+            "/proc/sys/net/ipv4/conf/default/arp_announce": "2",
+            "/proc/sys/vm/vfs_cache_pressure": "100",        # Aggressively reclaim dentry/inode RAM
+            "/proc/sys/vm/swappiness": "10",
+            "/proc/sys/vm/dirty_background_ratio": "5",
+            "/proc/sys/vm/dirty_ratio": "15",
+            "/proc/sys/vm/dirty_expire_centisecs": "1500",
+            "/proc/sys/vm/dirty_writeback_centisecs": "500",
+            "/proc/sys/vm/min_free_kbytes": "8192",          # 8 MB instead of 64 MB (leaves RAM for applications!)
+        }
+    else:
+        # Standard / Performance Profile (1GB+ RAM): multi-gigabit mega buffers
+        direct_sysctls = {
+            "/proc/sys/net/core/default_qdisc": "fq",
+            "/proc/sys/net/ipv4/tcp_congestion_control": "bbr",
+            "/proc/sys/net/core/rmem_max": "67108864",
+            "/proc/sys/net/core/wmem_max": "67108864",
+            "/proc/sys/net/core/rmem_default": "1048576",
+            "/proc/sys/net/core/wmem_default": "1048576",
+            "/proc/sys/net/core/optmem_max": "2097152",
+            "/proc/sys/net/core/netdev_max_backlog": "250000",
+            "/proc/sys/net/core/somaxconn": "65535",
+            "/proc/sys/net/core/busy_poll": "50",
+            "/proc/sys/net/core/busy_read": "50",
+            "/proc/sys/net/core/rps_sock_flow_entries": "32768",
+            "/proc/sys/net/ipv4/tcp_rmem": "4096 1048576 67108864",
+            "/proc/sys/net/ipv4/tcp_wmem": "4096 1048576 67108864",
+            "/proc/sys/net/ipv4/tcp_slow_start_after_idle": "0",
+            "/proc/sys/net/ipv4/tcp_window_scaling": "1",
+            "/proc/sys/net/ipv4/tcp_timestamps": "1",
+            "/proc/sys/net/ipv4/tcp_sack": "1",
+            "/proc/sys/net/ipv4/tcp_dsack": "1",
+            "/proc/sys/net/ipv4/tcp_adv_win_scale": "1",
+            "/proc/sys/net/ipv4/tcp_tw_reuse": "1",
+            "/proc/sys/net/ipv4/tcp_fin_timeout": "15",
+            "/proc/sys/net/ipv4/tcp_max_syn_backlog": "3240000",
+            "/proc/sys/net/ipv4/tcp_mtu_probing": "1",
+            "/proc/sys/net/ipv4/tcp_fastopen": "3",
+            "/proc/sys/net/ipv4/tcp_notsent_lowat": "16384",
+            "/proc/sys/net/ipv4/ping_group_range": "0 2147483647",
+            "/proc/sys/net/ipv4/conf/all/arp_ignore": "1",
+            "/proc/sys/net/ipv4/conf/all/arp_announce": "2",
+            "/proc/sys/net/ipv4/conf/default/arp_ignore": "1",
+            "/proc/sys/net/ipv4/conf/default/arp_announce": "2",
+            "/proc/sys/vm/vfs_cache_pressure": "50",
+            "/proc/sys/vm/swappiness": "1",
+            "/proc/sys/vm/dirty_background_ratio": "5",
+            "/proc/sys/vm/dirty_ratio": "20",
+            "/proc/sys/vm/dirty_expire_centisecs": "3000",
+            "/proc/sys/vm/dirty_writeback_centisecs": "500",
+            "/proc/sys/vm/min_free_kbytes": "65536",
+        }
 
     for path_str, val in direct_sysctls.items():
         _write_kernel_param(path_str, val)

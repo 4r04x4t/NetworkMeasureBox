@@ -46,20 +46,15 @@ RETENTION = {
     "port_check": 730,
     "outage": 730,
 }
-# Hard cap on live DB size to protect tmpfs (bytes); triggers aggressive raw pruning.
-LIVE_SIZE_CAP = int(os.environ.get("NMB_DB_SIZE_CAP", 192 * 1024 * 1024))
 
-_PRAGMAS = (
-    "PRAGMA journal_mode=WAL",
-    "PRAGMA synchronous=NORMAL",       # durable enough on tmpfs; snapshots give SD durability
-    "PRAGMA foreign_keys=ON",
-    "PRAGMA temp_store=MEMORY",
-    "PRAGMA cache_size=-65536",        # 64 MiB RAM page cache
-    "PRAGMA mmap_size=268435456",      # 256 MiB zero-copy memory-mapped I/O
-    "PRAGMA wal_autocheckpoint=2000",
-    "PRAGMA journal_size_limit=33554432",
-    "PRAGMA busy_timeout=5000",
+from nmb.common.memory import (
+    get_db_live_size_cap,
+    get_sqlite_pragmas,
+    trim_process_memory,
 )
+
+# Dynamic cap on live DB size to protect tmpfs (e.g. 48MB on 512MB RAM, 192MB on standard/perf)
+LIVE_SIZE_CAP = get_db_live_size_cap()
 
 
 def now_ms() -> int:
@@ -82,7 +77,8 @@ def connect(path: Path | None = None, readonly: bool = False) -> sqlite3.Connect
         except OSError:
             pass
     conn.row_factory = sqlite3.Row
-    for p in _PRAGMAS:
+    pragmas = get_sqlite_pragmas()
+    for p in pragmas:
         if readonly and p.startswith(("PRAGMA journal_mode", "PRAGMA wal_", "PRAGMA journal_size")):
             continue
         conn.execute(p)
@@ -264,6 +260,7 @@ def maintain(conn: sqlite3.Connection) -> None:
     d = prune(conn)
     conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     conn.execute("PRAGMA optimize")
+    trim_process_memory()
     log.info("maintain: rolled %d minutes, pruned %s", n, {k: v for k, v in d.items() if v})
 
 

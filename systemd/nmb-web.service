@@ -7,7 +7,7 @@ Wants=nmb-db.service
 Type=simple
 User=nmb
 Group=nmb
-Environment=PYTHONPATH=/opt/nmb
+Environment=PYTHONPATH=/opt/nmb MALLOC_ARENA_MAX=2 PYTHONUNBUFFERED=1
 ExecStart=/opt/nmb/bin/nmb-web --port 8080
 Restart=always
 RestartSec=5s
