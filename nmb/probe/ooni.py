@@ -131,6 +131,191 @@ def get_ooni_history(limit: int = 15) -> List[Dict[str, Any]]:
         return []
 
 
+def get_ooni_run_measurements(run_id: int) -> Dict[str, Any]:
+    """Retrieve detailed measurements belonging to a specific OONI probe test run."""
+    bin_path = find_ooniprobe_bin()
+    if not bin_path:
+        return {"status": "error", "message": "ooniprobe binary not found"}
+
+    try:
+        proc = subprocess.run(
+            [str(bin_path), "list", str(run_id), "--batch"],
+            capture_output=True,
+            text=True,
+            timeout=25,
+            check=False,
+            env=_get_ooni_env(),
+        )
+        measurements: List[Dict[str, Any]] = []
+        summary: Dict[str, Any] = {"run_id": run_id}
+
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                fields = obj.get("fields", {})
+                ftype = fields.get("type")
+                if ftype == "measurement_item":
+                    test_keys_raw = fields.get("test_keys", "{}")
+                    test_keys = {}
+                    if isinstance(test_keys_raw, str):
+                        try:
+                            test_keys = json.loads(test_keys_raw)
+                        except Exception:
+                            pass
+                    elif isinstance(test_keys_raw, dict):
+                        test_keys = test_keys_raw
+
+                    blocking = test_keys.get("blocking", "")
+                    accessible = test_keys.get("accessible", not fields.get("is_anomaly", False))
+
+                    measurements.append({
+                        "id": fields.get("id"),
+                        "url": fields.get("url", fields.get("test_name", "Unknown")),
+                        "test_name": fields.get("test_name", "unknown"),
+                        "test_group": fields.get("test_group_name", ""),
+                        "category": fields.get("url_category_code", "--"),
+                        "country": fields.get("url_country_code", "--"),
+                        "is_anomaly": bool(fields.get("is_anomaly", False)),
+                        "is_failed": bool(fields.get("is_failed", False)),
+                        "failure_msg": fields.get("failure_msg", ""),
+                        "blocking": blocking or ("clean" if not fields.get("is_anomaly") else "anomaly"),
+                        "accessible": accessible,
+                        "runtime": round(float(fields.get("runtime", 0)), 2),
+                        "start_time": fields.get("start_time", ""),
+                    })
+                elif ftype == "measurement_summary":
+                    summary.update({
+                        "anomaly_count": fields.get("anomaly_count", 0),
+                        "total_count": fields.get("total_count", len(measurements)),
+                        "network_name": fields.get("network_name", "Unknown"),
+                        "asn": fields.get("asn", 0),
+                        "country_code": fields.get("network_country_code", "--"),
+                        "total_runtime": round(float(fields.get("total_runtime", 0)), 1),
+                        "data_down_kb": round(float(fields.get("data_usage_down", 0)), 1),
+                        "data_up_kb": round(float(fields.get("data_usage_up", 0)), 1),
+                    })
+            except Exception:
+                continue
+
+        # Sort measurements: anomalies first, then by id
+        measurements.sort(key=lambda m: (not m.get("is_anomaly", False), m.get("id", 0)))
+
+        return {
+            "status": "ok",
+            "run_id": run_id,
+            "summary": summary,
+            "total": len(measurements),
+            "anomalies": sum(1 for m in measurements if m.get("is_anomaly")),
+            "measurements": measurements,
+        }
+    except Exception as e:
+        log.error("error retrieving ooni run %s measurements: %s", run_id, e)
+        return {"status": "error", "message": str(e)}
+
+
+def get_ooni_measurement_detail(msmt_id: int) -> Dict[str, Any]:
+    """Retrieve complete deep inspection details for a single OONI measurement."""
+    bin_path = find_ooniprobe_bin()
+    if not bin_path:
+        return {"status": "error", "message": "ooniprobe binary not found"}
+
+    try:
+        proc = subprocess.run(
+            [str(bin_path), "show", str(msmt_id), "--batch"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+            env=_get_ooni_env(),
+        )
+
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                fields = obj.get("fields", {})
+                if fields.get("type") == "measurement_json" or "measurement_json" in fields:
+                    raw = fields.get("measurement_json") or fields
+                    test_keys = raw.get("test_keys", {})
+
+                    # Extract DNS queries summary
+                    dns_queries = []
+                    for q in test_keys.get("queries", []):
+                        answers = [a.get("ipv4") or a.get("hostname") or str(a) for a in q.get("answers", []) if isinstance(a, dict)]
+                        dns_queries.append({
+                            "hostname": q.get("hostname", ""),
+                            "query_type": q.get("query_type", "A"),
+                            "failure": q.get("failure"),
+                            "answers": answers,
+                        })
+
+                    # Extract TCP connects
+                    tcp_connects = []
+                    for tc in test_keys.get("tcp_connect", []):
+                        status = tc.get("status", {})
+                        tcp_connects.append({
+                            "ip": tc.get("ip", ""),
+                            "port": tc.get("port", 0),
+                            "blocked": status.get("blocked", False) if isinstance(status, dict) else False,
+                            "failure": status.get("failure") if isinstance(status, dict) else None,
+                            "success": status.get("success", False) if isinstance(status, dict) else False,
+                        })
+
+                    # Extract HTTP requests
+                    http_requests = []
+                    for hr in test_keys.get("requests", []):
+                        req = hr.get("request", {})
+                        resp = hr.get("response", {})
+                        http_requests.append({
+                            "url": req.get("url", ""),
+                            "method": req.get("method", "GET"),
+                            "status_code": resp.get("code", 0),
+                            "failure": hr.get("failure"),
+                        })
+
+                    return {
+                        "status": "ok",
+                        "id": msmt_id,
+                        "url": raw.get("input", ""),
+                        "test_name": raw.get("test_name", ""),
+                        "start_time": raw.get("measurement_start_time", ""),
+                        "runtime": round(float(raw.get("test_runtime", 0)), 2),
+                        "probe": {
+                            "asn": raw.get("probe_asn", ""),
+                            "network": raw.get("probe_network_name", ""),
+                            "cc": raw.get("probe_cc", ""),
+                        },
+                        "resolver": {
+                            "asn": raw.get("resolver_asn", ""),
+                            "network": raw.get("resolver_network_name", ""),
+                            "ip": raw.get("resolver_ip", ""),
+                        },
+                        "verdict": {
+                            "accessible": test_keys.get("accessible", True),
+                            "blocking": test_keys.get("blocking", ""),
+                            "dns_consistency": test_keys.get("dns_consistency", ""),
+                            "client_resolver": test_keys.get("client_resolver", ""),
+                        },
+                        "dns_queries": dns_queries,
+                        "tcp_connects": tcp_connects,
+                        "http_requests": http_requests,
+                        "network_events": test_keys.get("network_events", [])[:15],
+                        "raw_json": raw,
+                    }
+            except Exception:
+                continue
+
+        return {"status": "error", "message": f"Measurement #{msmt_id} data not found."}
+    except Exception as e:
+        log.error("error retrieving measurement %s: %s", msmt_id, e)
+        return {"status": "error", "message": str(e)}
+
+
 def is_ooni_running() -> bool:
     """Return True if an OONI probe test is currently executing."""
     with _ooni_lock:

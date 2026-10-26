@@ -385,6 +385,32 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"results": get_ooni_history(limit=limit)})
             return
 
+        if path == "/api/ooni/run":
+            from nmb.probe.ooni import get_ooni_run_measurements
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            try:
+                run_id = int(qs.get("id", [0])[0])
+            except (ValueError, TypeError):
+                run_id = 0
+            if not run_id:
+                self._send_json({"status": "error", "message": "Missing or invalid ?id= parameter."}, status=400)
+                return
+            self._send_json(get_ooni_run_measurements(run_id))
+            return
+
+        if path == "/api/ooni/measurement":
+            from nmb.probe.ooni import get_ooni_measurement_detail
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            try:
+                msmt_id = int(qs.get("id", [0])[0])
+            except (ValueError, TypeError):
+                msmt_id = 0
+            if not msmt_id:
+                self._send_json({"status": "error", "message": "Missing or invalid ?id= parameter."}, status=400)
+                return
+            self._send_json(get_ooni_measurement_detail(msmt_id))
+            return
+
         # 17. Autonomous Scheduler & Traffic Gate Status
         if path in ("/api/scheduler/status", "/api/scheduler"):
             if getattr(self.server, "scheduler", None):
@@ -392,6 +418,92 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             else:
                 dummy = AutonomousScheduler(self.server.cfg)
                 self._send_json(dummy.get_status())
+            return
+
+        # 17b. DuckDNS DynDNS Status
+        if path == "/api/duckdns/status":
+            from nmb.netd.duckdns import get_duckdns_status
+            self._send_json(get_duckdns_status())
+            return
+
+        # 17c. WireGuard VPN Status, Config & QR
+        if path == "/api/wireguard/status":
+            from nmb.netd.wireguard import get_wireguard_status
+            cfg = self.server.cfg
+            self._send_json(get_wireguard_status(port=cfg.wireguard.port, subnet=cfg.wireguard.subnet))
+            return
+
+        if path == "/api/wireguard/peer/config":
+            from nmb.netd.wireguard import get_client_config
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            peer_name = qs.get("name", [""])[0] or qs.get("id", [""])[0]
+            endpoint = self.server.cfg.wireguard.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "")
+            conf = get_client_config(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port)
+            if not conf:
+                self._send_json({"status": "error", "message": f"Peer '{peer_name}' not found."}, status=404)
+                return
+            content_bytes = conf.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{peer_name}.conf"')
+            self.send_header("Content-Length", str(len(content_bytes)))
+            self.end_headers()
+            self.wfile.write(content_bytes)
+            return
+
+        if path == "/api/wireguard/peer/qr":
+            from nmb.netd.wireguard import get_client_qr_data_uri, get_client_qr_png_bytes
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            peer_name = qs.get("name", [""])[0] or qs.get("id", [""])[0]
+            endpoint = self.server.cfg.wireguard.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "")
+            if qs.get("raw", ["0"])[0] == "1":
+                png_bytes = get_client_qr_png_bytes(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port)
+                if not png_bytes:
+                    self._send_json({"status": "error", "message": "Failed to generate QR code."}, status=404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(png_bytes)))
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                self.wfile.write(png_bytes)
+                return
+            data_uri = get_client_qr_data_uri(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port)
+            if not data_uri:
+                self._send_json({"status": "error", "message": "Failed to generate QR code."}, status=404)
+                return
+            self._send_json({"status": "ok", "qr_data_uri": data_uri})
+            return
+
+        # 17d. OpenVPN Status & Config
+        if path == "/api/openvpn/status":
+            from nmb.netd.openvpn import get_openvpn_status
+            cfg = self.server.cfg
+            self._send_json(get_openvpn_status(proto=cfg.openvpn.proto, port=cfg.openvpn.port))
+            return
+
+        if path == "/api/openvpn/client/config":
+            from nmb.netd.openvpn import get_unified_ovpn_profile
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            client_name = qs.get("name", [""])[0]
+            endpoint = self.server.cfg.openvpn.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "")
+            ovpn = get_unified_ovpn_profile(client_name, endpoint_host=endpoint, proto=self.server.cfg.openvpn.proto, port=self.server.cfg.openvpn.port)
+            if not ovpn:
+                self._send_json({"status": "error", "message": f"Client '{client_name}' not found."}, status=404)
+                return
+            content_bytes = ovpn.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/x-openvpn-profile; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{client_name}.ovpn"')
+            self.send_header("Content-Length", str(len(content_bytes)))
+            self.end_headers()
+            self.wfile.write(content_bytes)
+            return
+
+        # 17e. HTTPS Proxy Server Status
+        if path == "/api/proxy/status":
+            from nmb.netd.proxy import get_proxy_status
+            self._send_json(get_proxy_status())
             return
 
         # 18. Wi-Fi Multi-Band Hardware Capabilities & Status
@@ -1173,6 +1285,177 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok", "message": "Developer log buffer cleared successfully"})
             return
 
+        # 16. DuckDNS DynDNS Settings & Update
+        if path == "/api/duckdns/save":
+            from nmb.netd.duckdns import start_duckdns_service, stop_duckdns_service
+            enabled = bool(body_json.get("enabled", False))
+            domain = str(body_json.get("domain", "")).strip()
+            token = str(body_json.get("token", "")).strip()
+            interval = int(body_json.get("update_interval_min", 10))
+            custom_ip = str(body_json.get("custom_ip", "")).strip()
+
+            self.server.cfg.duckdns.enabled = enabled
+            self.server.cfg.duckdns.domain = domain
+            if token:
+                self.server.cfg.duckdns.token = token
+            self.server.cfg.duckdns.update_interval_min = interval
+            self.server.cfg.duckdns.custom_ip = custom_ip
+            save_config(self.server.cfg)
+
+            if enabled:
+                start_duckdns_service(lambda: self.server.cfg)
+                from nmb.netd.duckdns import update_duckdns
+                res = update_duckdns(domain=domain, token=self.server.cfg.duckdns.token, ip=custom_ip or None)
+                self._send_json({"status": "ok", "message": "DuckDNS settings saved & update triggered", "detail": res})
+            else:
+                stop_duckdns_service()
+                self._send_json({"status": "ok", "message": "DuckDNS updater disabled"})
+            return
+
+        if path == "/api/duckdns/update":
+            from nmb.netd.duckdns import update_duckdns
+            d_cfg = self.server.cfg.duckdns
+            if not d_cfg.domain or not d_cfg.token:
+                self._send_json({"status": "error", "message": "DuckDNS domain and token are not configured."}, status=400)
+                return
+            res = update_duckdns(domain=d_cfg.domain, token=d_cfg.token, ip=d_cfg.custom_ip or None)
+            self._send_json(res)
+            return
+
+        # 17. WireGuard VPN Server Management
+        if path == "/api/wireguard/save":
+            self.server.cfg.wireguard.port = int(body_json.get("port", 51820))
+            self.server.cfg.wireguard.subnet = str(body_json.get("subnet", "10.8.0.1/24")).strip()
+            self.server.cfg.wireguard.public_endpoint = str(body_json.get("public_endpoint", "")).strip()
+            save_config(self.server.cfg)
+            from nmb.netd.wireguard import apply_configuration
+            ok, msg = apply_configuration(port=self.server.cfg.wireguard.port, subnet=self.server.cfg.wireguard.subnet)
+            self._send_json({"status": "ok" if ok else "error", "message": msg})
+            return
+
+        if path == "/api/wireguard/peer/add":
+            from nmb.netd.wireguard import add_peer
+            peer_name = str(body_json.get("name", "")).strip()
+            client_ip = str(body_json.get("client_ip", "")).strip() or None
+            res = add_peer(peer_name, client_ip=client_ip)
+            self._send_json(res)
+            return
+
+        if path == "/api/wireguard/peer/delete":
+            from nmb.netd.wireguard import delete_peer
+            peer_id = str(body_json.get("id") or body_json.get("name", "")).strip()
+            ok = delete_peer(peer_id)
+            self._send_json({"status": "ok" if ok else "error", "message": f"Peer '{peer_id}' deleted." if ok else "Peer not found."})
+            return
+
+        if path == "/api/wireguard/toggle":
+            from nmb.netd.wireguard import apply_configuration, run_helper
+            enabled = bool(body_json.get("enabled", True))
+            self.server.cfg.wireguard.enabled = enabled
+            save_config(self.server.cfg)
+            if enabled:
+                ok, msg = apply_configuration(port=self.server.cfg.wireguard.port, subnet=self.server.cfg.wireguard.subnet)
+                self._send_json({"status": "ok" if ok else "error", "message": msg})
+            else:
+                run_helper("wireguard-stop")
+                self._send_json({"status": "ok", "message": "WireGuard server stopped."})
+            return
+
+        # 18. OpenVPN Server Management
+        if path == "/api/openvpn/save":
+            self.server.cfg.openvpn.proto = str(body_json.get("proto", "udp")).strip().lower()
+            self.server.cfg.openvpn.port = int(body_json.get("port", 1194))
+            self.server.cfg.openvpn.subnet = str(body_json.get("subnet", "10.9.0.0")).strip()
+            self.server.cfg.openvpn.public_endpoint = str(body_json.get("public_endpoint", "")).strip()
+            save_config(self.server.cfg)
+            from nmb.netd.openvpn import apply_configuration
+            ok, msg = apply_configuration(proto=self.server.cfg.openvpn.proto, port=self.server.cfg.openvpn.port, subnet=self.server.cfg.openvpn.subnet)
+            self._send_json({"status": "ok" if ok else "error", "message": msg})
+            return
+
+        if path == "/api/openvpn/client/add":
+            from nmb.netd.openvpn import add_client
+            client_name = str(body_json.get("name", "")).strip()
+            res = add_client(client_name)
+            self._send_json(res)
+            return
+
+        if path == "/api/openvpn/client/delete":
+            from nmb.netd.openvpn import delete_client
+            client_name = str(body_json.get("name", "")).strip()
+            ok = delete_client(client_name)
+            self._send_json({"status": "ok" if ok else "error", "message": f"Client '{client_name}' removed." if ok else "Client not found."})
+            return
+
+        if path == "/api/openvpn/toggle":
+            from nmb.netd.openvpn import apply_configuration, run_helper
+            enabled = bool(body_json.get("enabled", True))
+            self.server.cfg.openvpn.enabled = enabled
+            save_config(self.server.cfg)
+            if enabled:
+                ok, msg = apply_configuration(proto=self.server.cfg.openvpn.proto, port=self.server.cfg.openvpn.port, subnet=self.server.cfg.openvpn.subnet)
+                self._send_json({"status": "ok" if ok else "error", "message": msg})
+            else:
+                run_helper("openvpn-stop")
+                self._send_json({"status": "ok", "message": "OpenVPN server stopped."})
+            return
+
+        # 19. HTTPS Proxy Server Management
+        if path == "/api/proxy/config":
+            from nmb.netd.proxy import start_proxy_server, stop_proxy_server
+            enabled = bool(body_json.get("enabled", False))
+            port = int(body_json.get("port", 8443))
+            auth_enabled = bool(body_json.get("auth_enabled", False))
+            username = str(body_json.get("username", "")).strip()
+            password = str(body_json.get("password", "")).strip()
+            tls_enabled = bool(body_json.get("tls_enabled", False))
+
+            self.server.cfg.proxy.enabled = enabled
+            self.server.cfg.proxy.port = port
+            self.server.cfg.proxy.auth_enabled = auth_enabled
+            self.server.cfg.proxy.username = username
+            if password:
+                self.server.cfg.proxy.password = password
+            self.server.cfg.proxy.tls_enabled = tls_enabled
+            save_config(self.server.cfg)
+
+            if enabled:
+                ok, msg = start_proxy_server(
+                    port=port,
+                    auth_enabled=auth_enabled,
+                    username=username,
+                    password=self.server.cfg.proxy.password,
+                    tls_enabled=tls_enabled,
+                    tls_cert=self.server.cfg.web.tls_cert if tls_enabled else "",
+                    tls_key=self.server.cfg.web.tls_key if tls_enabled else "",
+                )
+                self._send_json({"status": "ok" if ok else "error", "message": msg})
+            else:
+                stop_proxy_server()
+                self._send_json({"status": "ok", "message": "HTTPS Proxy Server stopped."})
+            return
+
+        if path == "/api/proxy/start":
+            from nmb.netd.proxy import start_proxy_server
+            p_cfg = self.server.cfg.proxy
+            ok, msg = start_proxy_server(
+                port=p_cfg.port,
+                auth_enabled=p_cfg.auth_enabled,
+                username=p_cfg.username,
+                password=p_cfg.password,
+                tls_enabled=p_cfg.tls_enabled,
+                tls_cert=self.server.cfg.web.tls_cert if p_cfg.tls_enabled else "",
+                tls_key=self.server.cfg.web.tls_key if p_cfg.tls_enabled else "",
+            )
+            self._send_json({"status": "ok" if ok else "error", "message": msg})
+            return
+
+        if path == "/api/proxy/stop":
+            from nmb.netd.proxy import stop_proxy_server
+            stop_proxy_server()
+            self._send_json({"status": "ok", "message": "HTTPS Proxy Server stopped."})
+            return
+
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def _handle_api_status(self) -> None:
@@ -1893,6 +2176,30 @@ class WebDaemon:
         # Synchronize background Guest Wi-Fi client station connection if enabled
         sync_guest_wifi_connection(self.cfg)
 
+        # Synchronize background DuckDNS DynDNS updater if enabled
+        if getattr(self.cfg, "duckdns", None) and self.cfg.duckdns.enabled:
+            try:
+                from nmb.netd.duckdns import start_duckdns_service
+                start_duckdns_service(lambda: self.cfg)
+            except Exception as e:
+                log.debug("duckdns start error: %s", e)
+
+        # Synchronize background HTTPS / CONNECT Proxy server if enabled
+        if getattr(self.cfg, "proxy", None) and self.cfg.proxy.enabled:
+            try:
+                from nmb.netd.proxy import start_proxy_server
+                start_proxy_server(
+                    port=self.cfg.proxy.port,
+                    auth_enabled=self.cfg.proxy.auth_enabled,
+                    username=self.cfg.proxy.username,
+                    password=self.cfg.proxy.password,
+                    tls_enabled=self.cfg.proxy.tls_enabled,
+                    tls_cert=self.cfg.web.tls_cert if self.cfg.proxy.tls_enabled else "",
+                    tls_key=self.cfg.web.tls_key if self.cfg.proxy.tls_enabled else "",
+                )
+            except Exception as e:
+                log.debug("proxy start error: %s", e)
+
         # Enforce kernel network performance tuning and multi-core RPS softirq steering
         try:
             from nmb.netd.kernel import apply_kernel_network_tuning
@@ -1912,6 +2219,16 @@ class WebDaemon:
         finally:
             if self.scheduler:
                 self.scheduler.stop()
+            try:
+                from nmb.netd.duckdns import stop_duckdns_service
+                stop_duckdns_service()
+            except Exception:
+                pass
+            try:
+                from nmb.netd.proxy import stop_proxy_server
+                stop_proxy_server()
+            except Exception:
+                pass
             self.server.server_close()
             log.info("nmb-web server shutdown complete")
 

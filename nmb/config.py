@@ -136,6 +136,34 @@ max_bytes = 10485760
 backup_count = 5
 console_enabled = true
 log_requests = true
+
+[duckdns]
+enabled = false
+domain = 
+token = 
+update_interval_min = 10
+custom_ip = 
+
+[wireguard]
+enabled = false
+port = 51820
+subnet = 10.8.0.1/24
+public_endpoint = 
+
+[openvpn]
+enabled = false
+proto = udp
+port = 1194
+subnet = 10.9.0.0
+public_endpoint = 
+
+[proxy]
+enabled = false
+port = 8443
+auth_enabled = false
+username = 
+password = 
+tls_enabled = false
 """
 
 
@@ -315,6 +343,42 @@ class GuestWiFiConfig:
 
 
 @dataclass
+class DuckDNSConfig:
+    enabled: bool = False
+    domain: str = ""
+    token: str = ""
+    update_interval_min: int = 10
+    custom_ip: str = ""
+
+
+@dataclass
+class WireGuardConfig:
+    enabled: bool = False
+    port: int = 51820
+    subnet: str = "10.8.0.1/24"
+    public_endpoint: str = ""
+
+
+@dataclass
+class OpenVPNConfig:
+    enabled: bool = False
+    proto: str = "udp"
+    port: int = 1194
+    subnet: str = "10.9.0.0"
+    public_endpoint: str = ""
+
+
+@dataclass
+class ProxyConfig:
+    enabled: bool = False
+    port: int = 8443
+    auth_enabled: bool = False
+    username: str = ""
+    password: str = ""
+    tls_enabled: bool = False
+
+
+@dataclass
 class Config:
     system: SystemConfig = field(default_factory=SystemConfig)
     network: NetworkConfig = field(default_factory=NetworkConfig)
@@ -327,6 +391,10 @@ class Config:
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
     web: WebConfig = field(default_factory=WebConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    duckdns: DuckDNSConfig = field(default_factory=DuckDNSConfig)
+    wireguard: WireGuardConfig = field(default_factory=WireGuardConfig)
+    openvpn: OpenVPNConfig = field(default_factory=OpenVPNConfig)
+    proxy: ProxyConfig = field(default_factory=ProxyConfig)
     raw_parser: configparser.ConfigParser = field(default_factory=configparser.ConfigParser)
 
 
@@ -526,6 +594,38 @@ def load_config(path: Path | None = None) -> Config:
         cfg.logging.console_enabled = lg.getboolean("console_enabled", fallback=cfg.logging.console_enabled)
         cfg.logging.log_requests = lg.getboolean("log_requests", fallback=getattr(cfg.logging, "log_requests", True))
 
+    if parser.has_section("duckdns"):
+        dd = parser["duckdns"]
+        cfg.duckdns.enabled = dd.getboolean("enabled", fallback=cfg.duckdns.enabled)
+        cfg.duckdns.domain = dd.get("domain", cfg.duckdns.domain).strip()
+        cfg.duckdns.token = dd.get("token", cfg.duckdns.token).strip()
+        cfg.duckdns.update_interval_min = dd.getint("update_interval_min", fallback=cfg.duckdns.update_interval_min)
+        cfg.duckdns.custom_ip = dd.get("custom_ip", cfg.duckdns.custom_ip).strip()
+
+    if parser.has_section("wireguard"):
+        wg = parser["wireguard"]
+        cfg.wireguard.enabled = wg.getboolean("enabled", fallback=cfg.wireguard.enabled)
+        cfg.wireguard.port = wg.getint("port", fallback=cfg.wireguard.port)
+        cfg.wireguard.subnet = wg.get("subnet", cfg.wireguard.subnet).strip()
+        cfg.wireguard.public_endpoint = wg.get("public_endpoint", cfg.wireguard.public_endpoint).strip()
+
+    if parser.has_section("openvpn"):
+        ov = parser["openvpn"]
+        cfg.openvpn.enabled = ov.getboolean("enabled", fallback=cfg.openvpn.enabled)
+        cfg.openvpn.proto = ov.get("proto", cfg.openvpn.proto).strip().lower()
+        cfg.openvpn.port = ov.getint("port", fallback=cfg.openvpn.port)
+        cfg.openvpn.subnet = ov.get("subnet", cfg.openvpn.subnet).strip()
+        cfg.openvpn.public_endpoint = ov.get("public_endpoint", cfg.openvpn.public_endpoint).strip()
+
+    if parser.has_section("proxy"):
+        px = parser["proxy"]
+        cfg.proxy.enabled = px.getboolean("enabled", fallback=cfg.proxy.enabled)
+        cfg.proxy.port = px.getint("port", fallback=cfg.proxy.port)
+        cfg.proxy.auth_enabled = px.getboolean("auth_enabled", fallback=cfg.proxy.auth_enabled)
+        cfg.proxy.username = px.get("username", cfg.proxy.username).strip()
+        cfg.proxy.password = px.get("password", cfg.proxy.password).strip()
+        cfg.proxy.tls_enabled = px.getboolean("tls_enabled", fallback=cfg.proxy.tls_enabled)
+
     return cfg
 
 
@@ -539,7 +639,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
         except Exception:
             pass
 
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "wireguard", "openvpn", "proxy"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -682,6 +782,34 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["logging"]["backup_count"] = str(cfg.logging.backup_count)
     parser["logging"]["console_enabled"] = str(cfg.logging.console_enabled).lower()
     parser["logging"]["log_requests"] = str(getattr(cfg.logging, "log_requests", True)).lower()
+
+    # DuckDNS
+    parser["duckdns"]["enabled"] = str(cfg.duckdns.enabled).lower()
+    parser["duckdns"]["domain"] = str(cfg.duckdns.domain)
+    parser["duckdns"]["token"] = str(cfg.duckdns.token)
+    parser["duckdns"]["update_interval_min"] = str(cfg.duckdns.update_interval_min)
+    parser["duckdns"]["custom_ip"] = str(cfg.duckdns.custom_ip)
+
+    # WireGuard
+    parser["wireguard"]["enabled"] = str(cfg.wireguard.enabled).lower()
+    parser["wireguard"]["port"] = str(cfg.wireguard.port)
+    parser["wireguard"]["subnet"] = str(cfg.wireguard.subnet)
+    parser["wireguard"]["public_endpoint"] = str(cfg.wireguard.public_endpoint)
+
+    # OpenVPN
+    parser["openvpn"]["enabled"] = str(cfg.openvpn.enabled).lower()
+    parser["openvpn"]["proto"] = str(cfg.openvpn.proto)
+    parser["openvpn"]["port"] = str(cfg.openvpn.port)
+    parser["openvpn"]["subnet"] = str(cfg.openvpn.subnet)
+    parser["openvpn"]["public_endpoint"] = str(cfg.openvpn.public_endpoint)
+
+    # Proxy
+    parser["proxy"]["enabled"] = str(cfg.proxy.enabled).lower()
+    parser["proxy"]["port"] = str(cfg.proxy.port)
+    parser["proxy"]["auth_enabled"] = str(cfg.proxy.auth_enabled).lower()
+    parser["proxy"]["username"] = str(cfg.proxy.username)
+    parser["proxy"]["password"] = str(cfg.proxy.password)
+    parser["proxy"]["tls_enabled"] = str(cfg.proxy.tls_enabled).lower()
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")

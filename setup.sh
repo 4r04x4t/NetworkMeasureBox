@@ -46,7 +46,8 @@ if [ "$OS_TYPE" = "debian" ]; then
     apt-get update -y
     apt-get install -y --no-install-recommends \
         python3 iproute2 nftables iptables ethtool \
-        dnsmasq hostapd ppp pppoe udhcpc curl ca-certificates procps libcap2-bin
+        dnsmasq hostapd ppp pppoe udhcpc curl ca-certificates procps libcap2-bin \
+        wireguard-tools openvpn easy-rsa python3-qrcode qrencode
 
     # Stop and disable OS-packaged dnsmasq & hostapd so nmb-netd has exclusive control
     systemctl disable --now dnsmasq hostapd 2>/dev/null || true

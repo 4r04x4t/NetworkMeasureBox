@@ -794,6 +794,7 @@ def get_dashboard_html() -> str:
     <button class="app-tab-btn" onclick="switchTab('tab-iperf')" data-i18n="tab_iperf">⚡ iPerf3 Tests</button>
     <button class="app-tab-btn" onclick="switchTab('tab-traceroute')" data-i18n="tab_traceroute">🔍 Traceroute</button>
     <button class="app-tab-btn" onclick="switchTab('tab-ooni')" data-i18n="tab_ooni">🛡️ Censorship (OONI)</button>
+    <button class="app-tab-btn" onclick="switchTab('tab-remote')" data-i18n="tab_remote">🌐 Remote Access & VPN</button>
     <button class="app-tab-btn" onclick="switchTab('tab-explorer')" data-i18n="tab_explorer">🌐 Network Explorer</button>
     <button class="app-tab-btn" onclick="switchTab('tab-sniffer')" data-i18n="tab_sniffer">📡 Packet Sniffer</button>
     <button class="app-tab-btn" onclick="switchTab('tab-qos')" data-i18n="tab_qos">📊 Bandwidth Monitor</button>
@@ -1232,8 +1233,8 @@ def get_dashboard_html() -> str:
       <!-- Title & Status Header -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
         <div>
-          <div class="section-subtitle" style="margin: 0;">🛡️ Internet Censorship & Tampering Detector (OONI Probe)</div>
-          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;">
+          <div class="section-subtitle" style="margin: 0;" data-i18n="ooni_title">🛡️ Internet Censorship & Tampering Detector (OONI Probe)</div>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;" data-i18n="ooni_desc">
             Powered by the Open Observatory of Network Interference (probe-cli). Detects DNS tampering, Deep Packet Inspection (DPI) middleboxes, website blocking, and messaging reachability.
           </p>
         </div>
@@ -1244,7 +1245,7 @@ def get_dashboard_html() -> str:
           <span id="ooni-verdict-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
             🟢 Open Network
           </span>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadOoniStatus()">
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadOoniStatus()" data-i18n="btn_refresh">
             🔄 Refresh
           </button>
         </div>
@@ -1255,7 +1256,7 @@ def get_dashboard_html() -> str:
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <div style="display: flex; align-items: center; gap: 10px;">
             <div class="spinner-circle" style="width: 18px; height: 18px; border-width: 2px;"></div>
-            <span id="ooni-running-msg" style="color: #38bdf8; font-weight: 600; font-size: 13.5px;">OONI Probe Test in Progress...</span>
+            <span id="ooni-running-msg" style="color: #38bdf8; font-weight: 600; font-size: 13.5px;" data-i18n="ooni_running">OONI Probe Test in Progress...</span>
           </div>
           <span id="ooni-progress-txt" style="color: #38bdf8; font-size: 12.5px; font-weight: 700;">0%</span>
         </div>
@@ -1269,15 +1270,15 @@ def get_dashboard_html() -> str:
         <!-- Card 1: Web Connectivity -->
         <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
           <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-            🌐 <span>Website Blocking & DNS Tampering</span>
+            🌐 <span data-i18n="ooni_test_websites">Website Blocking & DNS Tampering</span>
           </div>
-          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;" data-i18n="ooni_desc_websites">
             Tests DNS resolution consistency, TCP connect, and TLS handshake against standard or custom websites.
           </p>
           <div style="margin-bottom: 10px;">
             <input type="text" id="ooni-custom-url" placeholder="https://example.com (or empty for default)" class="form-input" style="font-size: 12px; padding: 7px 10px;">
           </div>
-          <button class="btn-primary" id="btn-ooni-websites" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('websites')">
+          <button class="btn-primary" id="btn-ooni-websites" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('websites')" data-i18n="ooni_btn_websites">
             ▶️ Run Website Test
           </button>
         </div>
@@ -1285,13 +1286,13 @@ def get_dashboard_html() -> str:
         <!-- Card 2: Middleboxes & DPI -->
         <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
           <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-            📦 <span>Middlebox & DPI Inspection</span>
+            📦 <span data-i18n="ooni_test_middlebox">Middlebox & DPI Inspection</span>
           </div>
-          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;" data-i18n="ooni_desc_middlebox">
             Detects HTTP header field manipulations, transparent proxy injections, and invalid request line filtering.
           </p>
           <div style="height: 38px;"></div>
-          <button class="btn-primary" id="btn-ooni-middlebox" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('middlebox')">
+          <button class="btn-primary" id="btn-ooni-middlebox" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('middlebox')" data-i18n="ooni_btn_middlebox">
             ▶️ Test Middlebox / DPI
           </button>
         </div>
@@ -1299,13 +1300,13 @@ def get_dashboard_html() -> str:
         <!-- Card 3: Instant Messaging -->
         <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
           <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-            💬 <span>Instant Messaging Reachability</span>
+            💬 <span data-i18n="ooni_test_im">Instant Messaging Reachability</span>
           </div>
-          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;" data-i18n="ooni_desc_im">
             Verifies whether WhatsApp (web & API), Telegram, and Signal endpoints are uninhibited or blocked.
           </p>
           <div style="height: 38px;"></div>
-          <button class="btn-primary" id="btn-ooni-im" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('im')">
+          <button class="btn-primary" id="btn-ooni-im" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('im')" data-i18n="ooni_btn_im">
             ▶️ Test Messaging Apps
           </button>
         </div>
@@ -1313,13 +1314,13 @@ def get_dashboard_html() -> str:
         <!-- Card 4: Circumvention Tools -->
         <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
           <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-            🧅 <span>Tor & Circumvention Reachability</span>
+            🧅 <span data-i18n="ooni_test_circumvention">Tor & Circumvention Reachability</span>
           </div>
-          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;" data-i18n="ooni_desc_circumvention">
             Probes connectivity to Tor directory authorities, or_port nodes, and obfs4 censorship bridges.
           </p>
           <div style="height: 38px;"></div>
-          <button class="btn-primary" id="btn-ooni-circumvention" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('circumvention')">
+          <button class="btn-primary" id="btn-ooni-circumvention" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('circumvention')" data-i18n="ooni_btn_circumvention">
             ▶️ Test Tor & Bridges
           </button>
         </div>
@@ -1327,7 +1328,7 @@ def get_dashboard_html() -> str:
 
       <!-- Latest Result Detail Box -->
       <div id="ooni-latest-detail-box" style="display: none; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 24px;">
-        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 10px; color: #38bdf8;">
+        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 10px; color: #38bdf8;" data-i18n="ooni_findings_title">
           📋 Latest Detailed Findings
         </div>
         <div id="ooni-latest-findings" style="font-family: monospace; font-size: 12px; line-height: 1.6; color: var(--text-main);"></div>
@@ -1336,27 +1337,407 @@ def get_dashboard_html() -> str:
       <!-- History Table -->
       <div style="margin-top: 10px;">
         <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-          <span>📜 Recent Censorship Test History</span>
+          <span data-i18n="ooni_history_title">📜 Recent Censorship Test History</span>
           <span id="ooni-network-label" style="font-size: 12px; font-weight: normal; color: var(--text-muted);">--</span>
         </div>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Test Category</th>
-                <th>Monitored ASN / ISP</th>
-                <th>Start Time</th>
-                <th>Anomalies / Blocks</th>
-                <th>Total Tests</th>
-                <th>Verdict</th>
+                <th data-i18n="ooni_col_id">ID</th>
+                <th data-i18n="ooni_col_category">Test Category</th>
+                <th data-i18n="ooni_col_network">Monitored ASN / ISP</th>
+                <th data-i18n="ooni_col_time">Start Time</th>
+                <th data-i18n="ooni_col_anomalies">Anomalies / Blocks</th>
+                <th data-i18n="ooni_col_total">Total Tests</th>
+                <th data-i18n="ooni_col_verdict">Verdict</th>
+                <th data-i18n="ooni_col_actions">Actions</th>
               </tr>
             </thead>
             <tbody id="ooni-history-table-body">
-              <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading OONI probe history...</td></tr>
+              <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Loading OONI probe history...</td></tr>
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- OONI Run Measurement Inspector Modal -->
+      <div id="ooni-details-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; padding: 20px;">
+        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 980px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.6);">
+          <!-- Modal Header -->
+          <div style="padding: 16px 20px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03);">
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+                <span id="ooni-modal-title">🛡️ OONI Test Measurement Details</span>
+                <span id="ooni-modal-anom-badge" class="badge"></span>
+              </div>
+              <div id="ooni-modal-subtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></div>
+            </div>
+            <button class="btn-secondary" style="padding: 5px 12px; font-size: 12px;" onclick="closeOoniModal()" data-i18n="ooni_modal_close">✕ Close</button>
+          </div>
+
+          <!-- Filter & Search Bar -->
+          <div style="padding: 10px 20px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: rgba(0,0,0,0.2);">
+            <div style="display: flex; gap: 6px;">
+              <button id="btn-ooni-filter-all" class="btn-primary" style="font-size: 11.5px; padding: 4px 10px;" onclick="setOoniFilter('all')">All (<span id="ooni-cnt-all">0</span>)</button>
+              <button id="btn-ooni-filter-anom" class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px;" onclick="setOoniFilter('anomalies')">🔴 Anomalies (<span id="ooni-cnt-anom">0</span>)</button>
+              <button id="btn-ooni-filter-clean" class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px;" onclick="setOoniFilter('clean')">🟢 Clean (<span id="ooni-cnt-clean">0</span>)</button>
+            </div>
+            <div style="flex: 1; max-width: 320px;">
+              <input type="text" id="ooni-search-box" class="form-input" style="font-size: 12px; padding: 5px 10px; width: 100%;" placeholder="Filter URL or test name..." oninput="applyOoniFilter()">
+            </div>
+          </div>
+
+          <!-- Measurement Table Body -->
+          <div style="overflow-y: auto; flex: 1; padding: 16px 20px;">
+            <div id="ooni-measurements-spinner" style="text-align: center; padding: 40px; display: none;">
+              <div class="spinner-circle" style="margin: 0 auto 12px;"></div>
+              <span style="color: var(--text-muted); font-size: 13px;">Loading measurement details from OONI probe...</span>
+            </div>
+            <div id="ooni-measurements-container">
+              <table class="data-table" style="font-size: 12px;">
+                <thead>
+                  <tr>
+                    <th>Target URL / Input</th>
+                    <th>Category</th>
+                    <th>Status & Blocking</th>
+                    <th>Runtime</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody id="ooni-measurements-tbody">
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Deep Inspection Box -->
+            <div id="ooni-deep-inspect-box" style="display: none; margin-top: 16px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span id="ooni-deep-title" style="font-weight: 700; color: #38bdf8; font-size: 13px;">🔬 Deep Measurement Diagnostics</span>
+                <button class="btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('ooni-deep-inspect-box').style.display='none'">Hide</button>
+              </div>
+              <div id="ooni-deep-content" style="font-size: 12px; line-height: 1.6;"></div>
+              <div style="margin-top: 10px; display: flex; gap: 8px;">
+                <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleOoniRawJson()" data-i18n="ooni_raw_json">📄 View Raw JSON</button>
+                <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="copyOoniRawJson()" data-i18n="ooni_copy_json">📋 Copy JSON</button>
+              </div>
+              <pre id="ooni-raw-json-pre" style="display: none; max-height: 250px; overflow-y: auto; background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; font-size: 11px; font-family: monospace; color: #cbd5e1; margin-top: 10px;"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB: REMOTE ACCESS & VPN & PROXY -->
+  <div id="tab-remote" class="tab-content">
+    <div class="app-box">
+      <!-- Title & Header -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <div class="section-subtitle" style="margin: 0;" data-i18n="remote_title">Universal Remote Access, VPN Servers & HTTPS Proxy</div>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;" data-i18n="remote_desc">
+            Independent of network mode: secure remote access via DuckDNS DynDNS, WireGuard VPN, OpenVPN, and embedded HTTPS CONNECT proxy.
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadRemoteAccessStatus()" data-i18n="btn_refresh">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <!-- Remote Subtabs -->
+      <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap;">
+        <button id="btn-subtab-duckdns" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('duckdns')" data-i18n="subtab_duckdns">🦆 DuckDNS (DynDNS)</button>
+        <button id="btn-subtab-wireguard" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('wireguard')" data-i18n="subtab_wireguard">🛡️ WireGuard Server</button>
+        <button id="btn-subtab-openvpn" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('openvpn')" data-i18n="subtab_openvpn">🔒 OpenVPN Server</button>
+        <button id="btn-subtab-proxy" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('proxy')" data-i18n="subtab_proxy">⚡ HTTPS Proxy</button>
+      </div>
+
+      <!-- SUBTAB 1: DUCKDNS -->
+      <div id="subtab-content-duckdns" class="remote-subtab">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;" data-i18n="duckdns_title">DuckDNS Dynamic DNS Synchronization</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;" data-i18n="duckdns_desc">
+              Automatically keeps your free DuckDNS hostname pointed at the device's public WAN IP address.
+            </p>
+            <div style="margin-bottom: 12px;">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+                <input type="checkbox" id="duckdns-enabled"> <span data-i18n="duckdns_enable">Enable DuckDNS Dynamic DNS Updater</span>
+              </label>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_domain">DuckDNS Subdomain (.duckdns.org):</label>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="text" id="duckdns-domain" class="form-input" style="font-size: 13px; padding: 7px 10px; flex: 1;" placeholder="my-box">
+                <span style="font-size: 12px; color: var(--text-muted);">.duckdns.org</span>
+              </div>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_token">DuckDNS Account Token:</label>
+              <input type="password" id="duckdns-token" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="00000000-0000-0000-0000-000000000000">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_interval">Update Interval (Minutes):</label>
+                <input type="number" id="duckdns-interval" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" min="5" max="1440" value="10">
+              </div>
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_custom_ip">Override Public IP (optional):</label>
+                <input type="text" id="duckdns-custom-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto-detect">
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveDuckdnsSettings()" data-i18n="duckdns_btn_save">Save DuckDNS Settings</button>
+              <button class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="updateDuckdnsNow()" data-i18n="duckdns_btn_update">🔄 Force Update Now</button>
+            </div>
+          </div>
+
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;">DuckDNS Live Status</div>
+            <div style="margin-bottom: 12px;">
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_status">Last Update Status:</span>
+              <span id="duckdns-status-badge" class="badge" style="margin-left: 8px;">Checking...</span>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_ip">Detected Public IP:</span>
+              <span id="duckdns-detected-ip" style="font-weight: 700; margin-left: 8px; color: #38bdf8;">--</span>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <span style="font-size: 12px; color: var(--text-muted);">Last Updated:</span>
+              <span id="duckdns-last-time" style="margin-left: 8px; color: var(--text-main);">--</span>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <span style="font-size: 12px; color: var(--text-muted);">Next Scheduled:</span>
+              <span id="duckdns-next-time" style="margin-left: 8px; color: var(--text-muted);">--</span>
+            </div>
+            <div id="duckdns-msg-box" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; color: #94a3b8; margin-top: 14px;">
+              Ready.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 2: WIREGUARD -->
+      <div id="subtab-content-wireguard" class="remote-subtab" style="display: none;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <div style="font-weight: 700; font-size: 14px; color: #38bdf8;" data-i18n="wireguard_title">WireGuard High-Performance VPN Server</div>
+              <span id="wg-status-badge" class="badge">--</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;" data-i18n="wireguard_desc">
+              Next-generation secure VPN server with instant peer creation, configuration download, and mobile QR code pairing.
+            </p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_port">UDP Listen Port:</label>
+                <input type="number" id="wg-port" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="51820">
+              </div>
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_subnet">Server Tunnel Subnet:</label>
+                <input type="text" id="wg-subnet" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="10.8.0.1/24">
+              </div>
+            </div>
+            <div style="margin-bottom: 14px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_endpoint">Public Endpoint Host / DuckDNS:</label>
+              <input type="text" id="wg-endpoint" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (DuckDNS or WAN IP)">
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-primary" style="font-size: 12.5px; padding: 8px 14px;" onclick="saveWireguardSettings()">Save Server Settings</button>
+              <button id="btn-wg-toggle" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="toggleWireguardServer()">Toggle WireGuard</button>
+            </div>
+          </div>
+
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;" data-i18n="wireguard_btn_add_peer">➕ Add New Client Peer</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+              Generate cryptographic keys and create a ready-to-use client profile with 1-click QR code or .conf download.
+            </p>
+            <div style="margin-bottom: 12px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_peer_name">Client Peer Name:</label>
+              <input type="text" id="wg-new-peer-name" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="e.g. phone-pixel, laptop-work">
+            </div>
+            <div style="margin-bottom: 14px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_peer_ip">Client Tunnel IP (optional):</label>
+              <input type="text" id="wg-new-peer-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto-assign (e.g. 10.8.0.2)">
+            </div>
+            <button class="btn-primary" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="addWireguardPeer()">➕ Generate & Add Client Peer</button>
+          </div>
+        </div>
+
+        <!-- WireGuard Peers Table -->
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px;" data-i18n="wireguard_peers_title">Configured WireGuard Client Peers</div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th data-i18n="wireguard_col_name">Client Name</th>
+                <th data-i18n="wireguard_col_ip">Tunnel IP</th>
+                <th data-i18n="wireguard_col_status">Status</th>
+                <th>Endpoint IP</th>
+                <th data-i18n="wireguard_col_transfer">Transfer (RX / TX)</th>
+                <th data-i18n="wireguard_col_handshake">Last Handshake</th>
+                <th data-i18n="wireguard_col_actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="wg-peers-tbody">
+              <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No WireGuard peers configured yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SUBTAB 3: OPENVPN -->
+      <div id="subtab-content-openvpn" class="remote-subtab" style="display: none;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <div style="font-weight: 700; font-size: 14px; color: #38bdf8;" data-i18n="openvpn_title">OpenVPN Elliptic Curve Tunnel Server</div>
+              <span id="ovpn-status-badge" class="badge">--</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;" data-i18n="openvpn_desc">
+              Universal OpenVPN server with fast Elliptic Curve (prime256v1) PKI and unified standalone .ovpn profile download.
+            </p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="openvpn_proto">Protocol:</label>
+                <select id="ovpn-proto" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;">
+                  <option value="udp">UDP (Recommended)</option>
+                  <option value="tcp">TCP</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="openvpn_port">Port:</label>
+                <input type="number" id="ovpn-port" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="1194">
+              </div>
+            </div>
+            <div style="margin-bottom: 14px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="openvpn_endpoint">Public Hostname / DuckDNS:</label>
+              <input type="text" id="ovpn-endpoint" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (DuckDNS or WAN IP)">
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-primary" style="font-size: 12.5px; padding: 8px 14px;" onclick="saveOpenvpnSettings()">Save Server Settings</button>
+              <button id="btn-ovpn-toggle" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="toggleOpenvpnServer()">Toggle OpenVPN</button>
+            </div>
+          </div>
+
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;" data-i18n="openvpn_btn_add_client">➕ Add New Client</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+              Generates Elliptic Curve client certificate and creates a standalone unified .ovpn profile with embedded keys.
+            </p>
+            <div style="margin-bottom: 14px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="openvpn_client_name">Client Identifier:</label>
+              <input type="text" id="ovpn-new-client-name" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="e.g. tablet-client, user-laptop">
+            </div>
+            <div style="height: 48px;"></div>
+            <button class="btn-primary" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="addOpenvpnClient()">➕ Generate Client Certificate</button>
+          </div>
+        </div>
+
+        <!-- OpenVPN Clients Table -->
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px;" data-i18n="openvpn_clients_title">Configured OpenVPN Clients</div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th data-i18n="openvpn_col_name">Client Name</th>
+                <th data-i18n="openvpn_col_status">Connection Status</th>
+                <th data-i18n="openvpn_col_real_ip">Real Endpoint IP</th>
+                <th data-i18n="openvpn_col_traffic">Traffic (RX / TX)</th>
+                <th data-i18n="openvpn_col_connected">Connected Since</th>
+                <th data-i18n="openvpn_col_actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ovpn-clients-tbody">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No OpenVPN clients configured yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SUBTAB 4: HTTPS PROXY -->
+      <div id="subtab-content-proxy" class="remote-subtab" style="display: none;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <div style="font-weight: 700; font-size: 14px; color: #38bdf8;" data-i18n="proxy_title">Embedded HTTPS & HTTP CONNECT Proxy Server</div>
+              <span id="proxy-status-badge" class="badge">--</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;" data-i18n="proxy_desc">
+              High-throughput forward proxy with HTTP CONNECT tunneling for end-to-end TLS / HTTPS encryption and optional authentication.
+            </p>
+            <div style="margin-bottom: 12px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="proxy_port">Proxy Port:</label>
+              <input type="number" id="proxy-port" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="8443">
+            </div>
+            <div style="margin-bottom: 12px;">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+                <input type="checkbox" id="proxy-auth-enable" onchange="toggleProxyAuthFields()"> <span data-i18n="proxy_auth_enable">Require Proxy Authentication (Basic Auth)</span>
+              </label>
+            </div>
+            <div id="proxy-auth-fields" style="display: none; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="proxy_user">Proxy Username:</label>
+                <input type="text" id="proxy-username" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="proxyuser">
+              </div>
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="proxy_pass">Proxy Password:</label>
+                <input type="password" id="proxy-password" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="••••••••">
+              </div>
+            </div>
+            <div style="margin-bottom: 16px;">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+                <input type="checkbox" id="proxy-tls-enable"> <span data-i18n="proxy_tls_enable">Encrypt Proxy Frontend (HTTPS-in-HTTPS)</span>
+              </label>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveProxySettings()" data-i18n="proxy_btn_save">Save Proxy Settings</button>
+              <button id="btn-proxy-toggle" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="toggleProxyServer()">Toggle Proxy</button>
+            </div>
+          </div>
+
+          <!-- Proxy Real-Time Telemetry Card -->
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;">Live Proxy Telemetry</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; text-align: center;">
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="proxy_stat_active">Active Connections:</div>
+                <div id="proxy-stat-active" style="font-size: 20px; font-weight: 700; color: #10b981;">0</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; text-align: center;">
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="proxy_stat_total">Total Handled:</div>
+                <div id="proxy-stat-total" style="font-size: 20px; font-weight: 700; color: #38bdf8;">0</div>
+              </div>
+            </div>
+            <div style="margin-top: 14px;">
+              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="proxy_stat_traffic">Data Transferred:</div>
+              <div id="proxy-stat-traffic" style="font-size: 14px; font-weight: 600; color: var(--text-main);">0 KB (RX) / 0 KB (TX)</div>
+            </div>
+            <div style="margin-top: 10px;">
+              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="proxy_stat_uptime">Uptime:</div>
+              <div id="proxy-stat-uptime" style="font-size: 13px; color: var(--text-muted);">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Code Modal (for WireGuard) -->
+  <div id="wg-qr-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; padding: 20px;">
+    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 420px; width: 100%; padding: 20px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.6);">
+      <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px; color: #38bdf8;" id="wg-qr-peer-title">WireGuard QR Pairing</div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+        Scan this QR code using the official WireGuard app on your iOS or Android device.
+      </p>
+      <div id="wg-qr-img-wrap" style="background: #ffffff; padding: 12px; border-radius: 8px; display: inline-block; margin-bottom: 16px;">
+        <img id="wg-qr-img" src="" alt="WireGuard QR Code" style="width: 250px; height: 250px; display: block;">
+      </div>
+      <div>
+        <button class="btn-primary" style="padding: 7px 20px; font-size: 12.5px;" onclick="document.getElementById('wg-qr-modal').style.display='none'">Done</button>
       </div>
     </div>
   </div>
@@ -2986,6 +3367,9 @@ def get_dashboard_html() -> str:
     }
     if (tabId === 'tab-ooni') {
       loadOoniStatus();
+    }
+    if (tabId === 'tab-remote') {
+      loadRemoteAccessStatus();
     }
     if (tabId === 'tab-explorer') {
       loadNetworkDevices();
@@ -5794,10 +6178,335 @@ def get_dashboard_html() -> str:
         <td style="font-weight: 700; color: ${isClean ? '#10b981' : '#ef4444'};">${anom}</td>
         <td>${item.total_count || 1}</td>
         <td>${verdBadge}</td>
+        <td>
+          <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="openOoniRunDetails(${item.id})">
+            🔍 Details
+          </button>
+        </td>
       </tr>`;
     });
     tbody.innerHTML = html;
   }
+
+  // ==========================================
+  // OONI Measurement Details & Deep Inspector
+  // ==========================================
+  let currentOoniMeasurements = [];
+  let currentOoniFilter = 'all';
+  let currentOoniRawJson = null;
+
+  async function openOoniRunDetails(runId) {
+    const modal = document.getElementById('ooni-details-modal');
+    const spinner = document.getElementById('ooni-measurements-spinner');
+    const container = document.getElementById('ooni-measurements-container');
+    const deepBox = document.getElementById('ooni-deep-inspect-box');
+    const title = document.getElementById('ooni-modal-title');
+    const subtitle = document.getElementById('ooni-modal-subtitle');
+    const badge = document.getElementById('ooni-modal-anom-badge');
+    const searchBox = document.getElementById('ooni-search-box');
+
+    if (!modal) return;
+    modal.style.display = 'flex';
+    if (spinner) spinner.style.display = 'block';
+    if (container) container.style.display = 'none';
+    if (deepBox) deepBox.style.display = 'none';
+    if (searchBox) searchBox.value = '';
+    currentOoniFilter = 'all';
+    updateOoniFilterButtons();
+
+    try {
+      const res = await fetch(`/api/ooni/run?id=${runId}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const run = data.summary || data.run || {};
+      const measurements = data.measurements || [];
+      currentOoniMeasurements = measurements;
+
+      if (title) {
+        let icon = '🌐';
+        const testName = run.name || measurements[0]?.test_group || measurements[0]?.test_name || 'Test';
+        if (testName.includes('middlebox')) icon = '📦';
+        else if (testName.includes('im')) icon = '💬';
+        else if (testName.includes('circumvention')) icon = '🧅';
+        title.innerHTML = `${icon} OONI Run #${run.run_id || run.id || runId} (${escapeHtml(testName)})`;
+      }
+
+      const anomCount = data.anomalies !== undefined ? data.anomalies : (run.anomaly_count !== undefined ? run.anomaly_count : measurements.filter(m => m.is_anomaly).length);
+      const cleanCount = measurements.length - anomCount;
+
+      if (badge) {
+        if (anomCount > 0) {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(239, 68, 68, 0.2)';
+          badge.style.color = '#ef4444';
+          badge.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+          badge.textContent = `🔴 ${anomCount} Anomalies`;
+        } else {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(16, 185, 129, 0.2)';
+          badge.style.color = '#10b981';
+          badge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+          badge.textContent = '🟢 All Clean';
+        }
+      }
+
+      if (subtitle) {
+        const timeStr = run.start_time ? run.start_time.substring(0, 19).replace('T', ' ') + ' UTC' : '--';
+        subtitle.textContent = `Network: AS${run.asn || '--'} (${run.network_name || 'ISP'}) • Time: ${timeStr} • Total Targets: ${measurements.length}`;
+      }
+
+      const cntAll = document.getElementById('ooni-cnt-all');
+      const cntAnom = document.getElementById('ooni-cnt-anom');
+      const cntClean = document.getElementById('ooni-cnt-clean');
+      if (cntAll) cntAll.textContent = measurements.length;
+      if (cntAnom) cntAnom.textContent = anomCount;
+      if (cntClean) cntClean.textContent = cleanCount;
+
+      if (spinner) spinner.style.display = 'none';
+      if (container) container.style.display = 'block';
+
+      applyOoniFilter();
+    } catch (e) {
+      console.error('Failed to load OONI run details:', e);
+      if (spinner) spinner.innerHTML = `<span style="color: #ef4444;">Failed to load run details: ${escapeHtml(e.message)}</span>`;
+    }
+  }
+
+  function closeOoniModal() {
+    const modal = document.getElementById('ooni-details-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function setOoniFilter(type) {
+    currentOoniFilter = type;
+    updateOoniFilterButtons();
+    applyOoniFilter();
+  }
+
+  function updateOoniFilterButtons() {
+    const btnAll = document.getElementById('btn-ooni-filter-all');
+    const btnAnom = document.getElementById('btn-ooni-filter-anom');
+    const btnClean = document.getElementById('btn-ooni-filter-clean');
+    if (btnAll) btnAll.className = (currentOoniFilter === 'all') ? 'btn-primary' : 'btn-secondary';
+    if (btnAnom) btnAnom.className = (currentOoniFilter === 'anomalies') ? 'btn-primary' : 'btn-secondary';
+    if (btnClean) btnClean.className = (currentOoniFilter === 'clean') ? 'btn-primary' : 'btn-secondary';
+  }
+
+  function applyOoniFilter() {
+    const searchVal = (document.getElementById('ooni-search-box')?.value || '').trim().toLowerCase();
+    const filtered = currentOoniMeasurements.filter(m => {
+      if (currentOoniFilter === 'anomalies' && !m.is_anomaly) return false;
+      if (currentOoniFilter === 'clean' && m.is_anomaly) return false;
+      if (searchVal) {
+        const url = (m.url || '').toLowerCase();
+        const testName = (m.test_name || '').toLowerCase();
+        const idStr = String(m.id || '');
+        if (!url.includes(searchVal) && !testName.includes(searchVal) && !idStr.includes(searchVal)) return false;
+      }
+      return true;
+    });
+    renderOoniMeasurements(filtered);
+  }
+
+  function renderOoniMeasurements(list) {
+    const tbody = document.getElementById('ooni-measurements-tbody');
+    if (!tbody) return;
+
+    if (!list || list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No measurements match the current filter.</td></tr>';
+      return;
+    }
+
+    let html = '';
+    list.forEach(m => {
+      const isAnom = !!m.is_anomaly;
+      let badge = '';
+      if (isAnom) {
+        let reason = 'Blocked';
+        if (m.test_keys && m.test_keys.blocking) {
+          reason = `Blocked (${m.test_keys.blocking})`;
+        } else if (m.failure) {
+          reason = `Fail (${m.failure})`;
+        }
+        badge = `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🔴 ${escapeHtml(reason)}</span>`;
+      } else {
+        badge = `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🟢 Accessible</span>`;
+      }
+
+      let urlDisplay = m.url ? `<a href="${escapeHtml(m.url)}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${escapeHtml(m.url)}</a>` : `<span style="color: var(--text-muted);">${escapeHtml(m.test_name || 'Standard Test')}</span>`;
+
+      const runtimeStr = m.runtime ? `${Number(m.runtime).toFixed(2)}s` : '--';
+
+      html += `<tr>
+        <td style="font-weight: 700; color: #94a3b8;">#${m.id}</td>
+        <td style="word-break: break-all; max-width: 380px;">${urlDisplay}</td>
+        <td><span style="font-size: 11.5px; color: #cbd5e1;">${escapeHtml(m.test_name || '--')}</span></td>
+        <td>${badge}</td>
+        <td style="color: var(--text-muted); font-size: 12px;">${runtimeStr}</td>
+        <td>
+          <button class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="inspectOoniMeasurement(${m.id})">
+            🔬 Inspect
+          </button>
+        </td>
+      </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+
+  async function inspectOoniMeasurement(msmtId) {
+    const deepBox = document.getElementById('ooni-deep-inspect-box');
+    const deepTitle = document.getElementById('ooni-deep-title');
+    const deepContent = document.getElementById('ooni-deep-content');
+    const rawPre = document.getElementById('ooni-raw-json-pre');
+
+    if (!deepBox || !deepContent) return;
+    deepBox.style.display = 'block';
+    deepContent.innerHTML = '<div style="color: #38bdf8; padding: 10px 0;">Loading deep measurement diagnostics...</div>';
+    if (rawPre) rawPre.style.display = 'none';
+
+    try {
+      const res = await fetch(`/api/ooni/measurement?id=${msmtId}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      currentOoniRawJson = data.raw_json || data.measurement_json || data;
+
+      if (rawPre) {
+        rawPre.textContent = JSON.stringify(currentOoniRawJson, null, 2);
+      }
+
+      const m = currentOoniRawJson;
+      const tk = m.test_keys || {};
+      const v = data.verdict || {};
+      const pr = data.probe || {};
+      const resv = data.resolver || {};
+      const url = data.url || m.input || tk.input || m.url || `Measurement #${msmtId}`;
+
+      if (deepTitle) {
+        deepTitle.innerHTML = `🔬 Diagnostics for: <span style="color: #ffffff;">${escapeHtml(url)}</span>`;
+      }
+
+      let cardsHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 8px;">';
+
+      // 1. Summary & Anomaly Card
+      const isAnomaly = !!m.is_anomaly || !!tk.blocking || !!v.blocking || (v.accessible === false);
+      const blockingType = v.blocking || tk.blocking || (isAnomaly ? 'Anomalous behavior detected' : 'None (Accessible)');
+      const probeAsn = pr.asn || (m.probe_asn ? `AS${m.probe_asn}` : '--');
+      const probeNet = pr.network || m.probe_network_name || '';
+      const resvAsn = resv.asn || (m.resolver_asn ? `AS${m.resolver_asn}` : (tk.resolver_asn ? `AS${tk.resolver_asn}` : '--'));
+      const resvIp = resv.ip || v.client_resolver || '';
+
+      cardsHtml += `
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 6px; padding: 10px;">
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">📋 Censorship Verdict</div>
+          <div><b>Status:</b> ${isAnomaly ? '<span style="color: #ef4444; font-weight: 700;">🔴 ANOMALY / BLOCKED</span>' : '<span style="color: #10b981; font-weight: 700;">🟢 ACCESSIBLE / OK</span>'}</div>
+          <div><b>Blocking Type:</b> <span style="color: #f1f5f9;">${escapeHtml(String(blockingType))}</span></div>
+          <div><b>Resolver:</b> <span style="color: #cbd5e1;">${escapeHtml(String(resvAsn))} ${resvIp ? '(' + escapeHtml(resvIp) + ')' : ''}</span></div>
+          <div><b>Probe Network:</b> <span style="color: #cbd5e1;">${escapeHtml(String(probeAsn))} ${probeNet ? '(' + escapeHtml(probeNet) + ')' : ''}</span></div>
+        </div>
+      `;
+
+      // 2. DNS Consistency Card
+      let dnsDetails = 'No DNS queries recorded';
+      if (data.dns_queries && data.dns_queries.length > 0) {
+        dnsDetails = data.dns_queries.map(q => {
+          const qname = (q.query_type || 'A') + ' ' + (q.hostname || '');
+          const answers = (q.answers || []).join(', ') || 'No answers';
+          const fail = q.failure ? `<span style="color: #ef4444;"> [Failed: ${escapeHtml(q.failure)}]</span>` : '';
+          return `<div style="margin-bottom: 4px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px;">• <b>${escapeHtml(qname)}</b>${fail}<br>&nbsp;&nbsp;Answers: <span style="color: #94a3b8;">${escapeHtml(answers)}</span></div>`;
+        }).join('');
+      } else if (tk.queries && tk.queries.length > 0) {
+        dnsDetails = tk.queries.map(q => {
+          const qname = (q.query_type || 'A') + ' ' + (q.hostname || '');
+          const answers = (q.answers || []).map(a => `${a.answer_type || 'A'}: ${a.ipv4 || a.ipv6 || a.hostname || a.ttl || ''}`).join(', ') || 'No answers';
+          const fail = q.failure ? `<span style="color: #ef4444;"> [Failed: ${escapeHtml(q.failure)}]</span>` : '';
+          return `<div style="margin-bottom: 4px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px;">• <b>${escapeHtml(qname)}</b>${fail}<br>&nbsp;&nbsp;Answers: <span style="color: #94a3b8;">${escapeHtml(answers)}</span></div>`;
+        }).join('');
+      } else if (tk.dns_experiment_failure) {
+        dnsDetails = `<span style="color: #ef4444;">DNS Failure: ${escapeHtml(tk.dns_experiment_failure)}</span>`;
+      }
+      cardsHtml += `
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 6px; padding: 10px;">
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">🌐 DNS Resolution & Tampering</div>
+          <div><b>DNS Consistency:</b> ${v.dns_consistency ? `<span style="color: #10b981;">${escapeHtml(v.dns_consistency)}</span>` : (tk.dns_consistency ? `<span style="color: #10b981;">${escapeHtml(tk.dns_consistency)}</span>` : '<span style="color: #94a3b8;">N/A</span>')}</div>
+          <div style="margin-top: 6px; max-height: 120px; overflow-y: auto;">${dnsDetails}</div>
+        </div>
+      `;
+
+      // 3. TCP Connect Card
+      let tcpDetails = 'No TCP connect events';
+      if (data.tcp_connects && data.tcp_connects.length > 0) {
+        tcpDetails = data.tcp_connects.map(t => {
+          const ep = `${t.ip}:${t.port}`;
+          const ok = t.success;
+          const statusTxt = ok ? '<span style="color: #10b981;">Connected</span>' : `<span style="color: #ef4444;">Failed (${escapeHtml(t.failure || 'Blocked')})</span>`;
+          return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(ep)}</b>: ${statusTxt}</div>`;
+        }).join('');
+      } else if (tk.tcp_connect && tk.tcp_connect.length > 0) {
+        tcpDetails = tk.tcp_connect.map(t => {
+          const ep = `${t.ip}:${t.port}`;
+          const ok = t.status && t.status.success;
+          const statusTxt = ok ? '<span style="color: #10b981;">Connected</span>' : `<span style="color: #ef4444;">Failed (${escapeHtml(t.status?.failure || 'Blocked')})</span>`;
+          return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(ep)}</b>: ${statusTxt}</div>`;
+        }).join('');
+      }
+      cardsHtml += `
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 6px; padding: 10px;">
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">🔌 TCP Connect & Handshake</div>
+          <div style="max-height: 120px; overflow-y: auto;">${tcpDetails}</div>
+        </div>
+      `;
+
+      // 4. HTTP Response / Middlebox Card
+      let httpDetails = 'No HTTP requests recorded';
+      if (data.http_requests && data.http_requests.length > 0) {
+        httpDetails = data.http_requests.map(r => {
+          const code = r.status_code || r.failure || 'No response';
+          return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(r.method || 'GET')} ${escapeHtml(r.url || '')}</b><br>&nbsp;&nbsp;Status: <span style="color: #38bdf8;">${escapeHtml(String(code))}</span></div>`;
+        }).join('');
+      } else if (tk.requests && tk.requests.length > 0) {
+        httpDetails = tk.requests.map(r => {
+          const code = r.response ? r.response.code : (r.failure || 'No response');
+          const bodyLen = (r.response && r.response.body) ? (typeof r.response.body === 'string' ? r.response.body.length : (r.response.body.value ? r.response.body.value.length : 'N/A')) : '0';
+          return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(r.request?.method || 'GET')} ${escapeHtml(r.request?.url || '')}</b><br>&nbsp;&nbsp;Code: <span style="color: #38bdf8;">${escapeHtml(String(code))}</span> • Body: ${bodyLen} bytes</div>`;
+        }).join('');
+      } else if (tk.received) {
+        httpDetails = `Received: <pre style="font-size: 10px; margin: 2px 0;">${escapeHtml(JSON.stringify(tk.received))}</pre>`;
+      }
+      cardsHtml += `
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 6px; padding: 10px;">
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">📦 HTTP Traffic & Middlebox</div>
+          <div style="max-height: 120px; overflow-y: auto;">${httpDetails}</div>
+        </div>
+      `;
+
+      cardsHtml += '</div>';
+      deepContent.innerHTML = cardsHtml;
+      deepBox.scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+      console.error('Failed to inspect measurement:', e);
+      deepContent.innerHTML = `<span style="color: #ef4444;">Failed to retrieve measurement details: ${escapeHtml(e.message)}</span>`;
+    }
+  }
+
+  function toggleOoniRawJson() {
+    const rawPre = document.getElementById('ooni-raw-json-pre');
+    if (!rawPre) return;
+    rawPre.style.display = (rawPre.style.display === 'none') ? 'block' : 'none';
+  }
+
+  function copyOoniRawJson() {
+    if (!currentOoniRawJson) {
+      showToast('No measurement data to copy');
+      return;
+    }
+    const text = JSON.stringify(currentOoniRawJson, null, 2);
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Measurement JSON copied to clipboard!');
+    }).catch(e => {
+      showToast('Failed to copy: ' + e);
+    });
+  }
+
 
   // ==========================================
   // Network Explorer & Device Inventory
@@ -6346,7 +7055,712 @@ ${pkgList}`;
     }
   }
 
+
+  // ==========================================
+  // Remote Access & VPN & Proxy Subtabs
+  // ==========================================
+  let activeRemoteSubtab = 'duckdns';
+
+  function switchRemoteSubtab(tabName) {
+    activeRemoteSubtab = tabName;
+    ['duckdns', 'wireguard', 'openvpn', 'proxy'].forEach(t => {
+      const btn = document.getElementById('btn-subtab-' + t);
+      const pane = document.getElementById('subtab-content-' + t);
+      if (btn) btn.className = (t === tabName) ? 'btn-primary' : 'btn-secondary';
+      if (pane) pane.style.display = (t === tabName) ? 'block' : 'none';
+    });
+
+    if (tabName === 'duckdns') loadDuckdnsStatus();
+    else if (tabName === 'wireguard') loadWireguardStatus();
+    else if (tabName === 'openvpn') loadOpenvpnStatus();
+    else if (tabName === 'proxy') loadProxyStatus();
+  }
+
+  function loadRemoteAccessStatus() {
+    loadDuckdnsStatus();
+    loadWireguardStatus();
+    loadOpenvpnStatus();
+    loadProxyStatus();
+  }
+
+  // ---- DuckDNS ----
+  async function loadDuckdnsStatus() {
+    try {
+      const res = await fetch('/api/duckdns/status');
+      if (!res.ok) return;
+      const d = await res.json();
+
+      const enChbox = document.getElementById('duckdns-enabled');
+      const domInput = document.getElementById('duckdns-domain');
+      const intInput = document.getElementById('duckdns-interval');
+      const custInput = document.getElementById('duckdns-custom-ip');
+
+      if (enChbox && d.enabled !== undefined) enChbox.checked = !!d.enabled;
+      if (domInput && d.domain !== undefined && !domInput.dataset.focused) domInput.value = d.domain || '';
+      if (intInput && d.interval_min !== undefined && !intInput.dataset.focused) intInput.value = d.interval_min || 10;
+      if (custInput && d.custom_ip !== undefined && !custInput.dataset.focused) custInput.value = d.custom_ip || '';
+
+      const badge = document.getElementById('duckdns-status-badge');
+      if (badge) {
+        if (!d.enabled) {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(148, 163, 184, 0.15)';
+          badge.style.color = '#94a3b8';
+          badge.style.border = '1px solid #475569';
+          badge.textContent = 'Disabled';
+        } else if (d.last_status === 'OK') {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(16, 185, 129, 0.15)';
+          badge.style.color = '#10b981';
+          badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+          badge.textContent = '🟢 Synced (OK)';
+        } else if (d.last_status === 'KO') {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(239, 68, 68, 0.15)';
+          badge.style.color = '#ef4444';
+          badge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          badge.textContent = '🔴 Auth Error (KO)';
+        } else {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(56, 189, 248, 0.15)';
+          badge.style.color = '#38bdf8';
+          badge.style.border = '1px solid rgba(56, 189, 248, 0.3)';
+          badge.textContent = d.last_status || 'Waiting';
+        }
+      }
+
+      const ipEl = document.getElementById('duckdns-detected-ip');
+      if (ipEl) ipEl.textContent = d.detected_ip || d.last_ip || '--';
+
+      const timeEl = document.getElementById('duckdns-last-time');
+      if (timeEl) timeEl.textContent = d.last_update ? d.last_update.substring(0, 19).replace('T', ' ') : 'Never';
+
+      const nextEl = document.getElementById('duckdns-next-time');
+      if (nextEl) nextEl.textContent = d.next_update ? d.next_update.substring(0, 19).replace('T', ' ') : '--';
+
+      const msgBox = document.getElementById('duckdns-msg-box');
+      if (msgBox) {
+        msgBox.textContent = `FQDN: ${d.domain ? d.domain + '.duckdns.org' : '(none configured)'} • Public IP: ${d.detected_ip || '--'} • Response: ${d.last_status || 'Ready'}`;
+      }
+    } catch (e) {
+      console.error('loadDuckdnsStatus error:', e);
+    }
+  }
+
+  async function saveDuckdnsSettings() {
+    const enabled = !!document.getElementById('duckdns-enabled')?.checked;
+    const domain = (document.getElementById('duckdns-domain')?.value || '').trim();
+    const token = (document.getElementById('duckdns-token')?.value || '').trim();
+    const interval_min = parseInt(document.getElementById('duckdns-interval')?.value, 10) || 10;
+    const custom_ip = (document.getElementById('duckdns-custom-ip')?.value || '').trim();
+
+    try {
+      const res = await fetch('/api/duckdns/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled, domain, token, interval_min, custom_ip }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast('DuckDNS settings successfully saved');
+        loadDuckdnsStatus();
+      } else {
+        showToast('DuckDNS save error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('Save DuckDNS error: ' + e);
+    }
+  }
+
+  async function updateDuckdnsNow() {
+    showToast('Triggering DuckDNS DynDNS synchronization...');
+    try {
+      const res = await fetch('/api/duckdns/update', { method: 'POST' });
+      const d = await res.json();
+      if (res.ok && d.success) {
+        showToast(`DuckDNS updated! IP: ${d.ip || 'OK'}`);
+      } else {
+        showToast('DuckDNS update returned: ' + (d.status || d.message || 'Failed'));
+      }
+      setTimeout(loadDuckdnsStatus, 1000);
+    } catch (e) {
+      showToast('DuckDNS update error: ' + e);
+    }
+  }
+
+  // ---- WireGuard ----
+  let wireguardIsActive = false;
+
+  async function loadWireguardStatus() {
+    try {
+      const res = await fetch('/api/wireguard/status');
+      if (!res.ok) return;
+      const d = await res.json();
+      wireguardIsActive = !!d.active;
+
+      const portInput = document.getElementById('wg-port');
+      const subnetInput = document.getElementById('wg-subnet');
+      const endpointInput = document.getElementById('wg-endpoint');
+      if (portInput && d.port && !portInput.dataset.focused) portInput.value = d.port;
+      if (subnetInput && d.subnet && !subnetInput.dataset.focused) subnetInput.value = d.subnet;
+      if (endpointInput && d.endpoint && !endpointInput.dataset.focused) endpointInput.value = d.endpoint;
+
+      const badge = document.getElementById('wg-status-badge');
+      if (badge) {
+        if (d.active) {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(16, 185, 129, 0.15)';
+          badge.style.color = '#10b981';
+          badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+          badge.textContent = `🟢 Running (Port ${d.port || 51820})`;
+        } else {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(148, 163, 184, 0.15)';
+          badge.style.color = '#94a3b8';
+          badge.style.border = '1px solid #475569';
+          badge.textContent = '⚫ Stopped';
+        }
+      }
+
+      const toggleBtn = document.getElementById('btn-wg-toggle');
+      if (toggleBtn) {
+        if (d.active) {
+          toggleBtn.className = 'btn-danger';
+          toggleBtn.textContent = '⏹️ Stop WireGuard';
+        } else {
+          toggleBtn.className = 'btn-primary';
+          toggleBtn.textContent = '▶️ Start WireGuard';
+        }
+      }
+
+      renderWireguardPeers(d.peers || []);
+    } catch (e) {
+      console.error('loadWireguardStatus error:', e);
+    }
+  }
+
+  function renderWireguardPeers(peers) {
+    const tbody = document.getElementById('wg-peers-tbody');
+    if (!tbody) return;
+
+    if (!peers || peers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 16px;">No WireGuard peers configured yet. Use the form above to add a client peer.</td></tr>';
+      return;
+    }
+
+    let html = '';
+    peers.forEach(p => {
+      const hsSec = p.latest_handshake || 0;
+      let hsDisplay = '--';
+      let isConnected = false;
+      if (hsSec > 0) {
+        if (hsSec < 180) {
+          isConnected = true;
+          hsDisplay = `<span style="color: #10b981; font-weight: 600;">Active (${p.latest_handshake_ago || hsSec + 's ago'})</span>`;
+        } else {
+          hsDisplay = `<span style="color: var(--text-muted);">${p.latest_handshake_ago || Math.floor(hsSec / 60) + 'm ago'}</span>`;
+        }
+      }
+
+      const statusBadge = isConnected
+        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 Connected</span>'
+        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Offline</span>';
+
+      const rxFormatted = formatBytes(p.transfer_rx || 0);
+      const txFormatted = formatBytes(p.transfer_tx || 0);
+
+      html += `<tr>
+        <td style="font-weight: 700; color: #38bdf8;">${escapeHtml(p.name)}</td>
+        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1;">${escapeHtml(p.allowed_ips || p.client_ip || '--')}</td>
+        <td>${statusBadge}</td>
+        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(p.endpoint || '--')}</td>
+        <td style="font-size: 12px;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
+        <td style="font-size: 12px;">${hsDisplay}</td>
+        <td style="display: flex; gap: 6px;">
+          <a href="/api/wireguard/peer/config?id=${p.id}" download="${escapeHtml(p.name)}.conf" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
+            📥 .conf
+          </a>
+          <button class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="showWireguardQr('${p.id}', '${escapeHtml(p.name)}')">
+            📱 QR
+          </button>
+          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteWireguardPeer('${p.id}', '${escapeHtml(p.name)}')">
+            ✕
+          </button>
+        </td>
+      </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  async function saveWireguardSettings() {
+    const port = parseInt(document.getElementById('wg-port')?.value, 10) || 51820;
+    const subnet = (document.getElementById('wg-subnet')?.value || '').trim() || '10.8.0.1/24';
+    const endpoint = (document.getElementById('wg-endpoint')?.value || '').trim();
+
+    try {
+      const res = await fetch('/api/wireguard/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port, subnet, endpoint }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast('WireGuard server settings saved');
+        loadWireguardStatus();
+      } else {
+        showToast('WireGuard save error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('WireGuard save error: ' + e);
+    }
+  }
+
+  async function toggleWireguardServer() {
+    const nextState = !wireguardIsActive;
+    showToast(nextState ? 'Starting WireGuard VPN server...' : 'Stopping WireGuard VPN server...');
+    try {
+      const res = await fetch('/api/wireguard/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enable: nextState }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast(`WireGuard server ${nextState ? 'started' : 'stopped'}`);
+        setTimeout(loadWireguardStatus, 800);
+      } else {
+        showToast('WireGuard toggle error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('WireGuard toggle error: ' + e);
+    }
+  }
+
+  async function addWireguardPeer() {
+    const nameInput = document.getElementById('wg-new-peer-name');
+    const ipInput = document.getElementById('wg-new-peer-ip');
+    const name = (nameInput?.value || '').trim();
+    const client_ip = (ipInput?.value || '').trim();
+
+    if (!name) {
+      showToast('Please provide a client peer name (e.g. phone-pixel)');
+      if (nameInput) nameInput.focus();
+      return;
+    }
+
+    showToast('Generating Elliptic Curve keys & WireGuard peer configuration...');
+    try {
+      const res = await fetch('/api/wireguard/peer/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, client_ip }),
+      });
+      const d = await res.json();
+      if (res.ok && d.peer) {
+        showToast(`Peer "${name}" generated successfully!`);
+        if (nameInput) nameInput.value = '';
+        if (ipInput) ipInput.value = '';
+        loadWireguardStatus();
+        showWireguardQr(d.peer.id, d.peer.name);
+      } else {
+        showToast('Add peer error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('Add peer request error: ' + e);
+    }
+  }
+
+  async function deleteWireguardPeer(id, name) {
+    if (!confirm(`Are you sure you want to delete WireGuard client peer "${name}"?`)) return;
+    try {
+      const res = await fetch('/api/wireguard/peer/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        showToast(`Peer "${name}" removed`);
+        loadWireguardStatus();
+      } else {
+        const d = await res.json();
+        showToast('Delete peer error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('Delete peer error: ' + e);
+    }
+  }
+
+  async function showWireguardQr(peerId, peerName) {
+    const modal = document.getElementById('wg-qr-modal');
+    const title = document.getElementById('wg-qr-peer-title');
+    const img = document.getElementById('wg-qr-img');
+    if (!modal || !img) return;
+
+    if (title) title.textContent = `📱 WireGuard QR: ${peerName}`;
+    try {
+      const res = await fetch(`/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}`);
+      const d = await res.json();
+      if (d.qr_data_uri) {
+        img.src = d.qr_data_uri;
+      } else {
+        img.src = `/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}&raw=1&t=${Date.now()}`;
+      }
+    } catch (e) {
+      img.src = `/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}&raw=1&t=${Date.now()}`;
+    }
+    modal.style.display = 'flex';
+  }
+
+  // ---- OpenVPN ----
+  let openvpnIsActive = false;
+
+  async function loadOpenvpnStatus() {
+    try {
+      const res = await fetch('/api/openvpn/status');
+      if (!res.ok) return;
+      const d = await res.json();
+      openvpnIsActive = !!d.active;
+
+      const protoSelect = document.getElementById('ovpn-proto');
+      const portInput = document.getElementById('ovpn-port');
+      const endpointInput = document.getElementById('ovpn-endpoint');
+      if (protoSelect && d.proto) protoSelect.value = d.proto;
+      if (portInput && d.port && !portInput.dataset.focused) portInput.value = d.port;
+      if (endpointInput && d.endpoint && !endpointInput.dataset.focused) endpointInput.value = d.endpoint;
+
+      const badge = document.getElementById('ovpn-status-badge');
+      if (badge) {
+        if (d.active) {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(16, 185, 129, 0.15)';
+          badge.style.color = '#10b981';
+          badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+          badge.textContent = `🟢 Running (${(d.proto || 'udp').toUpperCase()} ${d.port || 1194})`;
+        } else {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(148, 163, 184, 0.15)';
+          badge.style.color = '#94a3b8';
+          badge.style.border = '1px solid #475569';
+          badge.textContent = '⚫ Stopped';
+        }
+      }
+
+      const toggleBtn = document.getElementById('btn-ovpn-toggle');
+      if (toggleBtn) {
+        if (d.active) {
+          toggleBtn.className = 'btn-danger';
+          toggleBtn.textContent = '⏹️ Stop OpenVPN';
+        } else {
+          toggleBtn.className = 'btn-primary';
+          toggleBtn.textContent = '▶️ Start OpenVPN';
+        }
+      }
+
+      renderOpenvpnClients(d.clients || []);
+    } catch (e) {
+      console.error('loadOpenvpnStatus error:', e);
+    }
+  }
+
+  function renderOpenvpnClients(clients) {
+    const tbody = document.getElementById('ovpn-clients-tbody');
+    if (!tbody) return;
+
+    if (!clients || clients.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">No OpenVPN client certificates generated yet. Use the form above to add a client.</td></tr>';
+      return;
+    }
+
+    let html = '';
+    clients.forEach(c => {
+      const isConnected = !!c.connected;
+      const statusBadge = isConnected
+        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 Connected</span>'
+        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Offline</span>';
+
+      const rxFormatted = formatBytes(c.bytes_received || 0);
+      const txFormatted = formatBytes(c.bytes_sent || 0);
+
+      html += `<tr>
+        <td style="font-weight: 700; color: #38bdf8;">${escapeHtml(c.name)}</td>
+        <td>${statusBadge}</td>
+        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(c.real_address || '--')}</td>
+        <td style="font-size: 12px;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
+        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(c.connected_since || '--')}</td>
+        <td style="display: flex; gap: 6px;">
+          <a href="/api/openvpn/client/config?name=${encodeURIComponent(c.name)}" download="${escapeHtml(c.name)}.ovpn" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
+            📥 .ovpn
+          </a>
+          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
+            ✕
+          </button>
+        </td>
+      </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+
+  async function saveOpenvpnSettings() {
+    const proto = document.getElementById('ovpn-proto')?.value || 'udp';
+    const port = parseInt(document.getElementById('ovpn-port')?.value, 10) || 1194;
+    const endpoint = (document.getElementById('ovpn-endpoint')?.value || '').trim();
+
+    try {
+      const res = await fetch('/api/openvpn/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proto, port, endpoint }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast('OpenVPN server settings saved');
+        loadOpenvpnStatus();
+      } else {
+        showToast('OpenVPN save error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('OpenVPN save error: ' + e);
+    }
+  }
+
+  async function toggleOpenvpnServer() {
+    const nextState = !openvpnIsActive;
+    showToast(nextState ? 'Starting OpenVPN server...' : 'Stopping OpenVPN server...');
+    try {
+      const res = await fetch('/api/openvpn/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enable: nextState }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast(`OpenVPN server ${nextState ? 'started' : 'stopped'}`);
+        setTimeout(loadOpenvpnStatus, 800);
+      } else {
+        showToast('OpenVPN toggle error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('OpenVPN toggle error: ' + e);
+    }
+  }
+
+  async function addOpenvpnClient() {
+    const nameInput = document.getElementById('ovpn-new-client-name');
+    const name = (nameInput?.value || '').trim();
+
+    if (!name) {
+      showToast('Please provide a client name (e.g. tablet-client)');
+      if (nameInput) nameInput.focus();
+      return;
+    }
+
+    showToast('Generating Elliptic Curve client certificate & unified .ovpn profile...');
+    try {
+      const res = await fetch('/api/openvpn/client/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast(`Client "${name}" generated successfully!`);
+        if (nameInput) nameInput.value = '';
+        loadOpenvpnStatus();
+        const a = document.createElement('a');
+        a.href = `/api/openvpn/client/config?name=${encodeURIComponent(name)}`;
+        a.download = `${name}.ovpn`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        showToast('Add client error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('Add client request error: ' + e);
+    }
+  }
+
+  async function deleteOpenvpnClient(name) {
+    if (!confirm(`Are you sure you want to revoke & delete OpenVPN client "${name}"?`)) return;
+    try {
+      const res = await fetch('/api/openvpn/client/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        showToast(`Client "${name}" deleted`);
+        loadOpenvpnStatus();
+      } else {
+        const d = await res.json();
+        showToast('Delete client error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('Delete client error: ' + e);
+    }
+  }
+
+  // ---- HTTPS CONNECT Proxy ----
+  let proxyIsActive = false;
+
+  function toggleProxyAuthFields() {
+    const chk = document.getElementById('proxy-auth-enable');
+    const fields = document.getElementById('proxy-auth-fields');
+    if (fields) {
+      fields.style.display = (chk && chk.checked) ? 'grid' : 'none';
+    }
+  }
+
+  async function loadProxyStatus() {
+    try {
+      const res = await fetch('/api/proxy/status');
+      if (!res.ok) return;
+      const d = await res.json();
+      proxyIsActive = !!d.running;
+
+      const portInput = document.getElementById('proxy-port');
+      const authChk = document.getElementById('proxy-auth-enable');
+      const userInput = document.getElementById('proxy-username');
+      const passInput = document.getElementById('proxy-password');
+      const tlsChk = document.getElementById('proxy-tls-enable');
+
+      if (portInput && d.port && !portInput.dataset.focused) portInput.value = d.port;
+      if (authChk && d.auth_enabled !== undefined) {
+        authChk.checked = !!d.auth_enabled;
+        toggleProxyAuthFields();
+      }
+      if (userInput && d.username && !userInput.dataset.focused) userInput.value = d.username;
+      if (tlsChk && d.tls_enabled !== undefined) tlsChk.checked = !!d.tls_enabled;
+
+      const badge = document.getElementById('proxy-status-badge');
+      if (badge) {
+        if (d.running) {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(16, 185, 129, 0.15)';
+          badge.style.color = '#10b981';
+          badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+          badge.textContent = `🟢 Running (Port ${d.port || 8443})`;
+        } else {
+          badge.className = 'badge';
+          badge.style.background = 'rgba(148, 163, 184, 0.15)';
+          badge.style.color = '#94a3b8';
+          badge.style.border = '1px solid #475569';
+          badge.textContent = '⚫ Stopped';
+        }
+      }
+
+      const toggleBtn = document.getElementById('btn-proxy-toggle');
+      if (toggleBtn) {
+        if (d.running) {
+          toggleBtn.className = 'btn-danger';
+          toggleBtn.textContent = '⏹️ Stop Proxy';
+        } else {
+          toggleBtn.className = 'btn-primary';
+          toggleBtn.textContent = '▶️ Start Proxy';
+        }
+      }
+
+      const stats = d.stats || {};
+      const actEl = document.getElementById('proxy-stat-active');
+      const totEl = document.getElementById('proxy-stat-total');
+      const trfEl = document.getElementById('proxy-stat-traffic');
+      const uptEl = document.getElementById('proxy-stat-uptime');
+
+      if (actEl) actEl.textContent = stats.active_connections || 0;
+      if (totEl) totEl.textContent = stats.total_connections || 0;
+      if (trfEl) {
+        const rx = formatBytes(stats.bytes_rx || 0);
+        const tx = formatBytes(stats.bytes_tx || 0);
+        trfEl.textContent = `↓ ${rx} / ↑ ${tx}`;
+      }
+      if (uptEl) {
+        const sec = stats.uptime_sec || 0;
+        if (sec > 0) {
+          const m = Math.floor(sec / 60);
+          const s = sec % 60;
+          uptEl.textContent = `${m}m ${s}s`;
+        } else {
+          uptEl.textContent = d.running ? 'Just started' : 'Offline';
+        }
+      }
+    } catch (e) {
+      console.error('loadProxyStatus error:', e);
+    }
+  }
+
+  async function saveProxySettings() {
+    const port = parseInt(document.getElementById('proxy-port')?.value, 10) || 8443;
+    const auth_enabled = !!document.getElementById('proxy-auth-enable')?.checked;
+    const username = (document.getElementById('proxy-username')?.value || '').trim();
+    const password = (document.getElementById('proxy-password')?.value || '').trim();
+    const tls_enabled = !!document.getElementById('proxy-tls-enable')?.checked;
+
+    try {
+      const res = await fetch('/api/proxy/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port, auth_enabled, username, password, tls_enabled }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        showToast('HTTPS Proxy settings saved');
+        loadProxyStatus();
+      } else {
+        showToast('Proxy save error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('Proxy save error: ' + e);
+    }
+  }
+
+  async function toggleProxyServer() {
+    const nextState = !proxyIsActive;
+    const endpoint = nextState ? '/api/proxy/start' : '/api/proxy/stop';
+    showToast(nextState ? 'Starting HTTPS CONNECT proxy server...' : 'Stopping HTTPS proxy server...');
+    try {
+      const res = await fetch(endpoint, { method: 'POST' });
+      const d = await res.json();
+      if (res.ok) {
+        showToast(`HTTPS Proxy ${nextState ? 'started' : 'stopped'}`);
+        setTimeout(loadProxyStatus, 800);
+      } else {
+        showToast('Proxy toggle error: ' + (d.message || 'Failed'));
+      }
+    } catch (e) {
+      showToast('Proxy toggle error: ' + e);
+    }
+  }
+
   // Initialization
+  ['duckdns-domain', 'duckdns-token', 'duckdns-interval', 'duckdns-custom-ip', 'wg-port', 'wg-subnet', 'wg-endpoint', 'ovpn-port', 'ovpn-endpoint', 'proxy-port', 'proxy-username', 'proxy-password'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('focus', () => el.dataset.focused = '1');
+      el.addEventListener('blur', () => delete el.dataset.focused);
+    }
+  });
+
+  setInterval(() => {
+    const remoteTab = document.getElementById('tab-remote');
+    if (remoteTab && remoteTab.classList.contains('active')) {
+      if (activeRemoteSubtab === 'proxy' && proxyIsActive) {
+        loadProxyStatus();
+      } else if (activeRemoteSubtab === 'wireguard' && wireguardIsActive) {
+        loadWireguardStatus();
+      } else if (activeRemoteSubtab === 'openvpn' && openvpnIsActive) {
+        loadOpenvpnStatus();
+      }
+    }
+  }, 3000);
+
   loadTranslations(localStorage.getItem('nmb_lang') || 'en');
   updateServerSelectVisibility(selectedEngine);
   refreshStatus();
