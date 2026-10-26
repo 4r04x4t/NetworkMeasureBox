@@ -187,10 +187,22 @@ def get_dynamic_interfaces() -> List[Dict[str, Any]]:
     return interfaces
 
 
+def _run_privileged_cmd(cmd_str: str, timeout: int = 60) -> subprocess.CompletedProcess:
+    """Run command with root elevation and sandbox escape if needed."""
+    if shutil.which("systemd-run") and os.geteuid() != 0:
+        args = ["sudo", "systemd-run", "--pipe", "--wait", "--quiet", "/bin/sh", "-c", cmd_str]
+    elif os.geteuid() != 0:
+        args = ["sudo", "/bin/sh", "-c", cmd_str]
+    else:
+        args = ["/bin/sh", "-c", cmd_str]
+    return subprocess.run(args, capture_output=True, text=True, check=False, timeout=timeout)
+
+
 def check_updates_available() -> Dict[str, Any]:
     """Check for system packages that can be upgraded without installing."""
     os_info = detect_os_info()
     pm = os_info.get("package_manager")
+
     result: Dict[str, Any] = {
         "package_manager": pm,
         "distro": os_info.get("distro_name"),
@@ -207,34 +219,34 @@ def check_updates_available() -> Dict[str, Any]:
     try:
         if pm == "apt":
             # Refresh list first
-            subprocess.run(["apt-get", "update"], capture_output=True, text=True, check=False, timeout=30)
-            res = subprocess.run(["apt-get", "-s", "upgrade"], capture_output=True, text=True, check=False, timeout=30)
+            _run_privileged_cmd("apt-get update", timeout=45)
+            res = _run_privileged_cmd("apt-get -s upgrade", timeout=30)
             if res.returncode == 0:
                 pkgs = []
                 for line in res.stdout.splitlines():
                     if line.startswith("Inst "):
-                        pname = line.split()[1]
-                        pkgs.append(pname)
+                        parts = line.split()
+                        if len(parts) > 1:
+                            pkgs.append(parts[1])
                 result["upgradable_count"] = len(pkgs)
                 result["packages"] = pkgs[:50]
                 result["message"] = f"{len(pkgs)} package(s) can be upgraded."
         elif pm in ("dnf", "yum"):
-            cmd = [pm, "check-update", "-q"]
-            res = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=30)
+            res = _run_privileged_cmd(f"{pm} check-update -q", timeout=45)
             # exit code 100 means updates are available
             lines = [l.split()[0] for l in res.stdout.splitlines() if l.strip() and not l.startswith("Security")]
             result["upgradable_count"] = len(lines)
             result["packages"] = lines[:50]
             result["message"] = f"{len(lines)} package(s) can be upgraded."
         elif pm == "pacman":
-            res = subprocess.run(["pacman", "-Qu"], capture_output=True, text=True, check=False, timeout=30)
+            res = _run_privileged_cmd("pacman -Qu", timeout=30)
             lines = [l.split()[0] for l in res.stdout.splitlines() if l.strip()]
             result["upgradable_count"] = len(lines)
             result["packages"] = lines[:50]
             result["message"] = f"{len(lines)} package(s) can be upgraded."
         elif pm == "apk":
-            subprocess.run(["apk", "update"], capture_output=True, text=True, check=False, timeout=30)
-            res = subprocess.run(["apk", "version", "-u", "-l", "<"], capture_output=True, text=True, check=False, timeout=30)
+            _run_privileged_cmd("apk update", timeout=30)
+            res = _run_privileged_cmd("apk version -u -l '<'", timeout=30)
             lines = [l.split()[0] for l in res.stdout.splitlines() if l.strip()]
             result["upgradable_count"] = len(lines)
             result["packages"] = lines[:50]
@@ -268,23 +280,29 @@ def trigger_system_upgrade() -> Dict[str, Any]:
                     f.flush()
 
                     if pm == "apt":
-                        cmd = "export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get -y upgrade"
+                        raw_cmd = "export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' upgrade"
                     elif pm == "dnf":
-                        cmd = "dnf -y upgrade"
+                        raw_cmd = "dnf -y upgrade"
                     elif pm == "yum":
-                        cmd = "yum -y update"
+                        raw_cmd = "yum -y update"
                     elif pm == "pacman":
-                        cmd = "pacman -Syu --noconfirm"
+                        raw_cmd = "pacman -Syu --noconfirm"
                     elif pm == "apk":
-                        cmd = "apk update && apk upgrade"
+                        raw_cmd = "apk update && apk upgrade"
                     elif pm == "zypper":
-                        cmd = "zypper -n update"
+                        raw_cmd = "zypper -n update"
                     else:
-                        cmd = "echo 'Unsupported package manager'"
+                        raw_cmd = "echo 'Unsupported package manager'"
+
+                    if shutil.which("systemd-run") and os.geteuid() != 0:
+                        full_cmd = ["sudo", "systemd-run", "--pipe", "--wait", "--quiet", "/bin/sh", "-c", raw_cmd]
+                    elif os.geteuid() != 0:
+                        full_cmd = ["sudo", "/bin/sh", "-c", raw_cmd]
+                    else:
+                        full_cmd = ["/bin/sh", "-c", raw_cmd]
 
                     proc = subprocess.Popen(
-                        cmd,
-                        shell=True,
+                        full_cmd,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
                         text=True,

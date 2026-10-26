@@ -142,7 +142,7 @@ fi
 
 # Grant network administration rights for MAC modification via sudoers
 if [ -d /etc/sudoers.d ]; then
-    echo "$NMB_USER ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/ip, /usr/sbin/ip" > /etc/sudoers.d/020_nmb-net
+    echo "$NMB_USER ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/ip, /usr/sbin/ip, /usr/bin/tee, /bin/tee, /usr/bin/mtr, /usr/bin/systemd-run, /bin/systemd-run" > /etc/sudoers.d/020_nmb-net
     chmod 0440 /etc/sudoers.d/020_nmb-net
 fi
 

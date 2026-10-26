@@ -31,8 +31,8 @@ install -d -m 2775 -o "$NMB_USER" -g "$NMB_USER" /var/lib/nmb/live /var/log/nmb 
 # 3. fstab: tmpfs mounts (+ noatime/commit on root)
 sed -i "/$MARK/d" "$FSTAB"
 cat >>"$FSTAB" <<EOF
-tmpfs /tmp              tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=128M 0 0 $MARK
-tmpfs /var/tmp          tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=32M  0 0 $MARK
+tmpfs /tmp              tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=512M 0 0 $MARK
+tmpfs /var/tmp          tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=512M  0 0 $MARK
 tmpfs /var/log          tmpfs defaults,noatime,nosuid,nodev,mode=0755,size=48M  0 0 $MARK
 tmpfs /var/lib/nmb/live tmpfs defaults,noatime,nosuid,nodev,noexec,mode=2775,uid=$NMB_UID,gid=$NMB_GID,size=$TMPFS_DB_SIZE 0 0 $MARK
 EOF
