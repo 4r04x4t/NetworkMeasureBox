@@ -1801,16 +1801,16 @@ def get_dashboard_html() -> str:
           <span style="font-size: 24px;">📶</span>
           <div>
             <div style="font-weight: 700; font-size: 13.5px; color: #e9d5ff; display: flex; align-items: center; gap: 8px;">
-              <span>Guest Wi-Fi Client Probe:</span>
+              <span data-i18n="explorer_guest_probe_title">Guest Wi-Fi Client Probe:</span>
               <span id="explorer-guest-status-text" class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px;">Loading...</span>
             </div>
-            <div style="font-size: 12px; color: #d8b4fe; margin-top: 3px;" id="explorer-guest-details-text">
+            <div style="font-size: 12px; color: #d8b4fe; margin-top: 3px;" id="explorer-guest-details-text" data-i18n="explorer_guest_probe_desc">
               Dual-homed: Wired eth0 connects to primary LAN, while wlan0 station connects to the isolated guest Wi-Fi.
             </div>
           </div>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(168, 85, 247, 0.5); color: #e9d5ff;" onclick="switchTab('tab-info'); switchRouterSubtab('rsub-guest');">
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(168, 85, 247, 0.5); color: #e9d5ff;" onclick="switchTab('tab-info'); switchRouterSubtab('rsub-guest');" data-i18n="explorer_guest_btn_settings">
             ⚙️ Guest Wi-Fi Settings & Scanner
           </button>
         </div>
@@ -2781,19 +2781,19 @@ def get_dashboard_html() -> str:
           <!-- Live Client Status Grid -->
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(51, 65, 85, 0.6); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
             <div>
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Connected SSID:</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;" data-i18n="guest_stat_ssid">Connected SSID:</div>
               <div id="guest-wifi-stat-ssid" style="font-size: 13.5px; font-weight: 700; color: #38bdf8; margin-top: 2px;">--</div>
             </div>
             <div>
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Assigned IP & Netmask:</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;" data-i18n="guest_stat_ip">Assigned IP & Netmask:</div>
               <div id="guest-wifi-stat-ip" style="font-size: 13.5px; font-weight: 700; color: #34d399; font-family: monospace; margin-top: 2px;">--</div>
             </div>
             <div>
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Guest Gateway:</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;" data-i18n="guest_stat_gw">Guest Gateway:</div>
               <div id="guest-wifi-stat-gw" style="font-size: 13px; font-family: monospace; color: #f1f5f9; margin-top: 2px;">--</div>
             </div>
             <div>
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Wi-Fi Signal (RSSI):</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;" data-i18n="guest_stat_signal">Wi-Fi Signal (RSSI):</div>
               <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
                 <div style="width: 80px; height: 8px; background: #334155; border-radius: 4px; overflow: hidden;">
                   <div id="guest-wifi-stat-sigbar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s;"></div>
@@ -2802,11 +2802,11 @@ def get_dashboard_html() -> str:
               </div>
             </div>
             <div>
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Channel & Security:</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;" data-i18n="guest_stat_sec">Channel & Security:</div>
               <div id="guest-wifi-stat-sec" style="font-size: 12.5px; color: #cbd5e1; margin-top: 2px;">--</div>
             </div>
             <div>
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Client MAC Address:</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;" data-i18n="guest_stat_mac">Client MAC Address:</div>
               <div id="guest-wifi-stat-mac" style="font-size: 12px; font-family: monospace; color: #94a3b8; margin-top: 2px;">--</div>
             </div>
           </div>
@@ -2816,12 +2816,12 @@ def get_dashboard_html() -> str:
         <div class="router-section-card" style="margin-top: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
             <div>
-              <div style="font-size: 14px; font-weight: 700; color: #ffffff;">🔍 Scan Available Wi-Fi Networks (Scanner)</div>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              <div style="font-size: 14px; font-weight: 700; color: #ffffff;" data-i18n="guest_scan_title">🔍 Scan Available Wi-Fi Networks (Scanner)</div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" data-i18n="guest_scan_desc">
                 Scan and pick your router's guest Wi-Fi SSID for immediate connection.
               </p>
             </div>
-            <button id="btn-scan-guest-wifi" class="btn-primary" style="font-size: 12px; padding: 7px 16px;" onclick="scanGuestWifiNetworks()">
+            <button id="btn-scan-guest-wifi" class="btn-primary" style="font-size: 12px; padding: 7px 16px;" onclick="scanGuestWifiNetworks()" data-i18n="guest_btn_scan_now">
               🔍 Scan Wi-Fi Networks Now
             </button>
           </div>
@@ -3429,6 +3429,9 @@ def get_dashboard_html() -> str:
         el.title = currentTranslations[k];
       }
     });
+    if (typeof cachedGuestWifiStatus !== 'undefined' && cachedGuestWifiStatus) {
+      renderGuestWifiStatus(cachedGuestWifiStatus);
+    }
   }
 
   async function switchLanguage(lang) {
@@ -6908,72 +6911,84 @@ def get_dashboard_html() -> str:
   // ==========================================
   let cachedGuestWifiStatus = null;
 
+  function renderGuestWifiStatus(d) {
+    if (!d) return;
+    const isConn = !!d.connected;
+
+    // 1. Update Subtab Badge
+    const subtabBadge = document.getElementById('guest-wifi-badge-pill');
+    if (subtabBadge) {
+      if (isConn) {
+        subtabBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+        subtabBadge.style.color = '#34d399';
+        subtabBadge.style.border = '1px solid #10b981';
+        subtabBadge.innerHTML = `🟢 ${t('status_connected', 'Connected')}: <b>${escapeHtml(d.ssid)}</b>`;
+      } else {
+        subtabBadge.style.background = 'rgba(148, 163, 184, 0.15)';
+        subtabBadge.style.color = '#94a3b8';
+        subtabBadge.style.border = '1px solid #475569';
+        subtabBadge.innerHTML = `⚪ ${t('status_not_connected', 'Not Connected')}`;
+      }
+    }
+
+    // 2. Update Explorer Banner
+    const expStatusText = document.getElementById('explorer-guest-status-text');
+    const expDetailsText = document.getElementById('explorer-guest-details-text');
+    if (expStatusText) {
+      if (isConn) {
+        expStatusText.style.background = 'rgba(16, 185, 129, 0.15)';
+        expStatusText.style.color = '#34d399';
+        expStatusText.style.border = '1px solid #10b981';
+        expStatusText.innerHTML = `🟢 ${t('status_connected', 'Connected')}: <b>${escapeHtml(d.ssid)}</b> (${escapeHtml(d.ip_address || 'DHCP')})`;
+        if (expDetailsText) {
+          let isoBadge = '';
+          if (d.is_isolated_subnet === true) {
+            isoBadge = `<span style="color:#34d399; font-weight:700;">[${t('guest_iso_verified', 'ISOLATED GUEST SUBNET VERIFIED')}]</span>`;
+          } else if (d.is_isolated_subnet === false) {
+            isoBadge = `<span style="color:#fbbf24; font-weight:700;">[${t('guest_iso_shared', 'SHARED BROADCAST DOMAIN')}]</span>`;
+          }
+          expDetailsText.innerHTML = `${t('guest_subnet', 'Guest Subnet')}: <b><code style="color:#e9d5ff;">${escapeHtml(d.subnet || '--')}</code></b> (${t('gateway', 'Gateway')}: ${escapeHtml(d.gateway || '--')}) | ${t('wifi_signal', 'Signal')}: <b>${d.signal_percent}%</b>. ${isoBadge} ${escapeHtml(d.isolation_verdict || '')}`;
+        }
+      } else {
+        expStatusText.style.background = 'rgba(148, 163, 184, 0.15)';
+        expStatusText.style.color = '#94a3b8';
+        expStatusText.style.border = '1px solid #475569';
+        expStatusText.innerHTML = `⚪ ${t('status_not_connected', 'Not Connected')}`;
+        if (expDetailsText) {
+          expDetailsText.innerHTML = t('guest_wifi_not_connected_hint', 'Wi-Fi receiver is not connected to a guest network. Click settings to configure connection.');
+        }
+      }
+    }
+
+    // 3. Update Subtab Status Grid
+    if (document.getElementById('guest-wifi-stat-ssid')) {
+      document.getElementById('guest-wifi-stat-ssid').textContent = d.ssid || (isConn ? t('status_connected', 'Connected') : t('status_not_connected', 'Not Connected'));
+      document.getElementById('guest-wifi-stat-ip').textContent = d.cidr || d.ip_address || '--';
+      document.getElementById('guest-wifi-stat-gw').textContent = d.gateway || '--';
+      document.getElementById('guest-wifi-stat-sig').textContent = (d.signal_percent || 0) + '%';
+      const sigbar = document.getElementById('guest-wifi-stat-sigbar');
+      if (sigbar) sigbar.style.width = (d.signal_percent || 0) + '%';
+      document.getElementById('guest-wifi-stat-sec').textContent = `${t('channel_abbr', 'Ch:')} ${d.channel || '--'} | ${d.security || 'WPA2'}`;
+      document.getElementById('guest-wifi-stat-mac').textContent = d.mac_address || '--';
+      if (document.getElementById('guest-wifi-stat-metric')) {
+        document.getElementById('guest-wifi-stat-metric').textContent = d.route_metric || 600;
+      }
+    }
+
+    // 4. Update Isolation text
+    const isoText = document.getElementById('guest-wifi-isolation-text');
+    if (isoText) {
+      isoText.textContent = d.isolation_verdict || t('guest_wifi_ready', 'Guest Wi-Fi telemetry ready.');
+    }
+  }
+
   async function loadGuestWifiStatus() {
     try {
       const res = await fetch('/api/wifi/guest/status');
       if (!res.ok) return;
       const d = await res.json();
       cachedGuestWifiStatus = d;
-
-      // 1. Update Subtab Badge
-      const subtabBadge = document.getElementById('guest-wifi-badge-pill');
-      if (subtabBadge) {
-        if (d.connected) {
-          subtabBadge.style.background = 'rgba(16, 185, 129, 0.15)';
-          subtabBadge.style.color = '#34d399';
-          subtabBadge.style.border = '1px solid #10b981';
-          subtabBadge.innerHTML = `🟢 Csatlakozva: <b>${escapeHtml(d.ssid)}</b>`;
-        } else {
-          subtabBadge.style.background = 'rgba(148, 163, 184, 0.15)';
-          subtabBadge.style.color = '#94a3b8';
-          subtabBadge.style.border = '1px solid #475569';
-          subtabBadge.innerHTML = '⚪ Not Connected';
-        }
-      }
-
-      // 2. Update Explorer Banner
-      const expStatusText = document.getElementById('explorer-guest-status-text');
-      const expDetailsText = document.getElementById('explorer-guest-details-text');
-      if (expStatusText) {
-        if (d.connected) {
-          expStatusText.style.background = 'rgba(16, 185, 129, 0.15)';
-          expStatusText.style.color = '#34d399';
-          expStatusText.style.border = '1px solid #10b981';
-          expStatusText.innerHTML = `🟢 Csatlakozva: <b>${escapeHtml(d.ssid)}</b> (${escapeHtml(d.ip_address || 'DHCP')})`;
-          if (expDetailsText) {
-            expDetailsText.innerHTML = `Guest Subnet: <b><code style="color:#e9d5ff;">${escapeHtml(d.subnet || '--')}</code></b> (Gateway: ${escapeHtml(d.gateway || '--')}) | Signal: <b>${d.signal_percent}%</b>. ${escapeHtml(d.isolation_verdict)}`;
-          }
-        } else {
-          expStatusText.style.background = 'rgba(148, 163, 184, 0.15)';
-          expStatusText.style.color = '#94a3b8';
-          expStatusText.style.border = '1px solid #475569';
-          expStatusText.innerHTML = '⚪ Not Connected';
-          if (expDetailsText) {
-            expDetailsText.innerHTML = 'Wi-Fi receiver is not connected to a guest network. Click settings to configure connection.';
-          }
-        }
-      }
-
-      // 3. Update Subtab Status Grid
-      if (document.getElementById('guest-wifi-stat-ssid')) {
-        document.getElementById('guest-wifi-stat-ssid').textContent = d.ssid || (d.connected ? 'Connected' : 'Nincs csatlakozva');
-        document.getElementById('guest-wifi-stat-ip').textContent = d.cidr || d.ip_address || '--';
-        document.getElementById('guest-wifi-stat-gw').textContent = d.gateway || '--';
-        document.getElementById('guest-wifi-stat-sig').textContent = (d.signal_percent || 0) + '%';
-        const sigbar = document.getElementById('guest-wifi-stat-sigbar');
-        if (sigbar) sigbar.style.width = (d.signal_percent || 0) + '%';
-        document.getElementById('guest-wifi-stat-sec').textContent = `Csat: ${d.channel || '--'} | ${d.security || 'WPA2'}`;
-        document.getElementById('guest-wifi-stat-mac').textContent = d.mac_address || '--';
-        if (document.getElementById('guest-wifi-stat-metric')) {
-          document.getElementById('guest-wifi-stat-metric').textContent = d.route_metric || 600;
-        }
-      }
-
-      // 4. Update Isolation text
-      const isoText = document.getElementById('guest-wifi-isolation-text');
-      if (isoText) {
-        isoText.textContent = d.isolation_verdict || 'Guest Wi-Fi telemetry ready.';
-      }
+      renderGuestWifiStatus(d);
 
       // 5. Prepopulate configuration inputs if available
       if (d.ssid && document.getElementById('cfg-guest-wifi-ssid') && !document.getElementById('cfg-guest-wifi-ssid').value) {
