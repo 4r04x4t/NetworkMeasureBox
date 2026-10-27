@@ -506,19 +506,44 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/wireguard/status":
             from nmb.netd.wireguard import get_wireguard_status
             cfg = self.server.cfg
+            host_header = self.headers.get("Host", "").split(":")[0].strip()
             self._send_json(get_wireguard_status(
                 port=cfg.wireguard.port,
                 subnet=cfg.wireguard.subnet,
                 subnet_ipv6=cfg.wireguard.subnet_ipv6,
                 dns=cfg.wireguard.dns,
+                public_endpoint=cfg.wireguard.public_endpoint,
+                duckdns_domain=cfg.duckdns.domain,
+                request_host=host_header,
             ))
             return
 
+        if path == "/api/wireguard/endpoints":
+            from nmb.netd.wireguard import get_candidate_endpoints
+            cfg = self.server.cfg
+            host_header = self.headers.get("Host", "").split(":")[0].strip()
+            self._send_json({
+                "status": "ok",
+                "endpoints": get_candidate_endpoints(
+                    port=cfg.wireguard.port,
+                    public_endpoint=cfg.wireguard.public_endpoint,
+                    duckdns_domain=cfg.duckdns.domain,
+                    request_host=host_header,
+                )
+            })
+            return
+
         if path == "/api/wireguard/peer/config":
-            from nmb.netd.wireguard import get_client_config
+            from nmb.netd.wireguard import get_client_config, is_private_ip
             qs = parse_qs(parsed.query) if parsed.query else {}
             peer_name = qs.get("name", [""])[0] or qs.get("id", [""])[0]
-            endpoint = self.server.cfg.wireguard.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "")
+            endpoint = qs.get("endpoint", [""])[0].strip()
+            if not endpoint:
+                host_header = self.headers.get("Host", "").split(":")[0].strip()
+                if is_private_ip(host_header):
+                    endpoint = host_header
+                else:
+                    endpoint = self.server.cfg.wireguard.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "") or host_header
             conf = get_client_config(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port, dns_servers=self.server.cfg.wireguard.dns)
             if not conf:
                 self._send_json({"status": "error", "message": f"Peer '{peer_name}' not found."}, status=404)
@@ -533,10 +558,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/wireguard/peer/qr":
-            from nmb.netd.wireguard import get_client_qr_data_uri, get_client_qr_png_bytes
+            from nmb.netd.wireguard import get_client_qr_data_uri, get_client_qr_png_bytes, is_private_ip
             qs = parse_qs(parsed.query) if parsed.query else {}
             peer_name = qs.get("name", [""])[0] or qs.get("id", [""])[0]
-            endpoint = self.server.cfg.wireguard.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "")
+            endpoint = qs.get("endpoint", [""])[0].strip()
+            if not endpoint:
+                host_header = self.headers.get("Host", "").split(":")[0].strip()
+                if is_private_ip(host_header):
+                    endpoint = host_header
+                else:
+                    endpoint = self.server.cfg.wireguard.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "") or host_header
             dns_val = self.server.cfg.wireguard.dns
             if qs.get("raw", ["0"])[0] == "1":
                 png_bytes = get_client_qr_png_bytes(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port, dns_servers=dns_val)
@@ -554,7 +585,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             if not data_uri:
                 self._send_json({"status": "error", "message": "Failed to generate QR code."}, status=404)
                 return
-            self._send_json({"status": "ok", "qr_data_uri": data_uri})
+            self._send_json({"status": "ok", "qr_data_uri": data_uri, "endpoint_used": endpoint})
             return
 
         # 17d. OpenVPN Status & Config
@@ -1570,7 +1601,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             if not d_cfg.domain or not d_cfg.token:
                 self._send_json({"status": "error", "message": "DuckDNS domain and token are not configured."}, status=400)
                 return
-            res = update_duckdns(domain=d_cfg.domain, token=d_cfg.token, ip=d_cfg.custom_ip or None)
+            detected_v6 = None
+            try:
+                from nmb.netd.wireguard import get_device_addresses
+                _, v6_addrs = get_device_addresses()
+                if v6_addrs:
+                    detected_v6 = v6_addrs[0][1]
+            except Exception:
+                pass
+            res = update_duckdns(domain=d_cfg.domain, token=d_cfg.token, ip=d_cfg.custom_ip or None, ipv6=detected_v6)
             self._send_json(res)
             return
 

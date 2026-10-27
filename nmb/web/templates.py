@@ -2218,6 +2218,9 @@ def get_dashboard_html() -> str:
             <div style="margin-bottom: 14px;">
               <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_endpoint">Public Endpoint Host / DuckDNS:</label>
               <input type="text" id="wg-endpoint" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (DuckDNS or WAN IP / IPv6)">
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
+                💡 <strong>Tipp:</strong> Otthoni Wi-Fi-re csatlakozó telefonhoz/géphez a QR párosításkor a <em>Helyi LAN</em> opciót válassza! Távoli (mobilnetes) eléréshez a fő routeren (192.168.50.1) az 51820 UDP portot továbbítani kell.
+              </div>
             </div>
             <div style="display: flex; gap: 8px;">
               <button class="btn-primary" style="font-size: 12.5px; padding: 8px 14px;" onclick="saveWireguardSettings()">Save Server Settings</button>
@@ -2434,16 +2437,38 @@ def get_dashboard_html() -> str:
 
   <!-- QR Code Modal (for WireGuard) -->
   <div id="wg-qr-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; padding: 20px;">
-    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 420px; width: 100%; padding: 20px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.6);">
-      <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px; color: #38bdf8;" id="wg-qr-peer-title">WireGuard QR Pairing</div>
-      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
-        Scan this QR code using the official WireGuard app on your iOS or Android device.
+    <div style="background: var(--bg-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 12px; max-width: 460px; width: 100%; padding: 22px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.6);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div style="font-weight: 700; font-size: 16px; color: #38bdf8;" id="wg-qr-peer-title">📱 WireGuard QR Pairing & Connection</div>
+        <button style="background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 0 4px;" onclick="document.getElementById('wg-qr-modal').style.display='none'">✕</button>
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+        Scan this QR code using the official WireGuard app on your phone, or download the configuration file below.
       </p>
-      <div id="wg-qr-img-wrap" style="background: #ffffff; padding: 12px; border-radius: 8px; display: inline-block; margin-bottom: 16px;">
+
+      <div style="text-align: left; margin-bottom: 14px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color, #334155);">
+        <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;" data-i18n="wireguard_endpoint_target">Connection Target (Endpoint):</label>
+        <select id="wg-qr-endpoint-select" class="form-select" style="font-size: 13px; padding: 7px 10px; width: 100%; margin-bottom: 6px;" onchange="onWireguardQrEndpointChange()">
+          <!-- Populated dynamically with detected endpoints -->
+        </select>
+        <div id="wg-qr-custom-endpoint-wrap" style="display: none; margin-top: 6px; margin-bottom: 6px;">
+          <input type="text" id="wg-qr-custom-endpoint" class="form-input" style="font-size: 12.5px; padding: 6px 10px; width: 100%;" placeholder="host:port (e.g. 192.168.50.161:51820)" oninput="onWireguardQrCustomEndpointInput()">
+        </div>
+        <div id="wg-qr-endpoint-tip" style="font-size: 11.5px; line-height: 1.45; padding: 8px 10px; border-radius: 6px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); color: #bae6fd;">
+        </div>
+      </div>
+
+      <div id="wg-qr-img-wrap" style="background: #ffffff; padding: 12px; border-radius: 8px; display: inline-block; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.4);">
         <img id="wg-qr-img" src="" alt="WireGuard QR Code" style="width: 250px; height: 250px; display: block;">
       </div>
-      <div>
-        <button class="btn-primary" style="padding: 7px 20px; font-size: 12.5px;" onclick="document.getElementById('wg-qr-modal').style.display='none'">Done</button>
+
+      <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+        <a id="wg-qr-download-btn" href="#" download="" class="btn-secondary" style="font-size: 12px; padding: 8px 14px; text-decoration: none;">
+          📥 <span data-i18n="wireguard_download_conf_endpoint">Download .conf with this Endpoint</span>
+        </a>
+        <button class="btn-primary" style="padding: 8px 20px; font-size: 12.5px;" onclick="document.getElementById('wg-qr-modal').style.display='none'">
+          <span data-i18n="btn_cancel">Done</span>
+        </button>
       </div>
     </div>
   </div>
@@ -9334,17 +9359,90 @@ ${pkgList}`;
     }
   }
 
-  async function showWireguardQr(peerId, peerName) {
-    const modal = document.getElementById('wg-qr-modal');
-    const title = document.getElementById('wg-qr-peer-title');
-    const img = document.getElementById('wg-qr-img');
-    if (!modal || !img) return;
+  let currentWgPeerId = '';
+  let currentWgPeerName = '';
+  let cachedWgEndpoints = [];
 
-    if (title) title.textContent = `📱 WireGuard QR: ${peerName}`;
-    img.src = '';
-    modal.style.display = 'flex';
+  function getSelectedWgEndpoint() {
+    const select = document.getElementById('wg-qr-endpoint-select');
+    if (!select) return '';
+    if (select.value === 'custom') {
+      const customInput = document.getElementById('wg-qr-custom-endpoint');
+      return (customInput?.value || '').trim();
+    }
+    return select.value;
+  }
+
+  function updateWgQrTip() {
+    const select = document.getElementById('wg-qr-endpoint-select');
+    const tipDiv = document.getElementById('wg-qr-endpoint-tip');
+    const customWrap = document.getElementById('wg-qr-custom-endpoint-wrap');
+    if (!select || !tipDiv) return;
+
+    const val = select.value;
+    if (val === 'custom') {
+      if (customWrap) customWrap.style.display = 'block';
+      tipDiv.style.background = 'rgba(148, 163, 184, 0.1)';
+      tipDiv.style.borderColor = 'rgba(148, 163, 184, 0.25)';
+      tipDiv.style.color = '#cbd5e1';
+      tipDiv.innerHTML = '✏️ ' + (t('wireguard_custom_endpoint_placeholder') || 'Adja meg a kívánt címet és portot (pl. 192.168.50.161:51820).');
+      return;
+    }
+    if (customWrap) customWrap.style.display = 'none';
+
+    const selectedOpt = select.options[select.selectedIndex];
+    const epType = selectedOpt ? selectedOpt.dataset.type : '';
+
+    if (epType === 'lan') {
+      tipDiv.style.background = 'rgba(16, 185, 129, 0.1)';
+      tipDiv.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+      tipDiv.style.color = '#a7f3d0';
+      tipDiv.innerHTML = (t('wireguard_tip_lan') || '💡 <strong>Ajánlott otthoni Wi-Fi-re csatlakozó eszközökhöz:</strong> A telefon közvetlenül a mérőboxhoz kapcsolódik a belső hálózaton (0ms NAT késleltetés, nincs loopback hiba).');
+    } else if (epType === 'ipv6') {
+      tipDiv.style.background = 'rgba(168, 85, 247, 0.1)';
+      tipDiv.style.borderColor = 'rgba(168, 85, 247, 0.25)';
+      tipDiv.style.color = '#e9d5ff';
+      tipDiv.innerHTML = (t('wireguard_tip_ipv6') || '⚡ <strong>Közvetlen IPv6 kapcsolat:</strong> Megkerüli az IPv4 NAT-ot és router porttovábbítást, amennyiben a mobilhálózat támogatja az IPv6-ot.');
+    } else {
+      // ddns or wan
+      tipDiv.style.background = 'rgba(245, 158, 11, 0.12)';
+      tipDiv.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+      tipDiv.style.color = '#fde68a';
+      tipDiv.innerHTML = (t('wireguard_tip_wan') || '⚠️ <strong>Távoli mobilnetes eléréshez:</strong> A fő routeren (192.168.50.1) az <strong>51820 UDP</strong> portot továbbítani kell a mérőboxra! Ha a telefon ugyanazon a Wi-Fi-n van, válassza a Helyi LAN opciót.');
+    }
+  }
+
+  function updateWgDownloadBtn() {
+    const btn = document.getElementById('wg-qr-download-btn');
+    if (!btn || !currentWgPeerId) return;
+    const ep = getSelectedWgEndpoint();
+    btn.href = `/api/wireguard/peer/config?id=${encodeURIComponent(currentWgPeerId)}&endpoint=${encodeURIComponent(ep)}`;
+    btn.download = `${currentWgPeerName || 'wireguard'}.conf`;
+  }
+
+  async function onWireguardQrEndpointChange() {
+    updateWgQrTip();
+    updateWgDownloadBtn();
+    await fetchAndRenderWgQr();
+  }
+
+  let customWgEpTimer = null;
+  function onWireguardQrCustomEndpointInput() {
+    clearTimeout(customWgEpTimer);
+    customWgEpTimer = setTimeout(() => {
+      updateWgDownloadBtn();
+      fetchAndRenderWgQr();
+    }, 400);
+  }
+
+  async function fetchAndRenderWgQr() {
+    const img = document.getElementById('wg-qr-img');
+    if (!img || !currentWgPeerId) return;
+
+    const ep = getSelectedWgEndpoint();
+    const epQuery = ep ? `&endpoint=${encodeURIComponent(ep)}` : '';
     try {
-      const res = await fetch(`/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}`);
+      const res = await fetch(`/api/wireguard/peer/qr?id=${encodeURIComponent(currentWgPeerId)}${epQuery}`);
       if (res.ok) {
         const d = await res.json();
         if (d.qr_data_uri) {
@@ -9352,10 +9450,51 @@ ${pkgList}`;
           return;
         }
       }
-      img.src = `/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}&raw=1&t=${Date.now()}`;
+      img.src = `/api/wireguard/peer/qr?id=${encodeURIComponent(currentWgPeerId)}&raw=1${epQuery}&t=${Date.now()}`;
     } catch (e) {
-      img.src = `/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}&raw=1&t=${Date.now()}`;
+      img.src = `/api/wireguard/peer/qr?id=${encodeURIComponent(currentWgPeerId)}&raw=1${epQuery}&t=${Date.now()}`;
     }
+  }
+
+  async function showWireguardQr(peerId, peerName) {
+    currentWgPeerId = peerId;
+    currentWgPeerName = peerName;
+
+    const modal = document.getElementById('wg-qr-modal');
+    const title = document.getElementById('wg-qr-peer-title');
+    const select = document.getElementById('wg-qr-endpoint-select');
+    const img = document.getElementById('wg-qr-img');
+    if (!modal || !img) return;
+
+    if (title) title.textContent = `📱 WireGuard QR: ${peerName}`;
+    img.src = '';
+    modal.style.display = 'flex';
+
+    if (select) {
+      try {
+        const epRes = await fetch('/api/wireguard/endpoints');
+        if (epRes.ok) {
+          const epData = await epRes.json();
+          if (epData.endpoints && epData.endpoints.length > 0) {
+            cachedWgEndpoints = epData.endpoints;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch wireguard endpoints:', err);
+      }
+
+      let html = '';
+      cachedWgEndpoints.forEach(ep => {
+        const isSelected = ep.is_default ? 'selected' : '';
+        html += `<option value="${escapeHtml(ep.endpoint)}" data-type="${escapeHtml(ep.type)}" ${isSelected}>${escapeHtml(ep.label)}</option>`;
+      });
+      html += `<option value="custom" data-type="custom">✏️ Egyéni cím megadása (Custom host:port)...</option>`;
+      select.innerHTML = html;
+    }
+
+    updateWgQrTip();
+    updateWgDownloadBtn();
+    await fetchAndRenderWgQr();
   }
 
   // ---- OpenVPN ----

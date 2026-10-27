@@ -180,11 +180,22 @@ def run_duckdns_daemon(cfg_getter, stop_event: threading.Event) -> None:
                 _duckdns_state["token_set"] = bool(duck_cfg.token)
                 _duckdns_state["next_update_ts"] = time.time() + interval_sec
 
+            # Detect public IPv6 if available
+            detected_v6 = None
+            try:
+                from nmb.netd.wireguard import get_device_addresses
+                _, v6_addrs = get_device_addresses()
+                if v6_addrs:
+                    detected_v6 = v6_addrs[0][1]
+            except Exception:
+                pass
+
             # Perform update
             update_duckdns(
                 domain=duck_cfg.domain,
                 token=duck_cfg.token,
                 ip=duck_cfg.custom_ip if duck_cfg.custom_ip else None,
+                ipv6=detected_v6,
             )
 
             # Sleep until next check or stop requested

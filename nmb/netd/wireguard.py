@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import io
+import ipaddress
 import json
 import logging
 import os
@@ -27,9 +28,158 @@ SERVER_PRIV_KEY = WG_DIR / "server_private.key"
 SERVER_PUB_KEY = WG_DIR / "server_public.key"
 
 
+def is_private_ip(ip_str: str) -> bool:
+    """Return True if ip_str is a private LAN, loopback, or link-local IP."""
+    if not ip_str:
+        return False
+    try:
+        clean_ip = ip_str.split(":")[0].strip("[]")
+        ip_obj = ipaddress.ip_address(clean_ip)
+        return ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local
+    except ValueError:
+        return False
+
+
+def get_device_addresses() -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    """Detect local IPv4 and global unicast IPv6 addresses on active physical network interfaces."""
+    v4_addrs: List[Tuple[str, str]] = []
+    v6_addrs: List[Tuple[str, str]] = []
+    try:
+        res = subprocess.run(["ip", "-j", "addr"], capture_output=True, text=True, timeout=2, check=False)
+        if res.returncode == 0:
+            for iface in json.loads(res.stdout):
+                name = iface.get("ifname", "")
+                if name in ("lo", "wg0", "tun0") or name.startswith("docker"):
+                    continue
+                for a in iface.get("addr_info", []):
+                    fam = a.get("family")
+                    scope = a.get("scope")
+                    loc = a.get("local", "")
+                    if fam == "inet" and scope == "global" and loc:
+                        v4_addrs.append((name, loc))
+                    elif fam == "inet6" and scope == "global" and loc:
+                        # Exclude link-local (fe80::) and ULA (fd::, fc::)
+                        if not loc.startswith("fe80") and not loc.startswith("fd") and not loc.startswith("fc"):
+                            v6_addrs.append((name, loc))
+    except Exception as e:
+        log.debug("error detecting local addresses: %s", e)
+    return v4_addrs, v6_addrs
+
+
+def get_candidate_endpoints(
+    port: int = 51820,
+    public_endpoint: str = "",
+    duckdns_domain: str = "",
+    request_host: str = "",
+) -> List[Dict[str, Any]]:
+    """Assemble candidate connection endpoints for clients (LAN, DDNS, IPv6, Public IP)."""
+    candidates: List[Dict[str, Any]] = []
+    seen_hosts = set()
+
+    v4_addrs, v6_addrs = get_device_addresses()
+
+    # 1. Check if user is currently browsing WebUI from a local LAN IP
+    req_host_clean = request_host.split(":")[0].strip("[]")
+    is_req_private = is_private_ip(req_host_clean)
+
+    if is_req_private and req_host_clean:
+        candidates.append({
+            "id": "current-host",
+            "type": "lan",
+            "host": req_host_clean,
+            "port": port,
+            "endpoint": f"{req_host_clean}:{port}",
+            "label": f"🏠 Helyi LAN / WebUI cím ({req_host_clean})",
+            "desc": "Ajánlott otthoni Wi-Fi / helyi kapcsolathoz (0ms NAT késleltetés, nincs router loopback hiba)",
+            "is_default": True,
+        })
+        seen_hosts.add(req_host_clean)
+
+    for iface, ip in v4_addrs:
+        if ip not in seen_hosts:
+            is_def = (len(candidates) == 0 and is_req_private)
+            candidates.append({
+                "id": f"lan-{iface}",
+                "type": "lan",
+                "host": ip,
+                "port": port,
+                "endpoint": f"{ip}:{port}",
+                "label": f"🏠 Helyi hálózat / Wi-Fi [{iface}] ({ip})",
+                "desc": "Közvetlen kapcsolat a mérőbox belső IP címével",
+                "is_default": is_def,
+            })
+            seen_hosts.add(ip)
+
+    # 2. Dynamic DNS (DuckDNS / Public Endpoint)
+    ddns_host = public_endpoint.split(":")[0].strip() or (duckdns_domain + ".duckdns.org" if duckdns_domain else "")
+    if ddns_host and ddns_host not in seen_hosts:
+        is_def = (len(candidates) == 0) or (req_host_clean == ddns_host) or (not is_req_private and bool(req_host_clean))
+        candidates.append({
+            "id": "ddns",
+            "type": "ddns",
+            "host": ddns_host,
+            "port": port,
+            "endpoint": f"{ddns_host}:{port}",
+            "label": f"🌐 Dinamikus DNS ({ddns_host})",
+            "desc": "Távoli mobilnetes eléréshez (A fő routeren az 51820 UDP porttovábbítás szükséges!)",
+            "is_default": is_def,
+        })
+        seen_hosts.add(ddns_host)
+
+    # 3. Global IPv6
+    for iface, ip6 in v6_addrs:
+        if ip6 not in seen_hosts:
+            candidates.append({
+                "id": f"ipv6-{iface}",
+                "type": "ipv6",
+                "host": ip6,
+                "port": port,
+                "endpoint": f"[{ip6}]:{port}",
+                "label": f"⚡ Közvetlen IPv6 [{iface}] ([{ip6}])",
+                "desc": "Közvetlen kapcsolat IPv6-on (megkerüli az IPv4 NAT-ot és router porttovábbítást)",
+                "is_default": False,
+            })
+            seen_hosts.add(ip6)
+
+    # 4. Detected Public WAN IPv4
+    from nmb.netd.duckdns import get_duckdns_status
+    duck_st = get_duckdns_status()
+    wan_ip = duck_st.get("last_ip") or ""
+    if wan_ip and wan_ip not in seen_hosts:
+        candidates.append({
+            "id": "wan-ipv4",
+            "type": "wan_v4",
+            "host": wan_ip,
+            "port": port,
+            "endpoint": f"{wan_ip}:{port}",
+            "label": f"🌍 Publikus WAN IPv4 ({wan_ip})",
+            "desc": "Közvetlen publikus IP (A fő routeren az 51820 UDP porttovábbítás szükséges!)",
+            "is_default": False,
+        })
+        seen_hosts.add(wan_ip)
+
+    # If still no candidates, fallback to localhost
+    if not candidates:
+        candidates.append({
+            "id": "fallback",
+            "type": "lan",
+            "host": "127.0.0.1",
+            "port": port,
+            "endpoint": f"127.0.0.1:{port}",
+            "label": f"127.0.0.1:{port}",
+            "desc": "",
+            "is_default": True,
+        })
+
+    return candidates
+
+
 def _ensure_dir() -> None:
-    WG_DIR.mkdir(parents=True, exist_ok=True)
-    os.chmod(WG_DIR, 0o700)
+    try:
+        WG_DIR.mkdir(parents=True, exist_ok=True)
+        os.chmod(WG_DIR, 0o700)
+    except Exception:
+        pass
 
 
 def is_wireguard_available() -> bool:
@@ -229,6 +379,9 @@ def get_wireguard_status(
     subnet: str = "10.8.0.1/24",
     subnet_ipv6: str = "fd42:42:42::1/64",
     dns: str = "",
+    public_endpoint: str = "",
+    duckdns_domain: str = "",
+    request_host: str = "",
 ) -> Dict[str, Any]:
     """Retrieve complete status of WireGuard VPN server and connected peers."""
     installed = is_wireguard_available()
@@ -273,6 +426,13 @@ def get_wireguard_status(
             "transfer_tx": stat.get("tx_bytes", 0),
         })
 
+    candidates = get_candidate_endpoints(
+        port=port,
+        public_endpoint=public_endpoint,
+        duckdns_domain=duckdns_domain,
+        request_host=request_host,
+    )
+
     return {
         "installed": installed,
         "running": is_running,
@@ -286,6 +446,7 @@ def get_wireguard_status(
         "total_peers": len(peers),
         "online_peers": sum(1 for p in peer_list if p.get("is_online")),
         "peers": peer_list,
+        "endpoint_candidates": candidates,
     }
 
 
@@ -380,9 +541,10 @@ def get_client_config(
         return None
 
     _, server_pub = get_or_create_server_keys()
-    if not endpoint_host:
+    endpoint_str = str(endpoint_host).strip()
+    if not endpoint_str:
         from nmb.netd.duckdns import detect_public_ip
-        endpoint_host = detect_public_ip() or "YOUR_PUBLIC_IP"
+        endpoint_str = detect_public_ip() or "YOUR_PUBLIC_IP"
 
     c_ip = peer.get("client_ip", "10.8.0.2")
     c_ipv6 = peer.get("client_ipv6")
@@ -392,11 +554,19 @@ def get_client_config(
 
     dns_val = dns_servers.strip() if dns_servers else "1.1.1.1, 2606:4700:4700::1111, 8.8.8.8"
 
-    # If endpoint_host is IPv6 literal, format with brackets
-    if ":" in endpoint_host and not endpoint_host.startswith("["):
-        endpoint_formatted = f"[{endpoint_host}]:{port}"
+    # Format endpoint cleanly whether it already contains port, IPv6 brackets, etc.
+    if endpoint_str.startswith("["):
+        if "]:" in endpoint_str:
+            endpoint_formatted = endpoint_str
+        else:
+            endpoint_formatted = f"{endpoint_str}:{port}"
+    elif ":" in endpoint_str:
+        if endpoint_str.count(":") == 1:
+            endpoint_formatted = endpoint_str
+        else:
+            endpoint_formatted = f"[{endpoint_str}]:{port}"
     else:
-        endpoint_formatted = f"{endpoint_host}:{port}"
+        endpoint_formatted = f"{endpoint_str}:{port}"
 
     lines = [
         f"# NetworkMeasureBox WireGuard Dual-Stack Client: {peer.get('name')}",
