@@ -1387,6 +1387,205 @@ def get_dashboard_html() -> str:
       border-right: 1px solid #222222 !important;
     }
 
+    /* ========================================================================= */
+    /* THEME 9: nDefault (Classic Dark Scanline, Metallic Header & Slate Cards)  */
+    /* ========================================================================= */
+    [data-theme="ndefault"] select, [data-theme="ndefault"] .hdr-select, [data-theme="ndefault"] .form-input { color-scheme: dark !important; }
+    [data-theme="ndefault"] select option, [data-theme="ndefault"] .hdr-select option { background-color: #333333 !important; color: #f1f5f9 !important; }
+    [data-theme="ndefault"] {
+      --bg: #2b2b2b;
+      --card-bg: #4a4a4a;
+      --card-border: #757575;
+      --text: #e7e7e7;
+      --text-muted: #b8b8b8;
+      --brand-blue: #de6e00;
+      --brand-blue-hover: #ff8c00;
+      --brand-blue-active: #b35500;
+      --accent-amber: #dea200;
+      --dark-panel: #3a3a3a;
+    }
+    [data-theme="ndefault"] body {
+      background: #2b2b2b url('/static/themes/ndefault_bg_line.png') repeat !important;
+      color: #e7e7e7 !important;
+      font-family: Verdana, Geneva, Arial, Helvetica, sans-serif !important;
+      font-size: 12px !important;
+    }
+    [data-theme="ndefault"] a {
+      color: #dea200 !important;
+      text-decoration: none !important;
+    }
+    [data-theme="ndefault"] a:hover {
+      color: #ff9900 !important;
+      text-decoration: underline !important;
+    }
+    [data-theme="ndefault"] .app-header {
+      background: #18191b url('/static/themes/ndefault_header_bg.jpg') no-repeat center right / cover !important;
+      border-top: 4px solid #de6e00 !important;
+      border-bottom: 2px solid #5a5a5a !important;
+      border-radius: 4px !important;
+      padding: 14px 18px !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7) !important;
+      position: relative !important;
+    }
+    [data-theme="ndefault"] .app-header::before {
+      content: "";
+      position: absolute;
+      top: -4px;
+      left: 0;
+      right: 0;
+      height: 9px;
+      background: url('/static/themes/ndefault_top_strip.png') no-repeat center top;
+      background-size: 100% 100%;
+      pointer-events: none;
+    }
+    [data-theme="ndefault"] .app-title {
+      color: #ffffff !important;
+      font-family: Verdana, Geneva, sans-serif !important;
+      font-weight: bold !important;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 10px rgba(222, 110, 0, 0.35) !important;
+      letter-spacing: 0.5px !important;
+    }
+    [data-theme="ndefault"] .app-subtitle {
+      color: #dea200 !important;
+      font-size: 11px !important;
+    }
+    [data-theme="ndefault"] .meta-lbl {
+      color: #b8b8b8 !important;
+    }
+    [data-theme="ndefault"] .meta-val {
+      color: #ffffff !important;
+      font-weight: bold !important;
+    }
+    [data-theme="ndefault"] .app-box,
+    [data-theme="ndefault"] .router-section-card,
+    [data-theme="ndefault"] .engine-selector-box,
+    [data-theme="ndefault"] .terminal-box {
+      background: #4a4a4a url('/static/themes/ndefault_main_top.jpg') no-repeat top left !important;
+      border: 1px solid #757575 !important;
+      border-radius: 4px !important;
+      color: #e7e7e7 !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45) !important;
+    }
+    [data-theme="ndefault"] .section-subtitle,
+    [data-theme="ndefault"] .router-section-card > div:first-child,
+    [data-theme="ndefault"] .app-box > h2 {
+      background: #3a3a3a url('/static/themes/ndefault_box_header.png') repeat-x center top !important;
+      border-bottom: 1px solid #757575 !important;
+      color: #ffffff !important;
+      font-weight: bold !important;
+      padding: 7px 12px !important;
+      margin: -16px -16px 14px -16px !important;
+      border-top-left-radius: 3px !important;
+      border-top-right-radius: 3px !important;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+    }
+    [data-theme="ndefault"] .stat-lbl,
+    [data-theme="ndefault"] .form-label,
+    [data-theme="ndefault"] .form-hint {
+      color: #cccccc !important;
+    }
+    [data-theme="ndefault"] .stat-val {
+      color: #ffffff !important;
+    }
+    [data-theme="ndefault"] .stat-speed {
+      color: #ff9900 !important;
+      font-weight: bold !important;
+      text-shadow: 0 0 8px rgba(255, 153, 0, 0.35) !important;
+    }
+    [data-theme="ndefault"] .form-input,
+    [data-theme="ndefault"] select,
+    [data-theme="ndefault"] input[type="text"],
+    [data-theme="ndefault"] input[type="password"],
+    [data-theme="ndefault"] input[type="number"],
+    [data-theme="ndefault"] textarea {
+      background: #363636 !important;
+      color: #f1f5f9 !important;
+      border: 1px solid #666666 !important;
+      border-radius: 3px !important;
+    }
+    [data-theme="ndefault"] .form-input:focus,
+    [data-theme="ndefault"] select:focus,
+    [data-theme="ndefault"] input[type="text"]:focus,
+    [data-theme="ndefault"] input[type="password"]:focus,
+    [data-theme="ndefault"] input[type="number"]:focus,
+    [data-theme="ndefault"] textarea:focus {
+      border-color: #de6e00 !important;
+      box-shadow: 0 0 6px rgba(222, 110, 0, 0.5) !important;
+      outline: none !important;
+    }
+    [data-theme="ndefault"] .app-tab-btn,
+    [data-theme="ndefault"] .router-subtab-btn {
+      background: #3d3d3d url('/static/themes/ndefault_menu_bar.png') repeat-x center !important;
+      color: #dcdcdc !important;
+      border: 1px solid #5a5a5a !important;
+      border-radius: 3px !important;
+      font-family: Verdana, Geneva, sans-serif !important;
+      font-size: 12px !important;
+      font-weight: 600 !important;
+      transition: all 0.15s ease !important;
+    }
+    [data-theme="ndefault"] .app-tab-btn:hover,
+    [data-theme="ndefault"] .router-subtab-btn:hover {
+      color: #ff9900 !important;
+      border-color: #888888 !important;
+    }
+    [data-theme="ndefault"] .app-tab-btn.active,
+    [data-theme="ndefault"] .router-subtab-btn.active {
+      background: linear-gradient(to bottom, #de6e00, #a84c00) !important;
+      color: #ffffff !important;
+      border-color: #ff9900 !important;
+      box-shadow: 0 0 10px rgba(222, 110, 0, 0.5) !important;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6) !important;
+    }
+    [data-theme="ndefault"] .btn-primary {
+      background: linear-gradient(to bottom, #de6e00, #a84c00) !important;
+      border: 1px solid #ff9900 !important;
+      color: #ffffff !important;
+      border-radius: 3px !important;
+      font-weight: bold !important;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6) !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+    }
+    [data-theme="ndefault"] .btn-primary:hover {
+      background: linear-gradient(to bottom, #ff8c00, #cc5e00) !important;
+      box-shadow: 0 0 12px rgba(255, 140, 0, 0.6) !important;
+    }
+    [data-theme="ndefault"] .btn-secondary {
+      background: linear-gradient(to bottom, #505050, #383838) !important;
+      border: 1px solid #666666 !important;
+      color: #e7e7e7 !important;
+      border-radius: 3px !important;
+    }
+    [data-theme="ndefault"] .btn-secondary:hover {
+      color: #ff9900 !important;
+      border-color: #888888 !important;
+    }
+    [data-theme="ndefault"] table.data-table thead th {
+      background: #383838 url('/static/themes/ndefault_box_header.png') repeat-x center top !important;
+      color: #ffffff !important;
+      border-bottom: 2px solid #de6e00 !important;
+      font-weight: bold !important;
+    }
+    [data-theme="ndefault"] table.data-table tbody td {
+      color: #e7e7e7 !important;
+      border-bottom: 1px solid #5a5a5a !important;
+      border-right: 1px solid #5a5a5a !important;
+    }
+    [data-theme="ndefault"] table.data-table tbody tr:nth-child(even) {
+      background: #444444 !important;
+    }
+    [data-theme="ndefault"] table.data-table tbody tr:nth-child(odd) {
+      background: #4c4c4c !important;
+    }
+    [data-theme="ndefault"] table.data-table tbody tr:hover {
+      background: #595959 !important;
+    }
+    [data-theme="ndefault"] .badge-pill {
+      background: rgba(222, 110, 0, 0.18) !important;
+      color: #ff9900 !important;
+      border: 1px solid rgba(222, 110, 0, 0.4) !important;
+    }
+
   </style>
 </head>
 <body>
@@ -1419,6 +1618,7 @@ def get_dashboard_html() -> str:
           <span style="font-size: 13px;">🎨</span>
           <select id="theme-select" class="hdr-select" onchange="switchTheme(this.value)" title="Design Theme">
             <option value="default">Default</option>
+            <option value="ndefault">nDefault</option>
             <option value="prtd">PrTD</option>
             <option value="proudride">ProudRide</option>
             <option value="amoled">AmoLED Pitch Black</option>
@@ -3951,6 +4151,11 @@ def get_dashboard_html() -> str:
               <div style="font-weight: 700; color: #ffffff; font-size: 13px;">MountainHaGo</div>
               <div style="font-size: 11px; color: #e2e8f0; margin-top: 4px;">Vereckei hágó panoramic background & opaque black boxes.</div>
             </div>
+
+            <div onclick="switchTheme('ndefault')" style="background: #2b2b2b; border: 2px solid #de6e00; padding: 12px; border-radius: 6px; cursor: pointer; transition: transform 0.15s ease;">
+              <div style="font-weight: 700; color: #ff9900; font-size: 13px;">nDefault</div>
+              <div style="font-size: 11px; color: #b8b8b8; margin-top: 4px;">Classic dark diagonal scanlines, metallic box headers & amber orange accents.</div>
+            </div>
           </div>
         </div>
 
@@ -4503,7 +4708,7 @@ def get_dashboard_html() -> str:
   // Dynamic Design Theme Engine
   // ==========================================
   function switchTheme(theme, showNotice) {
-    const validThemes = ['default', 'prtd', 'proudride', 'amoled', 'asuswrt', 'asus_camo', 'tp_gold', 'mountain_hago'];
+    const validThemes = ['default', 'prtd', 'proudride', 'amoled', 'asuswrt', 'asus_camo', 'tp_gold', 'mountain_hago', 'ndefault'];
     if (!validThemes.includes(theme)) theme = 'default';
     document.documentElement.setAttribute('data-theme', theme);
     document.body.className = document.body.className.split(' ').filter(c => !c.startsWith('theme-')).join(' ') + ' theme-' + theme;
