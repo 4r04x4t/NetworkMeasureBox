@@ -34,11 +34,21 @@ case "${1:-}" in
             chown root:root /etc/wireguard/wg0.conf
         fi
         sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+        sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
+        sysctl -w net.ipv6.conf.default.forwarding=1 >/dev/null 2>&1 || true
         systemctl restart wg-quick@wg0
         ;;
     wireguard-start)
+        mkdir -p /etc/wireguard
+        if [ -f /var/lib/nmb/wireguard/wg0.conf ]; then
+            cp /var/lib/nmb/wireguard/wg0.conf /etc/wireguard/wg0.conf
+            chmod 600 /etc/wireguard/wg0.conf
+            chown root:root /etc/wireguard/wg0.conf
+        fi
         sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
-        exec systemctl start wg-quick@wg0
+        sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
+        sysctl -w net.ipv6.conf.default.forwarding=1 >/dev/null 2>&1 || true
+        systemctl restart wg-quick@wg0 2>/dev/null || exec systemctl start wg-quick@wg0
         ;;
     wireguard-stop)
         exec systemctl stop wg-quick@wg0
@@ -51,25 +61,44 @@ case "${1:-}" in
         if [ -f /var/lib/nmb/openvpn/server.conf ]; then
             cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server.conf
             cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
-            chmod 600 /etc/openvpn/server.conf
+            chmod 600 /etc/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
         fi
         sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+        sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
+        sysctl -w net.ipv6.conf.default.forwarding=1 >/dev/null 2>&1 || true
+        systemctl stop openvpn@server 2>/dev/null || true
         systemctl restart openvpn-server@server 2>/dev/null || systemctl restart openvpn@server
         ;;
     openvpn-start)
+        mkdir -p /etc/openvpn/server /etc/openvpn
+        if [ -f /var/lib/nmb/openvpn/server.conf ]; then
+            cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server.conf
+            cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
+            chmod 600 /etc/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
+        fi
         sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
-        systemctl start openvpn-server@server 2>/dev/null || exec systemctl start openvpn@server
+        sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
+        sysctl -w net.ipv6.conf.default.forwarding=1 >/dev/null 2>&1 || true
+        systemctl stop openvpn@server 2>/dev/null || true
+        systemctl restart openvpn-server@server 2>/dev/null || exec systemctl start openvpn@server
         ;;
     openvpn-stop)
-        systemctl stop openvpn-server@server 2>/dev/null || exec systemctl stop openvpn@server
+        systemctl stop openvpn-server@server 2>/dev/null || true
+        systemctl stop openvpn@server 2>/dev/null || true
         ;;
     openvpn-status)
         systemctl is-active openvpn-server@server 2>/dev/null || exec systemctl is-active openvpn@server
         ;;
     vpn-nat)
         sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
-        # Find default route WAN interface
+        sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
+        sysctl -w net.ipv6.conf.default.forwarding=1 >/dev/null 2>&1 || true
+
+        # Find default route WAN interface for IPv4 and IPv6
         WAN_IFACE=$(ip route show default 2>/dev/null | awk '{print $5}' | head -n 1)
+        WAN6_IFACE=$(ip -6 route show default 2>/dev/null | awk '{print $5}' | head -n 1)
+        [ -z "$WAN6_IFACE" ] && WAN6_IFACE="$WAN_IFACE"
+
         if [ -n "$WAN_IFACE" ]; then
             iptables -C FORWARD -i wg0 -j ACCEPT 2>/dev/null || iptables -A FORWARD -i wg0 -j ACCEPT
             iptables -C FORWARD -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || iptables -A FORWARD -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
@@ -78,6 +107,25 @@ case "${1:-}" in
             iptables -C FORWARD -i tun0 -j ACCEPT 2>/dev/null || iptables -A FORWARD -i tun0 -j ACCEPT
             iptables -C FORWARD -o tun0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || iptables -A FORWARD -o tun0 -m state --state RELATED,ESTABLISHED -j ACCEPT
             iptables -t nat -C POSTROUTING -s 10.9.0.0/24 -o "$WAN_IFACE" -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 10.9.0.0/24 -o "$WAN_IFACE" -j MASQUERADE
+        fi
+
+        # IPv6 Dual-Stack VPN Forwarding & NAT66 Masquerading
+        if command -v ip6tables >/dev/null 2>&1; then
+            ip6tables -C FORWARD -i wg0 -j ACCEPT 2>/dev/null || ip6tables -A FORWARD -i wg0 -j ACCEPT
+            ip6tables -C FORWARD -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || ip6tables -A FORWARD -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+            if [ -n "$WAN6_IFACE" ]; then
+                ip6tables -t nat -C POSTROUTING -s fd42:42:42::/64 -o "$WAN6_IFACE" -j MASQUERADE 2>/dev/null || ip6tables -t nat -A POSTROUTING -s fd42:42:42::/64 -o "$WAN6_IFACE" -j MASQUERADE 2>/dev/null || true
+            else
+                ip6tables -t nat -C POSTROUTING -s fd42:42:42::/64 -j MASQUERADE 2>/dev/null || ip6tables -t nat -A POSTROUTING -s fd42:42:42::/64 -j MASQUERADE 2>/dev/null || true
+            fi
+
+            ip6tables -C FORWARD -i tun0 -j ACCEPT 2>/dev/null || ip6tables -A FORWARD -i tun0 -j ACCEPT
+            ip6tables -C FORWARD -o tun0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || ip6tables -A FORWARD -o tun0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+            if [ -n "$WAN6_IFACE" ]; then
+                ip6tables -t nat -C POSTROUTING -s fd42:42:43::/64 -o "$WAN6_IFACE" -j MASQUERADE 2>/dev/null || ip6tables -t nat -A POSTROUTING -s fd42:42:43::/64 -o "$WAN6_IFACE" -j MASQUERADE 2>/dev/null || true
+            else
+                ip6tables -t nat -C POSTROUTING -s fd42:42:43::/64 -j MASQUERADE 2>/dev/null || ip6tables -t nat -A POSTROUTING -s fd42:42:43::/64 -j MASQUERADE 2>/dev/null || true
+            fi
         fi
         ;;
     wifi-reg-set)

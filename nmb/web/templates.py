@@ -1573,13 +1573,23 @@ def get_dashboard_html() -> str:
                 <input type="number" id="wg-port" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="51820">
               </div>
               <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_subnet">Server Tunnel Subnet:</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_subnet">Server IPv4 Subnet:</label>
                 <input type="text" id="wg-subnet" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="10.8.0.1/24">
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_subnet_ipv6">Server IPv6 Subnet:</label>
+                <input type="text" id="wg-subnet-ipv6" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="fd42:42:42::1/64">
+              </div>
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_dns">Client DNS Resolvers (IPv4 / IPv6):</label>
+                <input type="text" id="wg-dns" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="1.1.1.1, 2606:4700:4700::1111" placeholder="1.1.1.1, 2606:4700:4700::1111">
               </div>
             </div>
             <div style="margin-bottom: 14px;">
               <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_endpoint">Public Endpoint Host / DuckDNS:</label>
-              <input type="text" id="wg-endpoint" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (DuckDNS or WAN IP)">
+              <input type="text" id="wg-endpoint" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (DuckDNS or WAN IP / IPv6)">
             </div>
             <div style="display: flex; gap: 8px;">
               <button class="btn-primary" style="font-size: 12.5px; padding: 8px 14px;" onclick="saveWireguardSettings()">Save Server Settings</button>
@@ -1596,9 +1606,15 @@ def get_dashboard_html() -> str:
               <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_peer_name">Client Peer Name:</label>
               <input type="text" id="wg-new-peer-name" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="e.g. phone-pixel, laptop-work">
             </div>
-            <div style="margin-bottom: 14px;">
-              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_peer_ip">Client Tunnel IP (optional):</label>
-              <input type="text" id="wg-new-peer-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto-assign (e.g. 10.8.0.2)">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_peer_ip">Tunnel IPv4 (optional):</label>
+                <input type="text" id="wg-new-peer-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (10.8.0.2)">
+              </div>
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_peer_ipv6">Tunnel IPv6 (optional):</label>
+                <input type="text" id="wg-new-peer-ipv6" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (fd42:42:42::2)">
+              </div>
             </div>
             <button class="btn-primary" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="addWireguardPeer()">➕ Generate & Add Client Peer</button>
           </div>
@@ -1641,8 +1657,8 @@ def get_dashboard_html() -> str:
               <div>
                 <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="openvpn_proto">Protocol:</label>
                 <select id="ovpn-proto" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;">
-                  <option value="udp">UDP (Recommended)</option>
-                  <option value="tcp">TCP</option>
+                  <option value="udp">UDP Dual-Stack (Recommended)</option>
+                  <option value="tcp">TCP Dual-Stack</option>
                 </select>
               </div>
               <div>
@@ -1650,9 +1666,23 @@ def get_dashboard_html() -> str:
                 <input type="number" id="ovpn-port" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="1194">
               </div>
             </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="openvpn_subnet">Server IPv4 Subnet:</label>
+                <input type="text" id="ovpn-subnet" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="10.9.0.0">
+              </div>
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="openvpn_subnet_ipv6">Server IPv6 Subnet:</label>
+                <input type="text" id="ovpn-subnet-ipv6" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="fd42:42:43::/64">
+              </div>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="openvpn_dns">Client DNS Resolvers (IPv4 / IPv6):</label>
+              <input type="text" id="ovpn-dns" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="1.1.1.1, 2606:4700:4700::1111" placeholder="1.1.1.1, 2606:4700:4700::1111">
+            </div>
             <div style="margin-bottom: 14px;">
               <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="openvpn_endpoint">Public Hostname / DuckDNS:</label>
-              <input type="text" id="ovpn-endpoint" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (DuckDNS or WAN IP)">
+              <input type="text" id="ovpn-endpoint" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (DuckDNS or WAN IP / IPv6)">
             </div>
             <div style="display: flex; gap: 8px;">
               <button class="btn-primary" style="font-size: 12.5px; padding: 8px 14px;" onclick="saveOpenvpnSettings()">Save Server Settings</button>
@@ -1706,9 +1736,20 @@ def get_dashboard_html() -> str:
             <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;" data-i18n="proxy_desc">
               High-throughput forward proxy with HTTP CONNECT tunneling for end-to-end TLS / HTTPS encryption and optional authentication.
             </p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="proxy_port">Proxy Port:</label>
+                <input type="number" id="proxy-port" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="8443">
+              </div>
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="proxy_dns">Manual DNS Resolvers (IPv4 / IPv6):</label>
+                <input type="text" id="proxy-dns" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="1.1.1.1, 2606:4700:4700::1111" placeholder="1.1.1.1, 2606:4700:4700::1111">
+              </div>
+            </div>
             <div style="margin-bottom: 12px;">
-              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="proxy_port">Proxy Port:</label>
-              <input type="number" id="proxy-port" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" value="8443">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+                <input type="checkbox" id="proxy-ipv6-enable" checked> <span data-i18n="proxy_ipv6_enable">Listen on Dual-Stack (IPv4 & IPv6 `::`)</span>
+              </label>
             </div>
             <div style="margin-bottom: 12px;">
               <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
@@ -8007,18 +8048,22 @@ ${pkgList}`;
       const res = await fetch('/api/wireguard/status');
       if (!res.ok) return;
       const d = await res.json();
-      wireguardIsActive = !!d.active;
+      wireguardIsActive = !!(d.active || d.running);
 
       const portInput = document.getElementById('wg-port');
       const subnetInput = document.getElementById('wg-subnet');
+      const subnet6Input = document.getElementById('wg-subnet-ipv6');
+      const dnsInput = document.getElementById('wg-dns');
       const endpointInput = document.getElementById('wg-endpoint');
       if (portInput && d.port && !portInput.dataset.focused) portInput.value = d.port;
       if (subnetInput && d.subnet && !subnetInput.dataset.focused) subnetInput.value = d.subnet;
+      if (subnet6Input && d.subnet_ipv6 && !subnet6Input.dataset.focused) subnet6Input.value = d.subnet_ipv6;
+      if (dnsInput && d.dns && !dnsInput.dataset.focused) dnsInput.value = d.dns;
       if (endpointInput && d.endpoint && !endpointInput.dataset.focused) endpointInput.value = d.endpoint;
 
       const badge = document.getElementById('wg-status-badge');
       if (badge) {
-        if (d.active) {
+        if (d.active || d.running) {
           badge.className = 'badge';
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#10b981';
@@ -8035,7 +8080,7 @@ ${pkgList}`;
 
       const toggleBtn = document.getElementById('btn-wg-toggle');
       if (toggleBtn) {
-        if (d.active) {
+        if (d.active || d.running) {
           toggleBtn.className = 'btn-danger';
           toggleBtn.textContent = '⏹️ Stop WireGuard';
         } else {
@@ -8080,9 +8125,15 @@ ${pkgList}`;
       const rxFormatted = formatBytes(p.transfer_rx || 0);
       const txFormatted = formatBytes(p.transfer_tx || 0);
 
+      let ipDisplay = p.allowed_ips;
+      if (!ipDisplay) {
+        ipDisplay = p.client_ip || '--';
+        if (p.client_ipv6) ipDisplay += '<br><span style="color: #94a3b8; font-size: 11px;">' + escapeHtml(p.client_ipv6) + '</span>';
+      }
+
       html += `<tr>
         <td style="font-weight: 700; color: #38bdf8;">${escapeHtml(p.name)}</td>
-        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1;">${escapeHtml(p.allowed_ips || p.client_ip || '--')}</td>
+        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1;">${ipDisplay}</td>
         <td>${statusBadge}</td>
         <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(p.endpoint || '--')}</td>
         <td style="font-size: 12px;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
@@ -8114,13 +8165,15 @@ ${pkgList}`;
   async function saveWireguardSettings() {
     const port = parseInt(document.getElementById('wg-port')?.value, 10) || 51820;
     const subnet = (document.getElementById('wg-subnet')?.value || '').trim() || '10.8.0.1/24';
+    const subnet_ipv6 = (document.getElementById('wg-subnet-ipv6')?.value || '').trim() || 'fd42:42:42::1/64';
+    const dns = (document.getElementById('wg-dns')?.value || '').trim();
     const endpoint = (document.getElementById('wg-endpoint')?.value || '').trim();
 
     try {
       const res = await fetch('/api/wireguard/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ port, subnet, endpoint }),
+        body: JSON.stringify({ port, subnet, subnet_ipv6, dns, endpoint }),
       });
       const d = await res.json();
       if (res.ok) {
@@ -8158,8 +8211,10 @@ ${pkgList}`;
   async function addWireguardPeer() {
     const nameInput = document.getElementById('wg-new-peer-name');
     const ipInput = document.getElementById('wg-new-peer-ip');
+    const ip6Input = document.getElementById('wg-new-peer-ipv6');
     const name = (nameInput?.value || '').trim();
     const client_ip = (ipInput?.value || '').trim();
+    const client_ipv6 = (ip6Input?.value || '').trim();
 
     if (!name) {
       showToast('Please provide a client peer name (e.g. phone-pixel)');
@@ -8172,13 +8227,14 @@ ${pkgList}`;
       const res = await fetch('/api/wireguard/peer/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, client_ip }),
+        body: JSON.stringify({ name, client_ip, client_ipv6 }),
       });
       const d = await res.json();
       if (res.ok && d.peer) {
         showToast(`Peer "${name}" generated successfully!`);
         if (nameInput) nameInput.value = '';
         if (ipInput) ipInput.value = '';
+        if (ip6Input) ip6Input.value = '';
         loadWireguardStatus();
         showWireguardQr(d.peer.id, d.peer.name);
       } else {
@@ -8216,18 +8272,21 @@ ${pkgList}`;
     if (!modal || !img) return;
 
     if (title) title.textContent = `📱 WireGuard QR: ${peerName}`;
+    img.src = '';
+    modal.style.display = 'flex';
     try {
       const res = await fetch(`/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}`);
-      const d = await res.json();
-      if (d.qr_data_uri) {
-        img.src = d.qr_data_uri;
-      } else {
-        img.src = `/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}&raw=1&t=${Date.now()}`;
+      if (res.ok) {
+        const d = await res.json();
+        if (d.qr_data_uri) {
+          img.src = d.qr_data_uri;
+          return;
+        }
       }
+      img.src = `/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}&raw=1&t=${Date.now()}`;
     } catch (e) {
       img.src = `/api/wireguard/peer/qr?id=${encodeURIComponent(peerId)}&raw=1&t=${Date.now()}`;
     }
-    modal.style.display = 'flex';
   }
 
   // ---- OpenVPN ----
@@ -8238,18 +8297,24 @@ ${pkgList}`;
       const res = await fetch('/api/openvpn/status');
       if (!res.ok) return;
       const d = await res.json();
-      openvpnIsActive = !!d.active;
+      openvpnIsActive = !!(d.active || d.running);
 
       const protoSelect = document.getElementById('ovpn-proto');
       const portInput = document.getElementById('ovpn-port');
+      const subnetInput = document.getElementById('ovpn-subnet');
+      const subnet6Input = document.getElementById('ovpn-subnet-ipv6');
+      const dnsInput = document.getElementById('ovpn-dns');
       const endpointInput = document.getElementById('ovpn-endpoint');
       if (protoSelect && d.proto) protoSelect.value = d.proto;
       if (portInput && d.port && !portInput.dataset.focused) portInput.value = d.port;
+      if (subnetInput && d.subnet && !subnetInput.dataset.focused) subnetInput.value = d.subnet;
+      if (subnet6Input && d.subnet_ipv6 && !subnet6Input.dataset.focused) subnet6Input.value = d.subnet_ipv6;
+      if (dnsInput && d.dns && !dnsInput.dataset.focused) dnsInput.value = d.dns;
       if (endpointInput && d.endpoint && !endpointInput.dataset.focused) endpointInput.value = d.endpoint;
 
       const badge = document.getElementById('ovpn-status-badge');
       if (badge) {
-        if (d.active) {
+        if (d.active || d.running) {
           badge.className = 'badge';
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#10b981';
@@ -8266,7 +8331,7 @@ ${pkgList}`;
 
       const toggleBtn = document.getElementById('btn-ovpn-toggle');
       if (toggleBtn) {
-        if (d.active) {
+        if (d.active || d.running) {
           toggleBtn.className = 'btn-danger';
           toggleBtn.textContent = '⏹️ Stop OpenVPN';
         } else {
@@ -8322,13 +8387,16 @@ ${pkgList}`;
   async function saveOpenvpnSettings() {
     const proto = document.getElementById('ovpn-proto')?.value || 'udp';
     const port = parseInt(document.getElementById('ovpn-port')?.value, 10) || 1194;
+    const subnet = (document.getElementById('ovpn-subnet')?.value || '').trim() || '10.9.0.0';
+    const subnet_ipv6 = (document.getElementById('ovpn-subnet-ipv6')?.value || '').trim() || 'fd42:42:43::/64';
+    const dns = (document.getElementById('ovpn-dns')?.value || '').trim();
     const endpoint = (document.getElementById('ovpn-endpoint')?.value || '').trim();
 
     try {
       const res = await fetch('/api/openvpn/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proto, port, endpoint }),
+        body: JSON.stringify({ proto, port, subnet, subnet_ipv6, dns, endpoint }),
       });
       const d = await res.json();
       if (res.ok) {
@@ -8435,15 +8503,19 @@ ${pkgList}`;
       const res = await fetch('/api/proxy/status');
       if (!res.ok) return;
       const d = await res.json();
-      proxyIsActive = !!d.running;
+      proxyIsActive = !!(d.running || d.active);
 
       const portInput = document.getElementById('proxy-port');
+      const dnsInput = document.getElementById('proxy-dns');
+      const ipv6Chk = document.getElementById('proxy-ipv6-enable');
       const authChk = document.getElementById('proxy-auth-enable');
       const userInput = document.getElementById('proxy-username');
       const passInput = document.getElementById('proxy-password');
       const tlsChk = document.getElementById('proxy-tls-enable');
 
       if (portInput && d.port && !portInput.dataset.focused) portInput.value = d.port;
+      if (dnsInput && d.dns && !dnsInput.dataset.focused) dnsInput.value = d.dns;
+      if (ipv6Chk && d.listen_ipv6 !== undefined) ipv6Chk.checked = !!d.listen_ipv6;
       if (authChk && d.auth_enabled !== undefined) {
         authChk.checked = !!d.auth_enabled;
         toggleProxyAuthFields();
@@ -8453,7 +8525,7 @@ ${pkgList}`;
 
       const badge = document.getElementById('proxy-status-badge');
       if (badge) {
-        if (d.running) {
+        if (d.running || d.active) {
           badge.className = 'badge';
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#10b981';
@@ -8470,7 +8542,7 @@ ${pkgList}`;
 
       const toggleBtn = document.getElementById('btn-proxy-toggle');
       if (toggleBtn) {
-        if (d.running) {
+        if (d.running || d.active) {
           toggleBtn.className = 'btn-danger';
           toggleBtn.textContent = '⏹️ Stop Proxy';
         } else {
@@ -8485,21 +8557,26 @@ ${pkgList}`;
       const trfEl = document.getElementById('proxy-stat-traffic');
       const uptEl = document.getElementById('proxy-stat-uptime');
 
-      if (actEl) actEl.textContent = stats.active_connections || 0;
-      if (totEl) totEl.textContent = stats.total_connections || 0;
+      const activeConns = stats.active_connections !== undefined ? stats.active_connections : (d.active_connections || 0);
+      const totalConns = stats.total_connections !== undefined ? stats.total_connections : (d.total_connections || 0);
+      const bytesRx = stats.bytes_rx !== undefined ? stats.bytes_rx : (d.bytes_rx || 0);
+      const bytesTx = stats.bytes_tx !== undefined ? stats.bytes_tx : (d.bytes_tx || 0);
+      const uptimeSec = stats.uptime_sec !== undefined ? stats.uptime_sec : (d.uptime_seconds || 0);
+
+      if (actEl) actEl.textContent = activeConns;
+      if (totEl) totEl.textContent = totalConns;
       if (trfEl) {
-        const rx = formatBytes(stats.bytes_rx || 0);
-        const tx = formatBytes(stats.bytes_tx || 0);
+        const rx = formatBytes(bytesRx);
+        const tx = formatBytes(bytesTx);
         trfEl.textContent = `↓ ${rx} / ↑ ${tx}`;
       }
       if (uptEl) {
-        const sec = stats.uptime_sec || 0;
-        if (sec > 0) {
-          const m = Math.floor(sec / 60);
-          const s = sec % 60;
+        if (uptimeSec > 0) {
+          const m = Math.floor(uptimeSec / 60);
+          const s = uptimeSec % 60;
           uptEl.textContent = `${m}m ${s}s`;
         } else {
-          uptEl.textContent = d.running ? 'Just started' : 'Offline';
+          uptEl.textContent = (d.running || d.active) ? 'Just started' : 'Offline';
         }
       }
     } catch (e) {
@@ -8509,6 +8586,8 @@ ${pkgList}`;
 
   async function saveProxySettings() {
     const port = parseInt(document.getElementById('proxy-port')?.value, 10) || 8443;
+    const dns = (document.getElementById('proxy-dns')?.value || '').trim();
+    const listen_ipv6 = !!document.getElementById('proxy-ipv6-enable')?.checked;
     const auth_enabled = !!document.getElementById('proxy-auth-enable')?.checked;
     const username = (document.getElementById('proxy-username')?.value || '').trim();
     const password = (document.getElementById('proxy-password')?.value || '').trim();
@@ -8518,7 +8597,7 @@ ${pkgList}`;
       const res = await fetch('/api/proxy/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ port, auth_enabled, username, password, tls_enabled }),
+        body: JSON.stringify({ port, dns, listen_ipv6, auth_enabled, username, password, tls_enabled }),
       });
       const d = await res.json();
       if (res.ok) {
@@ -8551,7 +8630,7 @@ ${pkgList}`;
   }
 
   // Initialization
-  ['duckdns-domain', 'duckdns-token', 'duckdns-interval', 'duckdns-custom-ip', 'wg-port', 'wg-subnet', 'wg-endpoint', 'ovpn-port', 'ovpn-endpoint', 'proxy-port', 'proxy-username', 'proxy-password'].forEach(id => {
+  ['duckdns-domain', 'duckdns-token', 'duckdns-interval', 'duckdns-custom-ip', 'wg-port', 'wg-subnet', 'wg-subnet-ipv6', 'wg-dns', 'wg-endpoint', 'ovpn-port', 'ovpn-subnet', 'ovpn-subnet-ipv6', 'ovpn-dns', 'ovpn-endpoint', 'proxy-port', 'proxy-dns', 'proxy-username', 'proxy-password'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('focus', () => el.dataset.focused = '1');

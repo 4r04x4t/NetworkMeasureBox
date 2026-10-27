@@ -139,17 +139,33 @@ def save_clients(clients: List[Dict[str, Any]]) -> None:
     tmp_path.replace(CLIENTS_FILE)
 
 
-def generate_server_config(proto: str = "udp", port: int = 1194, subnet: str = "10.9.0.0") -> str:
-    """Generate server.conf file."""
+def generate_server_config(
+    proto: str = "udp",
+    port: int = 1194,
+    subnet: str = "10.9.0.0",
+    subnet_ipv6: str = "fd42:42:43::/64",
+    dns_servers: str = "1.1.1.1, 2606:4700:4700::1111",
+) -> str:
+    """Generate dual-stack server.conf file."""
     ca_crt = PKI_DIR / "ca.crt"
     server_crt = PKI_DIR / "server.crt"
     server_key = PKI_DIR / "server.key"
     tls_crypt = PKI_DIR / "tls-crypt.key"
 
+    # Use dual-stack socket protocol on Linux
+    ovpn_proto = proto.lower()
+    if ovpn_proto in ("udp", "udp4", "udp6"):
+        server_proto = "udp6"
+    elif ovpn_proto in ("tcp", "tcp4", "tcp6"):
+        server_proto = "tcp6"
+    else:
+        server_proto = ovpn_proto
+
+    clean_subnet = subnet.split("/")[0].strip() if "/" in subnet else subnet.strip()
     lines = [
-        "# NetworkMeasureBox OpenVPN Server Configuration",
+        "# NetworkMeasureBox OpenVPN Dual-Stack Server Configuration",
         f"port {port}",
-        f"proto {proto}",
+        f"proto {server_proto}",
         "dev tun0",
         f"ca {ca_crt}",
         f"cert {server_crt}",
@@ -157,11 +173,25 @@ def generate_server_config(proto: str = "udp", port: int = 1194, subnet: str = "
         "dh none",
         f"tls-crypt {tls_crypt}",
         "topology subnet",
-        f"server {subnet} 255.255.255.0",
+        f"server {clean_subnet} 255.255.255.0",
+        f"server-ipv6 {subnet_ipv6}",
         f"ifconfig-pool-persist {OV_DIR / 'ipp.txt'}",
         'push "redirect-gateway def1 bypass-dhcp"',
-        'push "dhcp-option DNS 1.1.1.1"',
-        'push "dhcp-option DNS 8.8.8.8"',
+        'push "route-ipv6 2000::/3"',
+        'push "route-ipv6 ::/0"',
+    ]
+
+    dns_list = [d.strip() for d in dns_servers.split(",") if d.strip()]
+    if not dns_list:
+        dns_list = ["1.1.1.1", "2606:4700:4700::1111", "8.8.8.8"]
+
+    for d in dns_list:
+        if ":" in d:
+            lines.append(f'push "dhcp-option DNS6 {d}"')
+        else:
+            lines.append(f'push "dhcp-option DNS {d}"')
+
+    lines.extend([
         "keepalive 10 120",
         "cipher AES-256-GCM",
         "data-ciphers AES-256-GCM:CHACHA20-POLY1305",
@@ -171,25 +201,43 @@ def generate_server_config(proto: str = "udp", port: int = 1194, subnet: str = "
         "persist-tun",
         f"status {STATUS_LOG} 5",
         "verb 3",
-    ]
+    ])
     return "\n".join(lines)
 
 
-def apply_configuration(proto: str = "udp", port: int = 1194, subnet: str = "10.9.0.0") -> Tuple[bool, str]:
+def apply_configuration(
+    proto: str = "udp",
+    port: int = 1194,
+    subnet: str = "10.9.0.0",
+    subnet_ipv6: str = "fd42:42:43::/64",
+    dns_servers: str = "1.1.1.1, 2606:4700:4700::1111",
+) -> Tuple[bool, str]:
     """Write server config and apply via nmb-helper."""
     init_pki()
-    conf_content = generate_server_config(proto=proto, port=port, subnet=subnet)
+    conf_content = generate_server_config(
+        proto=proto,
+        port=port,
+        subnet=subnet,
+        subnet_ipv6=subnet_ipv6,
+        dns_servers=dns_servers,
+    )
     OV_CONF.write_text(conf_content)
     os.chmod(OV_CONF, 0o600)
 
     rc, out = run_helper("openvpn-apply")
     if rc == 0:
         run_helper("vpn-nat")
-        return True, "OpenVPN server started successfully."
+        return True, "OpenVPN dual-stack server started successfully."
     return False, f"Failed to start OpenVPN server: {out}"
 
 
-def get_openvpn_status(proto: str = "udp", port: int = 1194) -> Dict[str, Any]:
+def get_openvpn_status(
+    proto: str = "udp",
+    port: int = 1194,
+    subnet: str = "10.9.0.0",
+    subnet_ipv6: str = "fd42:42:43::/64",
+    dns: str = "",
+) -> Dict[str, Any]:
     """Retrieve runtime status of OpenVPN server."""
     installed = is_openvpn_available()
     is_running = False
@@ -240,19 +288,24 @@ def get_openvpn_status(proto: str = "udp", port: int = 1194) -> Dict[str, Any]:
             "name": cn,
             "created_at": c.get("created_at"),
             "is_online": cn in connected_map,
+            "connected": cn in connected_map,
             "real_address": conn.get("real_address", "--"),
             "bytes_recv": conn.get("bytes_recv", 0),
             "bytes_sent": conn.get("bytes_sent", 0),
+            "bytes_received": conn.get("bytes_recv", 0),
             "connected_since": conn.get("connected_since", "--"),
         })
 
     return {
         "installed": installed,
         "running": is_running,
+        "active": is_running,
         "interface": "tun0",
         "proto": proto,
         "port": port,
-        "subnet": "10.9.0.0/24",
+        "subnet": f"{subnet}/24",
+        "subnet_ipv6": subnet_ipv6,
+        "dns": dns,
         "total_clients": len(clients),
         "online_clients": len(connected_map),
         "clients": client_list,
@@ -318,8 +371,14 @@ def delete_client(name: str) -> bool:
     return True
 
 
-def get_unified_ovpn_profile(name: str, endpoint_host: str = "", proto: str = "udp", port: int = 1194) -> Optional[str]:
-    """Generate complete, standalone unified .ovpn profile with inline certificates."""
+def get_unified_ovpn_profile(
+    name: str,
+    endpoint_host: str = "",
+    proto: str = "udp",
+    port: int = 1194,
+    dns_servers: str = "",
+) -> Optional[str]:
+    """Generate complete, standalone unified .ovpn profile with inline certificates and dual-stack support."""
     init_pki()
     ca_crt = PKI_DIR / "ca.crt"
     tls_crypt = PKI_DIR / "tls-crypt.key"
@@ -338,11 +397,28 @@ def get_unified_ovpn_profile(name: str, endpoint_host: str = "", proto: str = "u
     crt_text = client_crt.read_text().strip()
     key_text = client_key.read_text().strip()
 
-    ovpn = f"""# NetworkMeasureBox Unified OpenVPN Client Profile: {name}
+    # If endpoint_host is IPv6 literal, bracket it
+    if ":" in endpoint_host and not endpoint_host.startswith("["):
+        remote_line = f"remote [{endpoint_host}] {port}"
+    else:
+        remote_line = f"remote {endpoint_host} {port}"
+
+    dns_directives = []
+    dns_list = [d.strip() for d in dns_servers.split(",") if d.strip()]
+    for d in dns_list:
+        if ":" in d:
+            dns_directives.append(f"dhcp-option DNS6 {d}")
+        else:
+            dns_directives.append(f"dhcp-option DNS {d}")
+    dns_block = "\n".join(dns_directives)
+    if dns_block:
+        dns_block += "\n"
+
+    ovpn = f"""# NetworkMeasureBox Unified Dual-Stack OpenVPN Client Profile: {name}
 client
 dev tun
 proto {proto}
-remote {endpoint_host} {port}
+{remote_line}
 resolv-retry infinite
 nobind
 persist-key
@@ -350,7 +426,7 @@ persist-tun
 remote-cert-tls server
 cipher AES-256-GCM
 data-ciphers AES-256-GCM:CHACHA20-POLY1305
-verb 3
+{dns_block}verb 3
 
 <ca>
 {ca_text}

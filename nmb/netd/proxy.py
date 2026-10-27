@@ -33,6 +33,83 @@ _proxy_stats = {
 }
 
 
+import struct
+
+def parse_target_host_port(target: str, default_port: int = 443) -> Tuple[str, int]:
+    """Parse host and port handling bracketed IPv6 literals, IPv4, and hostnames."""
+    target = target.strip()
+    if target.startswith("[") and "]" in target:
+        host = target[1:target.find("]")]
+        rest = target[target.find("]")+1:]
+        port = int(rest.lstrip(":")) if rest.lstrip(":").isdigit() else default_port
+        return host, port
+    if ":" in target:
+        if target.count(":") > 1:
+            # Raw unbracketed IPv6 literal
+            return target, default_port
+        host, port_str = target.split(":", 1)
+        port = int(port_str) if port_str.isdigit() else default_port
+        return host, port
+    return target, default_port
+
+
+def query_manual_dns(name: str, nameserver: str, qtype: int = 1, timeout: float = 2.0) -> List[str]:
+    """Query specific manual DNS resolver for A (1) or AAAA (28) records."""
+    try:
+        parts = name.strip(".").split(".")
+        qname = b"".join(bytes([len(p)]) + p.encode("ascii") for p in parts) + b"\x00"
+        tid = 0x5a3c
+        header = struct.pack("!HHHHHH", tid, 0x0100, 1, 0, 0, 0)
+        packet = header + qname + struct.pack("!HH", qtype, 1)
+
+        is_ipv6_server = ":" in nameserver
+        sock_family = socket.AF_INET6 if is_ipv6_server else socket.AF_INET
+        s = socket.socket(sock_family, socket.SOCK_DGRAM)
+        s.settimeout(timeout)
+        try:
+            s.sendto(packet, (nameserver, 53))
+            resp, _ = s.recvfrom(4096)
+            if len(resp) < 12:
+                return []
+            ancount = struct.unpack("!H", resp[6:8])[0]
+            idx = 12
+            while idx < len(resp) and resp[idx] != 0:
+                if resp[idx] >= 192:
+                    idx += 2
+                    break
+                idx += 1 + resp[idx]
+            if idx < len(resp) and resp[idx] == 0:
+                idx += 1
+            idx += 4
+            ips: List[str] = []
+            for _ in range(ancount):
+                if idx >= len(resp):
+                    break
+                if resp[idx] >= 192:
+                    idx += 2
+                else:
+                    while idx < len(resp) and resp[idx] != 0:
+                        idx += 1 + resp[idx]
+                    if idx < len(resp):
+                        idx += 1
+                if idx + 10 > len(resp):
+                    break
+                rtype, rclass, ttl, rdlen = struct.unpack("!HHIH", resp[idx:idx+10])
+                idx += 10
+                rdata = resp[idx:idx+rdlen]
+                idx += rdlen
+                if rtype == 1 and rdlen == 4:
+                    ips.append(socket.inet_ntop(socket.AF_INET, rdata))
+                elif rtype == 28 and rdlen == 16:
+                    ips.append(socket.inet_ntop(socket.AF_INET6, rdata))
+            return ips
+        finally:
+            s.close()
+    except Exception as e:
+        log.debug("manual dns query %s on %s failed: %s", name, nameserver, e)
+        return []
+
+
 class ProxyServer:
     def __init__(
         self,
@@ -44,6 +121,8 @@ class ProxyServer:
         tls_enabled: bool = False,
         tls_cert: str = "",
         tls_key: str = "",
+        listen_ipv6: bool = True,
+        dns: str = "",
     ):
         self.host = host
         self.port = port
@@ -53,6 +132,8 @@ class ProxyServer:
         self.tls_enabled = tls_enabled
         self.tls_cert = tls_cert
         self.tls_key = tls_key
+        self.listen_ipv6 = listen_ipv6
+        self.dns = dns
 
         self.running = False
         self.sock: Optional[socket.socket] = None
@@ -63,9 +144,31 @@ class ProxyServer:
             return True, "Proxy server is already running."
 
         try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.sock.bind((self.host, self.port))
+            # Dual-stack socket binding
+            if self.listen_ipv6 and (self.host in ("0.0.0.0", "::", "")):
+                try:
+                    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    try:
+                        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+                    except (AttributeError, OSError):
+                        pass
+                    sock.bind(("::", self.port))
+                    self.sock = sock
+                    self.host = "::"
+                except Exception as e:
+                    log.info("IPv6 dual-stack socket bind failed, falling back to IPv4: %s", e)
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.bind(("0.0.0.0", self.port))
+                    self.sock = sock
+                    self.host = "0.0.0.0"
+            else:
+                family = socket.AF_INET6 if ":" in self.host else socket.AF_INET
+                self.sock = socket.socket(family, socket.SOCK_STREAM)
+                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self.sock.bind((self.host, self.port))
+
             self.sock.listen(128)
 
             if self.tls_enabled and self.tls_cert and self.tls_key:
@@ -79,8 +182,8 @@ class ProxyServer:
             self.thread = threading.Thread(target=self._accept_loop, name=f"nmb-proxy-{self.port}", daemon=True)
             self.thread.start()
 
-            log.info("HTTPS Proxy Server started on %s:%d (Auth=%s, TLS=%s)", self.host, self.port, self.auth_enabled, self.tls_enabled)
-            return True, f"Proxy server listening on port {self.port}"
+            log.info("HTTPS Proxy Server started on %s:%d (DualStack=%s, Auth=%s, TLS=%s)", self.host, self.port, self.listen_ipv6, self.auth_enabled, self.tls_enabled)
+            return True, f"Proxy server listening on port {self.port} (Dual-Stack IPv4/IPv6)"
         except Exception as e:
             log.error("failed to start proxy server: %s", e)
             self.stop()
@@ -109,6 +212,40 @@ class ProxyServer:
                 t.start()
             except Exception:
                 break
+
+    def _connect_remote(self, host: str, port: int, timeout: float = 10.0) -> socket.socket:
+        """Connect to remote target with dual-stack IPv4/IPv6 and manual DNS resolvers."""
+        # 1. Check if host is already an IP address literal
+        try:
+            socket.inet_pton(socket.AF_INET, host)
+            return socket.create_connection((host, port), timeout=timeout)
+        except OSError:
+            try:
+                socket.inet_pton(socket.AF_INET6, host)
+                return socket.create_connection((host, port), timeout=timeout)
+            except OSError:
+                pass
+
+        # 2. Host is a domain name. If custom manual DNS resolvers configured, query them:
+        dns_servers = [d.strip() for d in self.dns.split(",") if d.strip()] if self.dns else []
+        if dns_servers:
+            candidate_ips: List[str] = []
+            for ns in dns_servers:
+                aaaa_ips = query_manual_dns(host, ns, qtype=28, timeout=2.0)
+                a_ips = query_manual_dns(host, ns, qtype=1, timeout=2.0)
+                candidate_ips.extend(aaaa_ips)
+                candidate_ips.extend(a_ips)
+                if candidate_ips:
+                    break
+
+            for cand_ip in candidate_ips:
+                try:
+                    return socket.create_connection((cand_ip, port), timeout=timeout)
+                except Exception:
+                    continue
+
+        # 3. Fallback to standard system resolver
+        return socket.create_connection((host, port), timeout=timeout)
 
     def _handle_client(self, client_sock: socket.socket, client_addr: Tuple[str, int]) -> None:
         with _proxy_lock:
@@ -160,16 +297,11 @@ class ProxyServer:
 
             if method.upper() == "CONNECT":
                 # HTTPS / TLS CONNECT tunneling
-                if ":" in target:
-                    host, port_str = target.split(":", 1)
-                    port = int(port_str) if port_str.isdigit() else 443
-                else:
-                    host, port = target, 443
-
+                host, port = parse_target_host_port(target, default_port=443)
                 try:
-                    remote_sock = socket.create_connection((host, port), timeout=10.0)
+                    remote_sock = self._connect_remote(host, port, timeout=10.0)
                 except Exception as e:
-                    client_sock.sendall(f"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n".encode("latin1"))
+                    client_sock.sendall(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
                     return
 
                 client_sock.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
@@ -185,17 +317,12 @@ class ProxyServer:
                     path = parsed.path or "/"
                     if parsed.query:
                         path += f"?{parsed.query}"
-                elif ":" in target:
-                    host, port_str = target.split(":", 1)
-                    port = int(port_str) if port_str.isdigit() else 80
-                    path = "/"
                 else:
-                    host = target
-                    port = 80
+                    host, port = parse_target_host_port(target, default_port=80)
                     path = "/"
 
                 try:
-                    remote_sock = socket.create_connection((host, port), timeout=10.0)
+                    remote_sock = self._connect_remote(host, port, timeout=10.0)
                 except Exception:
                     client_sock.sendall(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
                     return
@@ -267,6 +394,8 @@ def get_proxy_status() -> Dict[str, Any]:
         "auth_enabled": _proxy_server.auth_enabled if _proxy_server else False,
         "username": _proxy_server.username if _proxy_server else "",
         "tls_enabled": _proxy_server.tls_enabled if _proxy_server else False,
+        "listen_ipv6": _proxy_server.listen_ipv6 if _proxy_server else True,
+        "dns": _proxy_server.dns if _proxy_server else "",
         "active_connections": stats["active_connections"],
         "total_connections": stats["total_connections"],
         "bytes_rx": stats["bytes_rx"],
@@ -284,8 +413,10 @@ def start_proxy_server(
     tls_enabled: bool = False,
     tls_cert: str = "",
     tls_key: str = "",
+    listen_ipv6: bool = True,
+    dns: str = "",
 ) -> Tuple[bool, str]:
-    """Start or restart the HTTPS Proxy Server."""
+    """Start or restart the HTTPS Proxy Server with dual-stack IPv4/IPv6 support."""
     global _proxy_server
     with _proxy_lock:
         if _proxy_server:
@@ -299,6 +430,8 @@ def start_proxy_server(
             tls_enabled=tls_enabled,
             tls_cert=tls_cert,
             tls_key=tls_key,
+            listen_ipv6=listen_ipv6,
+            dns=dns,
         )
         return _proxy_server.start()
 

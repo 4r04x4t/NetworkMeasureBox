@@ -104,13 +104,23 @@ def get_or_create_server_keys() -> Tuple[str, str]:
 
 
 def load_peers() -> List[Dict[str, Any]]:
-    """Load stored peer definitions."""
+    """Load stored peer definitions with dual-stack IPv4/IPv6 support."""
     _ensure_dir()
     if not WG_PEERS_FILE.exists():
         return []
     try:
         data = json.loads(WG_PEERS_FILE.read_text())
-        return data.get("peers", []) if isinstance(data, dict) else []
+        peers = data.get("peers", []) if isinstance(data, dict) else []
+        modified = False
+        for p in peers:
+            if not p.get("client_ipv6"):
+                c_ip = p.get("client_ip", "10.8.0.2")
+                host_num = c_ip.split(".")[-1] if "." in c_ip else "2"
+                p["client_ipv6"] = f"fd42:42:42::{host_num}"
+                modified = True
+        if modified:
+            save_peers(peers)
+        return peers
     except Exception as e:
         log.error("failed to load peers.json: %s", e)
         return []
@@ -125,8 +135,12 @@ def save_peers(peers: List[Dict[str, Any]]) -> None:
     tmp_path.replace(WG_PEERS_FILE)
 
 
-def generate_server_config(port: int = 51820, subnet: str = "10.8.0.1/24") -> str:
-    """Generate wg0.conf containing server interface and all active peers."""
+def generate_server_config(
+    port: int = 51820,
+    subnet: str = "10.8.0.1/24",
+    subnet_ipv6: str = "fd42:42:42::1/64",
+) -> str:
+    """Generate wg0.conf containing dual-stack server interface and all active peers."""
     server_priv, _ = get_or_create_server_keys()
     peers = load_peers()
 
@@ -134,7 +148,7 @@ def generate_server_config(port: int = 51820, subnet: str = "10.8.0.1/24") -> st
         "# NetworkMeasureBox WireGuard Server Configuration",
         "# Generated automatically - Do not edit manually",
         "[Interface]",
-        f"Address = {subnet}",
+        f"Address = {subnet}, {subnet_ipv6}",
         f"ListenPort = {port}",
         f"PrivateKey = {server_priv}",
         "SaveConfig = false",
@@ -144,21 +158,30 @@ def generate_server_config(port: int = 51820, subnet: str = "10.8.0.1/24") -> st
     for p in peers:
         if not p.get("enabled", True):
             continue
+        c_ip = p.get("client_ip", "10.8.0.2")
+        c_ipv6 = p.get("client_ipv6")
+        if not c_ipv6:
+            host_num = c_ip.split(".")[-1] if "." in c_ip else "2"
+            c_ipv6 = f"fd42:42:42::{host_num}"
         lines.append(f"# Peer: {p.get('name', 'client')}")
         lines.append("[Peer]")
         lines.append(f"PublicKey = {p.get('public_key')}")
         if p.get("preshared_key"):
             lines.append(f"PresharedKey = {p.get('preshared_key')}")
-        lines.append(f"AllowedIPs = {p.get('client_ip')}/32")
+        lines.append(f"AllowedIPs = {c_ip}/32, {c_ipv6}/128")
         lines.append("")
 
     return "\n".join(lines)
 
 
-def apply_configuration(port: int = 51820, subnet: str = "10.8.0.1/24") -> Tuple[bool, str]:
+def apply_configuration(
+    port: int = 51820,
+    subnet: str = "10.8.0.1/24",
+    subnet_ipv6: str = "fd42:42:42::1/64",
+) -> Tuple[bool, str]:
     """Write config file and reload wg0 interface via nmb-helper."""
     _ensure_dir()
-    conf_content = generate_server_config(port=port, subnet=subnet)
+    conf_content = generate_server_config(port=port, subnet=subnet, subnet_ipv6=subnet_ipv6)
     WG_CONF.write_text(conf_content)
     os.chmod(WG_CONF, 0o600)
 
@@ -166,7 +189,7 @@ def apply_configuration(port: int = 51820, subnet: str = "10.8.0.1/24") -> Tuple
     rc, out = run_helper("wireguard-apply")
     if rc == 0:
         run_helper("vpn-nat")
-        return True, "WireGuard configuration applied and interface restarted successfully."
+        return True, "WireGuard dual-stack configuration applied and interface restarted successfully."
     return False, f"Failed to apply WireGuard config: {out}"
 
 
@@ -201,7 +224,12 @@ def get_live_peer_stats() -> Dict[str, Dict[str, Any]]:
     return stats
 
 
-def get_wireguard_status(port: int = 51820, subnet: str = "10.8.0.1/24") -> Dict[str, Any]:
+def get_wireguard_status(
+    port: int = 51820,
+    subnet: str = "10.8.0.1/24",
+    subnet_ipv6: str = "fd42:42:42::1/64",
+    dns: str = "",
+) -> Dict[str, Any]:
     """Retrieve complete status of WireGuard VPN server and connected peers."""
     installed = is_wireguard_available()
     _, server_pub = get_or_create_server_keys() if installed else ("", "")
@@ -222,27 +250,38 @@ def get_wireguard_status(port: int = 51820, subnet: str = "10.8.0.1/24") -> Dict
         stat = live_stats.get(pub, {})
         hs = stat.get("last_handshake", 0)
         is_online = (now - hs < 180) if hs > 0 else False
+        c_ip = p.get("client_ip", "")
+        c_ipv6 = p.get("client_ipv6", "")
 
         peer_list.append({
             "id": p.get("id"),
             "name": p.get("name"),
-            "client_ip": p.get("client_ip"),
+            "client_ip": c_ip,
+            "client_ipv6": c_ipv6,
+            "allowed_ips": f"{c_ip}/32, {c_ipv6}/128" if c_ipv6 else f"{c_ip}/32",
             "public_key": pub,
             "created_at": p.get("created_at"),
             "enabled": p.get("enabled", True),
             "endpoint": stat.get("endpoint", "--"),
             "last_handshake": hs,
+            "latest_handshake": hs,
+            "latest_handshake_ago": f"{int(now - hs)}s ago" if hs > 0 else "--",
             "is_online": is_online,
             "rx_bytes": stat.get("rx_bytes", 0),
             "tx_bytes": stat.get("tx_bytes", 0),
+            "transfer_rx": stat.get("rx_bytes", 0),
+            "transfer_tx": stat.get("tx_bytes", 0),
         })
 
     return {
         "installed": installed,
         "running": is_running,
+        "active": is_running,
         "interface": "wg0",
         "port": port,
         "subnet": subnet,
+        "subnet_ipv6": subnet_ipv6,
+        "dns": dns,
         "server_public_key": server_pub,
         "total_peers": len(peers),
         "online_peers": sum(1 for p in peer_list if p.get("is_online")),
@@ -250,8 +289,15 @@ def get_wireguard_status(port: int = 51820, subnet: str = "10.8.0.1/24") -> Dict
     }
 
 
-def add_peer(name: str, client_ip: Optional[str] = None) -> Dict[str, Any]:
-    """Create a new client peer and return its credentials."""
+def add_peer(
+    name: str,
+    client_ip: Optional[str] = None,
+    client_ipv6: Optional[str] = None,
+    port: int = 51820,
+    subnet: str = "10.8.0.1/24",
+    subnet_ipv6: str = "fd42:42:42::1/64",
+) -> Dict[str, Any]:
+    """Create a new client peer with dual-stack IPv4/IPv6 and return its credentials."""
     clean_name = "".join(c for c in name if c.isalnum() or c in "-_").strip()
     if not clean_name:
         clean_name = f"client-{int(time.time())}"
@@ -260,16 +306,26 @@ def add_peer(name: str, client_ip: Optional[str] = None) -> Dict[str, Any]:
     if any(p.get("name") == clean_name for p in peers):
         return {"status": "error", "message": f"Peer with name '{clean_name}' already exists."}
 
-    # Determine next available IP in 10.8.0.x
     used_ips = {p.get("client_ip") for p in peers}
+    host_num = 2
     if not client_ip:
-        for host_num in range(2, 250):
-            cand = f"10.8.0.{host_num}"
+        for n in range(2, 250):
+            cand = f"10.8.0.{n}"
             if cand not in used_ips:
                 client_ip = cand
+                host_num = n
                 break
     if not client_ip:
         client_ip = "10.8.0.2"
+        host_num = 2
+    else:
+        try:
+            host_num = int(client_ip.split(".")[-1])
+        except Exception:
+            host_num = len(peers) + 2
+
+    if not client_ipv6:
+        client_ipv6 = f"fd42:42:42::{host_num}"
 
     priv, pub = gen_keypair()
     psk = gen_psk()
@@ -279,6 +335,7 @@ def add_peer(name: str, client_ip: Optional[str] = None) -> Dict[str, Any]:
         "id": peer_id,
         "name": clean_name,
         "client_ip": client_ip,
+        "client_ipv6": client_ipv6,
         "private_key": priv,
         "public_key": pub,
         "preshared_key": psk,
@@ -289,7 +346,7 @@ def add_peer(name: str, client_ip: Optional[str] = None) -> Dict[str, Any]:
     save_peers(peers)
 
     # Apply configuration immediately
-    apply_configuration()
+    apply_configuration(port=port, subnet=subnet, subnet_ipv6=subnet_ipv6)
 
     return {
         "status": "ok",
@@ -310,8 +367,13 @@ def delete_peer(peer_id_or_name: str) -> bool:
     return True
 
 
-def get_client_config(peer_name_or_id: str, endpoint_host: str = "", port: int = 51820) -> Optional[str]:
-    """Generate downloadable WireGuard client configuration (.conf)."""
+def get_client_config(
+    peer_name_or_id: str,
+    endpoint_host: str = "",
+    port: int = 51820,
+    dns_servers: str = "",
+) -> Optional[str]:
+    """Generate downloadable WireGuard client configuration (.conf) with dual-stack support."""
     peers = load_peers()
     peer = next((p for p in peers if p.get("id") == peer_name_or_id or p.get("name") == peer_name_or_id), None)
     if not peer:
@@ -322,29 +384,68 @@ def get_client_config(peer_name_or_id: str, endpoint_host: str = "", port: int =
         from nmb.netd.duckdns import detect_public_ip
         endpoint_host = detect_public_ip() or "YOUR_PUBLIC_IP"
 
+    c_ip = peer.get("client_ip", "10.8.0.2")
+    c_ipv6 = peer.get("client_ipv6")
+    if not c_ipv6:
+        host_num = c_ip.split(".")[-1] if "." in c_ip else "2"
+        c_ipv6 = f"fd42:42:42::{host_num}"
+
+    dns_val = dns_servers.strip() if dns_servers else "1.1.1.1, 2606:4700:4700::1111, 8.8.8.8"
+
+    # If endpoint_host is IPv6 literal, format with brackets
+    if ":" in endpoint_host and not endpoint_host.startswith("["):
+        endpoint_formatted = f"[{endpoint_host}]:{port}"
+    else:
+        endpoint_formatted = f"{endpoint_host}:{port}"
+
     lines = [
-        f"# NetworkMeasureBox WireGuard Client: {peer.get('name')}",
+        f"# NetworkMeasureBox WireGuard Dual-Stack Client: {peer.get('name')}",
         "[Interface]",
         f"PrivateKey = {peer.get('private_key')}",
-        f"Address = {peer.get('client_ip')}/32",
-        "DNS = 1.1.1.1, 8.8.8.8",
+        f"Address = {c_ip}/32, {c_ipv6}/128",
+        f"DNS = {dns_val}",
         "",
         "[Peer]",
         f"PublicKey = {server_pub}",
         f"PresharedKey = {peer.get('preshared_key')}",
-        f"Endpoint = {endpoint_host}:{port}",
+        f"Endpoint = {endpoint_formatted}",
         "AllowedIPs = 0.0.0.0/0, ::/0",
         "PersistentKeepalive = 25",
     ]
     return "\n".join(lines)
 
 
-def get_client_qr_data_uri(peer_name_or_id: str, endpoint_host: str = "", port: int = 51820) -> Optional[str]:
-    """Generate QR code base64 PNG data-uri for mobile app scanning."""
-    conf = get_client_config(peer_name_or_id, endpoint_host=endpoint_host, port=port)
+def get_client_qr_png_bytes(
+    peer_name_or_id: str,
+    endpoint_host: str = "",
+    port: int = 51820,
+    dns_servers: str = "",
+) -> Optional[bytes]:
+    """Generate raw PNG bytes for WireGuard client QR code."""
+    if peer_name_or_id and "[Interface]" in peer_name_or_id:
+        conf = peer_name_or_id
+    else:
+        conf = get_client_config(peer_name_or_id, endpoint_host=endpoint_host, port=port, dns_servers=dns_servers)
     if not conf:
         return None
 
+    # 1. Primary: Native qrencode binary (instant, low RAM overhead)
+    qrencode_bin = shutil.which("qrencode")
+    if qrencode_bin:
+        try:
+            proc = subprocess.run(
+                [qrencode_bin, "-t", "PNG", "-s", "6", "-m", "2", "-o", "-"],
+                input=conf.encode("utf-8"),
+                capture_output=True,
+                check=True,
+                timeout=5,
+            )
+            if proc.stdout:
+                return proc.stdout
+        except Exception as e:
+            log.warning("qrencode CLI execution failed: %s", e)
+
+    # 2. Secondary fallback: Python qrcode library
     try:
         import qrcode
         qr = qrcode.QRCode(
@@ -358,8 +459,61 @@ def get_client_qr_data_uri(peer_name_or_id: str, endpoint_host: str = "", port: 
         img = qr.make_image(fill_color="black", back_color="white")
         buf = io.BytesIO()
         img.save(buf, format="PNG")
-        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-        return f"data:image/png;base64,{b64}"
+        return buf.getvalue()
     except Exception as e:
-        log.warning("qrcode generation failed: %s", e)
+        log.warning("python qrcode generation failed: %s", e)
+
+    return None
+
+
+def get_client_qr_svg(
+    peer_name_or_id: str,
+    endpoint_host: str = "",
+    port: int = 51820,
+    dns_servers: str = "",
+) -> Optional[str]:
+    """Generate SVG XML string for WireGuard client QR code."""
+    if peer_name_or_id and "[Interface]" in peer_name_or_id:
+        conf = peer_name_or_id
+    else:
+        conf = get_client_config(peer_name_or_id, endpoint_host=endpoint_host, port=port, dns_servers=dns_servers)
+    if not conf:
         return None
+
+    qrencode_bin = shutil.which("qrencode")
+    if qrencode_bin:
+        try:
+            proc = subprocess.run(
+                [qrencode_bin, "-t", "SVG", "-m", "2", "-o", "-"],
+                input=conf.encode("utf-8"),
+                capture_output=True,
+                check=True,
+                timeout=5,
+                text=True,
+            )
+            if proc.stdout:
+                return proc.stdout
+        except Exception as e:
+            log.warning("qrencode SVG generation failed: %s", e)
+
+    return None
+
+
+def get_client_qr_data_uri(
+    peer_name_or_id: str,
+    endpoint_host: str = "",
+    port: int = 51820,
+    dns_servers: str = "",
+) -> Optional[str]:
+    """Generate QR code base64 data-uri for mobile app scanning or WebGUI display."""
+    png_bytes = get_client_qr_png_bytes(peer_name_or_id, endpoint_host=endpoint_host, port=port, dns_servers=dns_servers)
+    if png_bytes:
+        b64 = base64.b64encode(png_bytes).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+
+    svg = get_client_qr_svg(peer_name_or_id, endpoint_host=endpoint_host, port=port, dns_servers=dns_servers)
+    if svg:
+        import urllib.parse
+        return f"data:image/svg+xml;utf8,{urllib.parse.quote(svg)}"
+
+    return None

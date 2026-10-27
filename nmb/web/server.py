@@ -473,7 +473,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/wireguard/status":
             from nmb.netd.wireguard import get_wireguard_status
             cfg = self.server.cfg
-            self._send_json(get_wireguard_status(port=cfg.wireguard.port, subnet=cfg.wireguard.subnet))
+            self._send_json(get_wireguard_status(
+                port=cfg.wireguard.port,
+                subnet=cfg.wireguard.subnet,
+                subnet_ipv6=cfg.wireguard.subnet_ipv6,
+                dns=cfg.wireguard.dns,
+            ))
             return
 
         if path == "/api/wireguard/peer/config":
@@ -481,7 +486,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             qs = parse_qs(parsed.query) if parsed.query else {}
             peer_name = qs.get("name", [""])[0] or qs.get("id", [""])[0]
             endpoint = self.server.cfg.wireguard.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "")
-            conf = get_client_config(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port)
+            conf = get_client_config(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port, dns_servers=self.server.cfg.wireguard.dns)
             if not conf:
                 self._send_json({"status": "error", "message": f"Peer '{peer_name}' not found."}, status=404)
                 return
@@ -499,8 +504,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             qs = parse_qs(parsed.query) if parsed.query else {}
             peer_name = qs.get("name", [""])[0] or qs.get("id", [""])[0]
             endpoint = self.server.cfg.wireguard.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "")
+            dns_val = self.server.cfg.wireguard.dns
             if qs.get("raw", ["0"])[0] == "1":
-                png_bytes = get_client_qr_png_bytes(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port)
+                png_bytes = get_client_qr_png_bytes(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port, dns_servers=dns_val)
                 if not png_bytes:
                     self._send_json({"status": "error", "message": "Failed to generate QR code."}, status=404)
                     return
@@ -511,7 +517,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(png_bytes)
                 return
-            data_uri = get_client_qr_data_uri(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port)
+            data_uri = get_client_qr_data_uri(peer_name, endpoint_host=endpoint, port=self.server.cfg.wireguard.port, dns_servers=dns_val)
             if not data_uri:
                 self._send_json({"status": "error", "message": "Failed to generate QR code."}, status=404)
                 return
@@ -522,7 +528,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/openvpn/status":
             from nmb.netd.openvpn import get_openvpn_status
             cfg = self.server.cfg
-            self._send_json(get_openvpn_status(proto=cfg.openvpn.proto, port=cfg.openvpn.port))
+            self._send_json(get_openvpn_status(
+                proto=cfg.openvpn.proto,
+                port=cfg.openvpn.port,
+                subnet=cfg.openvpn.subnet,
+                subnet_ipv6=cfg.openvpn.subnet_ipv6,
+                dns=cfg.openvpn.dns,
+            ))
             return
 
         if path == "/api/openvpn/client/config":
@@ -530,7 +542,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             qs = parse_qs(parsed.query) if parsed.query else {}
             client_name = qs.get("name", [""])[0]
             endpoint = self.server.cfg.openvpn.public_endpoint or (self.server.cfg.duckdns.domain + ".duckdns.org" if self.server.cfg.duckdns.domain else "")
-            ovpn = get_unified_ovpn_profile(client_name, endpoint_host=endpoint, proto=self.server.cfg.openvpn.proto, port=self.server.cfg.openvpn.port)
+            ovpn = get_unified_ovpn_profile(
+                client_name,
+                endpoint_host=endpoint,
+                proto=self.server.cfg.openvpn.proto,
+                port=self.server.cfg.openvpn.port,
+                dns_servers=self.server.cfg.openvpn.dns,
+            )
             if not ovpn:
                 self._send_json({"status": "error", "message": f"Client '{client_name}' not found."}, status=404)
                 return
@@ -1468,10 +1486,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/wireguard/save":
             self.server.cfg.wireguard.port = int(body_json.get("port", 51820))
             self.server.cfg.wireguard.subnet = str(body_json.get("subnet", "10.8.0.1/24")).strip()
-            self.server.cfg.wireguard.public_endpoint = str(body_json.get("public_endpoint", "")).strip()
+            if "subnet_ipv6" in body_json:
+                self.server.cfg.wireguard.subnet_ipv6 = str(body_json.get("subnet_ipv6", "fd42:42:42::1/64")).strip()
+            if "dns" in body_json:
+                self.server.cfg.wireguard.dns = str(body_json.get("dns", "")).strip()
+            self.server.cfg.wireguard.public_endpoint = str(body_json.get("public_endpoint", body_json.get("endpoint", ""))).strip()
             save_config(self.server.cfg)
             from nmb.netd.wireguard import apply_configuration
-            ok, msg = apply_configuration(port=self.server.cfg.wireguard.port, subnet=self.server.cfg.wireguard.subnet)
+            ok, msg = apply_configuration(
+                port=self.server.cfg.wireguard.port,
+                subnet=self.server.cfg.wireguard.subnet,
+                subnet_ipv6=self.server.cfg.wireguard.subnet_ipv6,
+            )
             self._send_json({"status": "ok" if ok else "error", "message": msg})
             return
 
@@ -1479,7 +1505,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from nmb.netd.wireguard import add_peer
             peer_name = str(body_json.get("name", "")).strip()
             client_ip = str(body_json.get("client_ip", "")).strip() or None
-            res = add_peer(peer_name, client_ip=client_ip)
+            client_ipv6 = str(body_json.get("client_ipv6", "")).strip() or None
+            res = add_peer(
+                peer_name,
+                client_ip=client_ip,
+                client_ipv6=client_ipv6,
+                port=self.server.cfg.wireguard.port,
+                subnet=self.server.cfg.wireguard.subnet,
+                subnet_ipv6=self.server.cfg.wireguard.subnet_ipv6,
+            )
             self._send_json(res)
             return
 
@@ -1492,11 +1526,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         if path == "/api/wireguard/toggle":
             from nmb.netd.wireguard import apply_configuration, run_helper
-            enabled = bool(body_json.get("enabled", True))
+            enabled = bool(body_json.get("enabled") if "enabled" in body_json else body_json.get("enable", True))
             self.server.cfg.wireguard.enabled = enabled
             save_config(self.server.cfg)
             if enabled:
-                ok, msg = apply_configuration(port=self.server.cfg.wireguard.port, subnet=self.server.cfg.wireguard.subnet)
+                ok, msg = apply_configuration(
+                    port=self.server.cfg.wireguard.port,
+                    subnet=self.server.cfg.wireguard.subnet,
+                    subnet_ipv6=self.server.cfg.wireguard.subnet_ipv6,
+                )
                 self._send_json({"status": "ok" if ok else "error", "message": msg})
             else:
                 run_helper("wireguard-stop")
@@ -1508,10 +1546,20 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.server.cfg.openvpn.proto = str(body_json.get("proto", "udp")).strip().lower()
             self.server.cfg.openvpn.port = int(body_json.get("port", 1194))
             self.server.cfg.openvpn.subnet = str(body_json.get("subnet", "10.9.0.0")).strip()
-            self.server.cfg.openvpn.public_endpoint = str(body_json.get("public_endpoint", "")).strip()
+            if "subnet_ipv6" in body_json:
+                self.server.cfg.openvpn.subnet_ipv6 = str(body_json.get("subnet_ipv6", "fd42:42:43::/64")).strip()
+            if "dns" in body_json:
+                self.server.cfg.openvpn.dns = str(body_json.get("dns", "")).strip()
+            self.server.cfg.openvpn.public_endpoint = str(body_json.get("public_endpoint", body_json.get("endpoint", ""))).strip()
             save_config(self.server.cfg)
             from nmb.netd.openvpn import apply_configuration
-            ok, msg = apply_configuration(proto=self.server.cfg.openvpn.proto, port=self.server.cfg.openvpn.port, subnet=self.server.cfg.openvpn.subnet)
+            ok, msg = apply_configuration(
+                proto=self.server.cfg.openvpn.proto,
+                port=self.server.cfg.openvpn.port,
+                subnet=self.server.cfg.openvpn.subnet,
+                subnet_ipv6=self.server.cfg.openvpn.subnet_ipv6,
+                dns_servers=self.server.cfg.openvpn.dns,
+            )
             self._send_json({"status": "ok" if ok else "error", "message": msg})
             return
 
@@ -1531,11 +1579,17 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         if path == "/api/openvpn/toggle":
             from nmb.netd.openvpn import apply_configuration, run_helper
-            enabled = bool(body_json.get("enabled", True))
+            enabled = bool(body_json.get("enabled") if "enabled" in body_json else body_json.get("enable", True))
             self.server.cfg.openvpn.enabled = enabled
             save_config(self.server.cfg)
             if enabled:
-                ok, msg = apply_configuration(proto=self.server.cfg.openvpn.proto, port=self.server.cfg.openvpn.port, subnet=self.server.cfg.openvpn.subnet)
+                ok, msg = apply_configuration(
+                    proto=self.server.cfg.openvpn.proto,
+                    port=self.server.cfg.openvpn.port,
+                    subnet=self.server.cfg.openvpn.subnet,
+                    subnet_ipv6=self.server.cfg.openvpn.subnet_ipv6,
+                    dns_servers=self.server.cfg.openvpn.dns,
+                )
                 self._send_json({"status": "ok" if ok else "error", "message": msg})
             else:
                 run_helper("openvpn-stop")
@@ -1545,12 +1599,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 19. HTTPS Proxy Server Management
         if path == "/api/proxy/config":
             from nmb.netd.proxy import start_proxy_server, stop_proxy_server
-            enabled = bool(body_json.get("enabled", False))
+            enabled = bool(body_json.get("enabled") if "enabled" in body_json else body_json.get("enable", False))
             port = int(body_json.get("port", 8443))
             auth_enabled = bool(body_json.get("auth_enabled", False))
             username = str(body_json.get("username", "")).strip()
             password = str(body_json.get("password", "")).strip()
             tls_enabled = bool(body_json.get("tls_enabled", False))
+            listen_ipv6 = bool(body_json.get("listen_ipv6", True))
+            dns = str(body_json.get("dns", "")).strip()
 
             self.server.cfg.proxy.enabled = enabled
             self.server.cfg.proxy.port = port
@@ -1559,6 +1615,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             if password:
                 self.server.cfg.proxy.password = password
             self.server.cfg.proxy.tls_enabled = tls_enabled
+            self.server.cfg.proxy.listen_ipv6 = listen_ipv6
+            if dns or "dns" in body_json:
+                self.server.cfg.proxy.dns = dns
             save_config(self.server.cfg)
 
             if enabled:
@@ -1570,6 +1629,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     tls_enabled=tls_enabled,
                     tls_cert=self.server.cfg.web.tls_cert if tls_enabled else "",
                     tls_key=self.server.cfg.web.tls_key if tls_enabled else "",
+                    listen_ipv6=listen_ipv6,
+                    dns=self.server.cfg.proxy.dns,
                 )
                 self._send_json({"status": "ok" if ok else "error", "message": msg})
             else:
@@ -1588,8 +1649,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 tls_enabled=p_cfg.tls_enabled,
                 tls_cert=self.server.cfg.web.tls_cert if p_cfg.tls_enabled else "",
                 tls_key=self.server.cfg.web.tls_key if p_cfg.tls_enabled else "",
+                listen_ipv6=p_cfg.listen_ipv6,
+                dns=p_cfg.dns,
             )
             self._send_json({"status": "ok" if ok else "error", "message": msg})
+            return
             return
 
         if path == "/api/proxy/stop":

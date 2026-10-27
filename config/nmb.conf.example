@@ -123,3 +123,30 @@ port = 8080
 auth_enabled = true
 admin_password = admin
 
+[wireguard]
+enabled = false
+port = 51820
+subnet = 10.8.0.1/24
+subnet_ipv6 = fd42:42:42::1/64
+dns = 1.1.1.1, 2606:4700:4700::1111
+public_endpoint = 
+
+[openvpn]
+enabled = false
+proto = udp
+port = 1194
+subnet = 10.9.0.0
+subnet_ipv6 = fd42:42:43::/64
+dns = 1.1.1.1, 2606:4700:4700::1111
+public_endpoint = 
+
+[proxy]
+enabled = false
+port = 8443
+auth_enabled = false
+username = 
+password = 
+tls_enabled = false
+listen_ipv6 = true
+dns = 1.1.1.1, 2606:4700:4700::1111
+

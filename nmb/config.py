@@ -159,6 +159,8 @@ custom_ip =
 enabled = false
 port = 51820
 subnet = 10.8.0.1/24
+subnet_ipv6 = fd42:42:42::1/64
+dns = 1.1.1.1, 2606:4700:4700::1111
 public_endpoint = 
 
 [openvpn]
@@ -166,6 +168,8 @@ enabled = false
 proto = udp
 port = 1194
 subnet = 10.9.0.0
+subnet_ipv6 = fd42:42:43::/64
+dns = 1.1.1.1, 2606:4700:4700::1111
 public_endpoint = 
 
 [proxy]
@@ -175,6 +179,8 @@ auth_enabled = false
 username = 
 password = 
 tls_enabled = false
+listen_ipv6 = true
+dns = 1.1.1.1, 2606:4700:4700::1111
 """
 
 
@@ -379,6 +385,8 @@ class WireGuardConfig:
     enabled: bool = False
     port: int = 51820
     subnet: str = "10.8.0.1/24"
+    subnet_ipv6: str = "fd42:42:42::1/64"
+    dns: str = "1.1.1.1, 2606:4700:4700::1111"
     public_endpoint: str = ""
 
 
@@ -388,6 +396,8 @@ class OpenVPNConfig:
     proto: str = "udp"
     port: int = 1194
     subnet: str = "10.9.0.0"
+    subnet_ipv6: str = "fd42:42:43::/64"
+    dns: str = "1.1.1.1, 2606:4700:4700::1111"
     public_endpoint: str = ""
 
 
@@ -399,6 +409,8 @@ class ProxyConfig:
     username: str = ""
     password: str = ""
     tls_enabled: bool = False
+    listen_ipv6: bool = True
+    dns: str = "1.1.1.1, 2606:4700:4700::1111"
 
 
 @dataclass
@@ -648,6 +660,8 @@ def load_config(path: Path | None = None) -> Config:
         cfg.wireguard.enabled = wg.getboolean("enabled", fallback=cfg.wireguard.enabled)
         cfg.wireguard.port = wg.getint("port", fallback=cfg.wireguard.port)
         cfg.wireguard.subnet = wg.get("subnet", cfg.wireguard.subnet).strip()
+        cfg.wireguard.subnet_ipv6 = wg.get("subnet_ipv6", cfg.wireguard.subnet_ipv6).strip()
+        cfg.wireguard.dns = wg.get("dns", cfg.wireguard.dns).strip()
         cfg.wireguard.public_endpoint = wg.get("public_endpoint", cfg.wireguard.public_endpoint).strip()
 
     if parser.has_section("openvpn"):
@@ -656,6 +670,8 @@ def load_config(path: Path | None = None) -> Config:
         cfg.openvpn.proto = ov.get("proto", cfg.openvpn.proto).strip().lower()
         cfg.openvpn.port = ov.getint("port", fallback=cfg.openvpn.port)
         cfg.openvpn.subnet = ov.get("subnet", cfg.openvpn.subnet).strip()
+        cfg.openvpn.subnet_ipv6 = ov.get("subnet_ipv6", cfg.openvpn.subnet_ipv6).strip()
+        cfg.openvpn.dns = ov.get("dns", cfg.openvpn.dns).strip()
         cfg.openvpn.public_endpoint = ov.get("public_endpoint", cfg.openvpn.public_endpoint).strip()
 
     if parser.has_section("proxy"):
@@ -666,6 +682,8 @@ def load_config(path: Path | None = None) -> Config:
         cfg.proxy.username = px.get("username", cfg.proxy.username).strip()
         cfg.proxy.password = px.get("password", cfg.proxy.password).strip()
         cfg.proxy.tls_enabled = px.getboolean("tls_enabled", fallback=cfg.proxy.tls_enabled)
+        cfg.proxy.listen_ipv6 = px.getboolean("listen_ipv6", fallback=cfg.proxy.listen_ipv6)
+        cfg.proxy.dns = px.get("dns", cfg.proxy.dns).strip()
 
     return cfg
 
@@ -846,6 +864,8 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["wireguard"]["enabled"] = str(cfg.wireguard.enabled).lower()
     parser["wireguard"]["port"] = str(cfg.wireguard.port)
     parser["wireguard"]["subnet"] = str(cfg.wireguard.subnet)
+    parser["wireguard"]["subnet_ipv6"] = str(cfg.wireguard.subnet_ipv6)
+    parser["wireguard"]["dns"] = str(cfg.wireguard.dns)
     parser["wireguard"]["public_endpoint"] = str(cfg.wireguard.public_endpoint)
 
     # OpenVPN
@@ -853,6 +873,8 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["openvpn"]["proto"] = str(cfg.openvpn.proto)
     parser["openvpn"]["port"] = str(cfg.openvpn.port)
     parser["openvpn"]["subnet"] = str(cfg.openvpn.subnet)
+    parser["openvpn"]["subnet_ipv6"] = str(cfg.openvpn.subnet_ipv6)
+    parser["openvpn"]["dns"] = str(cfg.openvpn.dns)
     parser["openvpn"]["public_endpoint"] = str(cfg.openvpn.public_endpoint)
 
     # Proxy
@@ -862,6 +884,8 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["proxy"]["username"] = str(cfg.proxy.username)
     parser["proxy"]["password"] = str(cfg.proxy.password)
     parser["proxy"]["tls_enabled"] = str(cfg.proxy.tls_enabled).lower()
+    parser["proxy"]["listen_ipv6"] = str(cfg.proxy.listen_ipv6).lower()
+    parser["proxy"]["dns"] = str(cfg.proxy.dns)
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
