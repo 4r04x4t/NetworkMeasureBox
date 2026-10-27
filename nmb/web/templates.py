@@ -2430,6 +2430,7 @@ def get_dashboard_html() -> str:
         <button class="router-subtab-btn" id="btn-rsub-isp" onclick="switchRouterSubtab('rsub-isp')" data-i18n="subtab_isp">📋 ISP Subscription</button>
         <button class="router-subtab-btn" id="btn-rsub-kernel" onclick="switchRouterSubtab('rsub-kernel')" data-i18n="subtab_kernel">⚡ Kernel Performance</button>
         <button class="router-subtab-btn" id="btn-rsub-system" onclick="switchRouterSubtab('rsub-system')" data-i18n="subtab_system">🛡️ Firewall & System</button>
+        <button class="router-subtab-btn" id="btn-rsub-backup" onclick="switchRouterSubtab('rsub-backup')" data-i18n="subtab_backup">📦 Backup & Restore</button>
       </div>
 
       <!-- SUBTAB 1: WAN / INTERNET -->
@@ -3517,6 +3518,141 @@ def get_dashboard_html() -> str:
               <span id="driver-install-badge" class="badge-pill" style="font-size: 11px;">Running</span>
             </div>
             <pre id="driver-install-terminal" class="terminal-box" style="height: 180px; overflow-y: auto; font-size: 11px;"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 10: BACKUP & RESTORE -->
+      <div id="rsub-backup" class="router-subtab-content">
+        <!-- Header Overview Card -->
+        <div class="router-section-card">
+          <div style="font-size: 15px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+            <span>📦</span>
+            <span data-i18n="backup_title">System State Backup & Disaster Recovery</span>
+          </div>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.5;" data-i18n="backup_desc">
+            Create atomic, consistent backups of system configuration, SQLite measurement database, and VPN cryptographic keys with SHA-256 integrity verification and automated safety rollback.
+          </p>
+        </div>
+
+        <!-- Backup Generation Cards Grid -->
+        <div class="router-row-2">
+          <!-- Card 1: Full System Backup -->
+          <div class="router-section-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span>💾</span>
+                <span data-i18n="backup_full_title">Full System Backup (Full Snapshot)</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 14px;" data-i18n="backup_full_desc">
+                Includes all system configuration (/etc/nmb/nmb.conf), complete SQLite measurement history (/var/lib/nmb/persist/nmb.db), and all WireGuard / OpenVPN cryptographic keys.
+              </p>
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: #94a3b8;" data-i18n="backup_col_comment">Description / Label</label>
+                <input type="text" id="backup-comment-full" class="form-input" placeholder="e.g. Pre-upgrade full snapshot" maxlength="64">
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+              <button class="btn-primary" style="font-size: 12px; padding: 8px 14px; flex: 1;" onclick="createBackup('full', false)" data-i18n="backup_btn_download_full">
+                📥 Download Full Backup (.tar.gz)
+              </button>
+              <button class="btn-secondary" style="font-size: 12px; padding: 8px 14px;" onclick="createBackup('full', true)" data-i18n="backup_btn_save_device">
+                💾 Save to Device
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 2: Configuration Only Backup -->
+          <div class="router-section-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #a855f7; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span>⚙️</span>
+                <span data-i18n="backup_cfg_title">Configuration Only (Lightweight Backup)</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 14px;" data-i18n="backup_cfg_desc">
+                Compact archive (~10-25 KB) preserving network, VPN, and scheduler settings without large measurement database history. Ideal for quick transfers.
+              </p>
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label class="form-label" style="font-size: 11px; text-transform: uppercase; color: #94a3b8;" data-i18n="backup_col_comment">Description / Label</label>
+                <input type="text" id="backup-comment-cfg" class="form-input" placeholder="e.g. Working router & VPN config" maxlength="64">
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+              <button class="btn-primary" style="font-size: 12px; padding: 8px 14px; flex: 1; background: #9333ea; border-color: #a855f7;" onclick="createBackup('config', false)" data-i18n="backup_btn_download_cfg">
+                📥 Download Config Backup (.tar.gz)
+              </button>
+              <button class="btn-secondary" style="font-size: 12px; padding: 8px 14px;" onclick="createBackup('config', true)" data-i18n="backup_btn_save_device">
+                💾 Save to Device
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Upload & Restore from Backup Archive -->
+        <div class="router-section-card">
+          <div style="font-size: 14px; font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span>📤</span>
+            <span data-i18n="backup_upload_title">Upload & Restore from Backup Archive</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 14px;" data-i18n="backup_upload_desc">
+            Select or drag-and-drop a previously downloaded .tar.gz backup. The system verifies SHA-256 integrity and SQLite validity, generates an automated safety rollback checkpoint, then applies the restore.
+          </p>
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <input type="file" id="backup-upload-file" accept=".tar.gz,.tgz,application/gzip,application/x-gzip" class="form-input" style="flex: 1; min-width: 240px; padding: 7px 10px;">
+            <button class="btn-primary" style="font-size: 12.5px; padding: 8px 20px; background: #059669; border-color: #10b981;" onclick="uploadAndRestoreBackup()" data-i18n="backup_upload_btn">
+              🔄 Verify & Apply Restore
+            </button>
+          </div>
+          <div id="backup-upload-status" style="display: none; margin-top: 12px; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; font-family: monospace;"></div>
+        </div>
+
+        <!-- Card 4: Locally Stored Device Backups Table -->
+        <div class="router-section-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 14px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+              <span>🗄️</span>
+              <span data-i18n="backup_stored_title">Locally Stored Device Backups</span>
+            </div>
+            <button class="btn-secondary" style="font-size: 11px; padding: 4px 12px;" onclick="loadBackupsList()">
+              🔄 Refresh List
+            </button>
+          </div>
+
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th data-i18n="backup_col_file">Filename & Timestamp</th>
+                  <th data-i18n="backup_col_type">Type</th>
+                  <th data-i18n="backup_col_size">Size</th>
+                  <th data-i18n="backup_col_comment">Description / Label</th>
+                  <th data-i18n="backup_col_actions" style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="backup-list-tbody">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">Loading backups from device storage...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Card 5: Factory Reset / Clean State -->
+        <div class="router-section-card" style="border-left: 4px solid #ef4444; background: rgba(239, 68, 68, 0.04);">
+          <div style="font-size: 14px; font-weight: 700; color: #f87171; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span>⚠️</span>
+            <span data-i18n="backup_reset_title">Factory Reset / Clean State</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 14px;" data-i18n="backup_reset_desc">
+            Resets system configuration back to pristine defaults and stops VPN servers. An automated safety backup is taken prior to executing reset.
+          </p>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #cbd5e1; cursor: pointer;">
+              <input type="checkbox" id="reset-keep-db" checked style="accent-color: #38bdf8;">
+              <span>Keep measurement history (preserve SQLite database)</span>
+            </label>
+            <button class="btn-danger" style="background: #dc2626; border-color: #ef4444; font-size: 12.5px; padding: 8px 18px; color: white;" onclick="executeFactoryReset()" data-i18n="backup_reset_btn">
+              ⚠️ Execute Factory Reset
+            </button>
           </div>
         </div>
       </div>
@@ -5563,6 +5699,9 @@ def get_dashboard_html() -> str:
     if (subtabId === 'rsub-kernel') {
       loadKernelStatus();
     }
+    if (subtabId === 'rsub-backup') {
+      loadBackupsList();
+    }
   }
 
   // WAN Protocol change handler (DHCP, PPPoE, Static)
@@ -6316,6 +6455,224 @@ def get_dashboard_html() -> str:
     try {
       await fetch('/api/system/reboot', { method: 'POST' });
     } catch (e) {}
+  }
+
+  // =========================================================================
+  // Backup & Disaster Recovery Client Engine
+  // =========================================================================
+  async function loadBackupsList() {
+    const tbody = document.getElementById('backup-list-tbody');
+    if (!tbody) return;
+    try {
+      const res = await fetch('/api/backup/list');
+      if (!res.ok) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #f87171; padding: 16px;">Failed to load backups.</td></tr>';
+        return;
+      }
+      const data = await res.json();
+      const list = data.backups || [];
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">No backup archives stored on device.</td></tr>';
+        return;
+      }
+      let html = '';
+      for (const b of list) {
+        const isSafety = b.is_safety_snapshot || (b.comment && b.comment.toLowerCase().includes('safety'));
+        let typeBadge = '';
+        if (isSafety) {
+          typeBadge = '<span class="badge-pill" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #d97706; font-size: 11px;">🛡️ Safety Rollback</span>';
+        } else if (b.type === 'config') {
+          typeBadge = '<span class="badge-pill" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid #7e22ce; font-size: 11px;">⚙️ Config</span>';
+        } else {
+          typeBadge = '<span class="badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #0284c7; font-size: 11px;">💾 Full</span>';
+        }
+
+        const dateStr = b.created_iso ? b.created_iso.replace('T', ' ') : (b.created ? new Date(b.created * 1000).toLocaleString() : '-');
+        const commentEsc = escapeHtml(b.comment || '-');
+        const filenameEsc = escapeHtml(b.filename);
+
+        html += `<tr>
+          <td style="font-family: monospace; font-size: 12px;">
+            <div style="font-weight: 600; color: #ffffff;">${filenameEsc}</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${dateStr}</div>
+          </td>
+          <td>${typeBadge}</td>
+          <td style="font-family: monospace; font-size: 12px; color: #94a3b8;">${escapeHtml(b.size_human || '')}</td>
+          <td style="font-size: 12px; color: #cbd5e1;">${commentEsc}</td>
+          <td style="text-align: right; white-space: nowrap;">
+            <a href="/api/backup/download?file=${encodeURIComponent(b.filename)}" class="btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; display: inline-block; margin-right: 4px;">📥 Download</a>
+            <button class="btn-primary" style="font-size: 11px; padding: 4px 8px; margin-right: 4px;" onclick="restoreLocalBackup('${filenameEsc}')">${t('backup_action_restore', '🔄 Restore')}</button>
+            <button class="btn-danger" style="font-size: 11px; padding: 4px 8px; background: #dc2626; border-color: #ef4444; color: white;" onclick="deleteLocalBackup('${filenameEsc}')">🗑️</button>
+          </td>
+        </tr>`;
+      }
+      tbody.innerHTML = html;
+    } catch (e) {
+      console.error('Failed to load backups list:', e);
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #f87171; padding: 16px;">Error connecting to backup service.</td></tr>';
+    }
+  }
+
+  async function createBackup(type, saveLocal) {
+    const commentInput = document.getElementById(type === 'full' ? 'backup-comment-full' : 'backup-comment-cfg');
+    const comment = commentInput ? commentInput.value.trim() : '';
+    showToast(t('backup_creating', 'Creating backup snapshot...'));
+    try {
+      const res = await fetch('/api/backup/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: type, comment: comment })
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok') {
+        showToast('Error: ' + (data.message || 'Failed to create backup'));
+        return;
+      }
+      showToast('Backup created: ' + data.filename);
+      if (commentInput) commentInput.value = '';
+      await loadBackupsList();
+      if (!saveLocal && data.download_url) {
+        window.location.href = data.download_url;
+      }
+    } catch (e) {
+      showToast('Network error creating backup: ' + e);
+    }
+  }
+
+  async function restoreLocalBackup(filename) {
+    const confirmMsg = t('backup_confirm_restore', 'Are you sure you want to restore the device to this state? An automated safety backup of the current state will be created first.');
+    if (!confirm(confirmMsg)) return;
+
+    showToast('Restoring system state from ' + filename + '... Please wait.');
+    try {
+      const res = await fetch('/api/backup/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: filename, restore_db: true, restore_vpn: true })
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok') {
+        showToast('Restore failed: ' + (data.message || 'Unknown error'));
+        alert('Restore error: ' + (data.message || 'Unknown error'));
+        return;
+      }
+      showToast('✅ State restored successfully! Reloading web interface...');
+      setTimeout(() => { window.location.reload(); }, 2500);
+    } catch (e) {
+      showToast('Restore network error: ' + e);
+    }
+  }
+
+  async function uploadAndRestoreBackup() {
+    const fileInput = document.getElementById('backup-upload-file');
+    const statusEl = document.getElementById('backup-upload-status');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+      showToast('Please select a .tar.gz backup archive file to upload.');
+      return;
+    }
+    const file = fileInput.files[0];
+    const confirmMsg = t('backup_confirm_restore', 'Are you sure you want to restore the device to this state? An automated safety backup of the current state will be created first.');
+    if (!confirm(confirmMsg)) return;
+
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = '#1e293b';
+      statusEl.style.color = '#38bdf8';
+      statusEl.style.border = '1px solid #0284c7';
+      statusEl.textContent = '⏳ Uploading and verifying backup archive (' + (file.size / 1024).toFixed(1) + ' KB)...';
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/backup/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok') {
+        const errMsg = data.message || 'Failed to apply backup';
+        if (statusEl) {
+          statusEl.style.background = 'rgba(239, 68, 68, 0.15)';
+          statusEl.style.color = '#f87171';
+          statusEl.style.border = '1px solid #dc2626';
+          statusEl.textContent = '❌ Restore failed: ' + errMsg;
+        }
+        showToast('Restore failed: ' + errMsg);
+        return;
+      }
+
+      if (statusEl) {
+        statusEl.style.background = 'rgba(16, 185, 129, 0.15)';
+        statusEl.style.color = '#34d399';
+        statusEl.style.border = '1px solid #059669';
+        statusEl.textContent = '✅ ' + (data.message || 'Backup verified and successfully restored! Reloading interface in 3 seconds...');
+      }
+      showToast('✅ Restore completed successfully! Reloading...');
+      setTimeout(() => { window.location.reload(); }, 3000);
+    } catch (e) {
+      if (statusEl) {
+        statusEl.style.background = 'rgba(239, 68, 68, 0.15)';
+        statusEl.style.color = '#f87171';
+        statusEl.style.border = '1px solid #dc2626';
+        statusEl.textContent = '❌ Upload error: ' + e;
+      }
+      showToast('Upload error: ' + e);
+    }
+  }
+
+  async function deleteLocalBackup(filename) {
+    if (!confirm('Are you sure you want to permanently delete backup ' + filename + '?')) return;
+    showToast('Deleting backup: ' + filename);
+    try {
+      const res = await fetch('/api/backup/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: filename })
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok') {
+        showToast('Error deleting backup: ' + (data.message || 'Failed'));
+        return;
+      }
+      showToast('Backup deleted.');
+      await loadBackupsList();
+    } catch (e) {
+      showToast('Error: ' + e);
+    }
+  }
+
+  async function executeFactoryReset() {
+    const confirmMsg = t('backup_confirm_reset', 'CAUTION! Are you sure you want to execute factory reset? All custom network and VPN configurations will be reverted to defaults!');
+    if (!confirm(confirmMsg)) return;
+
+    const check = prompt('Type RESET to confirm complete factory reset:');
+    if (check !== 'RESET') {
+      showToast('Factory reset cancelled.');
+      return;
+    }
+
+    const keepDb = document.getElementById('reset-keep-db') ? document.getElementById('reset-keep-db').checked : true;
+    showToast('Executing factory reset... Automated safety backup is being created.');
+
+    try {
+      const res = await fetch('/api/backup/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keep_measurements: keepDb })
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok') {
+        showToast('Factory reset failed: ' + (data.message || 'Unknown error'));
+        alert('Factory reset failed: ' + (data.message || 'Unknown error'));
+        return;
+      }
+      alert('Factory reset completed successfully. The system will now reload.');
+      setTimeout(() => { window.location.reload(); }, 2000);
+    } catch (e) {
+      showToast('Factory reset network error: ' + e);
+    }
   }
 
   // ==========================================

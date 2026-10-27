@@ -567,6 +567,31 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(get_proxy_status())
             return
 
+        # 17f. Backup & Disaster Recovery GET APIs
+        if path == "/api/backup/list":
+            from nmb.common.backup import list_backups
+            self._send_json({"status": "ok", "backups": list_backups()})
+            return
+
+        if path == "/api/backup/download":
+            from nmb.common.backup import BACKUP_DIR
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            filename = os.path.basename(qs.get("file", [""])[0].strip())
+            target_path = BACKUP_DIR / filename
+            if not filename or not target_path.exists() or not target_path.is_file():
+                self._send_json({"status": "error", "message": "Backup file not found."}, status=404)
+                return
+            with open(target_path, "rb") as f:
+                content = f.read()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/gzip")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+
         # 18. Wi-Fi Multi-Band Hardware Capabilities & Status
         if path in ("/api/network/wifi/capabilities", "/api/wifi/capabilities"):
             wlan_iface = self.server.cfg.network.wlan_interface
@@ -750,15 +775,49 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.BAD_REQUEST, "Negative Content-Length header")
             return
 
-        if length > MAX_BODY_SIZE:
-            log.warning("[SECURITY] Rejected oversized POST body: %d bytes (limit: %d)", length, MAX_BODY_SIZE)
-            self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Payload exceeds 1MB limit")
-            return
-
         parsed = urlparse(self.path)
         path = parsed.path
+        is_backup_upload = (path == "/api/backup/upload")
+        max_allowed = 256 * 1024 * 1024 if is_backup_upload else MAX_BODY_SIZE
+
+        if length > max_allowed:
+            log.warning("[SECURITY] Rejected oversized POST body: %d bytes (limit: %d)", length, max_allowed)
+            self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, f"Payload exceeds {max_allowed // (1024*1024)}MB limit")
+            return
 
         raw_body = self.rfile.read(length) if length > 0 else b"{}"
+
+        if is_backup_upload:
+            from nmb.common.backup import restore_backup, BACKUP_DIR
+            BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+            temp_tar = BACKUP_DIR / f"nmb-upload-{int(time.time())}.tar.gz"
+            upload_bytes = raw_body
+
+            content_type = self.headers.get("Content-Type", "")
+            if "multipart/form-data" in content_type and b"\r\n\r\n" in raw_body:
+                header_part, file_data = raw_body.split(b"\r\n\r\n", 1)
+                boundary = content_type.split("boundary=")[-1].strip().strip('"').encode()
+                if boundary in file_data:
+                    file_data = file_data.split(b"--" + boundary)[0]
+                if file_data.endswith(b"\r\n"):
+                    file_data = file_data[:-2]
+                upload_bytes = file_data
+
+            ok = False
+            try:
+                temp_tar.write_bytes(upload_bytes)
+                ok, msg = restore_backup(temp_tar, create_safety_snapshot=True)
+                if ok:
+                    self.server.cfg = load_config()
+                    self._send_json({"status": "ok", "message": msg})
+                else:
+                    self._send_json({"status": "error", "message": msg}, status=400)
+            except Exception as e:
+                self._send_json({"status": "error", "message": f"Upload processing failed: {e}"}, status=500)
+            finally:
+                if not ok:
+                    temp_tar.unlink(missing_ok=True)
+            return
 
         try:
             body_json = json.loads(raw_body.decode("utf-8")) if raw_body else {}
@@ -1660,6 +1719,59 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from nmb.netd.proxy import stop_proxy_server
             stop_proxy_server()
             self._send_json({"status": "ok", "message": "HTTPS Proxy Server stopped."})
+            return
+
+        # 19. Backup & Disaster Recovery POST APIs
+        if path == "/api/backup/create":
+            from nmb.common.backup import create_backup
+            b_type = str(body_json.get("type", "full")).strip().lower()
+            comment = str(body_json.get("comment", "")).strip()
+            ok, p, mf = create_backup(backup_type=b_type, comment=comment)
+            if ok:
+                self._send_json({
+                    "status": "ok",
+                    "filename": p.name,
+                    "download_url": f"/api/backup/download?file={p.name}",
+                    "manifest": mf,
+                    "message": f"Backup '{p.name}' created successfully.",
+                })
+            else:
+                self._send_json({"status": "error", "message": mf.get("error", "Failed to create backup.")}, status=500)
+            return
+
+        if path == "/api/backup/restore":
+            from nmb.common.backup import restore_backup, BACKUP_DIR
+            filename = os.path.basename(str(body_json.get("filename", body_json.get("file", ""))).strip())
+            restore_db = bool(body_json.get("restore_db", True))
+            restore_vpn = bool(body_json.get("restore_vpn", True))
+            target_path = BACKUP_DIR / filename
+            if not filename or not target_path.exists():
+                self._send_json({"status": "error", "message": f"Backup file '{filename}' not found."}, status=404)
+                return
+            ok, msg = restore_backup(target_path, restore_db=restore_db, restore_vpn=restore_vpn, create_safety_snapshot=True)
+            if ok:
+                self.server.cfg = load_config()
+                self._send_json({"status": "ok", "message": msg})
+            else:
+                self._send_json({"status": "error", "message": msg}, status=500)
+            return
+
+        if path == "/api/backup/delete":
+            from nmb.common.backup import delete_backup
+            filename = str(body_json.get("filename", body_json.get("file", ""))).strip()
+            ok, msg = delete_backup(filename)
+            self._send_json({"status": "ok" if ok else "error", "message": msg})
+            return
+
+        if path == "/api/backup/reset":
+            from nmb.common.backup import factory_reset
+            keep_measurements = bool(body_json.get("keep_measurements", False))
+            ok, msg = factory_reset(keep_measurements=keep_measurements)
+            if ok:
+                self.server.cfg = load_config()
+                self._send_json({"status": "ok", "message": msg})
+            else:
+                self._send_json({"status": "error", "message": msg}, status=500)
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")

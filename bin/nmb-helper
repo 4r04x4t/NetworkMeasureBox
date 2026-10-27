@@ -63,6 +63,8 @@ case "${1:-}" in
             cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
             chmod 600 /etc/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
         fi
+        chown -R nmb:nmb /var/lib/nmb/openvpn /var/lib/nmb/wireguard 2>/dev/null || true
+        chmod 644 /var/lib/nmb/openvpn/ipp.txt 2>/dev/null || true
         sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
         sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
         sysctl -w net.ipv6.conf.default.forwarding=1 >/dev/null 2>&1 || true
@@ -76,6 +78,8 @@ case "${1:-}" in
             cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
             chmod 600 /etc/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
         fi
+        chown -R nmb:nmb /var/lib/nmb/openvpn /var/lib/nmb/wireguard 2>/dev/null || true
+        chmod 644 /var/lib/nmb/openvpn/ipp.txt 2>/dev/null || true
         sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
         sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
         sysctl -w net.ipv6.conf.default.forwarding=1 >/dev/null 2>&1 || true
@@ -200,8 +204,24 @@ case "${1:-}" in
         fi
         command -v udevadm >/dev/null 2>&1 && udevadm trigger 2>/dev/null || true
         ;;
+    backup-create)
+        shift
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.backup create "$@"
+        ;;
+    backup-restore)
+        shift
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.backup restore "$@"
+        ;;
+    backup-list)
+        shift
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.backup list "$@"
+        ;;
+    backup-delete)
+        shift
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.backup delete "$@"
+        ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>}" >&2
         exit 1
         ;;
 esac
