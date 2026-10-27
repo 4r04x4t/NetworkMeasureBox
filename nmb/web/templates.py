@@ -509,6 +509,33 @@ def get_dashboard_html() -> str:
       border-color: var(--brand-blue);
       box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
     }
+
+    /* Universal Dropdown & Select Rules */
+    select,
+    select.form-input {
+      color-scheme: dark;
+    }
+    select option,
+    select optgroup {
+      background-color: var(--dark-panel, #0f172a);
+      color: var(--text, #f1f5f9);
+      padding: 6px 10px;
+    }
+    .hdr-select {
+      background: transparent;
+      color: var(--text, #f1f5f9);
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+      color-scheme: dark;
+    }
+    .hdr-select option {
+      background-color: var(--dark-panel, #0f172a);
+      color: var(--text, #f1f5f9);
+      padding: 6px 10px;
+    }
     .search-row {
       display: flex;
       gap: 10px;
@@ -787,6 +814,8 @@ def get_dashboard_html() -> str:
     /* ========================================================================= */
     /* THEME 1: DEFAULT (NMHH Dark Telecom WebUI)                                */
     /* ========================================================================= */
+    [data-theme="default"] select, [data-theme="default"] .hdr-select { color-scheme: dark; }
+    [data-theme="default"] select option, [data-theme="default"] .hdr-select option { background-color: #0f172a !important; color: #f1f5f9 !important; }
     [data-theme="default"] {
       --bg: #0b101b;
       --card-bg: rgba(18, 24, 38, 0.85);
@@ -803,6 +832,8 @@ def get_dashboard_html() -> str:
     /* ========================================================================= */
     /* THEME 2: PrTD (Baby Blue, White, Baby Pink Gradient)                      */
     /* ========================================================================= */
+    [data-theme="prtd"] select, [data-theme="prtd"] .hdr-select { color-scheme: dark; }
+    [data-theme="prtd"] select option, [data-theme="prtd"] .hdr-select option { background-color: #141b2d !important; color: #f8fafc !important; }
     [data-theme="prtd"] {
       --bg: #0c101d;
       --card-bg: rgba(22, 27, 44, 0.90);
@@ -860,6 +891,8 @@ def get_dashboard_html() -> str:
     /* ========================================================================= */
     /* THEME 3: ProudRide (Vibrant Spectrum Rainbow)                             */
     /* ========================================================================= */
+    [data-theme="proudride"] select, [data-theme="proudride"] .hdr-select { color-scheme: dark; }
+    [data-theme="proudride"] select option, [data-theme="proudride"] .hdr-select option { background-color: #111322 !important; color: #ffffff !important; }
     [data-theme="proudride"] {
       --bg: #090a12;
       --card-bg: rgba(16, 18, 30, 0.92);
@@ -914,6 +947,8 @@ def get_dashboard_html() -> str:
     /* ========================================================================= */
     /* THEME 4: AmoLED Pitch Black (Pure #000000 True Black)                     */
     /* ========================================================================= */
+    [data-theme="amoled"] select, [data-theme="amoled"] .hdr-select { color-scheme: dark; }
+    [data-theme="amoled"] select option, [data-theme="amoled"] .hdr-select option { background-color: #000000 !important; color: #ffffff !important; }
     [data-theme="amoled"] {
       --bg: #000000;
       --card-bg: #030303;
@@ -971,6 +1006,8 @@ def get_dashboard_html() -> str:
     /* ========================================================================= */
     /* THEME 5: AsusWRT-design (ASUS Router WebUI Style)                         */
     /* ========================================================================= */
+    [data-theme="asuswrt"] select, [data-theme="asuswrt"] .hdr-select { color-scheme: dark; }
+    [data-theme="asuswrt"] select option, [data-theme="asuswrt"] .hdr-select option { background-color: #21333e !important; color: #ffffff !important; }
     [data-theme="asuswrt"] {
       --bg: #21333e;
       --card-bg: #2b373f;
@@ -1056,6 +1093,8 @@ def get_dashboard_html() -> str:
     /* ========================================================================= */
     /* THEME 6: AsusCamouflage-design (ASUS TUF Gaming Camouflage WebUI)         */
     /* ========================================================================= */
+    [data-theme="asus_camo"] select, [data-theme="asus_camo"] .hdr-select { color-scheme: dark; }
+    [data-theme="asus_camo"] select option, [data-theme="asus_camo"] .hdr-select option { background-color: #181512 !important; color: #f59e0b !important; }
     [data-theme="asus_camo"] {
       --bg: #000000;
       --card-bg: rgba(18, 16, 14, 0.92);
@@ -1143,6 +1182,8 @@ def get_dashboard_html() -> str:
     /* ========================================================================= */
     /* THEME 7: TP-GOld_740 (TP-Link TL-WR740N Classic Router GUI)               */
     /* ========================================================================= */
+    [data-theme="tp_gold"] select, [data-theme="tp_gold"] .hdr-select, [data-theme="tp_gold"] .form-input { color-scheme: light !important; }
+    [data-theme="tp_gold"] select option, [data-theme="tp_gold"] .hdr-select option { background-color: #ffffff !important; color: #000000 !important; }
     [data-theme="tp_gold"] {
       --bg: #fafafa;
       --card-bg: #ffffff;
@@ -1271,6 +1312,8 @@ def get_dashboard_html() -> str:
     /* ========================================================================= */
     /* THEME 8: MountainHaGo (Vereckei hágó background, Black boxes, White text) */
     /* ========================================================================= */
+    [data-theme="mountain_hago"] select, [data-theme="mountain_hago"] .hdr-select { color-scheme: dark; }
+    [data-theme="mountain_hago"] select option, [data-theme="mountain_hago"] .hdr-select option { background-color: #000000 !important; color: #ffffff !important; }
     [data-theme="mountain_hago"] {
       --bg: #000000;
       --card-bg: rgba(0, 0, 0, 0.88);
@@ -1363,7 +1406,7 @@ def get_dashboard_html() -> str:
       <div style="margin-top: 6px; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
         <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(30, 41, 59, 0.7); padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;">
           <span style="font-size: 13px;">🌐</span>
-          <select id="lang-select" onchange="switchLanguage(this.value)" style="background: transparent; color: #f1f5f9; border: none; font-size: 12px; font-weight: 600; cursor: pointer; outline: none;">
+          <select id="lang-select" class="hdr-select" onchange="switchLanguage(this.value)">
             <option value="en">English (EN)</option>
             <option value="hu">Magyar (HU)</option>
             <option value="de">Deutsch (DE)</option>
@@ -1374,7 +1417,7 @@ def get_dashboard_html() -> str:
 
         <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(30, 41, 59, 0.7); padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;">
           <span style="font-size: 13px;">🎨</span>
-          <select id="theme-select" onchange="switchTheme(this.value)" title="Design Theme" style="background: transparent; color: #f1f5f9; border: none; font-size: 12px; font-weight: 600; cursor: pointer; outline: none;">
+          <select id="theme-select" class="hdr-select" onchange="switchTheme(this.value)" title="Design Theme">
             <option value="default">Default</option>
             <option value="prtd">PrTD</option>
             <option value="proudride">ProudRide</option>
