@@ -13,6 +13,14 @@ def get_dashboard_html() -> str:
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('nmb_theme') || 'default';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NetworkMeasureBox - Universal Network Telemetry & Benchmark Probe</title>
   <style>
@@ -775,6 +783,567 @@ def get_dashboard_html() -> str:
     .syslog-badge-linkdown { background: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; }
     .syslog-badge-error { background: #7f1d1d; color: #fca5a5; }
     .syslog-badge-warn { background: #78350f; color: #fde047; }
+
+    /* ========================================================================= */
+    /* THEME 1: DEFAULT (NMHH Dark Telecom WebUI)                                */
+    /* ========================================================================= */
+    [data-theme="default"] {
+      --bg: #0b101b;
+      --card-bg: rgba(18, 24, 38, 0.85);
+      --card-border: #26334d;
+      --text: #f1f5f9;
+      --text-muted: #8fa0ba;
+      --brand-blue: #0284c7;
+      --brand-blue-hover: #0369a1;
+      --brand-blue-active: #075985;
+      --accent-amber: #e5a93c;
+      --dark-panel: #111622;
+    }
+
+    /* ========================================================================= */
+    /* THEME 2: PrTD (Baby Blue, White, Baby Pink Gradient)                      */
+    /* ========================================================================= */
+    [data-theme="prtd"] {
+      --bg: #0c101d;
+      --card-bg: rgba(22, 27, 44, 0.90);
+      --card-border: rgba(112, 196, 255, 0.35);
+      --text: #f8fafc;
+      --text-muted: #cbd5e1;
+      --brand-blue: #70c4ff;
+      --brand-blue-hover: #93d2ff;
+      --brand-blue-active: #50b0f0;
+      --accent-amber: #f4a6c6;
+      --dark-panel: #141b2d;
+    }
+    [data-theme="prtd"] body {
+      background: radial-gradient(ellipse at 15% 15%, rgba(112, 196, 255, 0.18), transparent 50%),
+                  radial-gradient(ellipse at 85% 85%, rgba(244, 166, 198, 0.18), transparent 50%),
+                  linear-gradient(135deg, #0c101d 0%, #151929 50%, #1c1424 100%) !important;
+      background-attachment: fixed !important;
+    }
+    [data-theme="prtd"] .app-title {
+      background: linear-gradient(90deg, #70c4ff, #ffffff 48%, #f4a6c6) !important;
+      -webkit-background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+      font-weight: 800 !important;
+    }
+    [data-theme="prtd"] .app-tab-btn.active,
+    [data-theme="prtd"] .router-subtab-btn.active {
+      background: linear-gradient(90deg, #70c4ff 0%, #ffffff 50%, #f4a6c6 100%) !important;
+      color: #0c101d !important;
+      font-weight: 700 !important;
+      border-color: #f4a6c6 !important;
+      box-shadow: 0 4px 14px rgba(244, 166, 198, 0.4) !important;
+    }
+    [data-theme="prtd"] .btn-primary {
+      background: linear-gradient(135deg, #70c4ff 0%, #ffffff 50%, #f4a6c6 100%) !important;
+      color: #0c101d !important;
+      font-weight: 700 !important;
+      border: none !important;
+      box-shadow: 0 2px 10px rgba(112, 196, 255, 0.4) !important;
+    }
+    [data-theme="prtd"] .btn-primary:hover {
+      box-shadow: 0 4px 16px rgba(244, 166, 198, 0.6) !important;
+      transform: translateY(-1px);
+    }
+    [data-theme="prtd"] .app-box,
+    [data-theme="prtd"] .router-section-card {
+      border-color: rgba(244, 166, 198, 0.28) !important;
+      box-shadow: 0 4px 20px rgba(112, 196, 255, 0.08) !important;
+    }
+    [data-theme="prtd"] .engine-pill.active {
+      background: linear-gradient(90deg, rgba(112, 196, 255, 0.25), rgba(244, 166, 198, 0.25)) !important;
+      border-color: #f4a6c6 !important;
+      color: #ffffff !important;
+    }
+
+    /* ========================================================================= */
+    /* THEME 3: ProudRide (Vibrant Spectrum Rainbow)                             */
+    /* ========================================================================= */
+    [data-theme="proudride"] {
+      --bg: #090a12;
+      --card-bg: rgba(16, 18, 30, 0.92);
+      --card-border: #332d4d;
+      --text: #ffffff;
+      --text-muted: #cbd5e1;
+      --brand-blue: #00bbff;
+      --dark-panel: #111322;
+    }
+    [data-theme="proudride"] body {
+      background: radial-gradient(ellipse at 50% 0%, rgba(170, 0, 255, 0.15), transparent 60%),
+                  radial-gradient(ellipse at 80% 100%, rgba(255, 0, 85, 0.12), transparent 50%),
+                  #090a12 !important;
+      background-attachment: fixed !important;
+    }
+    [data-theme="proudride"] .app-header {
+      border-bottom: 3px solid transparent !important;
+      border-image: linear-gradient(90deg, #ff0055, #ff5500, #ffcc00, #00cc66, #00bbff, #aa00ff) 1 !important;
+    }
+    [data-theme="proudride"] .app-title {
+      background: linear-gradient(90deg, #ff0055, #ff7700, #ffdd00, #00ee77, #00bbff, #aa00ff) !important;
+      -webkit-background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+      font-weight: 800 !important;
+    }
+    [data-theme="proudride"] .app-tab-btn.active,
+    [data-theme="proudride"] .router-subtab-btn.active {
+      background: linear-gradient(90deg, #ff0055, #ff5500, #ffbb00, #00cc66, #00bbff, #aa00ff) !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      border: none !important;
+      box-shadow: 0 3px 15px rgba(255, 0, 128, 0.45) !important;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+    [data-theme="proudride"] .btn-primary {
+      background: linear-gradient(90deg, #ff0055, #ff5500, #ffbb00, #00cc66, #00bbff, #aa00ff) !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      border: none !important;
+      box-shadow: 0 2px 12px rgba(255, 85, 0, 0.4) !important;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+    [data-theme="proudride"] .btn-primary:hover {
+      box-shadow: 0 4px 18px rgba(0, 187, 255, 0.6) !important;
+    }
+    [data-theme="proudride"] .app-box,
+    [data-theme="proudride"] .router-section-card {
+      border-left: 3px solid #00bbff !important;
+      box-shadow: 0 4px 20px rgba(170, 0, 255, 0.08) !important;
+    }
+
+    /* ========================================================================= */
+    /* THEME 4: AmoLED Pitch Black (Pure #000000 True Black)                     */
+    /* ========================================================================= */
+    [data-theme="amoled"] {
+      --bg: #000000;
+      --card-bg: #030303;
+      --card-border: #1a1a1a;
+      --text: #ffffff;
+      --text-muted: #888888;
+      --brand-blue: #00e5ff;
+      --brand-blue-hover: #33ebff;
+      --brand-blue-active: #00b4cc;
+      --accent-amber: #ffbb00;
+      --dark-panel: #000000;
+    }
+    [data-theme="amoled"] body {
+      background: #000000 !important;
+      color: #ffffff !important;
+    }
+    [data-theme="amoled"] .app-header {
+      border-bottom: 1px solid #1a1a1a !important;
+    }
+    [data-theme="amoled"] .app-box,
+    [data-theme="amoled"] .router-section-card,
+    [data-theme="amoled"] .engine-selector-box,
+    [data-theme="amoled"] .terminal-box {
+      background: #000000 !important;
+      border: 1px solid #222222 !important;
+      box-shadow: none !important;
+    }
+    [data-theme="amoled"] table.data-table thead th {
+      background: #0a0a0a !important;
+      border-bottom: 1px solid #222222 !important;
+      color: #00e5ff !important;
+    }
+    [data-theme="amoled"] table.data-table tbody tr {
+      background: #000000 !important;
+    }
+    [data-theme="amoled"] table.data-table tbody td {
+      border-bottom: 1px solid #151515 !important;
+      border-right: 1px solid #151515 !important;
+    }
+    [data-theme="amoled"] .app-tab-btn.active,
+    [data-theme="amoled"] .router-subtab-btn.active {
+      background: #00e5ff !important;
+      color: #000000 !important;
+      font-weight: 700 !important;
+      border-color: #00e5ff !important;
+      box-shadow: 0 0 14px rgba(0, 229, 255, 0.4) !important;
+    }
+    [data-theme="amoled"] .btn-primary {
+      background: #00e5ff !important;
+      color: #000000 !important;
+      border-color: #00e5ff !important;
+      font-weight: 700 !important;
+    }
+
+    /* ========================================================================= */
+    /* THEME 5: AsusWRT-design (ASUS Router WebUI Style)                         */
+    /* ========================================================================= */
+    [data-theme="asuswrt"] {
+      --bg: #21333e;
+      --card-bg: #2b373f;
+      --card-border: #1a2228;
+      --text: #ffffff;
+      --text-muted: #8AA6BE;
+      --brand-blue: #00FFFF;
+      --brand-blue-hover: #33ffff;
+      --brand-blue-active: #00cccc;
+      --dark-panel: #21333e;
+    }
+    [data-theme="asuswrt"] body {
+      background-color: #21333e !important;
+      background-image: url('/static/themes/asus_middown_bg.png') !important;
+      background-repeat: repeat-x !important;
+      background-position: top center !important;
+      color: #ffffff !important;
+      font-family: Arial, Helvetica, sans-serif !important;
+    }
+    [data-theme="asuswrt"] .app-header {
+      background: url('/static/themes/asus_title_bg.png') 0 0 no-repeat !important;
+      background-size: cover !important;
+      border-bottom: 2px solid #00FFFF !important;
+      padding: 14px 18px !important;
+      border-radius: 4px 4px 0 0 !important;
+    }
+    [data-theme="asuswrt"] .app-title {
+      color: #00FFFF !important;
+      letter-spacing: 2px !important;
+      text-transform: uppercase !important;
+      font-family: Arial, sans-serif !important;
+      font-weight: 900 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 12px !important;
+    }
+    [data-theme="asuswrt"] .app-title::before {
+      content: "";
+      display: inline-block;
+      width: 90px;
+      height: 24px;
+      background: url('/static/themes/asus_title.png') no-repeat center;
+      background-size: contain;
+    }
+    [data-theme="asuswrt"] .app-box,
+    [data-theme="asuswrt"] .router-section-card {
+      background: #2b373f !important;
+      border: 1px solid #1a2228 !important;
+      border-radius: 4px !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    }
+    [data-theme="asuswrt"] .app-tab-btn,
+    [data-theme="asuswrt"] .router-subtab-btn {
+      background: #1f2d35 !important;
+      color: #8AA6BE !important;
+      border: 1px solid #151e24 !important;
+      border-radius: 4px !important;
+      font-family: Arial, sans-serif !important;
+    }
+    [data-theme="asuswrt"] .app-tab-btn.active,
+    [data-theme="asuswrt"] .router-subtab-btn.active {
+      background: linear-gradient(to bottom, #8AA6BE 0%, #466782 100%) !important;
+      color: #ffffff !important;
+      border: 1px solid #00FFFF !important;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.35) !important;
+      font-weight: bold !important;
+    }
+    [data-theme="asuswrt"] .btn-primary {
+      background: linear-gradient(to bottom, #8AA6BE 0%, #466782 100%) !important;
+      border: 1px solid #9dc0dc !important;
+      color: #ffffff !important;
+      font-weight: bold !important;
+      border-radius: 4px !important;
+      text-shadow: 0 1px 1px #000;
+    }
+    [data-theme="asuswrt"] table.data-table thead th {
+      background: #1f2d35 !important;
+      color: #00FFFF !important;
+      border: 1px solid #141d23 !important;
+    }
+
+    /* ========================================================================= */
+    /* THEME 6: AsusCamouflage-design (ASUS TUF Gaming Camouflage WebUI)         */
+    /* ========================================================================= */
+    [data-theme="asus_camo"] {
+      --bg: #000000;
+      --card-bg: rgba(18, 16, 14, 0.92);
+      --card-border: #b45309;
+      --text: #ffffff;
+      --text-muted: #d4a373;
+      --brand-blue: #f59e0b;
+      --brand-blue-hover: #fbbf24;
+      --brand-blue-active: #d97706;
+      --accent-amber: #f59e0b;
+      --dark-panel: rgba(14, 12, 10, 0.95);
+    }
+    [data-theme="asus_camo"] body {
+      background-color: #000000 !important;
+      background-image: url('/static/themes/tuf_camo_bg.png') !important;
+      background-repeat: no-repeat !important;
+      background-position: top center !important;
+      background-attachment: fixed !important;
+      background-size: cover !important;
+      color: #ffffff !important;
+      font-family: Arial, sans-serif !important;
+    }
+    [data-theme="asus_camo"] .app-header {
+      background: rgba(18, 16, 14, 0.90) url('/static/themes/tuf_title_bg.png') repeat-x !important;
+      border-bottom: 2px solid #f59e0b !important;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.3) !important;
+    }
+    [data-theme="asus_camo"] .app-title {
+      color: #f59e0b !important;
+      text-transform: uppercase !important;
+      letter-spacing: 2px !important;
+      font-weight: 900 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 12px !important;
+    }
+    [data-theme="asus_camo"] .app-title::before {
+      content: "";
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      background: url('/static/themes/tuf_logo.png') no-repeat center;
+      background-size: contain;
+    }
+    [data-theme="asus_camo"] .app-box,
+    [data-theme="asus_camo"] .router-section-card {
+      background: rgba(18, 16, 14, 0.92) !important;
+      border: 1px solid #d97706 !important;
+      border-radius: 2px !important;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.15) !important;
+    }
+    [data-theme="asus_camo"] .app-tab-btn,
+    [data-theme="asus_camo"] .router-subtab-btn {
+      background: #181512 !important;
+      border: 1px solid #382d1c !important;
+      color: #d4a373 !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      border-radius: 2px !important;
+    }
+    [data-theme="asus_camo"] .app-tab-btn.active,
+    [data-theme="asus_camo"] .router-subtab-btn.active {
+      background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important;
+      color: #000000 !important;
+      font-weight: 800 !important;
+      border-color: #fbbf24 !important;
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.5) !important;
+    }
+    [data-theme="asus_camo"] .btn-primary {
+      background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important;
+      color: #000000 !important;
+      font-weight: 800 !important;
+      text-transform: uppercase !important;
+      border-radius: 2px !important;
+      border: 1px solid #fde68a !important;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
+    }
+    [data-theme="asus_camo"] table.data-table thead th {
+      background: #231c13 !important;
+      color: #f59e0b !important;
+      border: 1px solid #382d1c !important;
+    }
+
+    /* ========================================================================= */
+    /* THEME 7: TP-GOld_740 (TP-Link TL-WR740N Classic Router GUI)               */
+    /* ========================================================================= */
+    [data-theme="tp_gold"] {
+      --bg: #fafafa;
+      --card-bg: #ffffff;
+      --card-border: #b8d0d9;
+      --text: #000000;
+      --text-muted: #555555;
+      --brand-blue: #66ba33;
+      --brand-blue-hover: #55a028;
+      --brand-blue-active: #44801f;
+      --accent-amber: #003399;
+      --dark-panel: #ffffff;
+    }
+    [data-theme="tp_gold"] body {
+      background: #fafafa !important;
+      color: #000000 !important;
+      font-family: Arial, Helvetica, sans-serif !important;
+    }
+    [data-theme="tp_gold"] .app-header {
+      background: #66ba33 url('/static/themes/tplink_top_bg.jpg') repeat-x top !important;
+      border-top: 3px solid #003399 !important;
+      border-bottom: 2px solid #66ba33 !important;
+      padding: 12px 16px !important;
+      color: #ffffff !important;
+    }
+    [data-theme="tp_gold"] .app-title {
+      color: #ffffff !important;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.6) !important;
+      font-family: Arial, sans-serif !important;
+      font-weight: bold !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 12px !important;
+    }
+    [data-theme="tp_gold"] .app-title::before {
+      content: "";
+      display: inline-block;
+      width: 140px;
+      height: 38px;
+      background: url('/static/themes/tplink_top1_1.jpg') no-repeat center;
+      background-size: contain;
+    }
+    [data-theme="tp_gold"] .meta-lbl {
+      color: #ffffff !important;
+    }
+    [data-theme="tp_gold"] .meta-val {
+      color: #ffffff !important;
+      font-weight: bold !important;
+    }
+    [data-theme="tp_gold"] .app-box,
+    [data-theme="tp_gold"] .router-section-card {
+      background: #ffffff !important;
+      border: 1px solid #b8d0d9 !important;
+      border-radius: 0 !important;
+      color: #000000 !important;
+      box-shadow: 1px 1px 4px rgba(0,0,0,0.08) !important;
+    }
+    [data-theme="tp_gold"] .section-subtitle,
+    [data-theme="tp_gold"] .router-section-card > div:first-child {
+      color: #003399 !important;
+      font-weight: bold !important;
+    }
+    [data-theme="tp_gold"] .stat-lbl,
+    [data-theme="tp_gold"] .form-label,
+    [data-theme="tp_gold"] .form-hint {
+      color: #333333 !important;
+    }
+    [data-theme="tp_gold"] .stat-val {
+      color: #000000 !important;
+    }
+    [data-theme="tp_gold"] .stat-speed {
+      color: #003399 !important;
+      font-weight: bold !important;
+    }
+    [data-theme="tp_gold"] .form-input,
+    [data-theme="tp_gold"] select,
+    [data-theme="tp_gold"] input[type="text"] {
+      background: #ffffff !important;
+      color: #000000 !important;
+      border: 1px solid #7f9db9 !important;
+      border-radius: 2px !important;
+    }
+    [data-theme="tp_gold"] .app-tab-btn,
+    [data-theme="tp_gold"] .router-subtab-btn {
+      background: #e7eff2 !important;
+      color: #003399 !important;
+      border: 1px solid #b0c7d2 !important;
+      border-radius: 0 !important;
+      font-family: Arial, sans-serif !important;
+      font-size: 12px !important;
+    }
+    [data-theme="tp_gold"] .app-tab-btn.active,
+    [data-theme="tp_gold"] .router-subtab-btn.active {
+      background: #66ba33 !important;
+      color: #ffffff !important;
+      border-color: #4b961e !important;
+      font-weight: bold !important;
+    }
+    [data-theme="tp_gold"] .btn-primary {
+      background: #66ba33 !important;
+      border: 1px solid #4b961e !important;
+      color: #ffffff !important;
+      border-radius: 2px !important;
+      font-weight: bold !important;
+    }
+    [data-theme="tp_gold"] .btn-secondary {
+      background: #e6e6e6 !important;
+      border: 1px solid #7f9db9 !important;
+      color: #000000 !important;
+      border-radius: 2px !important;
+    }
+    [data-theme="tp_gold"] table.data-table thead th {
+      background: #66ba33 !important;
+      color: #ffffff !important;
+      border: 1px solid #55a028 !important;
+    }
+    [data-theme="tp_gold"] table.data-table tbody td {
+      color: #000000 !important;
+      border-bottom: 1px solid #e0e0e0 !important;
+      border-right: 1px solid #e0e0e0 !important;
+    }
+    [data-theme="tp_gold"] table.data-table tbody tr:nth-child(even) {
+      background: #f7faf7 !important;
+    }
+
+    /* ========================================================================= */
+    /* THEME 8: MountainHaGo (Vereckei hágó background, Black boxes, White text) */
+    /* ========================================================================= */
+    [data-theme="mountain_hago"] {
+      --bg: #000000;
+      --card-bg: rgba(0, 0, 0, 0.88);
+      --card-border: #444444;
+      --text: #ffffff;
+      --text-muted: #e2e8f0;
+      --brand-blue: #38bdf8;
+      --brand-blue-hover: #7dd3fc;
+      --brand-blue-active: #0284c7;
+      --accent-amber: #fbbf24;
+      --dark-panel: rgba(0, 0, 0, 0.92);
+    }
+    [data-theme="mountain_hago"] body {
+      background-image: url('/static/themes/hago.jpg') !important;
+      background-size: cover !important;
+      background-position: center center !important;
+      background-attachment: fixed !important;
+      background-repeat: no-repeat !important;
+      color: #ffffff !important;
+    }
+    [data-theme="mountain_hago"] .app-header {
+      background: rgba(0, 0, 0, 0.88) !important;
+      border-bottom: 2px solid #555555 !important;
+      border-radius: 8px !important;
+      padding: 14px 18px !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+    }
+    [data-theme="mountain_hago"] .app-title {
+      color: #ffffff !important;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9) !important;
+    }
+    [data-theme="mountain_hago"] .app-box,
+    [data-theme="mountain_hago"] .router-section-card,
+    [data-theme="mountain_hago"] .engine-selector-box,
+    [data-theme="mountain_hago"] .terminal-box {
+      background: rgba(0, 0, 0, 0.88) !important;
+      border: 1px solid #444444 !important;
+      color: #ffffff !important;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7) !important;
+    }
+    [data-theme="mountain_hago"] .stat-lbl,
+    [data-theme="mountain_hago"] .form-label,
+    [data-theme="mountain_hago"] .form-hint {
+      color: #e2e8f0 !important;
+    }
+    [data-theme="mountain_hago"] .stat-val {
+      color: #ffffff !important;
+    }
+    [data-theme="mountain_hago"] .app-tab-btn,
+    [data-theme="mountain_hago"] .router-subtab-btn {
+      background: rgba(0, 0, 0, 0.85) !important;
+      color: #e2e8f0 !important;
+      border: 1px solid #555555 !important;
+    }
+    [data-theme="mountain_hago"] .app-tab-btn.active,
+    [data-theme="mountain_hago"] .router-subtab-btn.active {
+      background: #38bdf8 !important;
+      color: #000000 !important;
+      font-weight: 700 !important;
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.5) !important;
+    }
+    [data-theme="mountain_hago"] table.data-table thead th {
+      background: #111111 !important;
+      color: #38bdf8 !important;
+      border: 1px solid #333333 !important;
+    }
+    [data-theme="mountain_hago"] table.data-table tbody td {
+      color: #ffffff !important;
+      border-bottom: 1px solid #222222 !important;
+      border-right: 1px solid #222222 !important;
+    }
+
   </style>
 </head>
 <body>
@@ -791,15 +1360,31 @@ def get_dashboard_html() -> str:
     <div class="app-header-center">
       <h1 class="app-title">NetworkMeasureBox</h1>
       <div class="app-subtitle" data-i18n="app_subtitle">Universal Network Quality, Speed Benchmark & Diagnostics Suite</div>
-      <div style="margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; background: rgba(30, 41, 59, 0.7); padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;">
-        <span style="font-size: 13px;">🌐</span>
-        <select id="lang-select" onchange="switchLanguage(this.value)" style="background: transparent; color: #f1f5f9; border: none; font-size: 12px; font-weight: 600; cursor: pointer; outline: none;">
-          <option value="en">English (EN)</option>
-          <option value="hu">Magyar (HU)</option>
-          <option value="de">Deutsch (DE)</option>
-          <option value="uk">Українська (UK)</option>
-          <option value="fr">Français (FR)</option>
-        </select>
+      <div style="margin-top: 6px; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
+        <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(30, 41, 59, 0.7); padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;">
+          <span style="font-size: 13px;">🌐</span>
+          <select id="lang-select" onchange="switchLanguage(this.value)" style="background: transparent; color: #f1f5f9; border: none; font-size: 12px; font-weight: 600; cursor: pointer; outline: none;">
+            <option value="en">English (EN)</option>
+            <option value="hu">Magyar (HU)</option>
+            <option value="de">Deutsch (DE)</option>
+            <option value="uk">Українська (UK)</option>
+            <option value="fr">Français (FR)</option>
+          </select>
+        </div>
+
+        <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(30, 41, 59, 0.7); padding: 3px 8px; border-radius: 6px; border: 1px solid #334155;">
+          <span style="font-size: 13px;">🎨</span>
+          <select id="theme-select" onchange="switchTheme(this.value)" title="Design Theme" style="background: transparent; color: #f1f5f9; border: none; font-size: 12px; font-weight: 600; cursor: pointer; outline: none;">
+            <option value="default">Default</option>
+            <option value="prtd">PrTD</option>
+            <option value="proudride">ProudRide</option>
+            <option value="amoled">AmoLED Pitch Black</option>
+            <option value="asuswrt">AsusWRT-design</option>
+            <option value="asus_camo">AsusCamouflage-design</option>
+            <option value="tp_gold">TP-GOld_740</option>
+            <option value="mountain_hago">MountainHaGo</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="app-header-right">
@@ -3222,6 +3807,63 @@ def get_dashboard_html() -> str:
 
       <!-- SUBTAB 9: SYSTEM & FIREWALL -->
       <div id="rsub-system" class="router-subtab-content">
+        <!-- Design Themes & GUI Presets Card -->
+        <div class="router-section-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+                <span>🎨</span>
+                <span data-i18n="theme_card_title">Design Themes & Hardware GUI Presets</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n="theme_card_desc">
+                Select your preferred visual theme, color palette, and router GUI skin for the NetworkMeasureBox interface.
+              </p>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px;">
+            <div onclick="switchTheme('default')" style="background: #0b101b; border: 2px solid #0284c7; padding: 12px; border-radius: 6px; cursor: pointer; transition: transform 0.15s ease;">
+              <div style="font-weight: 700; color: #38bdf8; font-size: 13px;">Default</div>
+              <div style="font-size: 11px; color: #8fa0ba; margin-top: 4px;">Original NMHH measurement box dark blue UI.</div>
+            </div>
+
+            <div onclick="switchTheme('prtd')" style="background: linear-gradient(135deg, #101628, #22172a); border: 2px solid #f4a6c6; padding: 12px; border-radius: 6px; cursor: pointer; transition: transform 0.15s ease;">
+              <div style="font-weight: 700; color: #ffffff; font-size: 13px; background: linear-gradient(90deg, #70c4ff, #ffffff, #f4a6c6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PrTD</div>
+              <div style="font-size: 11px; color: #cbd5e1; margin-top: 4px;">Baby blue, white, baby pink pastel gradient theme.</div>
+            </div>
+
+            <div onclick="switchTheme('proudride')" style="background: #0d0e19; border: 2px solid #ff0055; padding: 12px; border-radius: 6px; cursor: pointer; transition: transform 0.15s ease;">
+              <div style="font-weight: 700; color: #ffffff; font-size: 13px; background: linear-gradient(90deg, #ff0055, #ffcc00, #00bbff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">ProudRide</div>
+              <div style="font-size: 11px; color: #cbd5e1; margin-top: 4px;">Vibrant multi-color spectrum rainbow accents.</div>
+            </div>
+
+            <div onclick="switchTheme('amoled')" style="background: #000000; border: 2px solid #00e5ff; padding: 12px; border-radius: 6px; cursor: pointer; transition: transform 0.15s ease;">
+              <div style="font-weight: 700; color: #00e5ff; font-size: 13px;">AmoLED Pitch Black</div>
+              <div style="font-size: 11px; color: #888888; margin-top: 4px;">True #000000 pure black background for OLED screens.</div>
+            </div>
+
+            <div onclick="switchTheme('asuswrt')" style="background: #21333e; border: 2px solid #00FFFF; padding: 12px; border-radius: 6px; cursor: pointer; transition: transform 0.15s ease;">
+              <div style="font-weight: 700; color: #00FFFF; font-size: 13px;">AsusWRT-design</div>
+              <div style="font-size: 11px; color: #8AA6BE; margin-top: 4px;">ASUS Router WebUI navy theme with metallic header.</div>
+            </div>
+
+            <div onclick="switchTheme('asus_camo')" style="background: #141210; border: 2px solid #f59e0b; padding: 12px; border-radius: 6px; cursor: pointer; transition: transform 0.15s ease;">
+              <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">AsusCamouflage-design</div>
+              <div style="font-size: 11px; color: #d4a373; margin-top: 4px;">ASUS TUF Gaming tactical camo background & amber glow.</div>
+            </div>
+
+            <div onclick="switchTheme('tp_gold')" style="background: #ffffff; border: 2px solid #66ba33; padding: 12px; border-radius: 6px; cursor: pointer; transition: transform 0.15s ease;">
+              <div style="font-weight: 700; color: #003399; font-size: 13px;">TP-GOld_740</div>
+              <div style="font-size: 11px; color: #333333; margin-top: 4px;">Classic TP-Link TL-WR740N green & blue router GUI.</div>
+            </div>
+
+            <div onclick="switchTheme('mountain_hago')" style="background: rgba(0,0,0,0.85); border: 2px solid #38bdf8; padding: 12px; border-radius: 6px; cursor: pointer; transition: transform 0.15s ease;">
+              <div style="font-weight: 700; color: #ffffff; font-size: 13px;">MountainHaGo</div>
+              <div style="font-size: 11px; color: #e2e8f0; margin-top: 4px;">Vereckei hágó panoramic background & opaque black boxes.</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Hardware RAM & Memory Optimization Profile Card -->
         <div class="router-section-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
@@ -3758,6 +4400,33 @@ def get_dashboard_html() -> str:
     if (typeof cachedGuestWifiStatus !== 'undefined' && cachedGuestWifiStatus) {
       renderGuestWifiStatus(cachedGuestWifiStatus);
     }
+  }
+
+
+  // ==========================================
+  // Dynamic Design Theme Engine
+  // ==========================================
+  function switchTheme(theme, showNotice) {
+    const validThemes = ['default', 'prtd', 'proudride', 'amoled', 'asuswrt', 'asus_camo', 'tp_gold', 'mountain_hago'];
+    if (!validThemes.includes(theme)) theme = 'default';
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.className = document.body.className.split(' ').filter(c => !c.startsWith('theme-')).join(' ') + ' theme-' + theme;
+    try {
+      localStorage.setItem('nmb_theme', theme);
+    } catch (e) {}
+    const sel = document.getElementById('theme-select');
+    if (sel && sel.value !== theme) sel.value = theme;
+    if (showNotice !== false && typeof showToast === 'function') {
+      showToast('Theme applied: ' + theme);
+    }
+  }
+
+  function initTheme() {
+    let saved = 'default';
+    try {
+      saved = localStorage.getItem('nmb_theme') || 'default';
+    } catch (e) {}
+    switchTheme(saved, false);
   }
 
   async function switchLanguage(lang) {
@@ -9009,6 +9678,7 @@ ${pkgList}`;
   }, 3000);
 
   loadTranslations(localStorage.getItem('nmb_lang') || 'en');
+  initTheme();
   updateServerSelectVisibility(selectedEngine);
   refreshStatus();
   fetchWifiCapabilities();

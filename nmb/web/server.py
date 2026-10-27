@@ -184,6 +184,39 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"status": "logged_out", "message": "Successfully logged out"}\n')
             return
 
+        # 0b. Static Assets (Themes, Logos, Backgrounds)
+        if path.startswith("/static/"):
+            rel = path[len("/static/"):].lstrip("/")
+            if ".." in rel or rel.startswith("/"):
+                self.send_error(HTTPStatus.FORBIDDEN, "Forbidden")
+                return
+            static_dir = Path(__file__).resolve().parent / "static"
+            fpath = static_dir / rel
+            if not fpath.exists() or not fpath.is_file():
+                self.send_error(HTTPStatus.NOT_FOUND, "File Not Found")
+                return
+            ext = fpath.suffix.lower()
+            mime_map = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".gif": "image/gif",
+                ".svg": "image/svg+xml",
+                ".css": "text/css",
+                ".js": "application/javascript",
+                ".ico": "image/x-icon",
+                ".webp": "image/webp",
+            }
+            ct = mime_map.get(ext, "application/octet-stream")
+            content = fpath.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", ct)
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
         # 1. Main Dashboard UI
         if path in ("/", "/index.html"):
             self._send_html(get_dashboard_html())
