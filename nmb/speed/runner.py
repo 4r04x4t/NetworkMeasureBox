@@ -491,8 +491,21 @@ def run_measurement_cycle(
     fixed_kbps = getattr(cfg.speedtest, "idle_threshold_kbps", 500)
     max_wait = cfg.raw_parser.getfloat("speedtest", "idle_wait_max_sec", fallback=1800.0)
 
-    # For scheduled automated tests, cap wait time to 60s so test cycles don't overlap or hang
-    wait_timeout = min(max_wait, 60.0) if trigger == "schedule" else min(max_wait, 30.0)
+    # For scheduled automated tests, adjust wait timeout and consecutive idle seconds
+    # dynamically based on schedule interval (especially for high-frequency second-level schedules).
+    from nmb.speed.scheduler import get_cron_interval_seconds
+    sched_cron = getattr(cfg.speedtest, "schedule_cron", "")
+    interval_sec = get_cron_interval_seconds(sched_cron)
+    consec_idle = 3.0
+
+    if trigger == "schedule":
+        if interval_sec is not None and interval_sec < 60.0:
+            wait_timeout = min(max_wait, max(2.5, interval_sec * 0.75))
+            consec_idle = min(3.0, max(1.0, interval_sec * 0.2))
+        else:
+            wait_timeout = min(max_wait, 60.0)
+    else:
+        wait_timeout = min(max_wait, 30.0)
 
     check_gate_iface = target_iface or (cfg.network.wan2_interface if getattr(cfg.network, "measurement_interface", "wan") in ("wan2", "secondary") and getattr(cfg.network, "wan2_interface", "") else cfg.network.wan_interface)
     if not force:
@@ -501,7 +514,7 @@ def run_measurement_cycle(
         gate_res = gate.wait_for_idle(
             threshold_kbps=fixed_kbps,
             max_wait_sec=wait_timeout,
-            consecutive_idle_sec=3.0,
+            consecutive_idle_sec=consec_idle,
             iface=check_gate_iface,
             capacity_mbps=cap_mbps,
             threshold_percent=thresh_pct,

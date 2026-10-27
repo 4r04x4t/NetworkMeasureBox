@@ -1,14 +1,11 @@
-"""NetworkMeasureBox Internationalization (i18n) Module.
-
-Provides complete multilingual UI translations across English (en), Hungarian (hu),
-German (de), Ukrainian (uk), and French (fr) with 100% key parity.
+"""NetworkMeasureBox Internationalization (i18n) Engine.
+Supports English (en), Hungarian (hu), German (de), Ukrainian (uk), and French (fr).
+Strict 100% key parity enforced across all supported languages.
 """
-from __future__ import annotations
-
 from typing import Dict
 
+SUPPORTED_LANGUAGES = ["en", "hu", "de", "uk", "fr"]
 DEFAULT_LANGUAGE = "en"
-SUPPORTED_LANGUAGES = ("en", "hu", "de", "uk", "fr")
 
 TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "en": {
@@ -352,8 +349,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "role_wan1": "🌐 WAN 1 (Primary)",
         "role_wan2": "🌐 WAN 2 (Secondary)",
         "router_saved": "✅ Advanced router settings successfully saved and applied!",
+        "sched_custom_hint": "Seconds (e.g. <code>10s</code>, <code>30s</code>), minutes (e.g. <code>5</code>, <code>20m</code>) or 5/6-field cron syntax.",
+        "sched_custom_placeholder": "e.g. 10s (seconds), 15 (minutes) or */15 * * * * *",
         "sched_desc": "Configure measurement frequency and ensure speed tests run only when network utilization is below 2%.",
         "sched_discard_btn": "🔄 Discard / Reset",
+        "sched_group_seconds": "⏱️ Seconds Intervals (Rapid)",
+        "sched_group_standard": "🕒 Minutes & Hours",
         "sched_reverted": "Settings restored from server.",
         "sched_saved": "✅ Automated schedule and Traffic Gate (< 2%) successfully saved!",
         "sched_title": "Automated Benchmark Schedule & Precision Gate",
@@ -933,8 +934,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "role_wan1": "🌐 WAN 1 (Elsődleges)",
         "role_wan2": "🌐 WAN 2 (Másodlagos)",
         "router_saved": "✅ Haladó router beállítások sikeresen mentve és alkalmazva!",
+        "sched_custom_hint": "Másodpercben (pl. <code>10s</code>, <code>30s</code>), percben (pl. <code>5</code>, <code>20m</code>) vagy 5/6 mezős cron formátumban.",
+        "sched_custom_placeholder": "pl. 10s (másodperc), 15 (perc) vagy */15 * * * * *",
         "sched_desc": "Mérési gyakoriság konfigurálása és a 2% alatti hálózati terheltség feltételének betartása.",
         "sched_discard_btn": "🔄 Visszaállítás (Mégsem)",
+        "sched_group_seconds": "⏱️ Másodperces gyakoriság (Gyors mérések)",
+        "sched_group_standard": "🕒 Percek és órák",
         "sched_reverted": "Beállítások visszaállítva a szerverről.",
         "sched_saved": "✅ Automata mérési beállítások és Traffic Gate (< 2%) sikeresen elmentve!",
         "sched_title": "Automata Mérési Ütemezés & Pontossági Kapu",
@@ -1514,8 +1519,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "role_wan1": "🌐 WAN 1 (Primär)",
         "role_wan2": "🌐 WAN 2 (Sekundär)",
         "router_saved": "✅ Erweiterte Router-Einstellungen erfolgreich gespeichert und angewendet!",
+        "sched_custom_hint": "In Sekunden (z. B. <code>10s</code>, <code>30s</code>), Minuten (z. B. <code>5</code>, <code>20m</code>) oder 5/6-teiliges Cron-Format.",
+        "sched_custom_placeholder": "z.B. 10s (Sekunden), 15 (Minuten) oder */15 * * * * *",
         "sched_desc": "Messhäufigkeit einstellen und sicherstellen, dass Tests nur bei unter 2% Netzauslastung starten.",
         "sched_discard_btn": "🔄 Verwerfen / Zurücksetzen",
+        "sched_group_seconds": "⏱️ Sekunden-Intervalle (Schnelltests)",
+        "sched_group_standard": "🕒 Minuten & Stunden",
         "sched_reverted": "Einstellungen vom Server wiederhergestellt.",
         "sched_saved": "✅ Automatischer Zeitplan und Traffic Gate (< 2%) erfolgreich gespeichert!",
         "sched_title": "Automatisierter Messzeitplan & Genauigkeitsschranke",
@@ -2095,8 +2104,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "role_wan1": "🌐 WAN 1 (Основний)",
         "role_wan2": "🌐 WAN 2 (Вторинний)",
         "router_saved": "✅ Розширені налаштування маршрутизатора успішно збережено!",
+        "sched_custom_hint": "У секундах (напр. <code>10s</code>, <code>30s</code>), хвилинах (напр. <code>5</code>, <code>20m</code>) або 5/6-польний cron.",
+        "sched_custom_placeholder": "напр. 10s (секунди), 15 (хвилини) або */15 * * * * *",
         "sched_desc": "Налаштування частоти тестів із гарантією запуску лише при навантаженні мережі менше 2%.",
         "sched_discard_btn": "🔄 Скасувати / Скинути",
+        "sched_group_seconds": "⏱️ Секундні інтервали (Швидкі тести)",
+        "sched_group_standard": "🕒 Хвилини та години",
         "sched_reverted": "Налаштування відновлено з сервера.",
         "sched_saved": "✅ Автоматичний графік та шлюз Traffic Gate (< 2%) успішно збережено!",
         "sched_title": "Графік автоматичного тестування та шлюз точності",
@@ -2676,8 +2689,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "role_wan1": "🌐 WAN 1 (Principal)",
         "role_wan2": "🌐 WAN 2 (Secondaire)",
         "router_saved": "✅ Paramètres avancés du routeur enregistrés et appliqués !",
+        "sched_custom_hint": "En secondes (ex. <code>10s</code>, <code>30s</code>), minutes (ex. <code>5</code>, <code>20m</code>) ou syntaxe cron à 5/6 champs.",
+        "sched_custom_placeholder": "ex. 10s (secondes), 15 (minutes) ou */15 * * * * *",
         "sched_desc": "Configurer la fréquence des tests et garantir l'exécution uniquement sous 2% d'utilisation réseau.",
         "sched_discard_btn": "🔄 Annuler / Réinitialiser",
+        "sched_group_seconds": "⏱️ Intervalles en secondes (Tests rapides)",
+        "sched_group_standard": "🕒 Minutes et heures",
         "sched_reverted": "Paramètres restaurés depuis le serveur.",
         "sched_saved": "✅ Planification automatique et Traffic Gate (< 2%) enregistrées avec succès !",
         "sched_title": "Planification Automatique & Barrière de Précision",
@@ -2939,3 +2956,4 @@ def get_all_translations(lang: str = DEFAULT_LANGUAGE) -> Dict[str, str]:
 
 # Alias for backwards compatibility with web server callers
 get_translations_for_lang = get_all_translations
+

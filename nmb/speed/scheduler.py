@@ -59,42 +59,135 @@ def parse_cron_field(field_expr: str, min_val: int, max_val: int) -> Set[int]:
 
 
 def normalize_cron_expression(expr: str) -> str:
-    """Normalize user input (shorthand minutes or standard 5-part cron)."""
+    """Normalize user input (shorthand seconds, minutes, or 5/6-part cron)."""
     s = str(expr).strip().lower()
-    # Check if user entered shorthand minutes, e.g. "5", "5m", "15 min", "*/10"
-    if s.endswith("m") or s.endswith("min") or s.endswith("mins") or s.endswith("perc"):
+    if not s:
+        return "0 */6 * * *"
+
+    # 1. Check seconds shorthands, e.g. "10s", "30 sec", "15 mp", "every 20s"
+    is_sec = False
+    for suffix in ("sec", "secs", "second", "seconds", "mp", "masodperc", "másodperc", "másodpercenként", "masodpercenkent"):
+        if s.endswith(suffix):
+            is_sec = True
+            break
+    if not is_sec and s.endswith("s") and not s.endswith("mins") and not s.endswith("ms"):
+        is_sec = True
+
+    if is_sec:
         digits = "".join(c for c in s if c.isdigit())
         if digits:
-            s = f"*/{digits} * * * *"
-    elif s.isdigit():
+            val = int(digits)
+            if val < 60:
+                val = max(1, val)
+                return f"*/{val} * * * * *"
+            else:
+                mins = max(1, val // 60)
+                if mins <= 59:
+                    return f"*/{mins} * * * *"
+                else:
+                    hrs = max(1, min(23, mins // 60))
+                    return f"0 */{hrs} * * *"
+
+    # 2. Check minutes shorthands, e.g. "5m", "15 min", "*/10", "perc", "percenként"
+    is_min = False
+    for suffix in ("min", "mins", "minute", "minutes", "perc", "percenként", "percenkent"):
+        if s.endswith(suffix):
+            is_min = True
+            break
+    if not is_min and s.endswith("m"):
+        is_min = True
+
+    if is_min:
+        digits = "".join(c for c in s if c.isdigit())
+        if digits:
+            val = int(digits)
+            if val <= 59:
+                return f"*/{val} * * * *"
+            else:
+                hours = max(1, min(23, val // 60))
+                return f"0 */{hours} * * *"
+
+    # 3. Numeric string only (e.g. "10") -> default to minutes if <= 59, else hours
+    if s.isdigit():
         val = int(s)
         if val <= 59:
-            s = f"*/{val} * * * *"
+            return f"*/{val} * * * *"
         else:
-            hours = val // 60
-            s = f"0 */{hours} * * *"
+            hours = max(1, min(23, val // 60))
+            return f"0 */{hours} * * *"
 
-    # If it is only 1 part like "*/5", expand to standard 5 parts
     parts = s.split()
+    # If 1 part like "*/10" or "*/30s"
     if len(parts) == 1 and parts[0].startswith("*/"):
-        s = f"{parts[0]} * * * *"
-    elif len(parts) != 5:
-        # Default fallback
-        if len(parts) == 0:
-            s = "0 */6 * * *"
+        num_part = "".join(c for c in parts[0] if c.isdigit())
+        if parts[0].endswith("s"):
+            return f"*/{num_part} * * * * *"
+        return f"{parts[0]} * * * *"
 
-    return s
+    # If 6 parts: second minute hour dom month dow
+    if len(parts) == 6:
+        return " ".join(parts)
+
+    # If 5 parts: minute hour dom month dow
+    if len(parts) == 5:
+        return " ".join(parts)
+
+    return "0 */6 * * *"
+
+
+def is_second_cron(expr: str) -> bool:
+    """Return True if cron expression specifies a second-level interval (6-part cron)."""
+    norm = normalize_cron_expression(expr)
+    return len(norm.split()) == 6
+
+
+def get_cron_interval_seconds(expr: str) -> Optional[float]:
+    """Calculate the interval duration in seconds if the expression represents a repeating period."""
+    norm = normalize_cron_expression(expr)
+    parts = norm.split()
+    if len(parts) == 6:
+        # e.g. */10 * * * * *
+        if parts[0].startswith("*/") and parts[1:] == ["*", "*", "*", "*", "*"]:
+            try:
+                return float(parts[0][2:])
+            except ValueError:
+                pass
+        elif parts[0] == "*" and parts[1:] == ["*", "*", "*", "*", "*"]:
+            return 1.0
+    elif len(parts) == 5:
+        # e.g. */5 * * * *
+        if parts[0].startswith("*/") and parts[1:] == ["*", "*", "*", "*"]:
+            try:
+                return float(parts[0][2:]) * 60.0
+            except ValueError:
+                pass
+        elif parts[0] == "*" and parts[1:] == ["*", "*", "*", "*"]:
+            return 60.0
+        elif parts[0] == "0" and parts[1].startswith("*/") and parts[2:] == ["*", "*", "*"]:
+            try:
+                return float(parts[1][2:]) * 3600.0
+            except ValueError:
+                pass
+        elif parts[0] == "0" and parts[1] == "*" and parts[2:] == ["*", "*", "*"]:
+            return 3600.0
+    return None
 
 
 def matches_cron(cron_expr: str, dt: Optional[datetime.datetime] = None) -> bool:
-    """Return True if datetime matches 5-part cron expression."""
+    """Return True if datetime matches 5-part or 6-part cron expression."""
     dt = dt or datetime.datetime.now()
     normalized = normalize_cron_expression(cron_expr)
     parts = normalized.split()
-    if len(parts) != 5:
-        return False
 
-    min_expr, hour_expr, dom_expr, month_expr, dow_expr = parts
+    if len(parts) == 6:
+        sec_expr, min_expr, hour_expr, dom_expr, month_expr, dow_expr = parts
+        # Second (0-59)
+        if dt.second not in parse_cron_field(sec_expr, 0, 59):
+            return False
+    elif len(parts) == 5:
+        min_expr, hour_expr, dom_expr, month_expr, dow_expr = parts
+    else:
+        return False
 
     # Minute (0-59)
     if dt.minute not in parse_cron_field(min_expr, 0, 59):
@@ -113,7 +206,6 @@ def matches_cron(cron_expr: str, dt: Optional[datetime.datetime] = None) -> bool
         return False
 
     # Day of week (0-6, Sunday=0 or 7)
-    # Python isoweekday: Mon=1, Sun=7. Dow standard: Sun=0 or 7.
     dow = dt.isoweekday() % 7
     dow_set = parse_cron_field(dow_expr, 0, 7)
     if 7 in dow_set:
@@ -133,6 +225,14 @@ def get_cron_description(cron_expr: str, lang: str = "en") -> str:
     is_hu = (lang == "hu")
 
     shorthands = {
+        "*/5 * * * * *": ("5 másodpercenként (Ultra gyors)", "Every 5 seconds (Ultra rapid)"),
+        "*/10 * * * * *": ("10 másodpercenként (Gyakori tesztelés)", "Every 10 seconds (Frequent)"),
+        "*/15 * * * * *": ("15 másodpercenként", "Every 15 seconds"),
+        "*/20 * * * * *": ("20 másodpercenként", "Every 20 seconds"),
+        "*/30 * * * * *": ("30 másodpercenként (Gyakori)", "Every 30 seconds (Frequent)"),
+        "*/45 * * * * *": ("45 másodpercenként", "Every 45 seconds"),
+        "* * * * *": ("1 percenként (60s)", "Every 1 minute (60s)"),
+        "0 * * * * *": ("1 percenként (60s)", "Every 1 minute (60s)"),
         "*/5 * * * *": ("5 percenként (Gyakori)", "Every 5 minutes (Frequent)"),
         "*/10 * * * *": ("10 percenként", "Every 10 minutes"),
         "*/15 * * * *": ("15 percenként", "Every 15 minutes"),
@@ -148,8 +248,13 @@ def get_cron_description(cron_expr: str, lang: str = "en") -> str:
     if norm in shorthands:
         return shorthands[norm][0] if is_hu else shorthands[norm][1]
 
-    # Custom description
+    # Custom description for 6-part cron
     parts = norm.split()
+    if len(parts) == 6 and parts[0].startswith("*/") and parts[1:] == ["*", "*", "*", "*", "*"]:
+        secs = parts[0][2:]
+        return f"{secs} másodpercenként (Egyedi)" if is_hu else f"Every {secs} seconds (Custom)"
+
+    # Custom description for 5-part cron
     if len(parts) == 5 and parts[0].startswith("*/") and parts[1:] == ["*", "*", "*", "*"]:
         mins = parts[0][2:]
         return f"{mins} percenként (Egyedi)" if is_hu else f"Every {mins} minutes (Custom)"
@@ -158,14 +263,22 @@ def get_cron_description(cron_expr: str, lang: str = "en") -> str:
 
 
 def estimate_next_run(cron_expr: str, start_dt: Optional[datetime.datetime] = None) -> datetime.datetime:
-    """Find next matching minute up to 48 hours in the future."""
-    cur = (start_dt or datetime.datetime.now()).replace(second=0, microsecond=0)
-    cur += datetime.timedelta(minutes=1)
-    for _ in range(2880):  # 48 hours
-        if matches_cron(cron_expr, cur):
-            return cur
-        cur += datetime.timedelta(minutes=1)
-    return cur
+    """Find next matching time up to 48 hours in the future."""
+    dt = start_dt or datetime.datetime.now()
+    if is_second_cron(cron_expr):
+        cur = dt.replace(microsecond=0) + datetime.timedelta(seconds=1)
+        for _ in range(7200):  # up to 2 hours
+            if matches_cron(cron_expr, cur):
+                return cur
+            cur += datetime.timedelta(seconds=1)
+        return cur
+    else:
+        cur = dt.replace(second=0, microsecond=0) + datetime.timedelta(minutes=1)
+        for _ in range(2880):  # 48 hours
+            if matches_cron(cron_expr, cur):
+                return cur
+            cur += datetime.timedelta(minutes=1)
+        return cur
 
 
 class AutonomousScheduler(threading.Thread):
@@ -173,32 +286,39 @@ class AutonomousScheduler(threading.Thread):
 
     Triggers automated speedtest measurements with strict Traffic Gate idle checking
     (< 2% network load condition) to ensure measurements are genuinely accurate and do
-    not disrupt client traffic.
+    not disrupt client traffic. Supports both second-level (6-part cron / seconds interval)
+    and minute/hour-level scheduling.
     """
 
     def __init__(self, cfg: Config):
         super().__init__(name="nmb-autonomous-scheduler", daemon=True)
         self.cfg = cfg
         self.running = False
-        self.last_triggered_minute: Tuple[int, int, int, int, int] = (0, 0, 0, 0, 0)
+        self._stop_event = threading.Event()
+        self.last_triggered_key: Tuple[int, ...] = ()
         self.last_run_timestamp: float = 0.0
         self.last_outcome: str = "idle"  # idle, running, completed, skipped_busy, error
         self.last_detail: str = ""
         self.last_checked_time: float = 0.0
+        self._cycle_running = False
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
 
     def run(self) -> None:
         self.running = True
-        log.info("AutonomousScheduler thread started. Schedule mode: %s, Cron: %s",
+        self._stop_event.clear()
+        sched_cron = getattr(self.cfg.speedtest, "schedule_cron", "0 */6 * * *")
+        log.info("AutonomousScheduler thread started. Schedule mode: %s, Cron: %s (Seconds-level: %s)",
                  getattr(self.cfg.speedtest, "schedule_mode", "scheduled"),
-                 getattr(self.cfg.speedtest, "schedule_cron", "0 */6 * * *"))
+                 sched_cron,
+                 is_second_cron(sched_cron))
 
-        # Wait initial 5 seconds on startup
-        time.sleep(5.0)
+        # Initial wait
+        self._stop_event.wait(3.0)
 
-        while self.running:
+        while self.running and not self._stop_event.is_set():
             try:
                 now = datetime.datetime.now()
                 self.last_checked_time = time.time()
@@ -206,23 +326,31 @@ class AutonomousScheduler(threading.Thread):
                 sched_cron = getattr(self.cfg.speedtest, "schedule_cron", "0 */6 * * *")
 
                 if sched_mode == "scheduled":
-                    current_minute_key = (now.year, now.month, now.day, now.hour, now.minute)
-                    if current_minute_key != self.last_triggered_minute:
-                        log.debug("AutonomousScheduler cron check: cron='%s', dt=%s", sched_cron, now.strftime("%Y-%m-%d %H:%M:%S"))
+                    is_sec = is_second_cron(sched_cron)
+                    current_key = (now.year, now.month, now.day, now.hour, now.minute, now.second) if is_sec else (now.year, now.month, now.day, now.hour, now.minute)
+
+                    if current_key != self.last_triggered_key:
                         if matches_cron(sched_cron, now):
-                            self.last_triggered_minute = current_minute_key
-                            log.info("AutonomousScheduler: scheduled interval triggered (%s). Initiating cycle with Traffic Gate...", sched_cron)
-                            self._execute_cycle()
+                            self.last_triggered_key = current_key
+
+                            # Prevent overlapping cycles if previous test is still active
+                            from nmb.speed.runner import is_speedtest_running
+                            if is_speedtest_running() or self._cycle_running:
+                                log.debug("AutonomousScheduler: previous measurement cycle still running at %s, skipping tick", now.strftime("%Y-%m-%d %H:%M:%S"))
+                            else:
+                                log.info("AutonomousScheduler: scheduled interval triggered (%s). Initiating cycle with Traffic Gate...", sched_cron)
+                                self._execute_cycle()
                     else:
-                        log.debug("AutonomousScheduler already triggered for minute %s", current_minute_key)
+                        log.debug("AutonomousScheduler already triggered for %s", current_key)
                 else:
                     log.debug("AutonomousScheduler idle: mode is %s (not scheduled)", sched_mode)
 
             except Exception as e:
                 log.error("AutonomousScheduler loop exception: %s", e)
 
-            # Sleep 15 seconds between checks
-            time.sleep(15.0)
+            # High precision 1s tick for second-level cron, or 3s tick for minute-level
+            sleep_duration = 1.0 if is_second_cron(getattr(self.cfg.speedtest, "schedule_cron", "")) else 3.0
+            self._stop_event.wait(sleep_duration)
 
         log.info("AutonomousScheduler thread stopped.")
 
@@ -230,6 +358,7 @@ class AutonomousScheduler(threading.Thread):
         """Run measurement cycle in a non-blocking worker thread."""
         def _worker():
             from nmb.speed.runner import run_measurement_cycle
+            self._cycle_running = True
             self.last_outcome = "running"
             self.last_detail = "Measurement cycle in progress..."
             try:
@@ -256,6 +385,8 @@ class AutonomousScheduler(threading.Thread):
                 log.error("AutonomousScheduler worker error: %s", ex)
                 self.last_outcome = "error"
                 self.last_detail = str(ex)
+            finally:
+                self._cycle_running = False
 
         t = threading.Thread(target=_worker, daemon=True, name="nmb-sched-runner")
         t.start()

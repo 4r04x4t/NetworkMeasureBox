@@ -40,7 +40,7 @@ from nmb.speed.iperf import run_iperf_client_test, get_latest_iperf_result, is_i
 from nmb.speed.iperf_directory import fetch_public_iperf_servers, probe_iperf_server
 from nmb.speed.ookla import get_available_servers
 from nmb.speed.runner import run_measurement_cycle
-from nmb.speed.scheduler import AutonomousScheduler, get_cron_description
+from nmb.speed.scheduler import AutonomousScheduler, get_cron_description, normalize_cron_expression
 from nmb.speed.traceroute import run_traceroute, get_latest_traceroute, is_traceroute_running
 from nmb.web.i18n import get_translations_for_lang, TRANSLATIONS
 from nmb.web.templates import get_dashboard_html, get_logout_html
@@ -982,7 +982,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             if sched_mode in ("manual", "scheduled"):
                 self.server.cfg.speedtest.schedule_mode = sched_mode
             if sched_cron and str(sched_cron).strip():
-                self.server.cfg.speedtest.schedule_cron = str(sched_cron).strip()
+                norm_cron = normalize_cron_expression(str(sched_cron).strip())
+                self.server.cfg.speedtest.schedule_cron = norm_cron
             if auto_eng and str(auto_eng).strip():
                 self.server.cfg.speedtest.automated_engine = str(auto_eng).strip().lower()
             if thresh_mode in ("percent", "fixed"):
@@ -1030,7 +1031,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 msg_parts.append(f"Schedule mode: {mode_str}.")
             if sched_cron:
                 user_lang = getattr(self.server.cfg.web, 'language', 'en')
-                msg_parts.append(f"Interval: {get_cron_description(str(sched_cron), user_lang)}.")
+                msg_parts.append(f"Interval: {get_cron_description(self.server.cfg.speedtest.schedule_cron, user_lang)}.")
             if thresh_pct is not None:
                 msg_parts.append(f"Idle gate: < {self.server.cfg.speedtest.idle_threshold_percent:.1f}% network load.")
 
@@ -2431,7 +2432,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if "schedule_cron" in body:
             sc = str(body["schedule_cron"]).strip()
             if sc:
-                cfg.speedtest.schedule_cron = sc
+                cfg.speedtest.schedule_cron = normalize_cron_expression(sc)
         if "automated_engine" in body:
             ae = str(body["automated_engine"]).strip().lower()
             if ae in ("ookla", "cloudflare", "rtr", "iperf3", "all"):

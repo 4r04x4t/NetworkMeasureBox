@@ -1528,17 +1528,28 @@ def get_dashboard_html() -> str:
         </div>
                   <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="script_interval">⏱️ Interval:</span>
           <select id="home-interval-select" class="form-input" style="width: auto; min-width: 170px; padding: 7px 12px; font-size: 13px;" onchange="onHomeIntervalSelect(this.value)">
-            <option value="*/5 * * * *">⚡ 5m (&lt; 2%)</option>
-            <option value="*/10 * * * *">⚡ 10m</option>
-            <option value="*/15 * * * *">⏱️ 15m</option>
-            <option value="*/30 * * * *">⏱️ 30m</option>
-            <option value="0 * * * *">🕐 1h</option>
-            <option value="0 */2 * * *">🕑 2h</option>
-            <option value="0 */4 * * *">🕓 4h</option>
-            <option value="0 */6 * * *" selected>🕕 6h</option>
-            <option value="0 */12 * * *">🕛 12h</option>
-            <option value="0 3 * * *">🌙 24h</option>
-            <option value="manual">🔴 Manual Only</option>
+            <optgroup label="⏱️ Másodpercek (Seconds)" data-i18n-label="sched_group_seconds">
+              <option value="*/5 * * * * *">⚡ 5s (Ultra)</option>
+              <option value="*/10 * * * * *">⚡ 10s</option>
+              <option value="*/15 * * * * *">⚡ 15s</option>
+              <option value="*/20 * * * * *">⚡ 20s</option>
+              <option value="*/30 * * * * *">⏱️ 30s</option>
+              <option value="*/45 * * * * *">⏱️ 45s</option>
+            </optgroup>
+            <optgroup label="🕒 Percek és órák (Minutes &amp; Hours)" data-i18n-label="sched_group_standard">
+              <option value="*/1 * * * *">⚡ 1m (60s)</option>
+              <option value="*/5 * * * *">⚡ 5m (&lt; 2%)</option>
+              <option value="*/10 * * * *">⚡ 10m</option>
+              <option value="*/15 * * * *">⏱️ 15m</option>
+              <option value="*/30 * * * *">⏱️ 30m</option>
+              <option value="0 * * * *">🕐 1h</option>
+              <option value="0 */2 * * *">🕑 2h</option>
+              <option value="0 */4 * * *">🕓 4h</option>
+              <option value="0 */6 * * *" selected>🕕 6h</option>
+              <option value="0 */12 * * *">🕛 12h</option>
+              <option value="0 3 * * *">🌙 24h</option>
+              <option value="manual">🔴 Manual Only</option>
+            </optgroup>
           </select>
         </div>
       </div>
@@ -2850,21 +2861,32 @@ def get_dashboard_html() -> str:
           <div id="sched-interval-container">
             <label class="form-label" style="font-size: 12px;" data-i18n="script_interval">Measurement Interval:</label>
             <select id="sched-interval-select" class="form-input" onchange="onSchedIntervalChange(this.value); markSchedDirty();">
-              <option value="*/5 * * * *">⚡ Every 5 minutes (Ultra frequent - strict &lt;2% gate)</option>
-              <option value="*/10 * * * *">⚡ Every 10 minutes (Frequent)</option>
-              <option value="*/15 * * * *">⏱️ Every 15 minutes</option>
-              <option value="*/30 * * * *">⏱️ Every 30 minutes</option>
-              <option value="0 * * * *">🕐 Every 1 hour</option>
-              <option value="0 */2 * * *">🕑 Every 2 hours</option>
-              <option value="0 */4 * * *">🕓 Every 4 hours</option>
-              <option value="0 */6 * * *" selected>🕕 Every 6 hours (Recommended)</option>
-              <option value="0 */12 * * *">🕛 Every 12 hours</option>
-              <option value="0 3 * * *">🌙 Every 24 hours (Nightly at 03:00)</option>
-              <option value="custom">✏️ Custom interval (Minutes or Cron expression)...</option>
+              <optgroup label="⏱️ Másodperces gyakoriság (Seconds intervals)" data-i18n-label="sched_group_seconds">
+                <option value="*/5 * * * * *">⚡ 5 másodpercenként (5s ultra rapid)</option>
+                <option value="*/10 * * * * *">⚡ 10 másodpercenként (10s frequent)</option>
+                <option value="*/15 * * * * *">⏱️ 15 másodpercenként (15s)</option>
+                <option value="*/20 * * * * *">⏱️ 20 másodpercenként (20s)</option>
+                <option value="*/30 * * * * *">⏱️ 30 másodpercenként (30s)</option>
+                <option value="*/45 * * * * *">⏱️ 45 másodpercenként (45s)</option>
+              </optgroup>
+              <optgroup label="🕒 Normál gyakoriság (Minutes &amp; Hours)" data-i18n-label="sched_group_standard">
+                <option value="*/1 * * * *">⚡ 1 percenként (60s)</option>
+                <option value="*/5 * * * *">⚡ 5 percenként (5 min - &lt; 2% gate)</option>
+                <option value="*/10 * * * *">⚡ 10 percenként (10 min)</option>
+                <option value="*/15 * * * *">⏱️ 15 percenként (15 min)</option>
+                <option value="*/30 * * * *">⏱️ 30 percenként (30 min)</option>
+                <option value="0 * * * *">🕐 1 óránként (1 hour)</option>
+                <option value="0 */2 * * *">🕑 2 óránként (2 hours)</option>
+                <option value="0 */4 * * *">🕓 4 óránként (4 hours)</option>
+                <option value="0 */6 * * *" selected>🕕 6 óránként (6 hours - Recommended)</option>
+                <option value="0 */12 * * *">🕛 12 óránként (12 hours)</option>
+                <option value="0 3 * * *">🌙 24 óránként (Nightly at 03:00)</option>
+                <option value="custom">✏️ Egyedi / Custom (pl. 15s, 10m, cron)...</option>
+              </optgroup>
             </select>
             <div id="sched-custom-cron-wrap" style="display: none; margin-top: 8px;">
-              <input type="text" id="sched-custom-cron-input" placeholder="pl. 15 (perc) vagy */8 * * * * (cron)" class="form-input" oninput="markSchedDirty()">
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;">Specify in minutes (e.g. <code>5</code>, <code>20</code>) or standard 5-field cron syntax.</div>
+              <input type="text" id="sched-custom-cron-input" placeholder="pl. 10s (másodperc), 15 (perc) vagy */15 * * * * * (cron)" data-i18n-placeholder="sched_custom_placeholder" class="form-input" oninput="markSchedDirty()">
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;" data-i18n-html="sched_custom_hint">Másodpercben (pl. <code>10s</code>, <code>30s</code>), percben (pl. <code>5</code>, <code>20m</code>) vagy 5/6 mezős cron formátumban.</div>
             </div>
           </div>
 
@@ -4463,6 +4485,12 @@ def get_dashboard_html() -> str:
       const k = el.getAttribute('data-i18n-title');
       if (currentTranslations[k]) {
         el.title = currentTranslations[k];
+      }
+    });
+    document.querySelectorAll('[data-i18n-label]').forEach(el => {
+      const k = el.getAttribute('data-i18n-label');
+      if (currentTranslations[k]) {
+        el.label = currentTranslations[k];
       }
     });
     if (typeof cachedGuestWifiStatus !== 'undefined' && cachedGuestWifiStatus) {
