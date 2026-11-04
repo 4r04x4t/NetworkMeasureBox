@@ -275,6 +275,29 @@ class TestHeadlessFeatures(unittest.TestCase):
                     self.assertIn("hidden", first_call_args)
                     self.assertIn("yes", first_call_args)
 
+    def test_rtr_dual_stack_binding(self):
+        from nmb.speed.rmbt import connection, control
+        from nmb.speed.rtr import execute_rtr_speedtest
+
+        # Verify IPv4 binding sets c01v4 endpoint
+        connection.set_bind_target(interface="eth0", bind_ip="192.168.1.50")
+        self.assertEqual(connection._bound_source_ip, "192.168.1.50")
+        self.assertEqual(connection._bound_interface, "eth0")
+
+        # Verify handler builds connections with source_address
+        h = control._BoundHTTPSHandler(source_ip="192.168.1.50")
+        conn = h._build_conn("c01.netztest.at")
+        self.assertEqual(conn.source_address, ("192.168.1.50", 0))
+
+        # Verify IPv6 binding handler
+        h6 = control._BoundHTTPSHandler(source_ip="2a01:36d::1")
+        conn6 = h6._build_conn("c01.netztest.at")
+        self.assertEqual(conn6.source_address, ("2a01:36d::1", 0))
+
+        # Reset binding
+        connection.set_bind_target(None, None)
+        self.assertIsNone(connection._bound_source_ip)
+
 
 if __name__ == "__main__":
     unittest.main()

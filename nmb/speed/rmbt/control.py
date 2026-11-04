@@ -1,9 +1,12 @@
+import http.client
 import json
 import time
 import urllib.request
 import urllib.error
 from dataclasses import dataclass
 from typing import Optional
+
+from . import connection
 
 
 @dataclass
@@ -20,6 +23,36 @@ class TestParams:
     server_type:    str
 
 
+class _BoundHTTPHandler(urllib.request.HTTPHandler):
+    def __init__(self, source_ip=None, interface=None, **kwargs):
+        super().__init__(**kwargs)
+        self.source_ip = source_ip
+        self.interface = interface
+
+    def http_open(self, req):
+        return self.do_open(self._build_conn, req)
+
+    def _build_conn(self, host, **kwargs):
+        if self.source_ip:
+            kwargs['source_address'] = (self.source_ip, 0)
+        return http.client.HTTPConnection(host, **kwargs)
+
+
+class _BoundHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, source_ip=None, interface=None, **kwargs):
+        super().__init__(**kwargs)
+        self.source_ip = source_ip
+        self.interface = interface
+
+    def https_open(self, req):
+        return self.do_open(self._build_conn, req)
+
+    def _build_conn(self, host, **kwargs):
+        if self.source_ip:
+            kwargs['source_address'] = (self.source_ip, 0)
+        return http.client.HTTPSConnection(host, **kwargs)
+
+
 def _post(url, body, debug):
     data = json.dumps(body).encode()
     if debug:
@@ -27,11 +60,31 @@ def _post(url, body, debug):
         print(f'[debug] request body:\n{json.dumps(body, indent=2)}', flush=True)
     req = urllib.request.Request(
         url, data=data, headers={'Content-Type': 'application/json'})
+
+    bound_ip = connection._bound_source_ip
+    bound_iface = connection._bound_interface
+    if bound_ip:
+        opener = urllib.request.build_opener(
+            _BoundHTTPHandler(source_ip=bound_ip, interface=bound_iface),
+            _BoundHTTPSHandler(source_ip=bound_ip, interface=bound_iface),
+        )
+    else:
+        opener = urllib.request.build_opener()
+
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with opener.open(req, timeout=30) as resp:
             raw = resp.read().decode()
     except urllib.error.HTTPError as e:
         raise RuntimeError(f'HTTP {e.code}: {e.read().decode().strip()}')
+    except Exception as e:
+        if bound_ip:
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    raw = resp.read().decode()
+            except Exception:
+                raise e
+        else:
+            raise e
     if debug:
         try:
             pretty = json.dumps(json.loads(raw), indent=2)

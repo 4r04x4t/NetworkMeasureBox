@@ -37,7 +37,9 @@ class RmbtConn:
             try:
                 src_is_v6 = ":" in _bound_source_ip
                 if "httpv6" in target_host and not src_is_v6:
-                    target_host = target_host.replace("httpv6", "http")
+                    target_host = target_host.replace("httpv6", "httpv4")
+                elif "httpv4" in target_host and src_is_v6:
+                    target_host = target_host.replace("httpv4", "httpv6")
                 resolved = socket.getaddrinfo(target_host, port)
                 has_matching = any(
                     (r[0] == socket.AF_INET6 and src_is_v6) or (r[0] == socket.AF_INET and not src_is_v6)
