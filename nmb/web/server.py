@@ -397,6 +397,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(detect_os_info())
             return
 
+        if path == "/api/system/tasks":
+            from nmb.common.tasks import get_full_task_manager_payload
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            limit = int(qs.get("limit", ["150"])[0])
+            self._send_json(get_full_task_manager_payload(limit=limit))
+            return
+
         if path in ("/api/system/interfaces", "/api/system/ports"):
             self._send_json(get_interfaces_matrix(self.server.cfg))
             return
@@ -1501,6 +1508,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 8.1 Memory Profile & Heap Trimming
+        if path == "/api/system/tasks/kill":
+            from nmb.common.tasks import kill_process
+            pid = int(body_json.get("pid", 0))
+            sig = int(body_json.get("signal", 15))
+            res = kill_process(pid=pid, sig_num=sig)
+            self._send_json(res)
+            return
+
         if path == "/api/system/memory_profile":
             new_prof = str(body_json.get("memory_profile", body_json.get("profile", "auto"))).strip().lower()
             if new_prof in ("auto", "low", "standard", "performance"):
@@ -2165,9 +2180,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
             # Auto-elevate via sudo if non-root and command requires system admin privileges
             effective_cmd = cmd
-            if os.geteuid() != 0 and shutil.which("sudo") and not cmd.startswith("sudo"):
+            first_word = cmd.split()[0].lower() if cmd.split() else ""
+            is_htop_alias = False
+            if first_word in ("htop", "top"):
+                effective_cmd = "top -b -n 1"
+                is_htop_alias = True
+            elif os.geteuid() != 0 and shutil.which("sudo") and not cmd.startswith("sudo"):
                 root_cmds = ("apt", "apt-get", "systemctl", "dpkg", "reboot", "poweroff", "shutdown", "wg-quick", "hostapd", "iptables", "nft", "ip", "nmcli")
-                first_word = cmd.split()[0] if cmd.split() else ""
                 if first_word in root_cmds:
                     effective_cmd = f"sudo -n {cmd}"
 
@@ -2196,6 +2215,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     output = (output + "\n" if output else "") + proc.stderr
                 if not output:
                     output = "(Command completed with no output)"
+                if is_htop_alias:
+                    output += "\n\n💡 [Tipp] Az interaktív feladatkezelőhöz használd a WebUI '📊 Tasks & Load' (Feladatkezelő & Terhelés) fülét: valós idejű magonkénti CPU mérők, RAM/Swap diagram, kattintható rendezés, keresés és folyamatleállítás!"
                 self._send_json({
                     "status": "ok",
                     "command": cmd,

@@ -1909,7 +1909,8 @@ def get_dashboard_html() -> str:
     <button class="app-tab-btn" onclick="switchTab('tab-portscan')" data-i18n="tab_portscan">Port Neutrality</button>
     <button class="app-tab-btn" onclick="switchTab('tab-script')" data-i18n="tab_script">Measurement & Servers</button>
     <button class="app-tab-btn" onclick="switchTab('tab-syslog')" data-i18n="tab_syslog">🛠️ Developer & System Logs</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminal</button>
+        <button class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminal</button>
+    <button class="app-tab-btn" onclick="switchTab('tab-tasks')" data-i18n="tab_tasks">📊 Tasks & Load</button>
     <button class="app-tab-btn" onclick="switchTab('tab-info')" data-i18n="tab_router">🛠️ Router & System</button>
     <button class="app-tab-btn" onclick="switchTab('tab-llm')" data-i18n="tab_llm">🤖 AI Diagnostics (LLM)</button>
   </div>
@@ -5843,6 +5844,162 @@ def get_dashboard_html() -> str:
     </div>
   </div>
 
+  <!-- TAB: TASKS & SYSTEM LOAD (HTOP WEB VIEW) -->
+  <div id="tab-tasks" class="tab-content">
+    <div class="app-box">
+      <!-- Top Title and Auto-Refresh Controls -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <div class="section-subtitle" style="margin: 0;" data-i18n="tasks_title">📊 Real-Time System Task Manager & Resource Monitor</div>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;" data-i18n="tasks_desc">
+            Live interactive process manager and hardware utilization telemetry (htop web view) with per-core CPU meters, RAM/Swap metrics, search, sorting, and safe termination.
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+            <span>⏱️ Refresh:</span>
+            <select id="tasks-refresh-rate" class="form-input" style="padding: 2px 6px; font-size: 11px; height: 26px; width: 80px;" onchange="changeTasksRefreshRate(this.value)">
+              <option value="1000">1s</option>
+              <option value="2000" selected>2s</option>
+              <option value="5000">5s</option>
+              <option value="0">Pause</option>
+            </select>
+          </div>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadTasksOverview()" data-i18n="tasks_btn_refresh">🔄 Refresh Now</button>
+        </div>
+      </div>
+
+      <!-- Telemetry Grid: CPU Cores, Memory/Swap, Summary -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-bottom: 20px;">
+        
+        <!-- CPU Card -->
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;">
+            <span style="font-weight: 600; font-size: 13px; color: #38bdf8;" data-i18n="tasks_card_cpu">⚡ CPU Cores & Utilization</span>
+            <span id="tasks-cpu-total-badge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #38bdf8; font-size: 11px;">0.0% Total</span>
+          </div>
+          <div id="tasks-cpu-cores-list" style="display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 12px;">
+            <div style="color: var(--text-muted); font-size: 12px;">Waiting for telemetry...</div>
+          </div>
+          <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px;">
+            <span>Freq: <b id="tasks-cpu-freq">-- MHz</b></span>
+            <span>Temp: <b id="tasks-cpu-temp">-- °C</b></span>
+          </div>
+        </div>
+
+        <!-- Memory & Swap Card -->
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;">
+            <span style="font-weight: 600; font-size: 13px; color: #a855f7;" data-i18n="tasks_card_mem">💾 Memory & Swap Telemetry</span>
+            <span id="tasks-mem-total-badge" class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid #a855f7; font-size: 11px;">0% Used</span>
+          </div>
+          
+          <!-- Physical RAM -->
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11.5px; font-family: monospace; margin-bottom: 4px;">
+              <span>RAM: <span id="tasks-ram-text" style="color: #cbd5e1;">0 MB / 0 MB</span></span>
+              <span id="tasks-ram-percent" style="font-weight: 600; color: #a855f7;">0%</span>
+            </div>
+            <div style="height: 10px; background: rgba(255,255,255,0.08); border-radius: 5px; overflow: hidden; display: flex;">
+              <div id="tasks-ram-bar-used" style="background: #a855f7; width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+              <div id="tasks-ram-bar-buff" style="background: #3b82f6; width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+              <div id="tasks-ram-bar-cache" style="background: #10b981; width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 10px; color: #94a3b8; margin-top: 4px;">
+              <span><span style="color: #a855f7;">■</span> Used</span>
+              <span><span style="color: #3b82f6;">■</span> Buffers</span>
+              <span><span style="color: #10b981;">■</span> Cache</span>
+            </div>
+          </div>
+
+          <!-- Swap -->
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 11.5px; font-family: monospace; margin-bottom: 4px;">
+              <span>Swap: <span id="tasks-swap-text" style="color: #cbd5e1;">0 MB / 0 MB</span></span>
+              <span id="tasks-swap-percent" style="font-weight: 600; color: #ec4899;">0%</span>
+            </div>
+            <div style="height: 10px; background: rgba(255,255,255,0.08); border-radius: 5px; overflow: hidden;">
+              <div id="tasks-swap-bar" style="background: #ec4899; width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary & Load Card -->
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;">
+            <span style="font-weight: 600; font-size: 13px; color: #10b981;" data-i18n="tasks_card_summary">📋 System Summary & Load</span>
+            <span id="tasks-uptime-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">Up: --</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #94a3b8;">Load Average (1m, 5m, 15m):</span>
+              <span id="tasks-loadavg-text" style="font-family: monospace; font-weight: 600; color: #34d399;">--</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #94a3b8;">Total Tasks:</span>
+              <span id="tasks-count-total" style="font-family: monospace; font-weight: 600; color: #f8fafc;">0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #94a3b8;">Running / Sleeping:</span>
+              <span style="font-family: monospace; font-weight: 600;"><span id="tasks-count-running" style="color: #34d399;">0</span> / <span id="tasks-count-sleeping" style="color: #64748b;">0</span></span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #94a3b8;">Zombie / Other:</span>
+              <span id="tasks-count-zombie" style="font-family: monospace; font-weight: 600; color: #ef4444;">0</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Process Table Controls & Filtering -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; gap: 8px; align-items: center; flex: 1; max-width: 450px;">
+          <input type="text" id="tasks-search-input" class="form-input" style="font-size: 12px; height: 32px;" placeholder="Filter by command, PID, or user..." data-i18n-placeholder="tasks_filter_placeholder" oninput="onTasksSearchInput(this.value)">
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button class="btn-secondary active" id="tasks-filter-btn-all" style="font-size: 11px; padding: 4px 10px;" onclick="setTasksCategoryFilter('all')">All Processes</button>
+          <button class="btn-secondary" id="tasks-filter-btn-nmb" style="font-size: 11px; padding: 4px 10px;" onclick="setTasksCategoryFilter('nmb')">NMB Only</button>
+          <button class="btn-secondary" id="tasks-filter-btn-apps" style="font-size: 11px; padding: 4px 10px;" onclick="setTasksCategoryFilter('apps')">User Apps</button>
+        </div>
+      </div>
+
+      <!-- Process Table -->
+      <div style="overflow-x: auto; background: rgba(10, 15, 29, 0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+        <table style="width: 100%; border-collapse: collapse; font-family: monospace; font-size: 11.5px; text-align: left;">
+          <thead>
+            <tr style="background: rgba(30, 41, 59, 0.8); border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8; user-select: none;">
+              <th style="padding: 8px 10px; cursor: pointer;" onclick="sortTasksTable('pid')" data-i18n="tasks_col_pid">PID ⬍</th>
+              <th style="padding: 8px 10px; cursor: pointer;" onclick="sortTasksTable('user')" data-i18n="tasks_col_user">USER ⬍</th>
+              <th style="padding: 8px 10px;" data-i18n="tasks_col_pri">PRI</th>
+              <th style="padding: 8px 10px;" data-i18n="tasks_col_ni">NI</th>
+              <th style="padding: 8px 10px;" data-i18n="tasks_col_virt">VIRT</th>
+              <th style="padding: 8px 10px;" data-i18n="tasks_col_res">RES</th>
+              <th style="padding: 8px 10px;" data-i18n="tasks_col_shr">SHR</th>
+              <th style="padding: 8px 10px;" data-i18n="tasks_col_state">STAT</th>
+              <th style="padding: 8px 10px; cursor: pointer; color: #38bdf8;" onclick="sortTasksTable('cpu_percent')" data-i18n="tasks_col_cpu">CPU% ▼</th>
+              <th style="padding: 8px 10px; cursor: pointer; color: #a855f7;" onclick="sortTasksTable('mem_percent')" data-i18n="tasks_col_mem">MEM% ⬍</th>
+              <th style="padding: 8px 10px;" data-i18n="tasks_col_time">TIME+</th>
+              <th style="padding: 8px 10px; cursor: pointer;" onclick="sortTasksTable('command')" data-i18n="tasks_col_command">COMMAND ⬍</th>
+              <th style="padding: 8px 10px; text-align: center;" data-i18n="tasks_col_actions">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="tasks-procs-tbody">
+            <tr>
+              <td colspan="13" style="text-align: center; padding: 20px; color: var(--text-muted);">Loading task table...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 8px; font-size: 11px; color: #64748b; display: flex; justify-content: space-between;">
+        <span id="tasks-table-footer-count">Showing 0 processes</span>
+        <span>Tip: Click column headers to sort. PID 1 & Server are protected.</span>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 
 <!-- Toast notification box -->
@@ -6060,6 +6217,11 @@ def get_dashboard_html() -> str:
     }
     if (tabId === 'tab-terminal') {
       initTerminal();
+    }
+    if (tabId === 'tab-tasks') {
+      startTasksAutoRefresh();
+    } else {
+      stopTasksAutoRefresh();
     }
     if (tabId === 'tab-info') {
       loadConfig();
@@ -13228,6 +13390,274 @@ def get_logout_html() -> str:
     const sel = document.getElementById('lang-select');
     if (sel) sel.value = activeLang;
     loadTranslations(activeLang);
+
+  // --- REAL-TIME TASK MANAGER & PROCESS MONITOR (HTOP WEB VIEW) ---
+  const tasksState = {
+    pollingTimer: null,
+    pollIntervalMs: 2000,
+    searchQuery: '',
+    categoryFilter: 'all',
+    sortKey: 'cpu_percent',
+    sortAsc: false,
+    processes: [],
+    telemetry: null
+  };
+
+  async function loadTasksOverview() {
+    try {
+      const res = await fetch('/api/system/tasks?limit=200');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || data.status !== 'ok') return;
+
+      tasksState.telemetry = data;
+      tasksState.processes = data.processes || [];
+
+      // Update CPU meters
+      const cpu = data.cpu || {};
+      const totalCpu = typeof cpu.total_percent === 'number' ? cpu.total_percent.toFixed(1) : '0.0';
+      const totalBadge = document.getElementById('tasks-cpu-total-badge');
+      if (totalBadge) totalBadge.textContent = totalCpu + '% Total';
+
+      const coresList = document.getElementById('tasks-cpu-cores-list');
+      if (coresList && Array.isArray(cpu.cores)) {
+        coresList.innerHTML = cpu.cores.map((c, i) => {
+          const pct = Math.max(0, Math.min(100, c.percent || 0)).toFixed(1);
+          let barColor = '#10b981';
+          if (c.percent > 85) barColor = '#ef4444';
+          else if (c.percent > 60) barColor = '#f59e0b';
+          else if (c.percent > 30) barColor = '#3b82f6';
+          return `
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+                <span>Core ${i}</span>
+                <span style="color: ${barColor}; font-weight: bold;">${pct}%</span>
+              </div>
+              <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                <div style="width: ${pct}%; height: 100%; background: ${barColor}; transition: width 0.3s ease;"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const freqEl = document.getElementById('tasks-cpu-freq');
+      if (freqEl) freqEl.textContent = cpu.cpu_freq_mhz ? `${cpu.cpu_freq_mhz} MHz` : 'N/A';
+      const tempEl = document.getElementById('tasks-cpu-temp');
+      if (tempEl) tempEl.textContent = cpu.temp_c ? `${cpu.temp_c} °C` : 'N/A';
+
+      // Update Memory & Swap
+      const mem = data.memory || {};
+      const memPct = mem.used_percent ? mem.used_percent.toFixed(1) : '0.0';
+      const memBadge = document.getElementById('tasks-mem-total-badge');
+      if (memBadge) memBadge.textContent = `${memPct}% Used`;
+
+      const ramText = document.getElementById('tasks-ram-text');
+      if (ramText) ramText.textContent = `${mem.used_mb || 0} MB / ${mem.total_mb || 0} MB`;
+      const ramPctEl = document.getElementById('tasks-ram-percent');
+      if (ramPctEl) ramPctEl.textContent = `${memPct}%`;
+
+      const ramTotal = mem.total_mb || 1;
+      const usedPct = ((mem.used_mb || 0) / ramTotal * 100).toFixed(1);
+      const buffPct = ((mem.buffers_mb || 0) / ramTotal * 100).toFixed(1);
+      const cachePct = ((mem.cached_mb || 0) / ramTotal * 100).toFixed(1);
+
+      const ramBarUsed = document.getElementById('tasks-ram-bar-used');
+      if (ramBarUsed) ramBarUsed.style.width = usedPct + '%';
+      const ramBarBuff = document.getElementById('tasks-ram-bar-buff');
+      if (ramBarBuff) ramBarBuff.style.width = buffPct + '%';
+      const ramBarCache = document.getElementById('tasks-ram-bar-cache');
+      if (ramBarCache) ramBarCache.style.width = cachePct + '%';
+
+      const swap = data.swap || {};
+      const swapPct = swap.used_percent ? swap.used_percent.toFixed(1) : '0.0';
+      const swapText = document.getElementById('tasks-swap-text');
+      if (swapText) swapText.textContent = `${swap.used_mb || 0} MB / ${swap.total_mb || 0} MB`;
+      const swapPctEl = document.getElementById('tasks-swap-percent');
+      if (swapPctEl) swapPctEl.textContent = `${swapPct}%`;
+      const swapBar = document.getElementById('tasks-swap-bar');
+      if (swapBar) swapBar.style.width = swapPct + '%';
+
+      // Update Summary
+      const summary = data.summary || {};
+      const uptimeBadge = document.getElementById('tasks-uptime-badge');
+      if (uptimeBadge) uptimeBadge.textContent = `Up: ${summary.uptime_formatted || '--'}`;
+
+      const loadavgEl = document.getElementById('tasks-loadavg-text');
+      if (loadavgEl && summary.load_avg) {
+        loadavgEl.textContent = `${summary.load_avg['1m']}  ${summary.load_avg['5m']}  ${summary.load_avg['15m']}`;
+      }
+
+      const totalTasksEl = document.getElementById('tasks-count-total');
+      if (totalTasksEl) totalTasksEl.textContent = summary.tasks_total || 0;
+      const runningEl = document.getElementById('tasks-count-running');
+      if (runningEl) runningEl.textContent = summary.tasks_running || 0;
+      const sleepingEl = document.getElementById('tasks-count-sleeping');
+      if (sleepingEl) sleepingEl.textContent = summary.tasks_sleeping || 0;
+      const zombieEl = document.getElementById('tasks-count-zombie');
+      if (zombieEl) zombieEl.textContent = summary.tasks_zombie || 0;
+
+      // Render processes table
+      renderTasksTable();
+    } catch (e) {
+      console.error('loadTasksOverview error:', e);
+    }
+  }
+
+  function renderTasksTable() {
+    const tbody = document.getElementById('tasks-procs-tbody');
+    if (!tbody) return;
+
+    let procs = tasksState.processes.slice();
+
+    // Category filter
+    if (tasksState.categoryFilter === 'nmb') {
+      procs = procs.filter(p => p.is_nmb);
+    } else if (tasksState.categoryFilter === 'apps') {
+      procs = procs.filter(p => !['root', 'syslog', 'messagebus', 'avahi', 'systemd-timesync'].includes(p.user));
+    }
+
+    // Search query filter
+    if (tasksState.searchQuery) {
+      const q = tasksState.searchQuery.toLowerCase();
+      procs = procs.filter(p => {
+        return (p.command && p.command.toLowerCase().includes(q)) ||
+               (p.args && p.args.toLowerCase().includes(q)) ||
+               (p.user && p.user.toLowerCase().includes(q)) ||
+               String(p.pid).includes(q);
+      });
+    }
+
+    // Sort
+    const key = tasksState.sortKey;
+    const asc = tasksState.sortAsc;
+    procs.sort((a, b) => {
+      let valA = a[key];
+      let valB = b[key];
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+      if (valA < valB) return asc ? -1 : 1;
+      if (valA > valB) return asc ? 1 : -1;
+      return 0;
+    });
+
+    const countEl = document.getElementById('tasks-table-footer-count');
+    if (countEl) countEl.textContent = `Showing ${procs.length} of ${tasksState.processes.length} processes`;
+
+    if (procs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 20px; color: var(--text-muted);">No processes matching filter</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = procs.map(p => {
+      const isProtected = p.pid === 1 || (tasksState.telemetry && p.pid === tasksState.telemetry.server_pid);
+      const isNmb = p.is_nmb;
+      const rowBg = isNmb ? 'rgba(56, 189, 248, 0.05)' : 'transparent';
+      const cmdDisplay = p.args ? p.args : p.command;
+      const cpuColor = p.cpu_percent > 50 ? '#ef4444' : (p.cpu_percent > 10 ? '#f59e0b' : '#38bdf8');
+      const memColor = p.mem_percent > 20 ? '#ec4899' : '#a855f7';
+
+      return `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); background: ${rowBg};">
+          <td style="padding: 6px 10px; color: #f8fafc; font-weight: bold;">${p.pid}</td>
+          <td style="padding: 6px 10px; color: ${p.user === 'root' ? '#f59e0b' : '#94a3b8'};">${p.user}</td>
+          <td style="padding: 6px 10px; color: #64748b;">${p.pri}</td>
+          <td style="padding: 6px 10px; color: #64748b;">${p.ni}</td>
+          <td style="padding: 6px 10px; color: #64748b;">${p.virt_h}</td>
+          <td style="padding: 6px 10px; color: #94a3b8;">${p.res_h}</td>
+          <td style="padding: 6px 10px; color: #64748b;">${p.shr_h}</td>
+          <td style="padding: 6px 10px; color: ${p.stat && p.stat.startsWith('R') ? '#34d399' : '#94a3b8'}; font-weight: 600;">${p.stat}</td>
+          <td style="padding: 6px 10px; color: ${cpuColor}; font-weight: bold;">${p.cpu_percent.toFixed(1)}</td>
+          <td style="padding: 6px 10px; color: ${memColor};">${p.mem_percent.toFixed(1)}</td>
+          <td style="padding: 6px 10px; color: #94a3b8;">${p.time}</td>
+          <td style="padding: 6px 10px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${cmdDisplay}">
+            ${isNmb ? '<span style="color: #38bdf8; font-weight: bold;">[NMB] </span>' : ''}${cmdDisplay}
+          </td>
+          <td style="padding: 6px 10px; text-align: center;">
+            ${isProtected ?
+              '<span style="font-size: 10px; color: #64748b;">(Protected)</span>' :
+              `<div style="display: flex; gap: 4px; justify-content: center;">
+                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3);" onclick="promptKillProcess(${p.pid}, '${p.command}', 15)" title="Graceful SIGTERM">Term</button>
+                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5);" onclick="promptKillProcess(${p.pid}, '${p.command}', 9)" title="Force SIGKILL">Kill</button>
+              </div>`
+            }
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function sortTasksTable(key) {
+    if (tasksState.sortKey === key) {
+      tasksState.sortAsc = !tasksState.sortAsc;
+    } else {
+      tasksState.sortKey = key;
+      tasksState.sortAsc = (key === 'user' || key === 'command');
+    }
+    renderTasksTable();
+  }
+
+  function onTasksSearchInput(val) {
+    tasksState.searchQuery = (val || '').trim();
+    renderTasksTable();
+  }
+
+  function setTasksCategoryFilter(cat) {
+    tasksState.categoryFilter = cat;
+    ['all', 'nmb', 'apps'].forEach(c => {
+      const b = document.getElementById(`tasks-filter-btn-${c}`);
+      if (b) {
+        if (c === cat) b.classList.add('active');
+        else b.classList.remove('active');
+      }
+    });
+    renderTasksTable();
+  }
+
+  function changeTasksRefreshRate(msStr) {
+    const ms = parseInt(msStr, 10);
+    tasksState.pollIntervalMs = ms;
+    startTasksAutoRefresh();
+  }
+
+  function startTasksAutoRefresh() {
+    stopTasksAutoRefresh();
+    loadTasksOverview();
+    if (tasksState.pollIntervalMs > 0) {
+      tasksState.pollingTimer = setInterval(loadTasksOverview, tasksState.pollIntervalMs);
+    }
+  }
+
+  function stopTasksAutoRefresh() {
+    if (tasksState.pollingTimer) {
+      clearInterval(tasksState.pollingTimer);
+      tasksState.pollingTimer = null;
+    }
+  }
+
+  async function promptKillProcess(pid, comm, signal) {
+    const sigName = signal === 9 ? 'SIGKILL (Kényszerített)' : 'SIGTERM (Szabályos leállítás)';
+    if (!confirm(`Biztosan le akarod állítani ezt a folyamatot?\nPID: ${pid}\nParancs: ${comm}\nSzignál: ${sigName}`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/system/tasks/kill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pid: pid, signal: signal })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'ok') {
+        showToast(data.message || 'Folyamat leállítva.');
+        loadTasksOverview();
+      } else {
+        showToast('Hiba a folyamat leállításakor: ' + (data.message || data.error || 'Ismeretlen hiba'));
+      }
+    } catch (e) {
+      showToast('Hálózati hiba: ' + e);
+    }
+  }
+
   </script>
 </body>
 </html>"""
