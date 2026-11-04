@@ -1,0 +1,11 @@
+[Unit]
+Description=NetworkMeasureBox Invasive Diagnostic Snapshot Timer (3-minute cadence)
+Documentation=https://github.com/4r04x4t/NetworkMeasureBox
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=3min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

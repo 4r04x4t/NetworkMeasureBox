@@ -20,3 +20,4 @@ if '--json' in sys.argv:
 else:
     print(md)
 " "$@"
+

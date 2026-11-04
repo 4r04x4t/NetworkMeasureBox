@@ -51,7 +51,11 @@ class ProbeEngine:
         self.running = False
         self.ident = os.getpid() & 0xFFFF
         self.seq = 0
-        bind_dev = cfg.network.wan_interface if cfg.network.wan_interface else None
+        from nmb.netd.interfaces import find_preferred_measurement_interface
+        pref_iface, pref_ip, is_wired = find_preferred_measurement_interface(cfg)
+        bind_dev = pref_iface if is_wired else (cfg.network.wan_interface or pref_iface or None)
+        if is_wired:
+            log.info("ProbeEngine: active wired Ethernet detected on %s (carrier=1); strictly prioritizing wired interface for latency probing", bind_dev)
         self.sock, self.is_raw = create_icmp_socket(bind_iface=bind_dev)
 
         # High-performance kernel epoll event loop

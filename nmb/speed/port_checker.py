@@ -44,17 +44,38 @@ class PortCheckResult:
 DNS_A_QUERY = b"\xaa\xbb\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07example\x03com\x00\x00\x01\x00\x01"
 
 
-def test_tcp_port(host: str, port: int, timeout_sec: float = 3.5) -> Tuple[Optional[int], str]:
+def test_tcp_port(
+    host: str,
+    port: int,
+    timeout_sec: float = 3.5,
+    source_ip: Optional[str] = None,
+    bind_iface: Optional[str] = None,
+) -> Tuple[Optional[int], str]:
     """Test TCP port connectivity and achievable handshake/transfer rate.
 
     Sends protocol-appropriate probes:
       - Port 53: Valid DNS A-record query with 2-byte TCP length framing.
       - Ports 80, 8080, 8443, 443: HTTP GET requests with byte accounting.
+    Supports binding strictly to interface or source IP for wired Ethernet priority.
     Returns (achievable_bps, status).
     """
     try:
         t0 = time.monotonic()
-        with socket.create_connection((host, port), timeout=timeout_sec) as s:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout_sec)
+        if bind_iface:
+            try:
+                SO_BINDTODEVICE = 25
+                s.setsockopt(socket.SOL_SOCKET, SO_BINDTODEVICE, bind_iface.encode("utf-8") + b"\x00")
+            except (PermissionError, OSError):
+                pass
+        if source_ip:
+            try:
+                s.bind((source_ip, 0))
+            except Exception:
+                pass
+        s.connect((host, port))
+        with s:
             t_connect = time.monotonic()
 
             if port == 53:
@@ -101,24 +122,35 @@ def test_tcp_port(host: str, port: int, timeout_sec: float = 3.5) -> Tuple[Optio
 
 def run_port_neutrality_check(
     ports: Optional[List[int]] = None,
-    baseline_port: int = 443
+    baseline_port: int = 443,
+    interface: Optional[str] = None,
+    bind_ip: Optional[str] = None,
 ) -> List[PortCheckResult]:
-    """Run port throttling checks against target ports and compare to baseline."""
+    """Run port throttling checks against target ports and compare to baseline, bound to preferred wired connection."""
     test_ports = ports or DEFAULT_PORTS
     results: List[PortCheckResult] = []
 
+    if not interface or not bind_ip:
+        try:
+            from nmb.netd.interfaces import find_preferred_measurement_interface
+            pref_if, pref_ip, _ = find_preferred_measurement_interface()
+            interface = interface or pref_if
+            bind_ip = bind_ip or pref_ip
+        except Exception:
+            pass
+
     # 1. Establish baseline on unthrottled port 443
     base_host, _ = TEST_HOSTS.get(baseline_port, ("1.1.1.1", baseline_port))
-    baseline_bps, base_status = test_tcp_port(base_host, baseline_port)
+    baseline_bps, base_status = test_tcp_port(base_host, baseline_port, source_ip=bind_ip, bind_iface=interface)
     if baseline_bps is None or baseline_bps <= 0:
         baseline_bps = 5_000_000  # Fallback baseline if reference test inconclusive
 
-    log.info("net-neutrality check: baseline (port %d) transfer rate: %d bps", baseline_port, baseline_bps)
+    log.info("net-neutrality check: baseline (port %d, iface=%s, ip=%s) transfer rate: %d bps", baseline_port, interface, bind_ip, baseline_bps)
 
     # 2. Check each target port
     for port in test_ports:
         host, p = TEST_HOSTS.get(port, ("1.1.1.1", port))
-        bps, status = test_tcp_port(host, p)
+        bps, status = test_tcp_port(host, p, source_ip=bind_ip, bind_iface=interface)
 
         if status == "blocked":
             results.append(PortCheckResult(

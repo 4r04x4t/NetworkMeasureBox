@@ -164,3 +164,4 @@ def get_smart_rotated_server(target_server_id: Optional[int] = None) -> Optional
     chosen_id = candidates[0][1]
     log.info("smart server rotation selected Ookla server %d (least recently used)", chosen_id)
     return chosen_id
+

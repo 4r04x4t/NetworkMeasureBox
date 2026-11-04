@@ -241,8 +241,17 @@ case "${1:-}" in
             PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.report.invasive_logger import generate_invasive_snapshot; md, _ = generate_invasive_snapshot(force_write=True); print(md)"
         fi
         ;;
+    diagnostic-bundle)
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.report.crash_trap import create_diagnostic_bundle; p = create_diagnostic_bundle(); print(p)"
+        ;;
+    crashes-list)
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "import json; from nmb.report.crash_trap import list_crash_reports; print(json.dumps(list_crash_reports(), indent=2))"
+        ;;
+    crashes-clear)
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.report.crash_trap import clear_crash_reports; n = clear_crash_reports(); print(f'Cleared {n} crash report(s).')"
+        ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|invasive-log}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|invasive-log|diagnostic-bundle|crashes-list|crashes-clear}" >&2
         exit 1
         ;;
 esac

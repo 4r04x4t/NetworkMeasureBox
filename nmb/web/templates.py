@@ -4862,6 +4862,9 @@ def get_dashboard_html() -> str:
               </p>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="/api/dev/diagnostic-bundle.tar.gz" download="nmb_diagnostic_bundle.tar.gz" class="btn-primary" style="font-size: 12px; padding: 7px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; background: #059669; border-color: #10b981;">
+                📦 Teljes Csomag (.tar.gz)
+              </a>
               <a href="/api/dev/invasive-log.md" download="nmb_invasive_dev_snapshot.md" class="btn-primary" style="font-size: 12px; padding: 7px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" data-i18n="btn_invasive_download">
                 📥 Fejlesztői Log Letöltése (.md)
               </a>
@@ -4875,12 +4878,13 @@ def get_dashboard_html() -> str:
           </div>
 
           <!-- Status Indicators Row -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px;">
             <!-- Wired Priority Status -->
             <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
               <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_cable_status">Mérési Interfész Elsőbbség:</div>
-              <div id="diag-cable-badge" style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
-                <span>🔌</span> <span id="diag-cable-txt">Ellenőrzés...</span>
+              <div id="diag-cable-badge" style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
+                <span>🔌 <span id="diag-cable-txt">Ellenőrzés...</span></span>
+                <button class="btn-secondary" style="font-size: 10px; padding: 3px 8px;" onclick="enforceWiredPriority()">Prioritás</button>
               </div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" id="diag-cable-sub">Bedugott kábel esetén a vezetékes kapcsolat szigorúan elsőbbséget élvez</div>
             </div>
@@ -4892,7 +4896,7 @@ def get_dashboard_html() -> str:
                 <span>🛡️ <span id="diag-antiban-txt">Aktív (0 szerver karanténban)</span></span>
                 <button class="btn-secondary" style="font-size: 10px; padding: 3px 8px;" onclick="clearOoklaQuarantine()" data-i18n="btn_clear_quarantine">Karantén törlése</button>
               </div>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">429-es vagy foglaltsági hibánál automatikus szervercsere és RTR/Cloudflare tartalék</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">429-es hibánál automatikus szervercsere és RTR/Cloudflare tartalék</div>
             </div>
 
             <!-- Boot Partition Mirror Status -->
@@ -4902,6 +4906,16 @@ def get_dashboard_html() -> str:
                 <span>💾</span> <span id="diag-boot-txt">/boot/firmware/nmb_invasive_dev_snapshot.md</span>
               </div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Közvetlenül elérhető PC kártyaolvasóval ha a hálózat nem működne</div>
+            </div>
+
+            <!-- Crash Reports Status -->
+            <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Python Összeomlási Események:</div>
+              <div id="diag-crash-badge" style="font-size: 14px; font-weight: 700; color: #10b981; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
+                <span>💥 <span id="diag-crash-txt">0 hiba rögzítve</span></span>
+                <button id="btn-clear-crashes" class="btn-secondary" style="font-size: 10px; padding: 3px 8px; display: none;" onclick="clearCrashReports()">Törlés</button>
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Váratlan hibánál a helyi változókat is elmenti a boot partícióra</div>
             </div>
           </div>
 
@@ -8638,6 +8652,58 @@ Use UP/DOWN arrow keys for command history.
       } catch (e) {
         antibanTxt.innerText = 'Aktív';
       }
+    }
+    // 3. Crash Incident Reports
+    loadCrashReports();
+  }
+
+  async function enforceWiredPriority() {
+    try {
+      const res = await fetch('/api/network/enforce-wired-priority', { method: 'POST' });
+      if (res.ok) {
+        const d = await res.json();
+        showToast(d.adjusted ? 'Vezetékes útvonal prioritás sikeresen beállítva (metric 50)!' : 'Vezetékes útvonal már optimális vagy nincs aktív kábel.');
+        checkAntiBanAndInterfaceStatus();
+      }
+    } catch (e) {
+      showToast('Hiba az útvonal prioritás beállításakor.');
+    }
+  }
+
+  async function loadCrashReports() {
+    const crashTxt = document.getElementById('diag-crash-txt');
+    const crashBadge = document.getElementById('diag-crash-badge');
+    const clearBtn = document.getElementById('btn-clear-crashes');
+    if (!crashTxt) return;
+    try {
+      const res = await fetch('/api/dev/crashes');
+      if (res.ok) {
+        const d = await res.json();
+        const count = (d.crashes || []).length;
+        if (count === 0) {
+          crashTxt.innerText = '0 hiba rögzítve (Tiszta)';
+          if (crashBadge) crashBadge.style.color = '#10b981';
+          if (clearBtn) clearBtn.style.display = 'none';
+        } else {
+          crashTxt.innerText = `${count} összeomlás rögzítve!`;
+          if (crashBadge) crashBadge.style.color = '#ef4444';
+          if (clearBtn) clearBtn.style.display = 'inline-block';
+        }
+      }
+    } catch (e) {
+      crashTxt.innerText = 'N/A';
+    }
+  }
+
+  async function clearCrashReports() {
+    try {
+      const res = await fetch('/api/dev/crashes/clear', { method: 'POST' });
+      if (res.ok) {
+        showToast('Összeomlási naplók sikeresen törölve.');
+        loadCrashReports();
+      }
+    } catch (e) {
+      showToast('Hiba a hibajelentések törlésekor.');
     }
   }
 

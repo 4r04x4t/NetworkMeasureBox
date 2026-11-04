@@ -872,6 +872,43 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             })
             return
 
+        # 25. Crash Incident Reports API
+        if path == "/api/dev/crashes":
+            from nmb.report.crash_trap import list_crash_reports
+            self._send_json({"crashes": list_crash_reports()})
+            return
+
+        if path.startswith("/api/dev/crashes/"):
+            fname = path.split("/api/dev/crashes/", 1)[1]
+            from nmb.report.crash_trap import read_crash_report
+            content = read_crash_report(fname)
+            if content:
+                body_bytes = content.encode("utf-8")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/markdown; charset=utf-8")
+                self.send_header("Content-Length", str(len(body_bytes)))
+                self.end_headers()
+                self.wfile.write(body_bytes)
+                return
+            self.send_error(HTTPStatus.NOT_FOUND, "Crash report not found")
+            return
+
+        # 26. Diagnostic Archive Packager (.tar.gz bundle download)
+        if path in ("/api/dev/diagnostic-bundle.tar.gz", "/download/diagnostic-bundle.tar.gz"):
+            from nmb.report.crash_trap import create_diagnostic_bundle
+            bundle_path = create_diagnostic_bundle()
+            if bundle_path.is_file():
+                bundle_bytes = bundle_path.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/gzip")
+                self.send_header("Content-Disposition", f'attachment; filename="{bundle_path.name}"')
+                self.send_header("Content-Length", str(len(bundle_bytes)))
+                self.end_headers()
+                self.wfile.write(bundle_bytes)
+                return
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to create diagnostic bundle")
+            return
+
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def do_POST(self) -> None:
@@ -2022,6 +2059,20 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok", "message": "Ookla server quarantine cleared successfully"})
             return
 
+        # Crash Reports manual clear
+        if path == "/api/dev/crashes/clear":
+            from nmb.report.crash_trap import clear_crash_reports
+            cleared = clear_crash_reports()
+            self._send_json({"status": "ok", "cleared_count": cleared})
+            return
+
+        # Enforce Wired Route Priority in kernel
+        if path == "/api/network/enforce-wired-priority":
+            from nmb.netd.interfaces import enforce_wired_default_route_priority
+            applied = enforce_wired_default_route_priority()
+            self._send_json({"status": "ok", "adjusted": applied})
+            return
+
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def _handle_api_status(self) -> None:
@@ -2811,6 +2862,20 @@ class WebDaemon:
         self.scheduler = AutonomousScheduler(self.cfg)
         self.server.scheduler = self.scheduler
         self.scheduler.start()
+
+        # Install invasive crash trap introspector & unhandled exception handler
+        try:
+            from nmb.report.crash_trap import install_crash_trap
+            install_crash_trap()
+        except Exception as e:
+            log.warning("could not install crash trap: %s", e)
+
+        # Enforce wired Ethernet default route priority if cable is connected
+        try:
+            from nmb.netd.interfaces import enforce_wired_default_route_priority
+            enforce_wired_default_route_priority()
+        except Exception:
+            pass
 
         # Continuous background invasive diagnostic logger (persists to /var/log/nmb and FAT32 boot drive)
         try:

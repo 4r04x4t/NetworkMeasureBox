@@ -17,8 +17,10 @@ import re
 import shutil
 import socket
 import subprocess
+import sys
 import threading
 import time
+import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -364,6 +366,81 @@ def _read_systemd_journal(lines: int = 60) -> str:
     return _run_cmd(["journalctl", "-u", "nmb-*", "-n", str(lines), "--no-pager"], timeout=3.0)
 
 
+def _collect_live_threads() -> str:
+    """Format stack traces of all active Python threads in the current process."""
+    lines = []
+    thread_map = {t.ident: t for t in threading.enumerate()}
+    for ident, frame in sys._current_frames().items():
+        th = thread_map.get(ident)
+        th_name = th.name if th else f"Thread-{ident}"
+        is_daemon = getattr(th, "daemon", False)
+        lines.append(f"Thread: '{th_name}' (ident={ident}, daemon={is_daemon}):")
+        formatted = "".join(traceback.format_stack(frame))
+        lines.append(formatted.strip())
+        lines.append("")
+    return "\n".join(lines) if lines else "(No threads recorded)"
+
+
+def _collect_dns_health() -> Dict[str, Any]:
+    """Test DNS resolution latency and parse nameservers."""
+    res: Dict[str, Any] = {
+        "nameservers": [],
+        "resolve_1111_ms": None,
+        "resolve_speedtest_ms": None,
+        "error": None,
+    }
+    try:
+        with open("/etc/resolv.conf", "r") as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) >= 2 and parts[0] == "nameserver":
+                    res["nameservers"].append(parts[1])
+    except Exception as e:
+        res["error"] = str(e)
+
+    for host, key in (("1.1.1.1", "resolve_1111_ms"), ("speedtest.net", "resolve_speedtest_ms")):
+        try:
+            t0 = time.monotonic()
+            socket.gethostbyname(host)
+            res[key] = round((time.monotonic() - t0) * 1000.0, 1)
+        except Exception:
+            res[key] = -1.0
+    return res
+
+
+def _collect_disk_and_mounts() -> Dict[str, Any]:
+    """Collect block device hierarchy and detect read-only filesystem alerts."""
+    res = {
+        "lsblk": _run_cmd(["lsblk", "-o", "NAME,FSTYPE,SIZE,MOUNTPOINT,RO,RM,MODEL"]),
+        "ro_mounts": [],
+    }
+    try:
+        with open("/proc/mounts", "r") as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 4:
+                    mountpoint = parts[1]
+                    opts = parts[3].split(",")
+                    if "ro" in opts and mountpoint in ("/", "/boot", "/boot/firmware"):
+                        res["ro_mounts"].append(f"{mountpoint} (filesystem is mounted READ-ONLY!)")
+    except Exception:
+        pass
+    return res
+
+
+def _collect_dmesg_events() -> str:
+    """Extract recent kernel errors and hardware warnings from dmesg."""
+    cmd = ["dmesg", "-T", "--level=emerg,alert,crit,err,warn"] if shutil.which("dmesg") else None
+    if not cmd:
+        return "(dmesg not available)"
+    out = _run_cmd(cmd, timeout=3.0)
+    if not out or "(Error" in out or "(stderr:" in out:
+        out = _run_cmd(["dmesg"], timeout=3.0)
+        lines = [l for l in out.splitlines() if any(k in l.lower() for k in ("error", "fail", "warn", "oom", "drop", "carrier", "throttl"))]
+        return "\n".join(lines[-40:]) if lines else "(No critical kernel events detected)"
+    return "\n".join(out.splitlines()[-40:])
+
+
 def generate_invasive_snapshot(cfg: Optional[Config] = None, force_write: bool = True) -> Tuple[str, Dict[str, Any]]:
     """Assemble the comprehensive, deeply invasive diagnostic Markdown report and metadata."""
     global _cached_markdown, _cached_metadata, _cached_timestamp
@@ -393,6 +470,17 @@ def generate_invasive_snapshot(cfg: Optional[Config] = None, force_write: bool =
     routes_v4 = _run_cmd(["ip", "route", "show"])
     routes_v6 = _run_cmd(["ip", "-6", "route", "show"])
     sockets = _run_cmd(["ss", "-tulpn"])
+    arp_neigh = _run_cmd(["ip", "neigh", "show"])
+    dns_health = _collect_dns_health()
+    disk_mounts = _collect_disk_and_mounts()
+    dmesg_events = _collect_dmesg_events()
+    live_threads = _collect_live_threads()
+
+    try:
+        from nmb.report.crash_trap import list_crash_reports
+        crash_reports = list_crash_reports()
+    except Exception:
+        crash_reports = []
     rfkill_state = _run_cmd(["rfkill", "list"])
     iw_state = _run_cmd(["iw", "dev"])
     qdisc_stats = _run_cmd(["tc", "-s", "qdisc", "show"])
@@ -420,6 +508,15 @@ def generate_invasive_snapshot(cfg: Optional[Config] = None, force_write: bool =
 
     if hw["temp_c"] and hw["temp_c"] > 75.0:
         red_flags.append(("CPU Temperature", "WARNING", f"High core temperature: {hw['temp_c']}°C"))
+
+    # Check read-only mounts
+    if disk_mounts.get("ro_mounts"):
+        for ro_m in disk_mounts["ro_mounts"]:
+            red_flags.append(("Storage Filesystem", "CRITICAL", ro_m))
+
+    # Check fatal crashes
+    if crash_reports:
+        red_flags.append(("Crash Reports", "CRITICAL", f"{len(crash_reports)} fatal Python incident report(s) captured!"))
 
     # Check DB integrity
     if db_health["integrity"] != "ok":
@@ -547,21 +644,64 @@ def generate_invasive_snapshot(cfg: Optional[Config] = None, force_write: bool =
             md_lines.append(f"| {st.get('id')} | {st_dt} | `{st.get('engine', 'ookla')}` | **{down_mbps}** | **{up_mbps}** | {ping_ms} | +{bb_delta} ms | `{bb_grade}` | {srv} | {st.get('client_ip', '')} |")
         md_lines.append("")
 
-    # Section 9: Systemd Journal Logs
+    # Section 9: Crash Incident Reports (if any)
+    if crash_reports:
+        md_lines.append("## 💥 Unhandled Fatal Crash Reports")
+        md_lines.append("| Incident File | Created | Location | Size |")
+        md_lines.append("| :--- | :--- | :--- | :--- |")
+        for cr in crash_reports[:5]:
+            md_lines.append(f"| `{cr['filename']}` | {cr['created_iso']} | {cr['location']} | {cr['size_bytes']:,} B |")
+        md_lines.append("")
+
+    # Section 10: DNS & ARP Neighbors
+    md_lines.append("## 🌐 DNS Name Resolution & Neighbors (`ip neigh`)")
+    ns_str = ", ".join(dns_health["nameservers"]) if dns_health["nameservers"] else "None"
+    md_lines.append(f"- **Configured Nameservers**: `{ns_str}`")
+    md_lines.append(f"- **DNS Query Latency (1.1.1.1)**: `{dns_health['resolve_1111_ms']} ms` | **(speedtest.net)**: `{dns_health['resolve_speedtest_ms']} ms`")
+    md_lines.append("**ARP / Neighbor Table (`ip neigh`):**")
+    md_lines.append("```text")
+    md_lines.append(arp_neigh if arp_neigh else "No neighbor entries.")
+    md_lines.append("```")
+    md_lines.append("")
+
+    # Section 11: Block Devices & Mount Health
+    md_lines.append("## 💾 Block Devices & Filesystem Mount State (`lsblk`)")
+    md_lines.append("```text")
+    md_lines.append(disk_mounts["lsblk"])
+    md_lines.append("```")
+    if disk_mounts["ro_mounts"]:
+        md_lines.append("> ⚠️ **CRITICAL WARNING**: Read-only mount detected: " + ", ".join(disk_mounts["ro_mounts"]))
+    md_lines.append("")
+
+    # Section 12: Kernel Ring Buffer Alert Filter (dmesg)
+    md_lines.append("## ⚠️ Kernel Ring Buffer Alert Filter (`dmesg`)")
+    md_lines.append("```text")
+    md_lines.append(dmesg_events)
+    md_lines.append("```")
+    md_lines.append("")
+
+    # Section 13: Live Python Threads
+    md_lines.append("## 🧵 Active Python Process Threads & Call Stacks")
+    md_lines.append("```text")
+    md_lines.append(live_threads)
+    md_lines.append("```")
+    md_lines.append("")
+
+    # Section 14: Systemd Journal Logs
     md_lines.append("## 📜 Systemd Journal Tail (`journalctl -u nmb-* -n 60`)")
     md_lines.append("```text")
     md_lines.append(journal_text)
     md_lines.append("```")
     md_lines.append("")
 
-    # Section 10: Deep Developer Trace Log Tail
+    # Section 15: Deep Developer Trace Log Tail
     md_lines.append("## 🔎 Developer High-Resolution Trace Log (`/var/log/nmb/nmb_developer.log`)")
     md_lines.append("```text")
     md_lines.append(dev_log_text)
     md_lines.append("```")
     md_lines.append("")
 
-    # Section 11: Developer Continuation Instructions
+    # Section 16: Developer Continuation Instructions
     md_lines.append("## 💡 Developer & AI Continuation Guide")
     md_lines.append("This snapshot captures the live system state of NetworkMeasureBox. When continuing development:")
     md_lines.append("1. **Configuration**: Edit `/etc/nmb/nmb.conf` or the FAT32 boot drive `/boot/firmware/nmb.conf`. Call `nmb-helper sync-drive-config` to synchronize.")
@@ -580,6 +720,8 @@ def generate_invasive_snapshot(cfg: Optional[Config] = None, force_write: bool =
         "hardware": hw,
         "services": services,
         "interfaces": ifaces,
+        "crashes_count": len(crash_reports),
+        "dns": dns_health,
         "database": {
             "integrity": db_health["integrity"],
             "counts": db_health["table_counts"],
@@ -603,10 +745,17 @@ def generate_invasive_snapshot(cfg: Optional[Config] = None, force_write: bool =
 
 
 def _persist_snapshot(markdown_content: str, metadata: Dict[str, Any]) -> None:
-    """Safely persist snapshot to all predictable primary and backup locations."""
-    # 1. Primary log path (/var/log/nmb/invasive_dev_snapshot.md)
+    """Safely persist snapshot to all predictable primary and backup locations with rolling history."""
+    # 1. Primary log path (/var/log/nmb/invasive_dev_snapshot.md) with rolling previous copy
     try:
         PRIMARY_SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        prev_p = PRIMARY_SNAPSHOT_PATH.with_name("invasive_dev_snapshot_prev.md")
+        if PRIMARY_SNAPSHOT_PATH.is_file():
+            try:
+                shutil.copy2(PRIMARY_SNAPSHOT_PATH, prev_p)
+            except Exception:
+                pass
+
         tmp = PRIMARY_SNAPSHOT_PATH.with_suffix(".tmp")
         tmp.write_text(markdown_content, encoding="utf-8")
         tmp.replace(PRIMARY_SNAPSHOT_PATH)
@@ -634,6 +783,11 @@ def _persist_snapshot(markdown_content: str, metadata: Dict[str, Any]) -> None:
     try:
         boot_target = get_boot_drive_snapshot_target()
         if boot_target:
+            if boot_target.is_file():
+                try:
+                    shutil.copy2(boot_target, boot_target.with_name("nmb_invasive_dev_snapshot_prev.md"))
+                except Exception:
+                    pass
             boot_target.write_text(markdown_content, encoding="utf-8")
             log.debug("invasive dev snapshot mirrored to FAT32 boot drive: %s", boot_target)
     except Exception as e:

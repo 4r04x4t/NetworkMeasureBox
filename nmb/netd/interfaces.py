@@ -404,6 +404,55 @@ def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface
     return "eth0", None, True
 
 
+def enforce_wired_default_route_priority() -> bool:
+    """Ensure Linux kernel default route priority strictly favors wired Ethernet over Wi-Fi.
+
+    If an active wired interface (carrier=1, operstate!=down) has an IP, lowers its
+    route metric to 50 so all OS traffic and un-bound sockets naturally egress via cable.
+    """
+    wired = find_active_wired_interface()
+    if not wired:
+        return False
+
+    w_iface, _ = wired
+    try:
+        res = subprocess.run(["ip", "route", "show", "default"], capture_output=True, text=True, check=False)
+        lines = res.stdout.strip().splitlines()
+        wired_gw = None
+        needs_metric_bump = False
+
+        for line in lines:
+            parts = line.split()
+            if "dev" in parts and "via" in parts:
+                dev_idx = parts.index("dev") + 1
+                via_idx = parts.index("via") + 1
+                if dev_idx < len(parts) and via_idx < len(parts):
+                    dev_name = parts[dev_idx]
+                    gw_ip = parts[via_idx]
+                    metric = 0
+                    if "metric" in parts:
+                        m_idx = parts.index("metric") + 1
+                        if m_idx < len(parts) and parts[m_idx].isdigit():
+                            metric = int(parts[m_idx])
+
+                    if dev_name == w_iface:
+                        wired_gw = gw_ip
+                        if metric > 50:
+                            needs_metric_bump = True
+
+        if wired_gw and needs_metric_bump:
+            subprocess.run(
+                ["ip", "route", "replace", "default", "via", wired_gw, "dev", w_iface, "metric", "50"],
+                check=False,
+                capture_output=True
+            )
+            log.info("adjusted wired route priority: dev %s default route metric set to 50", w_iface)
+            return True
+    except Exception as e:
+        log.debug("enforce_wired_default_route_priority error: %s", e)
+    return False
+
+
 def get_interface_stats(iface: str) -> Dict[str, int]:
     """Query interface bytes/packets stats from sysfs."""
     stats_dir = SYS_CLASS_NET / iface / "statistics"

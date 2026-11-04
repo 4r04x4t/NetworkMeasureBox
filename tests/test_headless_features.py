@@ -142,6 +142,76 @@ class TestHeadlessFeatures(unittest.TestCase):
         self.assertIsNotNone(cached_md)
         self.assertGreater(len(cached_md), 100)
 
+    def test_crash_trap_and_diagnostic_bundle(self):
+        from nmb.report.crash_trap import (
+            format_crash_report,
+            save_crash_report,
+            list_crash_reports,
+            clear_crash_reports,
+            create_diagnostic_bundle,
+        )
+        import tarfile
+
+        # 1. Test formatting crash report with local variables
+        secret_token = "SUPER_SECRET_TOKEN_XYZ"
+        regular_var = "diagnostic_test_value"
+        try:
+            raise ValueError("Deliberate test exception for crash introspection")
+        except ValueError as exc:
+            md, meta = format_crash_report(type(exc), exc, exc.__traceback__, thread_name="TestThread")
+            self.assertIn("Fatal Crash Incident Report", md)
+            self.assertIn("Deliberate test exception", md)
+            self.assertIn("regular_var", md)
+            self.assertIn("diagnostic_test_value", md)
+            # Secret should be redacted
+            self.assertNotIn("SUPER_SECRET_TOKEN_XYZ", md)
+            self.assertIn("[REDACTED SECRET]", md)
+
+            # 2. Test saving crash report
+            saved = save_crash_report(md, meta)
+            self.assertGreater(len(saved), 0)
+
+            # 3. Test listing crash reports
+            reports = list_crash_reports()
+            self.assertGreater(len(reports), 0)
+            self.assertTrue(any("crash_" in r["filename"] for r in reports))
+
+            # 4. Test creating diagnostic bundle (.tar.gz)
+            bundle = create_diagnostic_bundle()
+            self.assertTrue(bundle.is_file())
+            self.assertTrue(tarfile.is_tarfile(bundle))
+            with tarfile.open(bundle, "r:gz") as tar:
+                names = tar.getnames()
+                self.assertTrue(any("diagnostics" in n for n in names))
+                self.assertTrue(any("crashes" in n for n in names))
+
+            # Clean up
+            cleared = clear_crash_reports()
+            self.assertGreaterEqual(cleared, 1)
+
+    def test_enforce_wired_default_route_priority(self):
+        from nmb.netd.interfaces import enforce_wired_default_route_priority
+
+        # When no wired interface, returns False
+        with mock.patch("nmb.netd.interfaces.find_active_wired_interface", return_value=None):
+            self.assertFalse(enforce_wired_default_route_priority())
+
+        # When wired interface is active and route metric > 50, adjusts route
+        with mock.patch("nmb.netd.interfaces.find_active_wired_interface", return_value=("eth0", "192.168.1.10")):
+            mock_ip_out = "default via 192.168.1.1 dev eth0 metric 600\ndefault via 192.168.1.1 dev wlan0 metric 100"
+            with mock.patch("subprocess.run") as mock_run:
+                mock_run.side_effect = [
+                    mock.Mock(stdout=mock_ip_out),  # ip route show default
+                    mock.Mock(returncode=0),        # ip route replace
+                ]
+                res = enforce_wired_default_route_priority()
+                self.assertTrue(res)
+                mock_run.assert_any_call(
+                    ["ip", "route", "replace", "default", "via", "192.168.1.1", "dev", "eth0", "metric", "50"],
+                    check=False,
+                    capture_output=True
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

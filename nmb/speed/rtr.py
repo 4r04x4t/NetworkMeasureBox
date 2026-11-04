@@ -34,7 +34,8 @@ def execute_rtr_speedtest(
     if not host.startswith("http://") and not host.startswith("https://"):
         host = "https://" + host
 
-    log.info("starting RTR-NetTest (netztest.at) BEREC regulatory measurement against %s", host)
+    log.info("starting RTR-NetTest (netztest.at) BEREC regulatory measurement against %s (iface=%s, bind_ip=%s)", host, interface, bind_ip)
+    connection.set_bind_target(interface=interface, bind_ip=bind_ip)
 
     # 1. UUID Resolution & Terms acceptance
     stored = uuid_store.load()

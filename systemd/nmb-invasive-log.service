@@ -1,0 +1,16 @@
+[Unit]
+Description=NetworkMeasureBox Invasive Diagnostic Snapshot Generator
+Documentation=https://github.com/4r04x4t/NetworkMeasureBox
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PYTHONPATH=/opt/nmb:.
+Nice=15
+IOSchedulingClass=idle
+ExecStart=/opt/nmb/bin/nmb-invasive-log
+StandardOutput=journal
+StandardError=journal

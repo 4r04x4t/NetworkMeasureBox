@@ -200,9 +200,15 @@ def run_traceroute(target: str = "", max_hops: int = 30, host: str = "") -> Dict
 
         hops: List[Dict[str, Any]] = []
 
+        from nmb.netd.interfaces import find_preferred_measurement_interface
+        pref_iface, _, is_wired = find_preferred_measurement_interface()
+
         if is_traceroute_available():
             # Run modern Linux traceroute with ICMP or default UDP probes
-            cmd = ["traceroute", "-m", str(max_hops), "-q", "3", "-w", "2", "--", target]
+            cmd = ["traceroute", "-m", str(max_hops), "-q", "3", "-w", "2"]
+            if is_wired and pref_iface:
+                cmd.extend(["-i", pref_iface])
+            cmd.extend(["--", target])
             proc = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=60)
             lines = proc.stdout.splitlines()
 

@@ -7,6 +7,16 @@ import struct
 PROTO_HTTP = 0
 PROTO_WS   = 1
 
+_bound_source_ip = None
+_bound_interface = None
+
+
+def set_bind_target(interface=None, bind_ip=None):
+    """Set global outbound interface and IP binding for all RMBT socket connections."""
+    global _bound_source_ip, _bound_interface
+    _bound_source_ip = bind_ip
+    _bound_interface = interface
+
 
 class RmbtConn:
     def __init__(self):
@@ -21,8 +31,15 @@ class RmbtConn:
     def connect(cls, host, port, use_tls, no_tls_verify, protocol):
         c = cls()
         c.protocol = protocol
-        raw = socket.create_connection((host, port), timeout=30)
+        source_addr = (_bound_source_ip, 0) if _bound_source_ip else None
+        raw = socket.create_connection((host, port), timeout=30, source_address=source_addr)
         raw.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        if _bound_interface:
+            try:
+                SO_BINDTODEVICE = 25
+                raw.setsockopt(socket.SOL_SOCKET, SO_BINDTODEVICE, _bound_interface.encode() + b"\x00")
+            except (PermissionError, OSError):
+                pass
         if use_tls:
             ctx = ssl.create_default_context()
             if no_tls_verify:

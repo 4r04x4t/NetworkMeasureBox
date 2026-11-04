@@ -420,17 +420,20 @@ def run_official_ookla(server_id: Optional[int] = None, interface: Optional[str]
         return None
 
 
-def run_speedtest_cli() -> Optional[SpeedtestResult]:
-    """Run python speedtest-cli binary (--json)."""
+def run_speedtest_cli(interface: Optional[str] = None, bind_ip: Optional[str] = None) -> Optional[SpeedtestResult]:
+    """Run python speedtest-cli binary (--json), optionally bound to source IP."""
     bin_path = shutil.which("speedtest-cli")
     if not bin_path:
         return None
 
     try:
-        log.info("executing speedtest-cli: %s", bin_path)
-        res = subprocess.run([bin_path, "--json"], capture_output=True, text=True, timeout=120)
+        cmd = [bin_path, "--json"]
+        if bind_ip:
+            cmd.extend(["--source", bind_ip])
+        log.info("executing speedtest-cli (bind_ip=%s): %s", bind_ip, " ".join(cmd))
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         if res.returncode != 0:
-            return SpeedtestResult(status="error", error=res.stderr.strip(), raw_json=res.stdout)
+            return SpeedtestResult(status="error", error=res.stderr.strip(), raw_json=res.stdout, bound_iface=interface, bound_ip=bind_ip)
 
         data = json.loads(res.stdout)
         server_data = data.get("server", {})
@@ -470,21 +473,24 @@ def run_speedtest_cli() -> Optional[SpeedtestResult]:
             server_location=srv_loc,
             client_ip=client_ip,
             client_ipv6=client_ipv6,
-            result_url=data.get("share"),
+            result_url=None,
             raw_json=res.stdout,
+            bound_iface=interface,
+            bound_ip=bind_ip,
         )
     except Exception as e:
         log.warning("speedtest-cli exception: %s", e)
         return None
 
 
-def run_native_fallback(server_id: Optional[int] = None) -> SpeedtestResult:
+def run_native_fallback(server_id: Optional[int] = None, interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
     """Native standard library HTTP streaming speed probe.
 
     Used when Ookla CLI binary is not present or cannot run.
-    Measures download and upload throughput with Ookla-aligned metadata.
+    Measures download and upload throughput with Ookla-aligned metadata,
+    supporting strict source interface / IP binding.
     """
-    log.info("executing native fallback HTTP throughput measurement (target_server_id=%s)", server_id)
+    log.info("executing native fallback HTTP throughput measurement (target_server_id=%s, iface=%s, bind_ip=%s)", server_id, interface, bind_ip)
     test_url = "https://speed.cloudflare.com/__down?bytes=25000000"  # 25 MB stream
     total_bytes = 0
     t_start = time.monotonic()
@@ -526,8 +532,18 @@ def run_native_fallback(server_id: Optional[int] = None) -> SpeedtestResult:
         except Exception:
             pass
 
+        def _open(req, to):
+            if bind_ip:
+                try:
+                    from nmb.speed.cloudflare import BoundHTTPHandler, BoundHTTPSHandler
+                    opener = urllib.request.build_opener(BoundHTTPHandler(bind_ip), BoundHTTPSHandler(bind_ip))
+                    return opener.open(req, timeout=to)
+                except Exception:
+                    pass
+            return urllib.request.urlopen(req, timeout=to)
+
         req = urllib.request.Request(test_url, headers={"User-Agent": get_effective_user_agent()})
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with _open(req, timeout=30) as resp:
             t_connect = time.monotonic()
             latency_us = int((t_connect - t_start) * 1_000_000)
 
@@ -566,7 +582,7 @@ def run_native_fallback(server_id: Optional[int] = None) -> SpeedtestResult:
                 headers={"User-Agent": get_effective_user_agent(), "Content-Type": "application/octet-stream"}
             )
             t_up_start = time.monotonic()
-            with urllib.request.urlopen(up_req, timeout=15) as up_resp:
+            with _open(up_req, timeout=15) as up_resp:
                 up_resp.read(512)
             t_up_end = time.monotonic()
             up_dur = max(0.01, t_up_end - t_up_start)
@@ -596,10 +612,12 @@ def run_native_fallback(server_id: Optional[int] = None) -> SpeedtestResult:
             result_url=None,
             raw_json=json.dumps(raw_info),
             engine="ookla",
+            bound_iface=interface,
+            bound_ip=bind_ip,
         )
     except Exception as e:
         log.error("native fallback measurement failed: %s", e)
-        return SpeedtestResult(status="error", error=str(e), engine="ookla")
+        return SpeedtestResult(status="error", error=str(e), engine="ookla", bound_iface=interface, bound_ip=bind_ip)
 
 
 def execute_speedtest(server_id: Optional[int] = None, interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
@@ -610,18 +628,10 @@ def execute_speedtest(server_id: Optional[int] = None, interface: Optional[str] 
         return res
 
     # 2. Try speedtest-cli
-    res = run_speedtest_cli()
+    res = run_speedtest_cli(interface=interface, bind_ip=bind_ip)
     if res and res.status == "ok":
-        if interface and not res.bound_iface:
-            res.bound_iface = interface
-        if bind_ip and not res.bound_ip:
-            res.bound_ip = bind_ip
         return res
 
     # 3. Native fallback
-    fb = run_native_fallback(server_id=server_id)
-    if interface:
-        fb.bound_iface = interface
-    if bind_ip:
-        fb.bound_ip = bind_ip
+    fb = run_native_fallback(server_id=server_id, interface=interface, bind_ip=bind_ip)
     return fb
