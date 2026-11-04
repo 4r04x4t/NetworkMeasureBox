@@ -6,18 +6,20 @@
 ## 1. Executive Summary & Problem Formulation
 
 ### 1.1 The Embedded Reality
-NetworkMeasureBox (NMB) currently runs as a suite of Python 3 daemons (`nmb-probe`, `nmb-netd`, `nmb-speed`, `nmb-web`, `nmb-invasive-log`). While Python provides rapid development, rich standard libraries, and excellent developer ergonomics on x86 servers and Raspberry Pi 4/5 devices, it poses severe architectural bottlenecks when deployed on standard commercial routers, enterprise access points, and low-cost CPE (Customer Premises Equipment):
+NetworkMeasureBox (NMB) currently runs as a suite of Python 3 daemons (`nmb-probe`, `nmb-netd`, `nmb-speed`, `nmb-web`, `nmb-invasive-log`, `nmb-adblock`, `nmb-heal`). While Python provides rapid prototyping and rich libraries on x86 servers and Raspberry Pi 4/5 SBCs, it poses severe architectural bottlenecks when deployed on standard commercial routers, enterprise access points, and low-cost CPE (Customer Premises Equipment):
 
 | Metric | Python 3 (Current) | Typical OpenWrt Router | Consequence / Failure Mode |
 | :--- | :--- | :--- | :--- |
-| **RAM Footprint (RSS)** | 35MB – 55MB per daemon (~160MB total) | 32MB – 128MB Total RAM | **Instant Kernel OOM Killer** |
-| **Flash Storage** | 35MB – 60MB (Python runtime + `.pyc`) | 16MB – 32MB SPI Flash | **Does not fit in Flash** |
+| **RAM Footprint (RSS)** | 35MB – 55MB per daemon (~180MB total) | 32MB – 128MB Total RAM | **Instant Kernel OOM Killer** |
+| **Flash Storage** | 45MB – 75MB (Python runtime + `.pyc` + deps) | 16MB – 32MB SPI Flash | **Does not fit in Flash** |
 | **Startup Latency** | 1.8s – 3.5s per process | Instantaneous expected | Systemd/procd timeouts |
 | **Jitter / Precision** | GIL & Garbage Collection jitter (1–10ms) | Sub-millisecond timing needed | Distorted latency & bufferbloat stats |
-| **Subprocess Spawning** | High fork overhead (`ip`, `nmcli`, `sysctl`) | Slow MIPS/ARM CPU (400–800MHz) | 100% CPU spikes during interface scans |
+| **Subprocess Spawning** | High fork overhead (`ip`, `ps`, `nmcli`, `sysctl`) | Slow MIPS/ARM CPU (400–800MHz) | 100% CPU spikes during scans |
 
 ### 1.2 Strategic Goal: The De-Pythonization Objective
 The goal is to transition NetworkMeasureBox into a **zero-dependency, single static binary (`nmbd`)** that can run natively across any Linux device with as little as **16MB SPI flash and 32MB–64MB RAM**, while eliminating external runtime packages.
+
+Following the recent codebase consolidation and installer unification, all core and extended components (including native Open-RMBT, OONI Probe, iPerf3, Pi-hole DNS ad-blocker, WireGuard/OpenVPN gateways, hardware driver installer, self-healing watchdog, and the real-time htop task manager) must be fully integrated into the native architecture and migrated to compiled systems languages (**Go** and **C11**).
 
 ---
 
@@ -27,9 +29,9 @@ To achieve maximum portability with minimal friction, we evaluated three primary
 
 ```mermaid
 graph TD
-    A[De-Pythonization Target] --> B[Go / Golang]
-    A --> C[C C11 / musl]
-    A --> D[C++ C++17]
+    A["De-Pythonization Target"] --> B["Go / Golang"]
+    A --> C["C C11 / musl"]
+    A --> D["C++ C++17"]
 
     B --> B1["Single Static Binary (CGO_ENABLED=0)"]
     B --> B2["Built-in net/http & //go:embed"]
@@ -53,7 +55,7 @@ graph TD
 | Technical Criterion | Python 3 (Current) | Go (Golang 1.23+) | C (C11 / musl libc) | C++ (C++17 / musl) |
 | :--- | :--- | :--- | :--- | :--- |
 | **Static Binary Size** | N/A (Interpreted) | 8MB – 12MB (3.2MB with UPX) | **450KB – 1.2MB** (280KB with UPX) | 1.2MB – 2.8MB |
-| **Active RAM (RSS)** | 140MB – 220MB (5 daemons) | **10MB – 18MB** (all-in-one) | **1.8MB – 3.5MB** (all-in-one) | 3.5MB – 6MB |
+| **Active RAM (RSS)** | 140MB – 220MB (all daemons) | **10MB – 18MB** (all-in-one) | **1.8MB – 3.5MB** (all-in-one) | 3.5MB – 6MB |
 | **Flash Budget Fit** | Requires USB/SD or >128MB Flash | Fits in 16MB+ Flash (UPX compressed) | **Fits easily in 8MB / 16MB SPI Flash** | Fits in 16MB+ Flash |
 | **Cross-Compilation** | Complex (Python build per arch) | **Trivial** (`GOOS=linux GOARCH=mips`) | Requires SDK / `musl-cross-make` | Requires SDK / cross toolchains |
 | **Concurrency Engine** | Asyncio + multi-threading + forks | **Goroutines** (2KB stack, channel IPC) | `epoll` + POSIX pthreads | `epoll` + `std::jthread` / ASIO |
@@ -68,15 +70,48 @@ graph TD
 
 ### 🎯 Two-Tier Tiered Strategy:
 1. **Tier 1 (Go / Golang) — Primary Universal Target (64MB+ RAM)**:
-   - Targets: Raspberry Pi (Zero, 2, 3, 4, 5), GL.iNet modern routers (Axt1800, Flint 2, Beryl AX), x86 appliances, Teltonika routers, all Linux distributions.
+   - **Targets**: Raspberry Pi (Zero, 2, 3, 4, 5), GL.iNet modern routers (Axt1800, Flint 2, Beryl AX), x86 appliances, Teltonika routers, all Linux distributions.
    - **Why Go**: Single static binary compilation (`CGO_ENABLED=0`), zero C toolchain cross-compilation headaches, memory safety, built-in high-performance HTTP server, and `//go:embed` which bakes the entire HTML/CSS/JS frontend directly into the executable.
 2. **Tier 2 (C11 / musl) — Ultra-Constrained OpenWrt Target (16MB Flash / 32MB RAM)**:
-   - Targets: Classic MIPS home routers (TP-Link Archer C7, Netgear WNDR, MediaTek MT7621, 32MB RAM devices).
+   - **Targets**: Classic MIPS home routers (TP-Link Archer C7, Netgear WNDR, MediaTek MT7621, 32MB RAM devices).
    - **Why C**: Sub-2MB RAM footprint, single-file SQLite amalgamation, raw epoll event loop, direct rtnetlink kernel calls.
 
 ---
 
 ## 4. Component-by-Component Migration Blueprint
+
+Following the consolidation of components into the repository and installer, here is the technical specification for migrating each daemon, tool, and subsystem to native code.
+
+```mermaid
+flowchart TD
+    subgraph Core["Core Network Engines"]
+        PROBE["4.1 Probe Engine (ICMP/UDP)"]
+        NETD["4.2 Netd (Netlink/Routing)"]
+        SPEED["4.3 Speed Engine (Multi-Stream)"]
+        RMBT["4.6 Open-RMBT (RTR Native C)"]
+        IPERF["4.8 iPerf3 Protocol Client"]
+        OONI["4.7 OONI Probe (In-Process Go)"]
+    end
+
+    subgraph Services["Services & Web Management"]
+        WEB["4.4 Web Server & Embedded UI"]
+        DB["4.5 In-Memory Database (WAL)"]
+        ADBLOCK["4.9 DNS Ad-Blocker (miekg/dns)"]
+        VPN["4.10 WireGuard & OpenVPN (wgctrl)"]
+        WIFI["4.14 Guest Wi-Fi & Station IPC"]
+    end
+
+    subgraph SystemOps["Hardware & System Health"]
+        TASKS["4.13 Tasks & Load (/proc Engine)"]
+        DRIVER["4.11 Hardware Driver Autodiscovery"]
+        HEAL["4.12 Self-Healing Watchdog"]
+        INVASIVE["4.15 Diagnostic Logger & Trap"]
+    end
+
+    PROBE & NETD & SPEED & RMBT & IPERF & OONI --> MONOLITH["Unified Binary: nmbd"]
+    WEB & DB & ADBLOCK & VPN & WIFI --> MONOLITH
+    TASKS & DRIVER & HEAL & INVASIVE --> MONOLITH
+```
 
 ### 4.1 Latency, Jitter & Loss Probe Engine (`nmb-probe`)
 - **Current Bottleneck**: Polling 5 targets every 500ms in Python uses ~15% CPU on low-end MIPS chips and consumes 35MB RAM.
@@ -126,81 +161,234 @@ graph TD
   - **Zero CGO**: Compiles statically for `mips`, `mipsel`, `arm`, `arm64`, and `x86_64` without installing any C cross-compiler!
   - RAM database on `/run/nmb/live.db` (WAL mode enabled), synchronized to persistent flash storage `/var/lib/nmb/persist/nmb.db` every 15 minutes.
 
+### 4.6 Native RTR-NetzTest (Open-RMBT) Engine (`rmbt-client`)
+- **Current Architecture**: Native C client compiled from `components/open-rmbt/` into `/usr/local/bin/rmbt-client`, invoked as a subprocess by Python's speed engine with JSON stdout parsing.
+- **De-Pythonization Target**: **C (C11) or Pure Go Socket Engine**.
+- **Go Blueprint**:
+  - Implement the RTR-NetzTest / RMBT protocol natively in Go using `net.Dial` and `crypto/tls`.
+  - The RMBT protocol consists of:
+    1. Control negotiation over TLS (REST/JSON negotiation with RTR control server).
+    2. Zero-overhead raw TCP chunk streams with nanosecond timestamping.
+    3. Multi-thread parallel chunk streaming over dedicated test ports (e.g., 8081/8082).
+  - Baking RMBT directly into `nmbd` eliminates the external `rmbt-client` binary completely while preserving 100% Austrian RTR regulatory test fidelity.
+- **C Blueprint (Tier 2 / OpenWrt)**:
+  - Statically link `components/open-rmbt/` as `libopenrmbt.a` directly into the C monolith.
+
+### 4.7 Censorship & Neutrality Engine: In-Process OONI Probe (`ooniprobe`)
+- **Current Architecture**: Spawns external `/usr/bin/ooniprobe` CLI or runs Python wrapper subprocesses, consuming 60MB+ RAM during runs.
+- **De-Pythonization Target**: **Go (Golang)**.
+- **Go Blueprint**:
+  - Upstream OONI is written in Go (`github.com/ooni/probe-engine` / `github.com/ooni/probe-cli`).
+  - Import `github.com/ooni/probe-engine/libminiooni` directly as a Go module inside `nmbd`.
+  - **Benefits**:
+    - Zero external process spawning.
+    - Zero external package dependencies (no `ooniprobe` Debian package or external PPA required).
+    - Direct in-memory event streaming (DNS tampering, TCP blocking, HTTP diff, Web Connectivity) directly into SQLite WAL.
+    - Tailored lightweight configuration for embedded routers: Stripping heavy WebSockets and WebRTC tests to execute within an 8MB RAM envelope.
+
+### 4.8 High-Precision Local/WAN Bandwidth Engine: iPerf3 Protocol Client
+- **Current Architecture**: Spawns `/usr/bin/iperf3 -c ... -J` and parses standard JSON stdout.
+- **De-Pythonization Target**: **Go (Golang) or Embedded Static C Library**.
+- **Go Blueprint**:
+  - Implement native iPerf3 client protocol in Go (RFC-compliant TCP/UDP stream framing with JSON control negotiation on port 5201).
+  - Allows zero-fork iPerf3 throughput, jitter, and packet loss measurements for both LAN benchmarks and remote WAN testing.
+- **C Blueprint**:
+  - Statically link a stripped `libiperf.a` (<300KB) into `nmbd`.
+
+### 4.9 Embedded DNS Ad-Blocker & Privacy Shield (`nmb-adblock` / Pi-hole Alternative)
+- **Current Architecture**: Python DNS proxy daemon (`nmb/netd/adblock.py`) binding UDP/TCP port 53, reading `/run/nmb/adblock.sock`, parsing blocklists into a Python set, forwarding to upstream DNS. Consumes ~35–45MB RAM with 100k domains.
+- **De-Pythonization Target**: **Go (Golang)**.
+- **Go Blueprint**:
+  - Implement using `github.com/miekg/dns` (the industry-standard DNS library used by CoreDNS).
+  - Store blocked domains in an in-memory **Radix Tree** or **Compact Bloom Filter + Aho-Corasick automaton**:
+    - Drops memory footprint for 150,000 domains from 45MB down to **~3.5MB RAM**!
+    - Sub-millisecond DNS lookup (<0.2ms per query).
+  - Built-in concurrent DoH (DNS-over-HTTPS) and DoT (DNS-over-TLS) upstream resolvers with connection pooling.
+  - Direct in-memory query log ring-buffer (lock-free slice) exposed over the embedded web REST API and UNIX domain socket `/run/nmb/adblock.sock`.
+
+### 4.10 WireGuard & OpenVPN / PiVPN Gateway Controller
+- **Current Architecture**: Python invokes `wg-quick`, `wg`, `iptables`, `systemctl`, generates `.conf` files, and calls `qrencode` subprocess.
+- **De-Pythonization Target**: **Go (Golang) via Native Netlink & wgctrl**.
+- **Go Blueprint**:
+  - Manage WireGuard interfaces in-process using `golang.zx2c4.com/wireguard/wgctrl`.
+  - Direct Netlink kernel interface configuration (`RTM_NEWLINK` with link type `wireguard`) without calling `wg-quick` or external tools.
+  - Native curve25519 keypair generation via Go standard library (`crypto/ecdh`).
+  - Direct SVG / PNG QR-code rendering using `github.com/skip2/go-qrcode` baked directly into the binary (eliminates `qrencode` package).
+  - Built-in UDP STUN / NAT traversal ping to detect WAN IP / port changes dynamically.
+
+### 4.11 Hardware Driver Finder & Firmware Provisioning Engine (`nmb-driver`)
+- **Current Architecture**: Python script traverses `/sys/bus/pci` and `/sys/bus/usb`, matches vendor/device IDs against a Python dict, and calls `apt-get install firmware-*`.
+- **De-Pythonization Target**: **Go or C11 Sysfs Scanner**.
+- **Go Blueprint**:
+  - Fast sysfs walk of `/sys/bus/pci/devices` and `/sys/bus/usb/devices` reading `modalias`, `vendor`, and `device` files.
+  - Compile a compressed lookup table of known Wi-Fi (Realtek, Mediatek, Atheros, Broadcom) and Ethernet chipsets into the binary.
+  - On Debian/Ubuntu: Directly invoke `apt-get` or download precompiled `.deb` packages.
+  - On OpenWrt: Generate exact `opkg install kmod-<chipset>` commands or fetch kernel module packages from the official OpenWrt feed repository.
+
+### 4.12 Autonomous Self-Healing & Safety Rollback Watchdog (`nmb-heal`)
+- **Current Architecture**: Python script (`nmb/report/self_heal.py`) performing periodic audits, verifying binaries, fixing permissions, testing connectivity, updating via Git or release tarballs, and creating rollback backups.
+- **De-Pythonization Target**: **Go (Golang)**.
+- **Go Blueprint**:
+  - Independent watchdog goroutine / supervisor thread running in `nmbd` with a hardware watchdog timer (`/dev/watchdog` support).
+  - Cryptographic verification: Binary self-check via SHA256 / Ed25519 digital signature of update payload.
+  - Atomic executable update: Download new `nmbd` binary to `/usr/local/bin/nmbd.new`, verify integrity, atomically swap via `os.Rename("/usr/local/bin/nmbd.new", "/usr/local/bin/nmbd")`, and trigger graceful process restart (`execve`).
+  - OpenWrt Dual-Partition (A/B) sysupgrade compatibility: Integrates with OpenWrt's `sysupgrade -k` to preserve state across firmware flashing.
+
+### 4.13 Real-Time Task Manager & Hardware Monitor (`/proc` Telemetry Engine)
+- **Current Architecture**: Python script (`nmb/common/tasks.py`) reading `/proc/stat`, `/proc/meminfo`, and executing `ps -eo pid,ppid,user,pri,ni,vsz,rss,stat,%cpu,%mem,time,comm,args` every 2 seconds.
+- **De-Pythonization Target**: **Go or C (C11) Direct `/proc` Virtual Filesystem Reader**.
+- **Go Blueprint**:
+  - Completely eliminate `ps` subprocess spawning!
+  - Direct read of `/proc/stat` and `/proc/meminfo` with pre-allocated buffer (0 allocations).
+  - Direct directory iteration of `/proc/[0-9]+`:
+    - Read `/proc/[pid]/stat` for CPU ticks, state, priority, nice, and memory RSS.
+    - Read `/proc/[pid]/cmdline` (delimited by `\0`) for command and arguments.
+    - Read `/proc/[pid]/status` for UID/User mapping.
+  - Performance: Drops task list generation time from **22ms in Python down to <1.2ms in Go/C**, with 0% CPU consumption during 1-second auto-refresh!
+  - Native signal dispatch via `unix.Kill(pid, syscall.Signal(sig))`.
+
+### 4.14 Dedicated Guest Wi-Fi & Station Multi-SSID Wireless Controller
+- **Current Architecture**: Python edits `/etc/wpa_supplicant/wpa_supplicant.conf`, spawns `wpa_cli` and `hostapd_cli` commands.
+- **De-Pythonization Target**: **Go UNIX Socket IPC**.
+- **Go Blueprint**:
+  - Connect directly to the `wpa_supplicant` control socket (`/var/run/wpa_supplicant/<iface>`) and `hostapd` control socket (`/var/run/hostapd/<iface>`).
+  - Send raw control messages (`SCAN`, `SCAN_RESULTS`, `ADD_NETWORK`, `SET_NETWORK`, `SELECT_NETWORK`, `ENABLE_NETWORK`) over the UNIX domain socket without launching `wpa_cli` subprocesses.
+  - Immediate asynchronous reception of Wi-Fi association/disconnection events (`CTRL-EVENT-CONNECTED`, `CTRL-EVENT-DISCONNECTED`) via socket polling.
+
+### 4.15 Invasive Diagnostic Logger & Crash Trap (`nmb-invasive-log`)
+- **Current Architecture**: Python background thread polling SQLite, checking packet loss, ping latency, memory anomalies, and writing structured JSON events.
+- **De-Pythonization Target**: **Go Goroutine with Circular Ring-Buffer**.
+- **Go Blueprint**:
+  - Lock-free in-memory circular ring buffer holding the last 5,000 diagnostic events.
+  - Subscribes to Linux kernel `netlink` socket for interface drops/errors, and reads `/proc/net/dev` delta counters.
+  - Zero filesystem wear: Retained purely in memory, flushed to SQLite WAL only when an anomaly is detected or upon user request.
+
 ---
 
 ## 5. Architectural Proposal: The Unified Single-Binary Monolith (`nmbd`)
 
-Instead of maintaining 5 distinct daemons with separate process overhead, the ultimate embedded architecture unifies all components into a single multi-call binary:
+Instead of maintaining multiple distinct daemons and spawning external helper binaries with high process overhead, the ultimate embedded architecture unifies all components into a single multi-call static binary:
 
 ```
-                          ┌───────────────────────────────────────┐
-                          │   nmbd (Unified Single Static Binary) │
-                          └───────────────────┬───────────────────┘
-                                              │
-              ┌───────────────────┬───────────┴───────────┬───────────────────┐
-              ▼                   ▼                       ▼                   ▼
-      ┌───────────────┐   ┌───────────────┐       ┌───────────────┐   ┌───────────────┐
-      │  Engine: Netd │   │ Engine: Probe │       │ Engine: Speed │   │  Engine: Web  │
-      │  (Netlink RX) │   │ (ICMP Ticker) │       │ (Multi-Stream)│   │  (Port 80 UI) │
-      └───────┬───────┘   └───────┬───────┘       └───────┬───────┘   └───────┬───────┘
-              │                   │                       │                   │
-              └───────────────────┼───────────────────────┴───────────────────┘
-                                  ▼
-                      ┌───────────────────────┐
-                      │ In-Memory Go Channels │
-                      │  (Lock-free Telemetry)│
-                      └───────────┬───────────┘
-                                  ▼
-                      ┌───────────────────────┐
-                      │ Embedded SQLite (RAM) │
-                      │  (/run/nmb/live.db)   │
-                      └───────────────────────┘
+                          ┌─────────────────────────────────────────────────────────┐
+                          │          nmbd (Unified Single Static Binary)            │
+                          └────────────────────────────┬────────────────────────────┘
+                                                       │
+         ┌───────────────────┬─────────────────────────┼─────────────────────────┬───────────────────┐
+         ▼                   ▼                         ▼                         ▼                   ▼
+ ┌───────────────┐   ┌───────────────┐         ┌───────────────┐         ┌───────────────┐   ┌───────────────┐
+ │ Engine: Netd  │   │ Engine: Probe │         │ Engine: Speed │         │ Engine: DNS   │   │ Engine: Web   │
+ │ (Netlink/QoS) │   │ (ICMP Ticker) │         │ (Multi-Stream)│         │ (Pi-hole AdB) │   │ (Port 80/8080)│
+ └───────┬───────┘   └───────┬───────┘         └───────┬───────┘         └───────┬───────┘   └───────┬───────┘
+         │                   │                         │                         │                   │
+         ├───────────────────┼─────────────────────────┼─────────────────────────┼───────────────────┤
+         ▼                   ▼                         ▼                         ▼                   ▼
+ ┌───────────────┐   ┌───────────────┐         ┌───────────────┐         ┌───────────────┐   ┌───────────────┐
+ │ WireGuard VPN │   │  Open-RMBT    │         │  OONI Probe   │         │ iPerf3 Client │   │ Tasks (/proc) │
+ │ (wgctrl/NAT)  │   │  (Native C/Go)│         │  (In-Process) │         │ (TCP/UDP)     │   │ (Htop View)   │
+ └───────┬───────┘   └───────┬───────┘         └───────┬───────┘         └───────┬───────┘   └───────┬───────┘
+         │                   │                         │                         │                   │
+         └───────────────────┴────────────┬────────────┴─────────────────────────┴───────────────────┘
+                                          ▼
+                              ┌───────────────────────┐
+                              │ In-Memory Go Channels │
+                              │ (Lock-free Telemetry) │
+                              └───────────┬───────────┘
+                                          ▼
+                              ┌───────────────────────┐
+                              │ Embedded SQLite (RAM) │
+                              │  (/run/nmb/live.db)   │
+                              └───────────────────────┘
 ```
 
 ### Multi-Call CLI Compatibility (Busybox-style):
-Symlinking the binary allows full backwards compatibility with existing systemd/OpenRC units:
+Symlinking the binary allows full backwards compatibility with existing systemd/OpenRC units and user workflows:
 - `/usr/local/bin/nmb-probe` $\to$ `/usr/local/bin/nmbd --mode probe`
 - `/usr/local/bin/nmb-speed` $\to$ `/usr/local/bin/nmbd --mode speed`
 - `/usr/local/bin/nmb-netd`  $\to$ `/usr/local/bin/nmbd --mode netd`
 - `/usr/local/bin/nmb-web`   $\to$ `/usr/local/bin/nmbd --mode web`
+- `/usr/local/bin/nmb-adblock` $\to$ `/usr/local/bin/nmbd --mode adblock`
+- `/usr/local/bin/nmb-heal`  $\to$ `/usr/local/bin/nmbd --mode heal`
+- `/usr/local/bin/nmb-driver` $\to$ `/usr/local/bin/nmbd --mode driver`
+- `/usr/local/bin/pihole`    $\to$ `/usr/local/bin/nmbd --mode adblock`
+- `/usr/local/bin/rmbt-client` $\to$ `/usr/local/bin/nmbd --mode rmbt`
 
 ---
 
-## 6. Three-Phase Hybrid Migration Roadmap
+## 6. Four-Phase Hybrid Migration Roadmap
 
 To avoid disruption to existing installations, the migration follows a phased hybrid approach:
 
 ```mermaid
 timeline
     title NetworkMeasureBox De-Pythonization Phases
-    section Phase 1 : Micro-Engines
+    section Phase 1 : Performance Micro-Engines
         Go/C ICMP Probe Engine : Drops 90% CPU & 40MB RAM
         Go Multi-Stream Speed Runner : Enables 1Gbps-10Gbps line-rate testing
-    section Phase 2 : Netlink & Route
-        Go/C Netlink Daemon : Replaces subprocess calls to ip/nmcli
-        Strict Wired Route Prioritizer : Sub-millisecond route metric switching
-    section Phase 3 : Single Binary
-        Unified nmbd Binary : Zero Python dependencies
-        OpenWrt .ipk Package : Official feed distribution for home routers
+        Native Open-RMBT & iPerf3 : Zero subprocess overhead
+        Direct /proc Task Manager : Instant <1.2ms telemetry
+    section Phase 2 : Routing, DNS & Wireless IPC
+        Go Netlink Router Daemon : Sub-millisecond wired route switching
+        Go DNS Ad-Blocker (miekg/dns) : 3.5MB RAM & <0.3ms DNS response
+        wpa_supplicant & hostapd Sockets : Direct Wi-Fi association events
+    section Phase 3 : VPN, OONI & Unified Monolith
+        WireGuard wgctrl & QR Generator : Direct Netlink & in-memory QR
+        In-Process OONI Probe Engine : Eliminates external ooniprobe package
+        Embedded Static Assets : All HTML/JS/CSS compiled into nmbd
+    section Phase 4 : Deployment & Packaging
+        Self-Healing Watchdog Engine : SHA-256 self-audit & atomic swap
+        Hardware Driver Autodiscovery : Direct sysfs scanning
+        OpenWrt .ipk & procd Init : Official feed distribution for routers
 ```
 
 ### Phase 1: High-ROI Micro-Engine Replacements
-- **Step 1.1**: Build `nmb-probe` in Go (`cmd/nmb-probe/main.go`). It communicates with the existing Python `nmb-web` and SQLite database directly through `/var/lib/nmb/live/nmb.db`.
-- **Step 1.2**: Build `nmb-speed` in Go (`cmd/nmb-speed/main.go`). Slashes speedtest CPU overhead and handles high-speed fiber lines.
+- **Step 1.1**: Build `nmb-probe` in Go (`cmd/nmb-probe/main.go`). Communicates with existing Python `nmb-web` via SQLite WAL.
+- **Step 1.2**: Build `nmb-speed` in Go (`cmd/nmb-speed/main.go`) with integrated Open-RMBT and iPerf3 client protocols.
+- **Step 1.3**: Migrate `/api/system/tasks` to a native Go `/proc` reader module (`pkg/tasks`).
 
-### Phase 2: Netlink & Route Daemon
+### Phase 2: Dynamic Routing, DNS Ad-Blocker & Wi-Fi IPC
 - **Step 2.1**: Implement native Netlink interface monitor in Go, eliminating shell invocations of `/sbin/ip` and `/sbin/ethtool`.
-- **Step 2.2**: Integrate real-time carrier detection and wired interface metric enforcement (metric 50).
+- **Step 2.2**: Rewrite `nmb-adblock` in Go using `miekg/dns` with in-memory radix tree and UNIX socket control.
+- **Step 2.3**: Replace `wpa_cli` subprocess spawning with direct UNIX socket control of `wpa_supplicant` and `hostapd`.
 
-### Phase 3: Consolidated Monolith (`nmbd`) & OpenWrt Package
-- **Step 3.1**: Embed the web UI assets and compile `nmbd`.
-- **Step 3.2**: Produce official OpenWrt package Makefile (`nmb.ipk`) with a procd init script, allowing one-click installation via `opkg install nmb`.
+### Phase 3: WireGuard VPN, In-Process OONI & Unified Monolith (`nmbd`)
+- **Step 3.1**: Implement in-process WireGuard control via `wgctrl` and embed SVG/PNG QR generation.
+- **Step 3.2**: Import `ooni/probe-engine` directly into the binary, retiring external Debian packages.
+- **Step 3.3**: Embed Web UI assets using `//go:embed` and combine all daemons into the unified `nmbd` binary.
+
+### Phase 4: Self-Healing Watchdog, Driver Autodiscovery & OpenWrt Packaging
+- **Step 4.1**: Implement `nmb-heal` watchdog with atomic binary replacement and `/dev/watchdog` hardware support.
+- **Step 4.2**: Implement sysfs driver autodiscovery table in Go/C.
+- **Step 4.3**: Produce official OpenWrt package Makefile (`nmb.ipk`) with a procd init script, allowing one-click installation via `opkg install nmb`.
 
 ---
 
-## 7. Cross-Compilation Matrix (Go)
+## 7. Component Language & Dependency Elimination Matrix
 
-Compiling for any embedded architecture requires zero external cross-compilers using Go:
+| Component | Current Implementation | Target Language | Key Framework / Library | RAM Before $\to$ After | External Dependencies Eliminated |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Probe Engine** | Python socket / ping | **Go** (Tier 1) / **C** (Tier 2) | `golang.org/x/net/icmp` / `epoll` | 35MB $\to$ **1.2MB** | Python 3, raw ping binary |
+| **Network Router** | Python + `subprocess(ip)` | **Go** / **C** | `vishvananda/netlink` / `libnl-tiny` | 38MB $\to$ **1.8MB** | `/sbin/ip`, `/sbin/route`, `ethtool` |
+| **Speedtest Engine** | Python + Ookla CLI | **Go** | `net/http` multi-stream + `crypto/tls` | 45MB $\to$ **3.5MB** | Python GIL, ookla binary |
+| **Open-RMBT** | C binary (`rmbt-client`) | **C** / **Go** | Native C TCP chunk client / Go TCP | 18MB $\to$ **1.5MB** | Subprocess fork/exec |
+| **OONI Probe** | Python wrapper + CLI | **Go** | `github.com/ooni/probe-engine` | 65MB $\to$ **8.0MB** | External `ooniprobe` Debian package |
+| **iPerf3 Engine** | Python + `subprocess(iperf3)` | **Go** / **C** | Embedded Go iPerf3 protocol / `libiperf.a` | 25MB $\to$ **1.5MB** | External `iperf3` package |
+| **DNS Ad-Blocker** | Python DNS proxy | **Go** | `github.com/miekg/dns` + Radix Tree | 42MB $\to$ **3.5MB** | Python runtime, `/etc/hosts` shell forks |
+| **WireGuard / VPN** | Python + `wg-quick` + `qrencode` | **Go** | `golang.zx2c4.com/wireguard/wgctrl` | 30MB $\to$ **1.5MB** | `wg-quick`, `qrencode`, bash scripts |
+| **Web UI & API** | Python `ThreadingHTTPServer` | **Go** | `net/http` + `//go:embed` | 45MB $\to$ **4.0MB** | Web template files, Python runtime |
+| **SQLite Database** | Python `sqlite3` + backup script | **Go** / **C** | `modernc.org/sqlite` / `sqlite3.c` | 28MB $\to$ **2.0MB** | CGO cross-compiler, external scripts |
+| **Tasks & Load** | Python + `subprocess(ps)` | **Go** / **C** | Direct `/proc` reader (`stat`, `meminfo`) | 32MB $\to$ **0.8MB** | `/bin/ps` subprocess spawning |
+| **Driver Finder** | Python + `lspci` / `lsusb` | **Go** / **C** | Native `/sys/bus` sysfs walker | 25MB $\to$ **0.5MB** | `pciutils`, `usbutils`, Python runtime |
+| **Self-Healing** | Python `nmb-heal` audit | **Go** | In-process watchdog + atomic `os.Rename` | 28MB $\to$ **0.8MB** | External bash scripts, git CLI |
+| **Wi-Fi Manager** | Python + `subprocess(wpa_cli)` | **Go** / **C** | Direct UNIX socket client (`wpa_supplicant`) | 24MB $\to$ **0.6MB** | `wpa_cli`, `hostapd_cli` subprocesses |
+| **Diagnostic Log** | Python thread + SQLite | **Go** | In-memory circular ring buffer | 22MB $\to$ **0.5MB** | Subprocess tracing, Python logging |
+| **TOTAL** | **Suite of Python Daemons** | **Unified `nmbd` Monolith** | **Zero Runtime Dependencies** | **~180MB $\to$ 15MB** | **Eliminates Python, Pip & 14 packages** |
+
+---
+
+## 8. Cross-Compilation Matrix (Go)
+
+Compiling for any embedded router architecture requires zero external toolchains using Go:
 
 ```bash
 # 1. Raspberry Pi 4 / 5 & Modern 64-bit ARM Routers (aarch64)
@@ -222,8 +410,20 @@ CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -ldflags="-s -w
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/nmbd-amd64 ./cmd/nmbd
 ```
 
+### UPX Binary Compression (Optional for SPI Flash):
+For routers with strict 16MB SPI flash budgets:
+```bash
+upx --best --lzma dist/nmbd-mipsle -o dist/nmbd-mipsle-compressed
+# Slashes binary size from ~11MB down to ~3.2MB!
+```
+
 ---
 
-## 8. Conclusion
-By executing this De-Pythonization roadmap, NetworkMeasureBox will transform from a Python-dependent SBC application into an **industrial-grade, single-binary network appliance** capable of running on virtually any router in existence—from a 16MB flash OpenWrt box to a 10G enterprise server—with minimal memory footprint, zero dependencies, and router-native port 80 accessibility.
+## 9. Conclusion & Performance Projections
 
+By executing this De-Pythonization blueprint, NetworkMeasureBox will transform from a Python-dependent SBC application into an **industrial-grade, single-binary network appliance (`nmbd`)**:
+- **RAM footprint** drops from ~180MB down to **10MB – 18MB RSS**.
+- **CPU utilization** during idle background monitoring drops from 15% down to **<0.5%**.
+- **External package dependencies** (Python, Pip, OONI package, qrencode, iperf3, pciutils, etc.) are **100% eliminated**.
+- **Line-rate throughput**: Full multi-gigabit (1Gbps – 10Gbps) saturation capability without GIL bottlenecks.
+- **Portability**: Native execution across OpenWrt, Debian, Ubuntu, Alpine, and embedded Busybox environments.

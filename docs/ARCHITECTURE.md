@@ -86,3 +86,8 @@ systemd/        units and timers
 config/         default config
 docs/
 ```
+
+## 4. De-Pythonization & Next-Gen Native Architecture
+
+For resource-constrained embedded routers, OpenWrt CPEs (16MB Flash / 32MB–64MB RAM), and multi-gigabit line-rate throughput without Python runtime overhead, refer to the [De-Pythonization Architecture Blueprint](DEPYTHONIZATION_ROADMAP.md), which details the migration of all core engines and merged ecosystem components into a unified static binary (`nmbd`) in **Go** and **C11**.
+
