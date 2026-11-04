@@ -206,7 +206,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # 0. Logout UI and Auth Purge Endpoints
         if path == "/logout":
-            self._send_html(get_logout_html())
+            cur_theme = getattr(self.server.cfg.web, "theme", "default")
+            self._send_html(get_logout_html(initial_theme=cur_theme))
             return
 
         if path == "/api/auth/logout":
@@ -254,7 +255,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # 1. Main Dashboard UI
         if path in ("/", "/index.html"):
-            self._send_html(get_dashboard_html())
+            cur_theme = getattr(self.server.cfg.web, "theme", "default")
+            self._send_html(get_dashboard_html(initial_theme=cur_theme))
             return
 
         # 2. Status API
@@ -389,6 +391,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "current_configured": self.server.cfg.web.language,
                 "translations": get_translations_for_lang(req_lang),
                 "available": list(TRANSLATIONS.keys()),
+            })
+            return
+
+        if path in ("/api/theme", "/api/system/theme"):
+            self._send_json({
+                "status": "ok",
+                "theme": getattr(self.server.cfg.web, "theme", "default"),
+                "available": ["default", "prtd", "proudride", "amoled", "asuswrt", "asus_camo", "tp_gold", "mountain_hago", "ndefault"],
             })
             return
 
@@ -1483,6 +1493,21 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 })
             else:
                 self._send_json({"status": "error", "message": f"Unsupported language: {new_lang}"}, status=400)
+            return
+
+        if path in ("/api/theme", "/api/system/theme"):
+            new_theme = str(body_json.get("theme", "")).strip().lower()
+            valid_themes = ("default", "prtd", "proudride", "amoled", "asuswrt", "asus_camo", "tp_gold", "mountain_hago", "ndefault")
+            if new_theme in valid_themes:
+                self.server.cfg.web.theme = new_theme
+                save_config(self.server.cfg)
+                self._send_json({
+                    "status": "ok",
+                    "theme": new_theme,
+                    "message": f"Theme successfully changed and persisted to {new_theme}",
+                })
+            else:
+                self._send_json({"status": "error", "message": f"Unsupported theme: {new_theme}"}, status=400)
             return
 
         # 8. Custom Admin Credentials
@@ -2654,6 +2679,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "auth_enabled": bool(getattr(cfg.web, "auth_enabled", True)),
             "admin_username": getattr(cfg.web, "admin_username", "admin"),
             "language": getattr(cfg.web, "language", "en"),
+            "theme": getattr(cfg.web, "theme", "default"),
             "iperf_target_host": getattr(cfg.iperf, "target_host", ""),
             "iperf_port": getattr(cfg.iperf, "target_port", getattr(cfg.iperf, "port", 5201)),
             "iperf_protocol": getattr(cfg.iperf, "protocol", "tcp"),
@@ -2920,6 +2946,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             cfg.web.admin_password = str(body["admin_password"])
         if "language" in body and str(body["language"]).strip() in TRANSLATIONS:
             cfg.web.language = str(body["language"]).strip()
+        valid_themes = ("default", "prtd", "proudride", "amoled", "asuswrt", "asus_camo", "tp_gold", "mountain_hago", "ndefault")
+        if "theme" in body and str(body["theme"]).strip().lower() in valid_themes:
+            cfg.web.theme = str(body["theme"]).strip().lower()
 
         # iPerf configuration
         if "iperf_target_host" in body:
