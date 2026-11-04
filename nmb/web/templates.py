@@ -1937,7 +1937,7 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
     <button class="app-tab-btn" onclick="switchTab('tab-portscan')" data-i18n="tab_portscan">Port Neutrality</button>
     <button class="app-tab-btn" onclick="switchTab('tab-script')" data-i18n="tab_script">Measurement & Servers</button>
     <button class="app-tab-btn" onclick="switchTab('tab-syslog')" data-i18n="tab_syslog">🛠️ Developer & System Logs</button>
-        <button class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminal</button>
+    <button class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminal</button>
     <button class="app-tab-btn" onclick="switchTab('tab-tasks')" data-i18n="tab_tasks">📊 Tasks & Load</button>
     <button class="app-tab-btn" onclick="switchTab('tab-info')" data-i18n="tab_router">🛠️ Router & System</button>
     <button class="app-tab-btn" onclick="switchTab('tab-llm')" data-i18n="tab_llm">🤖 AI Diagnostics (LLM)</button>
@@ -4545,17 +4545,17 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Status</th>
-                  <th>SSID</th>
-                  <th>Signal</th>
-                  <th>Channel</th>
-                  <th>Security</th>
-                  <th>BSSID (MAC)</th>
-                  <th>Action</th>
+                  <th data-i18n="guest_col_state">Status</th>
+                  <th data-i18n="guest_col_ssid">SSID</th>
+                  <th data-i18n="guest_col_signal">Signal</th>
+                  <th data-i18n="guest_col_channel">Channel</th>
+                  <th data-i18n="guest_col_sec">Security</th>
+                  <th data-i18n="guest_col_bssid">BSSID (MAC)</th>
+                  <th data-i18n="guest_col_action">Action</th>
                 </tr>
               </thead>
               <tbody id="guest-wifi-scan-tbody">
-                <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Click "Scan Wi-Fi Networks Now" to search for nearby APs...</td></tr>
+                <tr><td colspan="7" style="text-align: center; color: var(--text-muted);" data-i18n="guest_scan_empty">Click "Scan Wi-Fi Networks Now" to search for nearby APs...</td></tr>
               </tbody>
             </table>
           </div>
@@ -4563,74 +4563,74 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
 
         <!-- 3. Configuration & Connect Card -->
         <div class="router-section-card" style="margin-top: 14px;">
-          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 6px;">⚙️ Manuális Wi-Fi Csatlakozás & Rejtett Hálózatok (Manual & Hidden Wi-Fi)</div>
-          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
-            Csatlakozzon tetszőleges Wi-Fi hálózathoz kézi SSID megadással, beleértve a rejtett hálózatokat és nyílt vendéghálózatokat is.
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 6px;" data-i18n="guest_manual_title">⚙️ Manual Wi-Fi Connection & Hidden Networks</div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;" data-i18n="guest_manual_desc">
+            Connect to any Wi-Fi network by entering SSID manually, including hidden SSIDs and open guest networks.
           </p>
 
           <div class="router-row-3">
             <div class="form-group">
-              <label class="form-label">Wi-Fi Kliens Állapota:</label>
+              <label class="form-label" data-i18n="guest_label_client_state">Wi-Fi Client State:</label>
               <select id="cfg-guest-wifi-enabled" class="form-input">
-                <option value="true">🟢 Bekapcsolva (Aktív Kliens)</option>
-                <option value="false" selected>🔴 Kikapcsolva</option>
+                <option value="true" data-i18n="guest_opt_enabled">🟢 Enabled (Active Client)</option>
+                <option value="false" selected data-i18n="guest_opt_disabled">🔴 Disabled</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Wi-Fi Interfész:</label>
+              <label class="form-label" data-i18n="guest_label_iface">Wi-Fi Interface:</label>
               <input type="text" id="cfg-guest-wifi-iface" value="wlan0" class="form-input" readonly style="background: rgba(15, 23, 42, 0.4); color: #94a3b8;">
             </div>
             <div class="form-group">
-              <label class="form-label">Útvonal Metrika (Route Metric):</label>
+              <label class="form-label" data-i18n="guest_label_metric">Route Metric:</label>
               <input type="number" id="cfg-guest-wifi-metric" value="600" class="form-input">
-              <div class="form-hint">A magas metrika (pl. 600) biztosítja, hogy a fő sebességmérések mindig a vezetékes (eth0) kapcsolaton fussanak.</div>
+              <div class="form-hint" data-i18n="guest_hint_metric">High metric (e.g. 600) ensures primary speed tests always use wired (eth0) connection.</div>
             </div>
           </div>
 
           <div class="router-row-3" style="margin-top: 12px;">
             <div class="form-group">
-              <label class="form-label">Hálózat Neve (SSID):</label>
-              <input type="text" id="cfg-guest-wifi-ssid" placeholder="pl. Vendeghalozat vagy rejtett SSID..." class="form-input">
+              <label class="form-label" data-i18n="guest_label_ssid">Network Name (SSID):</label>
+              <input type="text" id="cfg-guest-wifi-ssid" placeholder="e.g. GuestNetwork or hidden SSID..." data-i18n-placeholder="guest_ph_ssid" class="form-input">
               <div style="margin-top: 6px;">
                 <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: #cbd5e1; cursor: pointer;">
                   <input type="checkbox" id="cfg-guest-wifi-hidden">
-                  <span>🔒 <b>Rejtett hálózat (Hidden SSID)</b></span>
+                  <span data-i18n="guest_label_hidden">🔒 <b>Hidden network (Hidden SSID)</b></span>
                 </label>
               </div>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Biztonsági Protokoll:</label>
+              <label class="form-label" data-i18n="guest_label_sec">Security Protocol:</label>
               <select id="cfg-guest-wifi-sec" class="form-input" onchange="onGuestWifiSecChange()">
-                <option value="wpa-psk" selected>WPA2 / WPA3 Personal (PSK / SAE vegyes)</option>
-                <option value="sae">WPA3 Personal (SAE kötelező)</option>
-                <option value="wpa2">WPA2 Personal (AES-CCMP)</option>
-                <option value="open">Nyílt hálózat (Open / Nincs jelszó)</option>
+                <option value="wpa-psk" selected data-i18n="guest_opt_sec_mixed">WPA2 / WPA3 Personal (PSK / SAE mixed)</option>
+                <option value="sae" data-i18n="guest_opt_sec_sae">WPA3 Personal (SAE mandatory)</option>
+                <option value="wpa2" data-i18n="guest_opt_sec_wpa2">WPA2 Personal (AES-CCMP)</option>
+                <option value="open" data-i18n="guest_opt_sec_open">Open network (No password)</option>
               </select>
-              <div class="form-hint">Nyílt hálózat választásakor nem szükséges jelszót megadni.</div>
+              <div class="form-hint" data-i18n="guest_hint_sec">Password is not required when selecting an open network.</div>
             </div>
 
             <div class="form-group" id="cfg-guest-wifi-pass-wrap">
-              <label class="form-label">Wi-Fi Jelszó (Passphrase):</label>
-              <input type="password" id="cfg-guest-wifi-pass" placeholder="Írja be a Wi-Fi jelszót..." class="form-input">
-              <div class="form-hint">Nyílt hálózat esetén üresen hagyható.</div>
+              <label class="form-label" data-i18n="guest_label_pass">Wi-Fi Password (Passphrase):</label>
+              <input type="password" id="cfg-guest-wifi-pass" placeholder="Enter Wi-Fi password..." data-i18n-placeholder="guest_ph_pass" class="form-input">
+              <div class="form-hint" data-i18n="guest_hint_pass">Can be left empty for open networks.</div>
             </div>
           </div>
 
           <div class="router-row-3" style="margin-top: 12px;">
             <div class="form-group">
-              <label class="form-label">Automatikus Újracsatlakozás:</label>
+              <label class="form-label" data-i18n="guest_label_autorecon">Automatic Reconnect:</label>
               <select id="cfg-guest-wifi-autorecon" class="form-input">
-                <option value="true" selected>Igen (Újracsatlakozás újraindításkor és szakadáskor)</option>
-                <option value="false">Nem (Csak kézi csatlakozás)</option>
+                <option value="true" selected data-i18n="guest_opt_autorecon_yes">Yes (Reconnect on boot and disconnect)</option>
+                <option value="false" data-i18n="guest_opt_autorecon_no">No (Manual connection only)</option>
               </select>
             </div>
             <div style="display: flex; gap: 10px; align-items: flex-end; padding-bottom: 2px;">
-              <button class="btn-primary" style="padding: 9px 20px; font-weight: 600;" onclick="connectGuestWifi()">
-                ⚡ Csatlakozás Most
+              <button class="btn-primary" style="padding: 9px 20px; font-weight: 600;" onclick="connectGuestWifi()" data-i18n="guest_btn_connect_now">
+                ⚡ Connect Now
               </button>
-              <button class="btn-secondary" style="border: 1px solid #ef4444; color: #f87171; padding: 9px 18px;" onclick="disconnectGuestWifi()">
-                🔌 Leválasztás
+              <button class="btn-secondary" style="border: 1px solid #ef4444; color: #f87171; padding: 9px 18px;" onclick="disconnectGuestWifi()" data-i18n="guest_btn_disconnect">
+                🔌 Disconnect
               </button>
             </div>
           </div>
@@ -4640,13 +4640,13 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
         <div class="router-section-card" style="margin-top: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
             <div>
-              <div style="font-size: 14px; font-weight: 700; color: #ffffff;">📋 Mentett Wi-Fi Profilok & Hálózatok</div>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                Az eszköz által korábban megismert Wi-Fi profilok listája. Váltson profilok között egyetlen kattintással.
+              <div style="font-size: 14px; font-weight: 700; color: #ffffff;" data-i18n="guest_saved_title">📋 Saved Wi-Fi Profiles & Networks</div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" data-i18n="guest_saved_desc">
+                List of known Wi-Fi profiles saved on the device. Switch between profiles with one click.
               </p>
             </div>
-            <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadSavedGuestWifiConnections()">
-              🔄 Lista Frissítése
+            <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadSavedGuestWifiConnections()" data-i18n="guest_btn_refresh_list">
+              🔄 Refresh List
             </button>
           </div>
 
@@ -4654,14 +4654,14 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Hálózat Neve (SSID)</th>
-                  <th>Állapot</th>
-                  <th>Profil UUID</th>
-                  <th>Műveletek</th>
+                  <th data-i18n="guest_col_ssid">Network Name (SSID)</th>
+                  <th data-i18n="guest_col_state">Status</th>
+                  <th data-i18n="guest_col_uuid">Profile UUID</th>
+                  <th data-i18n="guest_col_actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="guest-wifi-saved-tbody">
-                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 14px;">Mentett profilok betöltése...</td></tr>
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 14px;" data-i18n="guest_loading_profiles">Loading saved profiles...</td></tr>
               </tbody>
             </table>
           </div>
@@ -6154,10 +6154,10 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
     const sel = document.getElementById('theme-select');
     if (sel && sel.value !== theme) sel.value = theme;
 
-    // Highlight the selected card in Router & System
+    // Highlight active card
     updateThemeCardsHighlight(theme);
 
-    // Persist to server config so the theme stays permanently across reboots & devices
+    // Persist immediately to backend server so it stays permanently
     try {
       fetch('/api/theme', {
         method: 'POST',
@@ -9855,7 +9855,7 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
       const data = await res.json();
       const repairs = data.repairs_executed || [];
       if (repairs.length > 0) {
-        alert('Self-Healing Completed:\n\n' + repairs.join('\n'));
+        alert('Self-Healing Completed:\\n\\n' + repairs.join('\\n'));
       } else {
         showToast('Self-healing check completed: All components healthy.');
       }
@@ -9923,7 +9923,7 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
   }
 
   async function applyStableUpdate() {
-    if (!confirm('Apply stable update with automatic safety rollback protection?\n\nAn atomic pre-update backup checkpoint will be created before applying. If automated tests fail, the system will roll back immediately.')) {
+    if (!confirm(t('confirm_apply_update', 'Apply stable update with automatic safety rollback protection? An atomic pre-update backup checkpoint will be created before applying.'))) {
       return;
     }
 
@@ -9936,11 +9936,11 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
       });
       const data = await res.json();
       if (data.success) {
-        alert('Update Applied Successfully!\n\nVersion: ' + data.new_version + '\nSafety Checkpoint: ' + data.checkpoint + '\n\nAll unit tests passed. Reloading dashboard...');
+        alert(t('update_applied_success', 'Update Applied Successfully! Version: ') + data.new_version + ' (' + data.checkpoint + '). Reloading dashboard...');
         setTimeout(() => { window.location.reload(); }, 2000);
       } else {
         if (data.rolled_back) {
-          alert('⚠️ UPDATE VERIFICATION FAILED — AUTOMATIC ROLLBACK APPLIED!\n\nReason: ' + data.error + '\n\nSystem state and database were safely and automatically restored to checkpoint:\n' + data.checkpoint);
+          alert(t('update_rollback_applied', '⚠️ UPDATE VERIFICATION FAILED — AUTOMATIC ROLLBACK APPLIED! Reason: ') + data.error);
         } else {
           alert('Update failed: ' + (data.error || 'Unknown error'));
         }
@@ -11468,7 +11468,7 @@ Use UP/DOWN arrow keys for command history.
         showToast('Device discovery completed.');
       }, 4000);
     } catch (e) {
-      showToast('Scan error: ' + e);
+      showToast(t('guest_toast_scan_err', 'Scan error: ') + e);
       if (btn) btn.disabled = false;
     }
   }
@@ -11634,9 +11634,9 @@ Use UP/DOWN arrow keys for command history.
     const tableWrap = document.getElementById('guest-wifi-scan-table-wrap');
     const tbody = document.getElementById('guest-wifi-scan-tbody');
     if (btn) btn.disabled = true;
-    showToast('Scanning nearby Wi-Fi networks via wlan0...');
+    showToast(t('guest_toast_scanning', 'Scanning nearby Wi-Fi networks via wlan0...'));
     if (tableWrap) tableWrap.style.display = 'block';
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 16px;">Scanning frequencies (2.4 GHz & 5 GHz)... Please wait.</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 16px;">' + t('guest_scan_in_progress', 'Scanning frequencies (2.4 GHz & 5 GHz)... Please wait.') + '</td></tr>';
 
     try {
       const res = await fetch('/api/wifi/guest/scan');
@@ -11644,20 +11644,20 @@ Use UP/DOWN arrow keys for command history.
         const d = await res.json();
         const nets = d.networks || [];
         if (nets.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #f87171; padding: 16px;">No Wi-Fi access points detected. Ensure wireless antenna is connected.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #f87171; padding: 16px;">' + t('guest_scan_no_ap', 'No Wi-Fi access points detected. Ensure wireless antenna is connected.') + '</td></tr>';
           return;
         }
         let html = '';
         nets.forEach(n => {
           const isHidden = !!(n.is_hidden || !n.ssid || n.ssid.startsWith('<Hidden'));
           const safeSsid = isHidden
-            ? '<span class="badge" style="background:rgba(234,179,8,0.15);color:#facc15;border:1px solid rgba(234,179,8,0.3);font-size:11px;">🔒 Rejtett / Hidden SSID</span> ' + escapeHtml(n.ssid)
+            ? '<span class="badge" style="background:rgba(234,179,8,0.15);color:#facc15;border:1px solid rgba(234,179,8,0.3);font-size:11px;">🔒 ' + t('guest_badge_hidden', 'Hidden SSID') + '</span> ' + escapeHtml(n.ssid)
             : escapeHtml(n.ssid);
           const safeBssid = escapeHtml(n.bssid);
           const safeSec = escapeHtml(n.security);
           const inUseBadge = n.in_use
             ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">Active</span>'
-            : '<span style="color: var(--text-muted); font-size: 11px;">Available</span>';
+            : '<span style="color: var(--text-muted); font-size: 11px;">' + t('guest_state_available', 'Available') + '</span>';
 
           html += `<tr>
             <td>${inUseBadge}</td>
@@ -11675,16 +11675,16 @@ Use UP/DOWN arrow keys for command history.
             <td style="font-family: monospace; font-size: 11.5px; color: #94a3b8;">${safeBssid}</td>
             <td>
               <button class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="selectScannedGuestWifi('${escapeHtml(n.ssid)}', '${escapeHtml(n.security)}', ${isHidden ? 'true' : 'false'})">
-                Kiválaszt ➡️
+                ${t('guest_btn_select', 'Select ➡️')}
               </button>
             </td>
           </tr>`;
         });
         tbody.innerHTML = html;
-        showToast(`Scan completed: ${nets.length} Wi-Fi networks found.`);
+        showToast(t('guest_toast_scan_completed', 'Scan completed: ') + `${nets.length} ` + t('guest_toast_scan_count_suffix', 'Wi-Fi networks found.'));
       }
     } catch (e) {
-      showToast('Scan error: ' + e);
+      showToast(t('guest_toast_scan_err', 'Scan error: ') + e);
       if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #f87171;">Error: ${escapeHtml(String(e))}</td></tr>`;
     } finally {
       if (btn) btn.disabled = false;
@@ -11700,7 +11700,7 @@ Use UP/DOWN arrow keys for command history.
     if (input) {
       if (isHidden || !ssid || ssid.startsWith('<Hidden')) {
         input.value = '';
-        input.placeholder = 'Adja meg a rejtett hálózat pontos nevét (SSID)...';
+        input.placeholder = t('guest_ph_hidden_ssid', 'Enter exact hidden network name (SSID)...');
         input.focus();
       } else {
         input.value = ssid;
@@ -11723,7 +11723,7 @@ Use UP/DOWN arrow keys for command history.
     if (passInput && (!sec || !sec.toUpperCase().includes('OPEN'))) {
       passInput.focus();
     }
-    showToast(`Kiválasztva: "${ssid || 'Rejtett Wi-Fi'}".`);
+    showToast(t('guest_toast_selected', 'Selected: ') + `"${ssid || 'Hidden Wi-Fi'}".`);
   }
 
   function onGuestWifiSecChange() {
@@ -11734,13 +11734,13 @@ Use UP/DOWN arrow keys for command history.
       if (passInput) {
         passInput.disabled = true;
         passInput.value = '';
-        passInput.placeholder = '(Nyílt hálózat - nincs szükség jelszóra)';
+        passInput.placeholder = t('guest_ph_open_pass', '(Open network - no password required)');
       }
       if (passWrap) passWrap.style.opacity = '0.6';
     } else {
       if (passInput) {
         passInput.disabled = false;
-        passInput.placeholder = 'Írja be a Wi-Fi jelszót...';
+        passInput.placeholder = t('guest_ph_pass', 'Enter Wi-Fi password...');
       }
       if (passWrap) passWrap.style.opacity = '1.0';
     }
@@ -11754,11 +11754,11 @@ Use UP/DOWN arrow keys for command history.
     const hidden = !!document.getElementById('cfg-guest-wifi-hidden')?.checked;
 
     if (!ssid) {
-      showToast('Kérlek adj meg egy Wi-Fi SSID-t! / Please enter or select a Guest Wi-Fi SSID.');
+      showToast(t('guest_toast_enter_ssid', 'Please enter or select a Wi-Fi SSID.'));
       return;
     }
 
-    showToast(`Csatlakozás: ${iface} -> "${ssid}" (Rejtett: ${hidden ? 'Igen' : 'Nem'})...`);
+    showToast(t('guest_toast_connecting', 'Connecting: ') + `${iface} -> "${ssid}" (${hidden ? t('yes', 'Yes') : t('no', 'No')})...`);
     try {
       const res = await fetch('/api/wifi/guest/connect', {
         method: 'POST',
@@ -11779,10 +11779,10 @@ Use UP/DOWN arrow keys for command history.
         await loadSavedGuestWifiConnections();
         await loadNetworkDevices();
       } else {
-        showToast('❌ ' + (d.message || 'Connection failed'));
+        showToast('❌ ' + (d.message || t('guest_err_connect', 'Connection error')));
       }
     } catch (e) {
-      showToast('Error connecting: ' + e);
+      showToast(t('guest_err_connect', 'Connection error: ') + e);
     }
   }
 
@@ -11795,22 +11795,22 @@ Use UP/DOWN arrow keys for command history.
       const d = await res.json();
       const list = d.saved_networks || [];
       if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 12px;">Nincsenek még mentett Wi-Fi profilok ezen az eszközön.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 12px;">' + t('guest_no_saved_profiles', 'No saved Wi-Fi profiles found on this device.') + '</td></tr>';
         return;
       }
       let html = '';
       list.forEach(item => {
         const statusBadge = item.in_use
-          ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">🟢 Aktív / Csatlakozva</span>'
-          : '<span class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px;">⚪ Mentve</span>';
+          ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">' + t('guest_state_active_connected', '🟢 Active / Connected') + '</span>'
+          : '<span class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px;">' + t('guest_state_saved', '⚪ Saved') + '</span>';
         const targetId = item.uuid || item.name;
         html += `<tr>
           <td style="font-weight: 700; color: #f1f5f9;">${escapeHtml(item.ssid || item.name)}</td>
           <td>${statusBadge}</td>
           <td style="font-family: monospace; font-size: 11px; color: #94a3b8;">${escapeHtml(item.uuid || '--')}</td>
           <td style="display: flex; gap: 6px;">
-            ${!item.in_use ? `<button class="btn-primary" style="font-size: 11px; padding: 3px 8px;" onclick="activateSavedWifi('${escapeHtml(targetId)}')">⚡ Csatlakozás</button>` : ''}
-            <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="forgetSavedWifi('${escapeHtml(targetId)}')">🗑️ Törlés</button>
+            ${!item.in_use ? `<button class="btn-primary" style="font-size: 11px; padding: 3px 8px;" onclick="activateSavedWifi('${escapeHtml(targetId)}')">${t('guest_btn_connect_now', '⚡ Connect')}</button>` : ''}
+            <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="forgetSavedWifi('${escapeHtml(targetId)}')">${t('guest_btn_delete', '🗑️ Delete')}</button>
           </td>
         </tr>`;
       });
@@ -11821,7 +11821,7 @@ Use UP/DOWN arrow keys for command history.
   }
 
   async function activateSavedWifi(id) {
-    showToast(`Csatlakozás a mentett profilhoz...`);
+    showToast(t('guest_toast_connecting_profile', 'Connecting to saved profile...'));
     try {
       const res = await fetch('/api/wifi/guest/saved/activate', {
         method: 'POST',
@@ -11830,19 +11830,19 @@ Use UP/DOWN arrow keys for command history.
       });
       const d = await res.json();
       if (res.ok && d.status === 'ok') {
-        showToast('✅ Csatlakozva!');
+        showToast(t('guest_toast_connected', '✅ Connected!'));
         await loadGuestWifiStatus();
         await loadSavedGuestWifiConnections();
       } else {
-        showToast('❌ ' + (d.message || 'Hiba a csatlakozás során'));
+        showToast('❌ ' + (d.message || t('guest_err_connect', 'Connection error')));
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('vpn_err_create', 'Operation error: ') + e);
     }
   }
 
   async function forgetSavedWifi(id) {
-    if (!confirm('Biztosan törli / elfelejti ezt a mentett Wi-Fi profilt?')) return;
+    if (!confirm(t('guest_confirm_forget', 'Are you sure you want to forget this saved Wi-Fi profile?'))) return;
     try {
       const res = await fetch('/api/wifi/guest/saved/delete', {
         method: 'POST',
@@ -11851,18 +11851,18 @@ Use UP/DOWN arrow keys for command history.
       });
       const d = await res.json();
       if (res.ok && d.status === 'ok') {
-        showToast('✅ Wi-Fi profil törölve!');
+        showToast(t('guest_toast_profile_deleted', '✅ Wi-Fi profile deleted!'));
         await loadSavedGuestWifiConnections();
       } else {
-        showToast('❌ ' + (d.message || 'Hiba a törlés során'));
+        showToast('❌ ' + (d.message || t('guest_err_delete', 'Error deleting profile')));
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('vpn_err_create', 'Operation error: ') + e);
     }
   }
 
   async function disconnectGuestWifi() {
-    if (!confirm('Disconnect wireless interface from Guest Wi-Fi?')) return;
+    if (!confirm(t('guest_confirm_disconnect', 'Disconnect wireless interface from Guest Wi-Fi?'))) return;
     const iface = (document.getElementById('cfg-guest-wifi-iface').value || 'wlan0').trim();
     showToast(`Disconnecting ${iface}...`);
     try {
@@ -12197,16 +12197,16 @@ ${pkgList}`;
         wgBadge.style.background = 'rgba(16, 185, 129, 0.15)';
         wgBadge.style.color = '#10b981';
         wgBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-        wgBadge.textContent = '🟢 Aktív (Port 51820)';
+        wgBadge.textContent = t('vpn_wg_active', '🟢 Active (Port 51820)');
       } else {
         wgBadge.style.background = 'rgba(148, 163, 184, 0.15)';
         wgBadge.style.color = '#94a3b8';
         wgBadge.style.border = '1px solid #475569';
-        wgBadge.textContent = '⚫ Leállítva';
+        wgBadge.textContent = t('vpn_status_stopped', '⚫ Stopped');
       }
       if (wgBtn) {
         wgBtn.className = isUp ? 'btn-danger' : 'btn-primary';
-        wgBtn.textContent = isUp ? '⏹️ Leállítás' : '▶️ Indítás';
+        wgBtn.textContent = isUp ? t('vpn_btn_stop', '⏹️ Stop') : t('vpn_btn_start', '▶️ Start');
       }
     }
 
@@ -12220,16 +12220,16 @@ ${pkgList}`;
         ovpnBadge.style.background = 'rgba(16, 185, 129, 0.15)';
         ovpnBadge.style.color = '#10b981';
         ovpnBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-        ovpnBadge.textContent = '🟢 Aktív (Port 1194)';
+        ovpnBadge.textContent = t('vpn_ovpn_active', '🟢 Active (Port 1194)');
       } else {
         ovpnBadge.style.background = 'rgba(148, 163, 184, 0.15)';
         ovpnBadge.style.color = '#94a3b8';
         ovpnBadge.style.border = '1px solid #475569';
-        ovpnBadge.textContent = '⚫ Leállítva';
+        ovpnBadge.textContent = t('vpn_status_stopped', '⚫ Stopped');
       }
       if (ovpnBtn) {
         ovpnBtn.className = isUp ? 'btn-danger' : 'btn-primary';
-        ovpnBtn.textContent = isUp ? '⏹️ Leállítás' : '▶️ Indítás';
+        ovpnBtn.textContent = isUp ? t('vpn_btn_stop', '⏹️ Stop') : t('vpn_btn_start', '▶️ Start');
       }
     }
 
@@ -12239,10 +12239,10 @@ ${pkgList}`;
     if (!tbody) return;
 
     const totalCount = lastWireguardPeers.length + lastOpenvpnClients.length;
-    if (totalBadge) totalBadge.textContent = `${totalCount} Kliens`;
+    if (totalBadge) totalBadge.textContent = `${totalCount} ${t('vpn_clients_count', 'Clients')}`;
 
     if (totalCount === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 18px;">Még nincs konfigurált VPN kliens. Használja a fenti 1-kattintásos PiVPN generátort az első profil létrehozásához.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 18px;">' + t('vpn_no_clients', 'No configured VPN clients yet. Use the 1-click PiVPN generator above to create your first client profile.') + '</td></tr>';
       return;
     }
 
@@ -12256,14 +12256,14 @@ ${pkgList}`;
       if (hsSec > 0) {
         if (hsSec < 180) {
           isConnected = true;
-          hsDisplay = `<span style="color: #10b981; font-weight: 600;">Aktív (${p.latest_handshake_ago || hsSec + 's'})</span>`;
+          hsDisplay = `<span style="color: #10b981; font-weight: 600;">${t('vpn_active_status', 'Active')} (${p.latest_handshake_ago || hsSec + 's'})</span>`;
         } else {
           hsDisplay = `<span style="color: var(--text-muted);">${p.latest_handshake_ago || Math.floor(hsSec / 60) + 'm'}</span>`;
         }
       }
       const statusBadge = isConnected
-        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 Kapcsolódva</span>'
-        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Offline</span>';
+        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">' + t('vpn_status_connected', '🟢 Connected') + '</span>'
+        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">' + t('vpn_status_offline', 'Offline') + '</span>';
 
       const rxFormatted = formatBytes(p.transfer_rx || 0);
       const txFormatted = formatBytes(p.transfer_tx || 0);
@@ -12295,8 +12295,8 @@ ${pkgList}`;
     lastOpenvpnClients.forEach(c => {
       const isConnected = !!c.connected;
       const statusBadge = isConnected
-        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 Kapcsolódva</span>'
-        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Offline</span>';
+        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">' + t('vpn_status_connected', '🟢 Connected') + '</span>'
+        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">' + t('vpn_status_offline', 'Offline') + '</span>';
 
       const rxFormatted = formatBytes(c.bytes_received || 0);
       const txFormatted = formatBytes(c.bytes_sent || 0);
@@ -12360,10 +12360,10 @@ ${pkgList}`;
     const nameInput = document.getElementById('pivpn-quick-name');
     const name = (nameInput?.value || '').trim();
     if (!name) {
-      showToast('Kérlek adj meg egy kliens nevet! / Please enter a client name.');
+      showToast(t('vpn_toast_client_name', 'Please enter a client name.'));
       return;
     }
-    showToast(`PiVPN: Kliens profil generálása (${proto.toUpperCase()})...`);
+    showToast(t('vpn_toast_generating', 'Generating client profile...') + ` (${proto.toUpperCase()})...`);
     if (proto === 'wireguard') {
       try {
         const res = await fetch('/api/wireguard/peer/add', {
@@ -12373,15 +12373,15 @@ ${pkgList}`;
         });
         const d = await res.json();
         if (res.ok && (d.status === 'ok' || d.peer)) {
-          showToast(`✅ WireGuard kliens elkészült: ${name}`);
+          showToast(t('vpn_toast_created', 'Client profile created successfully: ') + name);
           if (nameInput) nameInput.value = '';
           await loadWireguardStatus();
           showWireguardQr(d.peer ? d.peer.id : (d.id || name), name);
         } else {
-          showToast('❌ Hiba: ' + (d.message || 'Létrehozás sikertelen'));
+          showToast('❌ ' + (d.message || t('vpn_err_create', 'Failed to create profile')));
         }
       } catch (e) {
-        showToast('Hiba: ' + e);
+        showToast(t('vpn_err_create', 'Operation error: ') + e);
       }
     } else {
       try {
@@ -12392,7 +12392,7 @@ ${pkgList}`;
         });
         const d = await res.json();
         if (res.ok && d.status === 'ok') {
-          showToast(`✅ OpenVPN profil elkészült: ${name}`);
+          showToast(t('vpn_toast_created', 'Client profile created successfully: ') + name);
           if (nameInput) nameInput.value = '';
           await loadOpenvpnStatus();
           const dlLink = document.createElement('a');
@@ -12402,10 +12402,10 @@ ${pkgList}`;
           dlLink.click();
           document.body.removeChild(dlLink);
         } else {
-          showToast('❌ Hiba: ' + (d.message || 'Létrehozás sikertelen'));
+          showToast('❌ ' + (d.message || t('vpn_err_create', 'Failed to create profile')));
         }
       } catch (e) {
-        showToast('Hiba: ' + e);
+        showToast(t('vpn_err_create', 'Operation error: ') + e);
       }
     }
   }
@@ -13275,6 +13275,7 @@ ${pkgList}`;
     }
   }, 2500);
 
+
   // --- REAL-TIME TASK MANAGER & PROCESS MONITOR (HTOP WEB VIEW) ---
   const tasksState = {
     pollingTimer: null,
@@ -13299,18 +13300,19 @@ ${pkgList}`;
 
       // Update CPU meters
       const cpu = data.cpu || {};
-      const totalCpu = typeof cpu.total_percent === 'number' ? cpu.total_percent.toFixed(1) : '0.0';
+      const totalCpu = typeof cpu.total_percent === 'number' ? cpu.total_percent.toFixed(1) : (typeof cpu.total_usage_pct === 'number' ? cpu.total_usage_pct.toFixed(1) : '0.0');
       const totalBadge = document.getElementById('tasks-cpu-total-badge');
       if (totalBadge) totalBadge.textContent = totalCpu + '% Total';
 
       const coresList = document.getElementById('tasks-cpu-cores-list');
       if (coresList && Array.isArray(cpu.cores)) {
         coresList.innerHTML = cpu.cores.map((c, i) => {
-          const pct = Math.max(0, Math.min(100, c.percent || 0)).toFixed(1);
+          const rawPct = (typeof c.percent === 'number') ? c.percent : (c.usage_pct || 0);
+          const pct = Math.max(0, Math.min(100, rawPct)).toFixed(1);
           let barColor = '#10b981';
-          if (c.percent > 85) barColor = '#ef4444';
-          else if (c.percent > 60) barColor = '#f59e0b';
-          else if (c.percent > 30) barColor = '#3b82f6';
+          if (rawPct > 85) barColor = '#ef4444';
+          else if (rawPct > 60) barColor = '#f59e0b';
+          else if (rawPct > 30) barColor = '#3b82f6';
           return `
             <div>
               <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
@@ -13328,16 +13330,16 @@ ${pkgList}`;
       const freqEl = document.getElementById('tasks-cpu-freq');
       if (freqEl) freqEl.textContent = cpu.cpu_freq_mhz ? `${cpu.cpu_freq_mhz} MHz` : 'N/A';
       const tempEl = document.getElementById('tasks-cpu-temp');
-      if (tempEl) tempEl.textContent = cpu.temp_c ? `${cpu.temp_c} °C` : 'N/A';
+      if (tempEl) tempEl.textContent = (cpu.temp_c || cpu.cpu_temp_c) ? `${cpu.temp_c || cpu.cpu_temp_c} °C` : 'N/A';
 
       // Update Memory & Swap
       const mem = data.memory || {};
-      const memPct = mem.used_percent ? mem.used_percent.toFixed(1) : '0.0';
+      const memPct = (typeof mem.used_percent === 'number') ? mem.used_percent.toFixed(1) : (mem.used_pct ? mem.used_pct.toFixed(1) : '0.0');
       const memBadge = document.getElementById('tasks-mem-total-badge');
       if (memBadge) memBadge.textContent = `${memPct}% Used`;
 
       const ramText = document.getElementById('tasks-ram-text');
-      if (ramText) ramText.textContent = `${mem.used_mb || 0} MB / ${mem.total_mb || 0} MB`;
+      if (ramText) ramText.textContent = `${mem.used_human || ((mem.used_mb || 0) + ' MB')} / ${mem.total_human || ((mem.total_mb || 0) + ' MB')}`;
       const ramPctEl = document.getElementById('tasks-ram-percent');
       if (ramPctEl) ramPctEl.textContent = `${memPct}%`;
 
@@ -13354,9 +13356,9 @@ ${pkgList}`;
       if (ramBarCache) ramBarCache.style.width = cachePct + '%';
 
       const swap = data.swap || {};
-      const swapPct = swap.used_percent ? swap.used_percent.toFixed(1) : '0.0';
+      const swapPct = (typeof swap.used_percent === 'number') ? swap.used_percent.toFixed(1) : (swap.used_pct ? swap.used_pct.toFixed(1) : '0.0');
       const swapText = document.getElementById('tasks-swap-text');
-      if (swapText) swapText.textContent = `${swap.used_mb || 0} MB / ${swap.total_mb || 0} MB`;
+      if (swapText) swapText.textContent = `${swap.used_human || ((swap.used_mb || 0) + ' MB')} / ${swap.total_human || ((swap.total_mb || 0) + ' MB')}`;
       const swapPctEl = document.getElementById('tasks-swap-percent');
       if (swapPctEl) swapPctEl.textContent = `${swapPct}%`;
       const swapBar = document.getElementById('tasks-swap-bar');
@@ -13365,21 +13367,25 @@ ${pkgList}`;
       // Update Summary
       const summary = data.summary || {};
       const uptimeBadge = document.getElementById('tasks-uptime-badge');
-      if (uptimeBadge) uptimeBadge.textContent = `Up: ${summary.uptime_formatted || '--'}`;
+      if (uptimeBadge) uptimeBadge.textContent = `Up: ${summary.uptime_formatted || (data.system && data.system.uptime_human) || '--'}`;
 
       const loadavgEl = document.getElementById('tasks-loadavg-text');
-      if (loadavgEl && summary.load_avg) {
-        loadavgEl.textContent = `${summary.load_avg['1m']}  ${summary.load_avg['5m']}  ${summary.load_avg['15m']}`;
+      if (loadavgEl) {
+        if (summary.load_avg) {
+          loadavgEl.textContent = `${summary.load_avg['1m']}  ${summary.load_avg['5m']}  ${summary.load_avg['15m']}`;
+        } else if (data.system && data.system.loadavg_human) {
+          loadavgEl.textContent = data.system.loadavg_human;
+        }
       }
 
       const totalTasksEl = document.getElementById('tasks-count-total');
-      if (totalTasksEl) totalTasksEl.textContent = summary.tasks_total || 0;
+      if (totalTasksEl) totalTasksEl.textContent = summary.tasks_total || (data.stats && data.stats.total) || 0;
       const runningEl = document.getElementById('tasks-count-running');
-      if (runningEl) runningEl.textContent = summary.tasks_running || 0;
+      if (runningEl) runningEl.textContent = summary.tasks_running || (data.stats && data.stats.running) || 0;
       const sleepingEl = document.getElementById('tasks-count-sleeping');
-      if (sleepingEl) sleepingEl.textContent = summary.tasks_sleeping || 0;
+      if (sleepingEl) sleepingEl.textContent = summary.tasks_sleeping || (data.stats && data.stats.sleeping) || 0;
       const zombieEl = document.getElementById('tasks-count-zombie');
-      if (zombieEl) zombieEl.textContent = summary.tasks_zombie || 0;
+      if (zombieEl) zombieEl.textContent = summary.tasks_zombie || (data.stats && data.stats.zombie) || 0;
 
       // Render processes table
       renderTasksTable();
@@ -13416,8 +13422,8 @@ ${pkgList}`;
     const key = tasksState.sortKey;
     const asc = tasksState.sortAsc;
     procs.sort((a, b) => {
-      let valA = a[key];
-      let valB = b[key];
+      let valA = a[key] !== undefined ? a[key] : (key === 'cpu_percent' ? a.cpu_pct : a.mem_pct);
+      let valB = b[key] !== undefined ? b[key] : (key === 'cpu_percent' ? b.cpu_pct : b.mem_pct);
       if (typeof valA === 'string') valA = valA.toLowerCase();
       if (typeof valB === 'string') valB = valB.toLowerCase();
       if (valA < valB) return asc ? -1 : 1;
@@ -13429,7 +13435,7 @@ ${pkgList}`;
     if (countEl) countEl.textContent = `Showing ${procs.length} of ${tasksState.processes.length} processes`;
 
     if (procs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 20px; color: var(--text-muted);">No processes matching filter</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 20px; color: var(--text-muted);">${t('tasks_no_match', 'No processes matching filter')}</td></tr>`;
       return;
     }
 
@@ -13438,21 +13444,23 @@ ${pkgList}`;
       const isNmb = p.is_nmb;
       const rowBg = isNmb ? 'rgba(56, 189, 248, 0.05)' : 'transparent';
       const cmdDisplay = p.args ? p.args : p.command;
-      const cpuColor = p.cpu_percent > 50 ? '#ef4444' : (p.cpu_percent > 10 ? '#f59e0b' : '#38bdf8');
-      const memColor = p.mem_percent > 20 ? '#ec4899' : '#a855f7';
+      const cpuVal = typeof p.cpu_percent === 'number' ? p.cpu_percent : (p.cpu_pct || 0);
+      const memVal = typeof p.mem_percent === 'number' ? p.mem_percent : (p.mem_pct || 0);
+      const cpuColor = cpuVal > 50 ? '#ef4444' : (cpuVal > 10 ? '#f59e0b' : '#38bdf8');
+      const memColor = memVal > 20 ? '#ec4899' : '#a855f7';
 
       return `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); background: ${rowBg};">
           <td style="padding: 6px 10px; color: #f8fafc; font-weight: bold;">${p.pid}</td>
           <td style="padding: 6px 10px; color: ${p.user === 'root' ? '#f59e0b' : '#94a3b8'};">${p.user}</td>
-          <td style="padding: 6px 10px; color: #64748b;">${p.pri}</td>
-          <td style="padding: 6px 10px; color: #64748b;">${p.ni}</td>
-          <td style="padding: 6px 10px; color: #64748b;">${p.virt_h}</td>
-          <td style="padding: 6px 10px; color: #94a3b8;">${p.res_h}</td>
-          <td style="padding: 6px 10px; color: #64748b;">${p.shr_h}</td>
-          <td style="padding: 6px 10px; color: ${p.stat && p.stat.startsWith('R') ? '#34d399' : '#94a3b8'}; font-weight: 600;">${p.stat}</td>
-          <td style="padding: 6px 10px; color: ${cpuColor}; font-weight: bold;">${p.cpu_percent.toFixed(1)}</td>
-          <td style="padding: 6px 10px; color: ${memColor};">${p.mem_percent.toFixed(1)}</td>
+          <td style="padding: 6px 10px; color: #64748b;">${p.pri !== undefined ? p.pri : (p.priority || 0)}</td>
+          <td style="padding: 6px 10px; color: #64748b;">${p.ni !== undefined ? p.ni : (p.nice || 0)}</td>
+          <td style="padding: 6px 10px; color: #64748b;">${p.virt_h || p.vsz_human || '-'}</td>
+          <td style="padding: 6px 10px; color: #94a3b8;">${p.res_h || p.rss_human || '-'}</td>
+          <td style="padding: 6px 10px; color: #64748b;">${p.shr_h || '-'}</td>
+          <td style="padding: 6px 10px; color: ${(p.stat || p.state || '').startsWith('R') ? '#34d399' : '#94a3b8'}; font-weight: 600;">${p.stat || p.state}</td>
+          <td style="padding: 6px 10px; color: ${cpuColor}; font-weight: bold;">${cpuVal.toFixed(1)}</td>
+          <td style="padding: 6px 10px; color: ${memColor};">${memVal.toFixed(1)}</td>
           <td style="padding: 6px 10px; color: #94a3b8;">${p.time}</td>
           <td style="padding: 6px 10px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${cmdDisplay}">
             ${isNmb ? '<span style="color: #38bdf8; font-weight: bold;">[NMB] </span>' : ''}${cmdDisplay}
@@ -13461,8 +13469,8 @@ ${pkgList}`;
             ${isProtected ?
               '<span style="font-size: 10px; color: #64748b;">(Protected)</span>' :
               `<div style="display: flex; gap: 4px; justify-content: center;">
-                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3);" onclick="promptKillProcess(${p.pid}, '${p.command}', 15)" title="Graceful SIGTERM">Term</button>
-                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5);" onclick="promptKillProcess(${p.pid}, '${p.command}', 9)" title="Force SIGKILL">Kill</button>
+                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3);" onclick="promptKillProcess(${p.pid}, '${p.command}', 15)" title="Graceful SIGTERM">${t('tasks_btn_term', 'Term')}</button>
+                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5);" onclick="promptKillProcess(${p.pid}, '${p.command}', 9)" title="Force SIGKILL">${t('tasks_btn_kill', 'Kill')}</button>
               </div>`
             }
           </td>
@@ -13520,8 +13528,9 @@ ${pkgList}`;
   }
 
   async function promptKillProcess(pid, comm, signal) {
-    const sigName = signal === 9 ? 'SIGKILL (Kényszerített)' : 'SIGTERM (Szabályos leállítás)';
-    if (!confirm(`Biztosan le akarod állítani ezt a folyamatot?\nPID: ${pid}\nParancs: ${comm}\nSzignál: ${sigName}`)) {
+    const sigName = signal === 9 ? 'SIGKILL' : 'SIGTERM';
+    const confirmPrompt = t('tasks_confirm_kill', 'Are you sure you want to terminate this process?') + `\nPID: ${pid}\nCommand: ${comm}\nSignal: ${sigName}`;
+    if (!confirm(confirmPrompt)) {
       return;
     }
     try {
@@ -13532,13 +13541,13 @@ ${pkgList}`;
       });
       const data = await res.json();
       if (res.ok && data.status === 'ok') {
-        showToast(data.message || 'Folyamat leállítva.');
+        showToast(data.message || t('tasks_process_killed', 'Process terminated.'));
         loadTasksOverview();
       } else {
-        showToast('Hiba a folyamat leállításakor: ' + (data.message || data.error || 'Ismeretlen hiba'));
+        showToast(t('tasks_err_kill', 'Error terminating process: ') + (data.message || data.error || 'Unknown error'));
       }
     } catch (e) {
-      showToast('Hálózati hiba: ' + e);
+      showToast('Network error: ' + e);
     }
   }
 
