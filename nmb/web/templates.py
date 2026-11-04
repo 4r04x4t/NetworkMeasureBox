@@ -5506,7 +5506,7 @@ def get_dashboard_html() -> str:
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></span>
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span>
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span>
-            <span style="font-size: 11.5px; color: #94a3b8; font-family: monospace; margin-left: 6px;">nmb@<span id="term-box-id">box</span>: ~ (Interactive Bash Shell)</span>
+            <span style="font-size: 11.5px; color: #94a3b8; font-family: monospace; margin-left: 6px;">root@<span id="term-box-id">box</span>: ~ (Interactive System Console)</span>
           </div>
           <span id="term-status-badge" class="badge" style="background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">
             ONLINE
@@ -5516,7 +5516,7 @@ def get_dashboard_html() -> str:
         <pre id="cli-terminal-screen" class="cli-terminal-screen"></pre>
 
         <form id="cli-term-form" onsubmit="submitTerminalCmd(event)" class="cli-input-row">
-          <span class="cli-prompt-lbl">nmb@box:~$</span>
+          <span class="cli-prompt-lbl">root@box:~#</span>
           <input type="text" id="cli-term-input" class="cli-input-field" placeholder="Enter a Linux shell command (e.g. ip a, ping -c 3 8.8.8.8, hostapd_cli status) and press Enter..." data-i18n-placeholder="terminal_placeholder" autocomplete="off" spellcheck="false">
           <button type="submit" id="btn-term-run" class="btn-primary" style="padding: 6px 16px; font-size: 12px;" data-i18n="btn_run">▶️ Run</button>
         </form>
@@ -8871,7 +8871,7 @@ Use UP/DOWN arrow keys for command history.
     const runBtn = document.getElementById('btn-term-run');
     if (!screen) return;
 
-    screen.innerText += `nmb@box:~$ ${cmd}\n`;
+    screen.innerText += `root@box:~# ${cmd}\n`;
     screen.scrollTop = screen.scrollHeight;
     if (badge) {
       badge.innerText = t('status_running', 'RUNNING...');

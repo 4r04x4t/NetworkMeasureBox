@@ -2040,15 +2040,36 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
             log.info("CLI terminal execution requested: %s", cmd)
             t_start = time.monotonic()
+            timeout_sec = float(body_json.get("timeout") or 120.0)
+            if timeout_sec > 600.0:
+                timeout_sec = 600.0
+
+            # Auto-elevate via sudo if non-root and command requires system admin privileges
+            effective_cmd = cmd
+            if os.geteuid() != 0 and shutil.which("sudo") and not cmd.startswith("sudo"):
+                root_cmds = ("apt", "apt-get", "systemctl", "dpkg", "reboot", "poweroff", "shutdown", "wg-quick", "hostapd", "iptables", "nft", "ip", "nmcli")
+                first_word = cmd.split()[0] if cmd.split() else ""
+                if first_word in root_cmds:
+                    effective_cmd = f"sudo -n {cmd}"
+
             try:
+                term_env = {
+                    **os.environ,
+                    "TERM": "xterm-256color",
+                    "PYTHONUNBUFFERED": "1",
+                    "DEBIAN_FRONTEND": "noninteractive",
+                    "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:" + os.environ.get("PATH", ""),
+                    "HOME": "/root" if os.geteuid() == 0 else os.environ.get("HOME", "/tmp"),
+                    "USER": "root" if os.geteuid() == 0 else os.environ.get("USER", "nmb"),
+                }
                 proc = subprocess.run(
-                    cmd,
+                    effective_cmd,
                     shell=True,
                     executable=shutil.which("bash") or "/bin/sh",
                     capture_output=True,
                     text=True,
-                    timeout=30.0,
-                    env={**os.environ, "TERM": "xterm-256color", "PYTHONUNBUFFERED": "1"},
+                    timeout=timeout_sec,
+                    env=term_env,
                 )
                 duration_ms = round((time.monotonic() - t_start) * 1000.0, 1)
                 output = proc.stdout
@@ -2059,16 +2080,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({
                     "status": "ok",
                     "command": cmd,
+                    "effective_command": effective_cmd if effective_cmd != cmd else None,
                     "output": output,
                     "exit_code": proc.returncode,
                     "duration_ms": duration_ms,
+                    "user": "root" if os.geteuid() == 0 else "nmb",
                 })
             except subprocess.TimeoutExpired:
                 duration_ms = round((time.monotonic() - t_start) * 1000.0, 1)
                 self._send_json({
                     "status": "timeout",
                     "command": cmd,
-                    "output": f"Command timed out after 30 seconds: {cmd}",
+                    "output": f"Command timed out after {int(timeout_sec)} seconds: {cmd}",
                     "exit_code": 124,
                     "duration_ms": duration_ms,
                 }, status=504)

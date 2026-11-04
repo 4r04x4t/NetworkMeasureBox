@@ -183,9 +183,9 @@ if ! id "$NMB_USER" >/dev/null 2>&1; then
     fi
 fi
 
-# Grant strictly parameterized administration rights via nmb-helper in sudoers
+# Grant full administration rights to NMB in sudoers
 if [ -d /etc/sudoers.d ]; then
-    echo "$NMB_USER ALL=(ALL) NOPASSWD: /usr/bin/nmcli, /usr/bin/ip, /usr/sbin/ip, /usr/bin/mtr, /usr/local/bin/nmb-helper" > /etc/sudoers.d/020_nmb-net
+    echo "$NMB_USER ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/020_nmb-net
     chmod 0440 /etc/sudoers.d/020_nmb-net
 fi
 
