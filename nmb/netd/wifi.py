@@ -18,6 +18,22 @@ from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger("nmb.netd.wifi")
 
+
+def unblock_wifi() -> bool:
+    """Ensure wireless radio is unblocked via rfkill."""
+    rfkill = shutil.which("rfkill")
+    if not rfkill:
+        return False
+    try:
+        from nmb.netd.interfaces import _wrap_sudo
+        subprocess.run(_wrap_sudo([rfkill, "unblock", "wifi"]), capture_output=True, timeout=5)
+        subprocess.run(_wrap_sudo([rfkill, "unblock", "all"]), capture_output=True, timeout=5)
+        log.debug("rfkill unblock executed successfully")
+        return True
+    except Exception as e:
+        log.debug("rfkill unblock exception: %s", e)
+        return False
+
 STANDARD_DESCRIPTIONS: Dict[str, Dict[str, str]] = {
     "be": {
         "label": "IEEE 802.11be (Wi-Fi 7 - Extremely High Throughput)",

@@ -110,6 +110,8 @@ class ModeA(NetworkMode):
         # 3. Configure Wi-Fi Diagnostic AP if enabled
         if self.cfg.wifi_enabled and interfaces.interface_exists(self.cfg.wlan_interface):
             log.info("configuring Diagnostic Wi-Fi on %s", self.cfg.wlan_interface)
+            from nmb.netd.wifi import unblock_wifi
+            unblock_wifi()
             interfaces.set_link_up(self.cfg.wlan_interface)
             self.svc_mgr.start_hostapd(self.cfg.wlan_interface)
             self.lan_ifaces.append(self.cfg.wlan_interface)
@@ -175,6 +177,10 @@ class ModeA(NetworkMode):
 class ModeB(NetworkMode):
     """Mode B: Passive Inline Probe (Transparent Bridge)."""
 
+    def __init__(self, run_dir: Path, cfg: NetworkConfig):
+        super().__init__(run_dir, cfg)
+        self.wlan_active = False
+
     def setup(self) -> bool:
         log.info("initializing Mode B (Passive Inline Bridge)")
         # 1. Clean up any lingering Mode A processes or NAT
@@ -190,6 +196,27 @@ class ModeB(NetworkMode):
 
         # 3. Trigger DHCP request on br0 if no IP assigned so probe can communicate
         self._request_management_ip()
+
+        # 4. Bring up Diagnostic Wi-Fi AP if enabled
+        wlan = self.cfg.wlan_interface or "wlan0"
+        if self.cfg.wifi_enabled and interfaces.interface_exists(wlan):
+            log.info("configuring Diagnostic Wi-Fi in Bridge Mode on %s", wlan)
+            from nmb.netd.wifi import unblock_wifi
+            unblock_wifi()
+            interfaces.set_link_up(wlan)
+            ap_ip = getattr(self.cfg, "diag_wifi_ip", "172.16.42.1")
+            interfaces.flush_ip_addresses(wlan)
+            interfaces.add_ip_address(wlan, f"{ap_ip}/24")
+            self.svc_mgr.start_hostapd(wlan)
+            self.svc_mgr.start_dnsmasq(
+                listen_ifaces=[wlan],
+                gateway_ip=ap_ip,
+                dhcp_start="172.16.42.100",
+                dhcp_end="172.16.42.200",
+                netmask="255.255.255.0",
+            )
+            self.wlan_active = True
+
         return True
 
     def _request_management_ip(self) -> None:
@@ -215,11 +242,20 @@ class ModeB(NetworkMode):
 
     def teardown(self) -> bool:
         log.info("tearing down Mode B")
+        if self.wlan_active:
+            self.svc_mgr.stop_hostapd()
+            self.svc_mgr.stop_dnsmasq()
+            wlan = self.cfg.wlan_interface or "wlan0"
+            if interfaces.interface_exists(wlan):
+                interfaces.flush_ip_addresses(wlan)
+            self.wlan_active = False
+
         members = [self.cfg.wan_interface, self.cfg.lan_interface]
         return interfaces.teardown_bridge(self.cfg.bridge_interface, members)
 
     def get_status(self) -> dict:
         br = self.cfg.bridge_interface
+        wlan = self.cfg.wlan_interface or "wlan0"
         return {
             "mode": "mode_b",
             "bridge": br,
@@ -229,11 +265,21 @@ class ModeB(NetworkMode):
             "wan_carrier": interfaces.get_carrier(self.cfg.wan_interface),
             "lan_interface": self.cfg.lan_interface,
             "lan_carrier": interfaces.get_carrier(self.cfg.lan_interface),
+            "wifi_enabled": self.cfg.wifi_enabled,
+            "wlan_interface": wlan,
+            "wlan_carrier": interfaces.get_carrier(wlan) if interfaces.interface_exists(wlan) else False,
+            "wlan_addrs": interfaces.get_ip_addresses(wlan) if interfaces.interface_exists(wlan) else [],
+            "hostapd_running": self.svc_mgr.processes.get("hostapd") is not None and self.svc_mgr.processes["hostapd"].is_running(),
+            "dnsmasq_running": self.svc_mgr.processes.get("dnsmasq") is not None and self.svc_mgr.processes["dnsmasq"].is_running(),
         }
 
 
 class ModeStandalone(NetworkMode):
     """Mode Standalone: Endpoint Probe on existing LAN (does not alter physical interfaces)."""
+
+    def __init__(self, run_dir: Path, cfg: NetworkConfig):
+        super().__init__(run_dir, cfg)
+        self.wlan_active = False
 
     def setup(self) -> bool:
         log.info("initializing Standalone Mode (LAN endpoint probe)")
@@ -244,19 +290,58 @@ class ModeStandalone(NetworkMode):
         default_iface = interfaces.get_default_gateway_iface()
         self.active_wan = default_iface if default_iface and interfaces.interface_exists(default_iface) else self.cfg.wan_interface
         log.info("standalone mode active on interface: %s", self.active_wan)
+
+        # 2. Configure Diagnostic Wi-Fi AP if enabled (crucial for wireless access in non-router mode)
+        wlan = self.cfg.wlan_interface or "wlan0"
+        if self.cfg.wifi_enabled and interfaces.interface_exists(wlan):
+            log.info("configuring Diagnostic Wi-Fi in Standalone Mode on %s", wlan)
+            from nmb.netd.wifi import unblock_wifi
+            unblock_wifi()
+            interfaces.set_link_up(wlan)
+            ap_ip = getattr(self.cfg, "diag_wifi_ip", "172.16.42.1")
+            interfaces.flush_ip_addresses(wlan)
+            interfaces.add_ip_address(wlan, f"{ap_ip}/24")
+            self.svc_mgr.start_hostapd(wlan)
+            self.svc_mgr.start_dnsmasq(
+                listen_ifaces=[wlan],
+                gateway_ip=ap_ip,
+                dhcp_start="172.16.42.100",
+                dhcp_end="172.16.42.200",
+                netmask="255.255.255.0",
+            )
+            # Route/NAT client traffic from wlan to active LAN/WAN interface if available
+            if self.active_wan and self.active_wan != wlan:
+                firewall.enable_nat_mode_a(self.active_wan, [wlan])
+            self.wlan_active = True
+
         return True
 
     def teardown(self) -> bool:
         log.info("tearing down Standalone Mode")
+        if self.wlan_active:
+            self.svc_mgr.stop_hostapd()
+            self.svc_mgr.stop_dnsmasq()
+            firewall.disable_nat()
+            wlan = self.cfg.wlan_interface or "wlan0"
+            if interfaces.interface_exists(wlan):
+                interfaces.flush_ip_addresses(wlan)
+            self.wlan_active = False
         return True
 
     def get_status(self) -> dict:
         iface = self.active_wan or self.cfg.wan_interface
+        wlan = self.cfg.wlan_interface or "wlan0"
         return {
             "mode": "standalone",
             "interface": iface,
             "carrier": interfaces.get_carrier(iface),
             "addresses": interfaces.get_ip_addresses(iface),
             "operstate": interfaces.get_operstate(iface),
+            "wifi_enabled": self.cfg.wifi_enabled,
+            "wlan_interface": wlan,
+            "wlan_carrier": interfaces.get_carrier(wlan) if interfaces.interface_exists(wlan) else False,
+            "wlan_addrs": interfaces.get_ip_addresses(wlan) if interfaces.interface_exists(wlan) else [],
+            "hostapd_running": self.svc_mgr.processes.get("hostapd") is not None and self.svc_mgr.processes["hostapd"].is_running(),
+            "dnsmasq_running": self.svc_mgr.processes.get("dnsmasq") is not None and self.svc_mgr.processes["dnsmasq"].is_running(),
         }
 

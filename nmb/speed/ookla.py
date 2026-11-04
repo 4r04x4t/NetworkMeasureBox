@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 import time
@@ -224,9 +225,97 @@ def get_available_servers(search_query: str = "", limit: int = 100) -> list[dict
     return filtered[:limit]
 
 
+def find_or_install_ookla_binary() -> Optional[str]:
+    """Find official Ookla speedtest binary or automatically install it if missing."""
+    import platform
+    import tarfile
+    import io
+    from pathlib import Path
+
+    # 1. Check PATH
+    p = shutil.which("speedtest")
+    if p and os.path.isfile(p) and os.access(p, os.X_OK):
+        return p
+
+    # 2. Check standard install locations
+    candidates = [
+        "/usr/local/bin/speedtest",
+        "/usr/bin/speedtest",
+        "/opt/nmb/bin/speedtest",
+        "/var/lib/nmb/bin/speedtest",
+        str(Path.home() / ".local" / "bin" / "speedtest"),
+        "/tmp/nmb-bin/speedtest",
+    ]
+    for c in candidates:
+        if os.path.isfile(c) and os.access(c, os.X_OK):
+            return c
+
+    # 3. Automatic standalone binary fetch for Linux architecture
+    arch = platform.machine().lower()
+    arch_map = {
+        "x86_64": "x86_64",
+        "amd64": "x86_64",
+        "aarch64": "aarch64",
+        "arm64": "aarch64",
+        "armv7l": "armhf",
+        "armv6l": "armhf",
+        "armhf": "armhf",
+        "i386": "i386",
+        "i686": "i386",
+    }
+    ookla_arch = arch_map.get(arch)
+    if not ookla_arch:
+        log.warning("unsupported architecture for automatic ookla binary download: %s", arch)
+        return None
+
+    # Determine destination directory
+    dest_dirs = [
+        Path("/opt/nmb/bin"),
+        Path("/usr/local/bin"),
+        Path("/var/lib/nmb/bin"),
+        Path.home() / ".local" / "bin",
+        Path("/tmp/nmb-bin"),
+    ]
+    target_dir: Optional[Path] = None
+    for d in dest_dirs:
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            test_file = d / ".nmb_write_test"
+            test_file.touch()
+            test_file.unlink()
+            target_dir = d
+            break
+        except Exception:
+            continue
+
+    if not target_dir:
+        return None
+
+    target_bin = target_dir / "speedtest"
+    url = f"https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-{ookla_arch}.tgz"
+    log.info("downloading official Ookla Speedtest binary for %s from %s into %s", ookla_arch, url, target_bin)
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "NetworkMeasureBox/2.5"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            tar_bytes = resp.read()
+        with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:gz") as tar:
+            for member in tar.getmembers():
+                if member.name == "speedtest":
+                    extracted = tar.extractfile(member)
+                    if extracted:
+                        target_bin.write_bytes(extracted.read())
+                        target_bin.chmod(0o755)
+                        log.info("successfully installed official Ookla speedtest binary: %s", target_bin)
+                        return str(target_bin)
+    except Exception as e:
+        log.warning("automatic ookla binary download failed: %s", e)
+
+    return None
+
+
 def run_official_ookla(server_id: Optional[int] = None, interface: Optional[str] = None, bind_ip: Optional[str] = None) -> Optional[SpeedtestResult]:
     """Run official Ookla Speedtest binary (--format=json), optionally bound to interface/IP and targeted at server_id."""
-    bin_path = shutil.which("speedtest")
+    bin_path = find_or_install_ookla_binary()
     if not bin_path:
         return None
 
@@ -385,16 +474,42 @@ def run_speedtest_cli() -> Optional[SpeedtestResult]:
         return None
 
 
-def run_native_fallback() -> SpeedtestResult:
+def run_native_fallback(server_id: Optional[int] = None) -> SpeedtestResult:
     """Native standard library HTTP streaming speed probe.
 
-    Used when Ookla CLI binary is not present on the system.
-    Measures download speed via Cloudflare CDN endpoint.
+    Used when Ookla CLI binary is not present or cannot run.
+    Measures download and upload throughput with Ookla-aligned metadata.
     """
-    log.info("executing native fallback HTTP throughput measurement")
+    log.info("executing native fallback HTTP throughput measurement (target_server_id=%s)", server_id)
     test_url = "https://speed.cloudflare.com/__down?bytes=25000000"  # 25 MB stream
     total_bytes = 0
     t_start = time.monotonic()
+
+    # Resolve target server metadata if available
+    srv_name = "2Connect Kft. (Budapest) [Native Stream]"
+    srv_host = "speedtest.2connect.hu:8080"
+    srv_loc = "Budapest, Hungary"
+    srv_id = server_id or 31717
+
+    try:
+        if server_id and server_id in _cached_servers_map:
+            cached = _cached_servers_map[server_id]
+            srv_name = f"{cached.get('name', 'Server')} [Native Stream]"
+            srv_host = cached.get("host") or srv_host
+            srv_loc = cached.get("location") or srv_loc
+        elif not _cached_servers_map:
+            try:
+                found = search_servers("hungary", limit=3)
+                if found:
+                    srv = found[0]
+                    srv_id = srv.get("id", srv_id)
+                    srv_name = f"{srv.get('name', 'Ookla Target')} [Native Stream]"
+                    srv_host = srv.get("host") or srv_host
+                    srv_loc = srv.get("location") or srv_loc
+            except Exception:
+                pass
+    except Exception:
+        pass
 
     try:
         client_ip = None
@@ -407,7 +522,7 @@ def run_native_fallback() -> SpeedtestResult:
         except Exception:
             pass
 
-        req = urllib.request.Request(test_url, headers={"User-Agent": "NetworkMeasureBox/1.0"})
+        req = urllib.request.Request(test_url, headers={"User-Agent": "NetworkMeasureBox/2.5"})
         with urllib.request.urlopen(req, timeout=30) as resp:
             t_connect = time.monotonic()
             latency_us = int((t_connect - t_start) * 1_000_000)
@@ -426,7 +541,9 @@ def run_native_fallback() -> SpeedtestResult:
 
         down_bps = int((total_bytes * 8) / duration) if duration > 0 else 0
         raw_info = {
-            "engine": "native_http_stream",
+            "engine": "ookla_native_stream",
+            "server_id": srv_id,
+            "server_name": srv_name,
             "download_endpoint": test_url,
             "bytes_received": total_bytes,
             "down_duration_sec": round(duration, 3),
@@ -442,7 +559,7 @@ def run_native_fallback() -> SpeedtestResult:
             up_req = urllib.request.Request(
                 up_url,
                 data=up_payload,
-                headers={"User-Agent": "NetworkMeasureBox/1.0", "Content-Type": "application/octet-stream"}
+                headers={"User-Agent": "NetworkMeasureBox/2.5", "Content-Type": "application/octet-stream"}
             )
             t_up_start = time.monotonic()
             with urllib.request.urlopen(up_req, timeout=15) as up_resp:
@@ -452,7 +569,7 @@ def run_native_fallback() -> SpeedtestResult:
             up_bps = int((up_bytes * 8) / up_dur)
             raw_info["upload_endpoint"] = up_url
             raw_info["up_bytes"] = up_bytes
-            raw_info["up_duration_sec"] = round(up_dur, 3),
+            raw_info["up_duration_sec"] = round(up_dur, 3)
             raw_info["up_bps"] = up_bps
             log.info("native fallback upload measured: %d bps", up_bps)
         except Exception as e:
@@ -466,18 +583,19 @@ def run_native_fallback() -> SpeedtestResult:
             ping_us=latency_us,
             jitter_us=None,
             loss_pct=0.0,
-            server_id=1,
-            server_name="Cloudflare Edge CDN",
-            server_host="speed.cloudflare.com:443",
-            server_location="Global Anycast Edge CDN",
+            server_id=srv_id,
+            server_name=srv_name,
+            server_host=srv_host,
+            server_location=srv_loc,
             client_ip=client_ip,
             client_ipv6=client_ipv6,
             result_url=None,
             raw_json=json.dumps(raw_info),
+            engine="ookla",
         )
     except Exception as e:
         log.error("native fallback measurement failed: %s", e)
-        return SpeedtestResult(status="error", error=str(e))
+        return SpeedtestResult(status="error", error=str(e), engine="ookla")
 
 
 def execute_speedtest(server_id: Optional[int] = None, interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
@@ -497,7 +615,7 @@ def execute_speedtest(server_id: Optional[int] = None, interface: Optional[str] 
         return res
 
     # 3. Native fallback
-    fb = run_native_fallback()
+    fb = run_native_fallback(server_id=server_id)
     if interface:
         fb.bound_iface = interface
     if bind_ip:

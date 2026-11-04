@@ -1,0 +1,25 @@
+#!/bin/sh
+# NetworkMeasureBox CLI Factory Reset
+# Reverts configurations to factory defaults with automatic safety backup checkpoint.
+set -eu
+
+PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "
+import sys
+from nmb.common.backup import factory_reset
+
+keep_db = '--keep-db' in sys.argv or '--keep-measurements' in sys.argv
+print(f'=== NetworkMeasureBox Factory Reset ===')
+print(f'Preserve measurement database: {keep_db}')
+ok, msg = factory_reset(keep_measurements=keep_db)
+print(msg)
+if ok:
+    print('Factory reset complete. Restarting services...')
+    import subprocess, shutil
+    if shutil.which('systemctl'):
+        subprocess.run(['systemctl', 'restart', 'nmb-netd', 'nmb-probe', 'nmb-web'], check=False)
+    elif shutil.which('rc-service'):
+        for s in ['nmb-netd', 'nmb-probe', 'nmb-web']:
+            subprocess.run(['rc-service', s, 'restart'], check=False)
+sys.exit(0 if ok else 1)
+" "$@"
+

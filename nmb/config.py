@@ -9,10 +9,76 @@ import configparser
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 DEFAULT_CONFIG_PATH = Path(os.environ.get("NMB_CONFIG", "/etc/nmb/nmb.conf"))
 FALLBACK_CONFIG_PATH = Path("/opt/nmb/config/nmb.conf")
+
+DRIVE_CONFIG_LOCATIONS = [
+    Path("/boot/firmware/nmb.conf"),  # Debian / Raspberry Pi OS Bookworm FAT32 partition
+    Path("/boot/nmb.conf"),           # Bullseye / Armbian / Generic EFI FAT32 partition
+    Path("/boot/firmware/nmb.ini"),
+    Path("/boot/nmb.ini"),
+    Path("/mnt/boot/nmb.conf"),
+]
+
+
+def find_drive_config_path() -> Optional[Path]:
+    """Search for drive-editable config file on FAT32 boot partition or removable media."""
+    for loc in DRIVE_CONFIG_LOCATIONS:
+        if loc.is_file():
+            return loc
+    # Check removable USB mounts if present
+    for mount_root in (Path("/media"), Path("/mnt")):
+        if mount_root.is_dir():
+            for p in mount_root.glob("*/*/nmb.conf"):
+                if p.is_file():
+                    return p
+    return None
+
+
+def get_writable_drive_config_target() -> Optional[Path]:
+    """Find appropriate writable drive location to mirror nmb.conf."""
+    for loc in DRIVE_CONFIG_LOCATIONS:
+        parent = loc.parent
+        if parent.is_dir():
+            try:
+                test = parent / ".nmb_drive_write_test"
+                test.touch()
+                test.unlink(missing_ok=True)
+                return loc
+            except OSError:
+                continue
+    return None
+
+
+def sync_drive_config(source_path: Path = DEFAULT_CONFIG_PATH) -> Optional[Path]:
+    """Synchronize /etc/nmb/nmb.conf to drive-editable FAT32 boot partition."""
+    if not source_path.is_file():
+        return None
+    target = get_writable_drive_config_target()
+    if not target:
+        return None
+    try:
+        content = source_path.read_text(encoding="utf-8")
+        header = (
+            "# ==============================================================================\n"
+            "# NetworkMeasureBox - Drive-Editable Configuration (Boot/Storage Partition)\n"
+            "# Edit this file directly in Windows, macOS, or Linux when the SD card\n"
+            "# or USB drive is plugged into your PC.\n"
+            "# ==============================================================================\n\n"
+        )
+        if not content.startswith("# ==="):
+            content = header + content
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(".tmp")
+        tmp.write_text(content, encoding="utf-8")
+        tmp.replace(target)
+        log.info("synchronized configuration to drive-editable location: %s", target)
+        return target
+    except Exception as e:
+        log.debug("drive config sync failed: %s", e)
+        return None
 
 DEFAULT_CONFIG_TEXT = """# NetworkMeasureBox configuration file
 [system]
@@ -437,8 +503,33 @@ def load_config(path: Path | None = None) -> Config:
     parser = configparser.ConfigParser()
     parser.read_string(DEFAULT_CONFIG_TEXT)
 
+    # 1. Check for drive-editable config updates
+    if path is None:
+        drive_path = find_drive_config_path()
+        if drive_path and drive_path.is_file():
+            if not DEFAULT_CONFIG_PATH.exists():
+                try:
+                    DEFAULT_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    DEFAULT_CONFIG_PATH.write_text(drive_path.read_text(encoding="utf-8"), encoding="utf-8")
+                    log.info("imported initial configuration from drive: %s -> %s", drive_path, DEFAULT_CONFIG_PATH)
+                except Exception as e:
+                    log.debug("could not copy drive config: %s", e)
+            else:
+                try:
+                    drive_mtime = drive_path.stat().st_mtime
+                    default_mtime = DEFAULT_CONFIG_PATH.stat().st_mtime
+                    # If drive was edited more recently than /etc/nmb/nmb.conf, load & update
+                    if drive_mtime > default_mtime + 2.0:
+                        log.info("detected newer configuration on drive (%s); applying to %s", drive_path, DEFAULT_CONFIG_PATH)
+                        DEFAULT_CONFIG_PATH.write_text(drive_path.read_text(encoding="utf-8"), encoding="utf-8")
+                    elif default_mtime > drive_mtime + 2.0:
+                        sync_drive_config(DEFAULT_CONFIG_PATH)
+                except Exception as e:
+                    log.debug("drive mtime check exception: %s", e)
+
     target_path = path or (
         DEFAULT_CONFIG_PATH if DEFAULT_CONFIG_PATH.exists() else
+        find_drive_config_path() if find_drive_config_path() else
         FALLBACK_CONFIG_PATH if FALLBACK_CONFIG_PATH.exists() else None
     )
 
@@ -698,7 +789,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
         except Exception:
             pass
 
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "wireguard", "openvpn", "proxy"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "wireguard", "openvpn", "proxy", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -887,9 +978,9 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["proxy"]["listen_ipv6"] = str(cfg.proxy.listen_ipv6).lower()
     parser["proxy"]["dns"] = str(cfg.proxy.dns)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         with open(tmp_path, "w", encoding="utf-8") as f:
             parser.write(f)
             f.flush()
@@ -899,7 +990,33 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
         except OSError:
             pass
         os.replace(tmp_path, path)
+        sync_drive_config(path)
         return True
+    except (PermissionError, OSError):
+        tmp_path.unlink(missing_ok=True)
+        # Fallback: attempt write via sudo -n if available, or write to drive config target
+        try:
+            import io
+            import subprocess
+            buf = io.StringIO()
+            parser.write(buf)
+            content = buf.getvalue()
+            p = subprocess.run(["sudo", "-n", "tee", str(path)], input=content, text=True, capture_output=True)
+            if p.returncode == 0:
+                sync_drive_config(path)
+                return True
+        except Exception:
+            pass
+        # As last fallback, write directly to drive config if writable
+        try:
+            d_target = get_writable_drive_config_target()
+            if d_target and d_target.exists():
+                with open(d_target, "w", encoding="utf-8") as f:
+                    parser.write(f)
+                return True
+        except Exception:
+            pass
+        return False
     except Exception:
         tmp_path.unlink(missing_ok=True)
         return False

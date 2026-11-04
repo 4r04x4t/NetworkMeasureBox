@@ -63,19 +63,36 @@ def now_ms() -> int:
 
 def connect(path: Path | None = None, readonly: bool = False) -> sqlite3.Connection:
     target_path = path or get_live_db()
+    if readonly and not target_path.exists():
+        readonly = False
     if readonly:
         conn = sqlite3.connect(f"file:{target_path}?mode=ro", uri=True, timeout=5,
                                isolation_level=None, check_same_thread=False)
     else:
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(target_path, timeout=5, isolation_level=None,
-                               check_same_thread=False)
-        # Ensure file permissions allow group write (nmb service group)
         try:
-            if target_path.exists():
-                os.chmod(target_path, 0o664)
-        except OSError:
-            pass
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            conn = sqlite3.connect(target_path, timeout=5, isolation_level=None,
+                                   check_same_thread=False)
+            # Ensure file permissions allow group write (nmb service group)
+            try:
+                if target_path.exists():
+                    os.chmod(target_path, 0o664)
+            except OSError:
+                pass
+        except (PermissionError, OSError):
+            fallback_dir = Path("/tmp/nmb/live")
+            fallback_dir.mkdir(parents=True, exist_ok=True)
+            target_path = fallback_dir / target_path.name
+            conn = sqlite3.connect(target_path, timeout=5, isolation_level=None,
+                                   check_same_thread=False)
+            if SCHEMA.exists():
+                try:
+                    cur = conn.cursor()
+                    cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='target'")
+                    if cur.fetchone()[0] == 0:
+                        conn.executescript(SCHEMA.read_text())
+                except Exception:
+                    pass
     conn.row_factory = sqlite3.Row
     pragmas = get_sqlite_pragmas()
     for p in pragmas:

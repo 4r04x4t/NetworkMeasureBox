@@ -12,7 +12,9 @@ import os
 import platform
 import re
 import secrets
+import shutil
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -22,7 +24,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
-from nmb.config import Config, load_config, save_config, CONNECTION_TYPES
+from nmb.config import Config, load_config, save_config, CONNECTION_TYPES, find_drive_config_path, get_writable_drive_config_target, DEFAULT_CONFIG_PATH
 from nmb.db import database as db
 from nmb.netd import interfaces, dns
 from nmb.netd.drivers import get_full_driver_status, trigger_driver_install, get_driver_install_status, get_interfaces_matrix
@@ -308,6 +310,22 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 9. DNS Status
         if path in ("/api/network/dns", "/api/dns"):
             self._send_json(dns.get_dns_status())
+            return
+
+        # 9b. Drive-editable Config status
+        if path in ("/api/config/drive", "/api/config/drive-status"):
+            from nmb.config import find_drive_config_path, get_writable_drive_config_target, DEFAULT_CONFIG_PATH
+            drive_p = find_drive_config_path()
+            target_p = get_writable_drive_config_target()
+            self._send_json({
+                "status": "ok",
+                "drive_config_exists": drive_p is not None,
+                "drive_config_path": str(drive_p) if drive_p else (str(target_p) if target_p else None),
+                "is_writable": target_p is not None,
+                "default_config_path": str(DEFAULT_CONFIG_PATH),
+                "drive_mtime": drive_p.stat().st_mtime if drive_p else None,
+                "default_mtime": DEFAULT_CONFIG_PATH.stat().st_mtime if DEFAULT_CONFIG_PATH.exists() else None,
+            })
             return
 
         # 10. i18n Localization API
@@ -1224,9 +1242,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         if path in ("/api/system/reboot", "/api/reboot"):
             log.warning("API triggered system reboot")
-            import subprocess
             def _reboot_delayed():
-                import time
                 time.sleep(1.0)
                 subprocess.run(["reboot"], check=False)
             threading.Thread(target=_reboot_delayed, daemon=True, name="nmb-reboot").start()
@@ -1836,7 +1852,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok" if ok else "error", "message": msg})
             return
 
-        if path == "/api/backup/reset":
+        if path in ("/api/backup/reset", "/api/factory-reset", "/api/system/factory-reset"):
             from nmb.common.backup import factory_reset
             keep_measurements = bool(body_json.get("keep_measurements", False))
             ok, msg = factory_reset(keep_measurements=keep_measurements)
@@ -1845,6 +1861,65 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "ok", "message": msg})
             else:
                 self._send_json({"status": "error", "message": msg}, status=500)
+            return
+
+        if path in ("/api/config/drive-sync", "/api/config/sync-drive"):
+            from nmb.config import sync_drive_config, DEFAULT_CONFIG_PATH
+            target = sync_drive_config(DEFAULT_CONFIG_PATH)
+            if target:
+                self._send_json({"status": "ok", "message": f"Configuration successfully synchronized to drive: {target}", "target": str(target)})
+            else:
+                self._send_json({"status": "warn", "message": "No writable boot partition or removable drive found. Please insert an SD card or USB flash drive."})
+            return
+
+        if path == "/api/terminal/exec":
+            cmd = str(body_json.get("command") or body_json.get("cmd") or "").strip()
+            if not cmd:
+                self._send_json({"status": "error", "message": "No command provided"}, status=400)
+                return
+
+            log.info("CLI terminal execution requested: %s", cmd)
+            t_start = time.monotonic()
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    shell=True,
+                    executable=shutil.which("bash") or "/bin/sh",
+                    capture_output=True,
+                    text=True,
+                    timeout=30.0,
+                    env={**os.environ, "TERM": "xterm-256color", "PYTHONUNBUFFERED": "1"},
+                )
+                duration_ms = round((time.monotonic() - t_start) * 1000.0, 1)
+                output = proc.stdout
+                if proc.stderr:
+                    output = (output + "\n" if output else "") + proc.stderr
+                if not output:
+                    output = "(Command completed with no output)"
+                self._send_json({
+                    "status": "ok",
+                    "command": cmd,
+                    "output": output,
+                    "exit_code": proc.returncode,
+                    "duration_ms": duration_ms,
+                })
+            except subprocess.TimeoutExpired:
+                duration_ms = round((time.monotonic() - t_start) * 1000.0, 1)
+                self._send_json({
+                    "status": "timeout",
+                    "command": cmd,
+                    "output": f"Command timed out after 30 seconds: {cmd}",
+                    "exit_code": 124,
+                    "duration_ms": duration_ms,
+                }, status=504)
+            except Exception as e:
+                self._send_json({
+                    "status": "error",
+                    "command": cmd,
+                    "output": f"Execution error: {e}",
+                    "exit_code": 1,
+                    "duration_ms": round((time.monotonic() - t_start) * 1000.0, 1),
+                }, status=500)
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
@@ -2019,6 +2094,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "latest_script": latest_script,
             "language": getattr(self.server.cfg.web, "language", "en"),
             "admin_username": getattr(self.server.cfg.web, "admin_username", "admin"),
+            "drive_config": {
+                "exists": find_drive_config_path() is not None,
+                "path": str(find_drive_config_path() or get_writable_drive_config_target() or ""),
+                "is_writable": get_writable_drive_config_target() is not None,
+            },
             "contract": {
                 "isp_name": self.server.cfg.isp.name,
                 "circuit_id": self.server.cfg.isp.circuit_id,

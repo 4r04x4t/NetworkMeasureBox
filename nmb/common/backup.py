@@ -44,12 +44,23 @@ RESOLV_ORIG_PATH = Path("/etc/nmb/resolv.conf.system_orig")
 
 def _ensure_backup_dir() -> Path:
     """Ensure local backup directory exists with proper restrictive permissions."""
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        os.chmod(BACKUP_DIR, 0o750)
-    except Exception:
-        pass
-    return BACKUP_DIR
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chmod(BACKUP_DIR, 0o750)
+        except Exception:
+            pass
+        return BACKUP_DIR
+    except (PermissionError, OSError):
+        # Fallback to user-local or temp directory when running in non-root environment
+        user_backup = Path.home() / ".local" / "share" / "nmb" / "backups"
+        try:
+            user_backup.mkdir(parents=True, exist_ok=True)
+            return user_backup
+        except (PermissionError, OSError):
+            tmp_backup = Path("/tmp/nmb-backups")
+            tmp_backup.mkdir(parents=True, exist_ok=True)
+            return tmp_backup
 
 
 def _sha256_file(path: Path) -> str:
@@ -603,11 +614,29 @@ def factory_reset(keep_measurements: bool = False) -> Tuple[bool, str]:
         )
 
         # 2. Reset /etc/nmb/nmb.conf
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = CONFIG_PATH.with_suffix(".tmp")
-        tmp.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8")
-        os.chmod(tmp, 0o600)
-        tmp.replace(CONFIG_PATH)
+        try:
+            CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            tmp = CONFIG_PATH.with_suffix(".tmp")
+            tmp.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8")
+            os.chmod(tmp, 0o600)
+            tmp.replace(CONFIG_PATH)
+        except (PermissionError, OSError) as e:
+            log.warning("direct write to %s failed (%s), attempting via helper/sudo", CONFIG_PATH, e)
+            import tempfile, subprocess
+            with tempfile.NamedTemporaryFile("w", delete=False) as tf:
+                tf.write(DEFAULT_CONFIG_TEXT)
+                tf_name = tf.name
+            try:
+                subprocess.run(["sudo", "-n", "install", "-m", "0600", tf_name, str(CONFIG_PATH)], capture_output=True, check=False)
+            finally:
+                Path(tf_name).unlink(missing_ok=True)
+
+        # Sync pristine default configuration to drive-editable boot partition
+        try:
+            from nmb.config import sync_drive_config
+            sync_drive_config(CONFIG_PATH)
+        except Exception:
+            pass
 
         # 3. Stop VPN daemons
         run_helper("wireguard-stop")

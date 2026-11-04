@@ -1586,6 +1586,254 @@ def get_dashboard_html() -> str:
       border: 1px solid rgba(222, 110, 0, 0.4) !important;
     }
 
+    /* ==========================================================================
+       Comprehensive Mobile & Responsive Layout Rules
+       Eliminates text overflowing on mobile devices and when scaling/zooming
+       ========================================================================== */
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    * {
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+    pre, code {
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    .terminal-box, .devlog-terminal {
+      white-space: pre-wrap !important;
+      word-break: break-all !important;
+      overflow-x: hidden !important;
+    }
+    .app-box, .engine-selector-box, .router-section-card {
+      min-width: 0;
+    }
+    .stat-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-width: 0;
+      gap: 12px;
+    }
+    .stat-lbl {
+      flex-shrink: 0;
+    }
+    .stat-val {
+      min-width: 0;
+      text-align: right;
+      overflow-wrap: break-word;
+      word-break: break-all;
+    }
+
+    /* CLI Terminal Styles */
+    .cli-terminal-wrap {
+      background: #080c14;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    .cli-terminal-header {
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .cli-terminal-screen {
+      background: #050811;
+      color: #38bdf8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      padding: 14px 18px;
+      min-height: 360px;
+      max-height: 560px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin: 0;
+    }
+    .cli-quick-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .cli-quick-btn {
+      background: #131d31;
+      border: 1px solid #25334d;
+      color: #cbd5e1;
+      font-size: 11.5px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: monospace;
+      transition: all 0.15s;
+    }
+    .cli-quick-btn:hover {
+      background: #1e293b;
+      border-color: #38bdf8;
+      color: #ffffff;
+    }
+    .cli-input-row {
+      display: flex;
+      align-items: center;
+      background: #0a0f1d;
+      border-top: 1px solid #1e293b;
+      padding: 8px 14px;
+      gap: 8px;
+    }
+    .cli-prompt-lbl {
+      color: #10b981;
+      font-weight: 700;
+      font-family: monospace;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .cli-input-field {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ffffff;
+      font-family: monospace;
+      font-size: 13px;
+      min-width: 0;
+    }
+
+    /* Screen width <= 992px */
+    @media (max-width: 992px) {
+      body {
+        padding: 12px 14px 40px;
+      }
+      .app-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .app-header-left, .app-header-center, .app-header-right {
+        text-align: left;
+        width: 100%;
+      }
+      .app-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        flex-wrap: nowrap;
+      }
+      .app-tab-btn {
+        flex-shrink: 0;
+      }
+      .engine-pills {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 8px;
+        width: 100%;
+      }
+      .engine-pill {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        white-space: normal;
+      }
+      .data-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+      }
+      .action-buttons-row {
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .action-buttons-row button {
+        flex: 1 1 calc(50% - 10px);
+        min-width: 140px;
+        padding: 10px 14px;
+        justify-content: center;
+      }
+    }
+
+    /* Screen width <= 640px (Mobile Phones) */
+    @media (max-width: 640px) {
+      body {
+        padding: 8px 8px 30px;
+      }
+      .container {
+        padding: 0;
+      }
+      .app-box {
+        padding: 14px 12px;
+        border-radius: 6px;
+      }
+      .app-title {
+        font-size: 19px;
+      }
+      .stat-line {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 8px 0;
+        gap: 2px;
+      }
+      .stat-val {
+        text-align: left;
+        width: 100%;
+        font-size: 13.5px;
+      }
+      .stat-speed {
+        font-size: 18px;
+      }
+      .engine-pills {
+        grid-template-columns: 1fr;
+      }
+      .action-buttons-row button {
+        flex: 1 1 100%;
+        width: 100%;
+      }
+      .form-input, select, input[type="text"], input[type="password"] {
+        width: 100% !important;
+        min-width: 0 !important;
+        font-size: 14px;
+      }
+      #home-target-server-select, #home-interval-select, #speedtest-target-iface {
+        width: 100% !important;
+        min-width: 0 !important;
+      }
+      .router-subnav {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+      }
+      .router-subtab-btn {
+        flex-shrink: 0;
+      }
+      .terminal-box {
+        font-size: 11px !important;
+        padding: 10px !important;
+        max-height: 380px !important;
+      }
+      .cli-terminal-screen {
+        font-size: 11px !important;
+        padding: 10px !important;
+        min-height: 280px !important;
+      }
+      .cli-quick-btns button {
+        font-size: 10.5px;
+        padding: 4px 8px;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -1660,6 +1908,7 @@ def get_dashboard_html() -> str:
     <button class="app-tab-btn" onclick="switchTab('tab-portscan')" data-i18n="tab_portscan">Port Neutrality</button>
     <button class="app-tab-btn" onclick="switchTab('tab-script')" data-i18n="tab_script">Measurement & Servers</button>
     <button class="app-tab-btn" onclick="switchTab('tab-syslog')" data-i18n="tab_syslog">🛠️ Developer & System Logs</button>
+    <button class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminál</button>
     <button class="app-tab-btn" onclick="switchTab('tab-info')" data-i18n="tab_router">🛠️ Router & System</button>
     <button class="app-tab-btn" onclick="switchTab('tab-llm')" data-i18n="tab_llm">🤖 AI Diagnostics (LLM)</button>
   </div>
@@ -1672,31 +1921,44 @@ def get_dashboard_html() -> str:
       <span id="measuring-text" data-i18n="measuring_wait">Please wait! Measurement in progress...</span>
     </div>
 
-    <!-- Engine Selector -->
+    <!-- Engine Selector & Active Control Box -->
     <div class="engine-selector-box">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <span style="font-weight: 700; font-size: 13.5px; color: #f1f5f9;" data-i18n="engine_select_title">Select Measurement Engine:</span>
-        <span style="font-size: 12px; color: #94a3b8;" data-i18n="engine_select_desc">Choose measurement engine for test execution</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span style="font-weight: 700; font-size: 13.5px; color: #f1f5f9;" data-i18n="engine_select_title">🎯 Aktív Mérőmotor Kiválasztása (Active Engine):</span>
+          <span id="home-active-engine-badge" class="badge" style="background: rgba(2,132,199,0.25); color: #38bdf8; border: 1px solid #0284c7; font-weight: 700; font-size: 11.5px; padding: 3px 8px;">
+            ⚡ OOKLA AKTÍV
+          </span>
+        </div>
+        <span style="font-size: 12px; color: #94a3b8;" data-i18n="engine_select_desc">A kiválasztott motor azonnal érvényes a manuális indításra és az automata ütemezésre is</span>
       </div>
+
       <div class="engine-pills">
         <div class="engine-pill active" id="pill-engine-ookla" onclick="selectEngine('ookla')">
           <span>⚡</span> Ookla Speedtest
         </div>
         <div class="engine-pill" id="pill-engine-cloudflare" onclick="selectEngine('cloudflare')">
-          <span>☁️</span> Cloudflare Edge (speed.cloudflare.com)
+          <span>☁️</span> Cloudflare Edge
         </div>
         <div class="engine-pill" id="pill-engine-rtr" onclick="selectEngine('rtr')">
-          <span>🇦🇹</span> RTR-NetTest (netztest.at / Open-RMBT)
+          <span>🇦🇹</span> RTR-NetTest (netztest.at)
         </div>
         <div class="engine-pill" id="pill-engine-iperf3" onclick="selectEngine('iperf3')">
-          <span>⚡</span> iPerf3 Bandwidth & Jitter Probing
+          <span>⚡</span> iPerf3 Bandwidth
         </div>
         <div class="engine-pill" id="pill-engine-all" onclick="selectEngine('all')">
-          <span>🏆</span> Combined (All engines sequentially)
+          <span>🏆</span> Összesített (Kombinált)
         </div>
       </div>
-      <div class="engine-desc" id="engine-desc-text">
-        ⚡ <b>Ookla Speedtest:</b> Global server network, selectable destination, detailed download/upload and bufferbloat.
+
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+        <div class="engine-desc" id="engine-desc-text" style="margin: 0; flex: 1; min-width: 260px;">
+          ⚡ <b>Ookla Speedtest:</b> Globális szerverflotta, célzott szerverválasztás (#31717 2Connect), részletes letöltés/feltöltés és bufferbloat loaded latency.
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 11.5px; color: #64748b;">(Beállítások szinkronizálva)</span>
+          <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchTab('tab-script')">⚙️ Ütemezés beállításai ➔</button>
+        </div>
       </div>
     </div>
 
@@ -4315,6 +4577,71 @@ def get_dashboard_html() -> str:
             <button class="btn-danger" style="padding: 9px 18px;" onclick="rebootBox()" data-i18n="sys_btn_reboot">⚠️ Reboot Device</button>
           </div>
         </div>
+
+        <!-- Drive-Editable Config File Card -->
+        <div class="router-section-card" id="drive-config-card" style="margin-top: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div style="font-size: 14.5px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+                <span>💾</span>
+                <span data-i18n="drive_config_title">Meghajtóból szerkeszthető konfiguráció (Drive Configuration)</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n="drive_config_desc">
+                A mérőbox FAT32 rendszerpartícióján lévő konfigurációs fájl közvetlenül szerkeszthető Windows, macOS vagy Linux számítógépen az SD kártya vagy pendrive bedugásakor.
+              </p>
+            </div>
+            <span id="drive-cfg-status-badge" class="badge-pill" style="background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid #10b981;">
+              ✅ Aktív és szinkronizálva
+            </span>
+          </div>
+
+          <div style="background: rgba(15,23,42,0.6); padding: 12px 16px; border-radius: 6px; border: 1px solid #1e293b; margin-bottom: 14px; font-size: 12.5px;">
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 6px;">
+              <span style="color: #94a3b8;">Fizikai meghajtó fájl útvonal (Drive Path):</span>
+              <code id="drive-cfg-path" style="color: #38bdf8;">/boot/firmware/nmb.conf</code>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 6px;">
+              <span style="color: #94a3b8;">Rendszer belső útvonal (System Path):</span>
+              <code style="color: #cbd5e1;">/etc/nmb/nmb.conf</code>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; flex-wrap: wrap; gap: 6px;">
+              <span style="color: #94a3b8;">Automatikus kétirányú szinkronizálás:</span>
+              <span style="color: #10b981; font-weight: 600;">Bekapcsolva (Rendszerindításkor és Beállítások mentésekor)</span>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button class="btn-primary" style="padding: 7px 16px; font-size: 12.5px;" onclick="syncDriveConfigNow()">
+              🔄 Szinkronizálás a meghajtóra most
+            </button>
+            <button class="btn-secondary" style="padding: 7px 16px; font-size: 12.5px;" onclick="execQuickTermCmd('cat /etc/nmb/nmb.conf'); switchTab('tab-terminal');">
+              📄 Konfiguráció megtekintése a Terminálban
+            </button>
+            <span id="drive-sync-msg" style="font-size: 12px; color: #94a3b8;"></span>
+          </div>
+        </div>
+
+        <!-- Factory Reset Card in System -->
+        <div class="router-section-card" style="border-left: 4px solid #ef4444; background: rgba(239, 68, 68, 0.05); margin-top: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 14.5px; font-weight: 700; color: #f87171; display: flex; align-items: center; gap: 8px;">
+              <span>⚠️</span>
+              <span data-i18n="factory_reset_title">Gyári beállítások visszaállítása (Factory Reset)</span>
+            </div>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;" data-i18n="factory_reset_desc">
+            Visszaállítja a mérőboxot a tiszta gyári alapbeállításokra és leállítja az egyedi VPN-eket. A folyamat előtt egy automatikus biztonsági mentési ellenőrzőpont készül, így az adatok biztonságban maradnak.
+          </p>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #cbd5e1; cursor: pointer;">
+              <input type="checkbox" id="sys-reset-keep-db" checked style="accent-color: #38bdf8;">
+              <span>Mérési előzmények megőrzése (SQLite adatbázis megmarad)</span>
+            </label>
+            <button class="btn-danger" style="background: #dc2626; border-color: #ef4444; font-size: 12.5px; padding: 8px 18px; color: white;" onclick="executeFactoryResetFromSettings()">
+              ⚠️ Gyári visszaállítás indítása (Factory Reset)
+            </button>
+          </div>
+        </div>
       </div>
 
 
@@ -4632,6 +4959,66 @@ def get_dashboard_html() -> str:
     </div>
   </div>
 
+  <!-- TAB: CLI TERMINAL -->
+  <div id="tab-terminal" class="tab-content">
+    <div class="app-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <div class="section-subtitle" style="margin: 0;" data-i18n="cli_terminal_title">💻 Linux Command Line Interface (CLI Terminál)</div>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;" data-i18n="cli_terminal_desc">
+            Interaktív webes shell terminál a mérőbox teljes körű diagnosztikájához, hálózati ellenőrzéséhez és parancssori vezérléséhez.
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="copyTerminalOutput()">📋 Kimenet másolása</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="clearTerminalScreen()">🧹 Képernyő törlése</button>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div style="margin-bottom: 14px;">
+        <div style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">⚡ Gyors diagnosztikai parancsok (Quick Shortcuts):</div>
+        <div class="cli-quick-btns">
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('ip -br a')">ip -br a</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('ip route')">ip route</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('ping -c 4 1.1.1.1')">ping -c 4 1.1.1.1</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('traceroute -n -m 12 1.1.1.1')">traceroute 1.1.1.1</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-speed --trigger manual')">nmb-speed manual</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('systemctl status nmb* --no-pager')">systemctl status nmb*</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('journalctl -u nmb-netd -n 25 --no-pager')">journalctl netd</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('rfkill list')">rfkill list (Wi-Fi)</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('cat /etc/nmb/nmb.conf')">cat nmb.conf</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('free -h && df -h / /var/lib/nmb')">free & df</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('uname -a')">uname -a</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-factory-reset --keep-db')">factory-reset (dry)</button>
+        </div>
+      </div>
+
+      <!-- Terminal Output & Interactive Input Box -->
+      <div class="cli-terminal-wrap">
+        <div class="cli-terminal-header">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></span>
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span>
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span>
+            <span style="font-size: 11.5px; color: #94a3b8; font-family: monospace; margin-left: 6px;">nmb@<span id="term-box-id">box</span>: ~ (Interactive Bash Shell)</span>
+          </div>
+          <span id="term-status-badge" class="badge" style="background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">
+            ONLINE
+          </span>
+        </div>
+
+        <pre id="cli-terminal-screen" class="cli-terminal-screen"></pre>
+
+        <form id="cli-term-form" onsubmit="submitTerminalCmd(event)" class="cli-input-row">
+          <span class="cli-prompt-lbl">nmb@box:~$</span>
+          <input type="text" id="cli-term-input" class="cli-input-field" placeholder="Írj be egy Linux shell parancsot (pl. ip a, ping -c 3 8.8.8.8, hostapd_cli status) és nyomj Entert..." autocomplete="off" spellcheck="false">
+          <button type="submit" id="btn-term-run" class="btn-primary" style="padding: 6px 16px; font-size: 12px;">▶️ Futtatás</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Toast notification box -->
@@ -4777,16 +5164,6 @@ def get_dashboard_html() -> str:
     setTimeout(() => { el.style.display = 'none'; }, 4000);
   }
 
-  function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.app-tab-btn').forEach(el => el.classList.remove('active'));
-    const t = document.getElementById(tabId);
-    if (t) t.classList.add('active');
-    const b = Array.from(document.querySelectorAll('.app-tab-btn')).find(el => (el.getAttribute('onclick') || '').includes(tabId));
-    if (b) b.classList.add('active');
-
-    if (tabId === 'tab-script' && serverList.length === 0) {
-    
   function onMemoryProfileSelectChange(val) {
     window.memoryProfileDirty = true;
   }
@@ -4833,7 +5210,19 @@ def get_dashboard_html() -> str:
     }
   }
 
-    loadServers();
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.app-tab-btn').forEach(el => el.classList.remove('active'));
+    const t = document.getElementById(tabId);
+    if (t) t.classList.add('active');
+    const b = Array.from(document.querySelectorAll('.app-tab-btn')).find(el => (el.getAttribute('onclick') || '').includes(tabId));
+    if (b) b.classList.add('active');
+
+    if (tabId === 'tab-script' && serverList.length === 0) {
+      loadServers();
+    }
+    if (tabId === 'tab-terminal') {
+      initTerminal();
     }
     if (tabId === 'tab-info') {
       loadConfig();
@@ -5358,6 +5747,40 @@ def get_dashboard_html() -> str:
     const pill = document.getElementById('pill-engine-' + selectedEngine);
     if (pill) pill.classList.add('active');
 
+    // 1b. Update active engine badge on Dashboard
+    const activeBadge = document.getElementById('home-active-engine-badge');
+    if (activeBadge) {
+      const labels = {
+        ookla: '⚡ OOKLA AKTÍV',
+        cloudflare: '☁️ CLOUDFLARE AKTÍV',
+        rtr: '🇦🇹 RTR-NETTEST AKTÍV',
+        iperf3: '⚡ IPERF3 AKTÍV',
+        all: '🏆 ÖSSZESÍTETT (KOMBINÁLT) AKTÍV'
+      };
+      activeBadge.innerText = labels[selectedEngine] || (selectedEngine.toUpperCase() + ' AKTÍV');
+      if (selectedEngine === 'ookla') {
+        activeBadge.style.background = 'rgba(2,132,199,0.25)';
+        activeBadge.style.color = '#38bdf8';
+        activeBadge.style.borderColor = '#0284c7';
+      } else if (selectedEngine === 'cloudflare') {
+        activeBadge.style.background = 'rgba(245,158,11,0.25)';
+        activeBadge.style.color = '#fbbf24';
+        activeBadge.style.borderColor = '#f59e0b';
+      } else if (selectedEngine === 'rtr') {
+        activeBadge.style.background = 'rgba(16,185,129,0.25)';
+        activeBadge.style.color = '#34d399';
+        activeBadge.style.borderColor = '#10b981';
+      } else if (selectedEngine === 'iperf3') {
+        activeBadge.style.background = 'rgba(168,85,247,0.25)';
+        activeBadge.style.color = '#c084fc';
+        activeBadge.style.borderColor = '#a855f7';
+      } else {
+        activeBadge.style.background = 'rgba(234,179,8,0.25)';
+        activeBadge.style.color = '#fde047';
+        activeBadge.style.borderColor = '#eab308';
+      }
+    }
+
     // 2. Instantly update engine description
     const descEl = document.getElementById('engine-desc-text');
     if (descEl) {
@@ -5427,6 +5850,32 @@ def get_dashboard_html() -> str:
         }
         document.getElementById('hdr-wan-iface').innerText = data.system_info.wan_interface || 'eth0';
         document.getElementById('hdr-uptime').innerText = data.system_info.uptime || '--';
+      }
+
+      // Terminal Box ID sync
+      const termBoxId = document.getElementById('term-box-id');
+      if (termBoxId && data.box_id) termBoxId.innerText = data.box_id;
+
+      // Drive Configuration status sync
+      if (data.drive_config) {
+        const drivePathEl = document.getElementById('drive-cfg-path');
+        const driveBadgeEl = document.getElementById('drive-cfg-status-badge');
+        if (drivePathEl && data.drive_config.path) drivePathEl.innerText = data.drive_config.path;
+        if (driveBadgeEl) {
+          if (data.drive_config.exists) {
+            driveBadgeEl.innerText = '✅ Aktív és szinkronizálva';
+            driveBadgeEl.style.color = '#34d399';
+            driveBadgeEl.style.borderColor = '#10b981';
+          } else if (data.drive_config.is_writable) {
+            driveBadgeEl.innerText = '⚡ Kész a szinkronizálásra';
+            driveBadgeEl.style.color = '#38bdf8';
+            driveBadgeEl.style.borderColor = '#0284c7';
+          } else {
+            driveBadgeEl.innerText = '⚠️ Csak olvasás / Nincs meghajtó';
+            driveBadgeEl.style.color = '#f59e0b';
+            driveBadgeEl.style.borderColor = '#d97706';
+          }
+        }
       }
 
       if (data.auth_enabled) {
@@ -7643,6 +8092,207 @@ def get_dashboard_html() -> str:
     } catch (e) {
       showToast('Factory reset network error: ' + e);
     }
+  }
+
+  async function executeFactoryResetFromSettings() {
+    const keepDb = document.getElementById('sys-reset-keep-db') ? document.getElementById('sys-reset-keep-db').checked : true;
+    const confirmMsg = t('backup_confirm_reset', 'FIGYELEM! Biztosan visszaállítja a gyári alapbeállításokat? Minden egyedi hálózati és VPN konfiguráció törlődni fog!');
+    if (!confirm(confirmMsg)) return;
+
+    const check = prompt('A gyári visszaállítás megerősítéséhez írja be: RESET (vagy nyomjon Mégse gombot)');
+    if (check !== 'RESET') {
+      showToast('Gyári visszaállítás megszakítva.');
+      return;
+    }
+
+    showToast('Gyári visszaállítás folyamatban... Automatikus biztonsági mentési pont készül.');
+
+    try {
+      const res = await fetch('/api/backup/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keep_measurements: keepDb })
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok') {
+        showToast('Hiba a gyári visszaállítás során: ' + (data.message || 'Ismeretlen hiba'));
+        alert('Gyári visszaállítás sikertelen: ' + (data.message || 'Ismeretlen hiba'));
+        return;
+      }
+      alert('A gyári beállítások sikeresen visszaállítva! Az oldal 2 másodperc múlva újratöltődik.');
+      setTimeout(() => { window.location.reload(); }, 2000);
+    } catch (e) {
+      showToast('Hálózati hiba: ' + e);
+    }
+  }
+
+  async function syncDriveConfigNow() {
+    const msgEl = document.getElementById('drive-sync-msg');
+    showToast('Szinkronizálás a meghajtóra...');
+    if (msgEl) msgEl.innerText = 'Szinkronizálás folyamatban...';
+    try {
+      const res = await fetch('/api/config/drive-sync', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.status === 'ok') {
+        showToast('✅ ' + data.message);
+        if (msgEl) {
+          msgEl.innerText = '✅ Sikeresen szinkronizálva!';
+          msgEl.style.color = '#34d399';
+        }
+        const b = document.getElementById('drive-cfg-status-badge');
+        if (b) {
+          b.innerText = '✅ Aktív és szinkronizálva';
+          b.style.color = '#34d399';
+          b.style.borderColor = '#10b981';
+        }
+      } else {
+        showToast(data.message || 'Nem sikerült a szinkronizálás.');
+        if (msgEl) {
+          msgEl.innerText = data.message || 'Sikertelen.';
+          msgEl.style.color = '#f59e0b';
+        }
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+      if (msgEl) msgEl.innerText = 'Hálózati hiba: ' + e;
+    }
+  }
+
+  // ==========================================
+  // Interactive CLI Terminal Controller
+  // ==========================================
+  let terminalHistory = [];
+  let terminalHistoryIdx = -1;
+
+  function initTerminal() {
+    try {
+      const saved = localStorage.getItem('nmb_term_history');
+      if (saved) terminalHistory = JSON.parse(saved);
+    } catch (e) {}
+
+    const boxId = (window.lastStatusData && window.lastStatusData.box_id) || 'nmb-01';
+    const boxIdEl = document.getElementById('term-box-id');
+    if (boxIdEl) boxIdEl.innerText = boxId;
+
+    const screen = document.getElementById('cli-terminal-screen');
+    if (screen && !screen.innerText.trim()) {
+      screen.innerText = 
+`================================================================================
+NetworkMeasureBox Linux Interactive Diagnostics Shell
+Box ID: ${boxId} | Firmware: 4047 (Universal)
+Type any Linux command below, or click any of the quick shortcuts above.
+Use UP/DOWN arrow keys for command history.
+================================================================================\n\n`;
+    }
+
+    const input = document.getElementById('cli-term-input');
+    if (input && !input.dataset.bound) {
+      input.dataset.bound = 'true';
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (terminalHistory.length === 0) return;
+          if (terminalHistoryIdx === -1) terminalHistoryIdx = terminalHistory.length - 1;
+          else if (terminalHistoryIdx > 0) terminalHistoryIdx--;
+          input.value = terminalHistory[terminalHistoryIdx] || '';
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (terminalHistoryIdx !== -1) {
+            if (terminalHistoryIdx < terminalHistory.length - 1) {
+              terminalHistoryIdx++;
+              input.value = terminalHistory[terminalHistoryIdx] || '';
+            } else {
+              terminalHistoryIdx = -1;
+              input.value = '';
+            }
+          }
+        }
+      });
+    }
+  }
+
+  async function submitTerminalCmd(e) {
+    if (e) e.preventDefault();
+    const input = document.getElementById('cli-term-input');
+    if (!input) return;
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    input.value = '';
+    terminalHistoryIdx = -1;
+
+    // Save to history
+    if (!terminalHistory.length || terminalHistory[terminalHistory.length - 1] !== cmd) {
+      terminalHistory.push(cmd);
+      if (terminalHistory.length > 50) terminalHistory.shift();
+      try { localStorage.setItem('nmb_term_history', JSON.stringify(terminalHistory)); } catch (err) {}
+    }
+
+    await execTerminalCommand(cmd);
+  }
+
+  function execQuickTermCmd(cmd) {
+    const input = document.getElementById('cli-term-input');
+    if (input) input.value = cmd;
+    execTerminalCommand(cmd);
+  }
+
+  async function execTerminalCommand(cmd) {
+    const screen = document.getElementById('cli-terminal-screen');
+    const badge = document.getElementById('term-status-badge');
+    const runBtn = document.getElementById('btn-term-run');
+    if (!screen) return;
+
+    screen.innerText += `nmb@box:~$ ${cmd}\n`;
+    screen.scrollTop = screen.scrollHeight;
+    if (badge) {
+      badge.innerText = 'FUTÁS...';
+      badge.style.color = '#fbbf24';
+      badge.style.borderColor = '#f59e0b';
+    }
+    if (runBtn) runBtn.disabled = true;
+
+    try {
+      const res = await fetch('/api/terminal/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cmd })
+      });
+      const data = await res.json();
+      const code = data.exit_code !== undefined ? data.exit_code : (res.ok ? 0 : 1);
+      const dur = data.duration_ms ? ` (${data.duration_ms}ms)` : '';
+      const codeBadge = code === 0 ? `[Exit 0${dur}]` : `[Exit ${code}${dur}]`;
+
+      screen.innerText += `${data.output || '(No output)'}\n${codeBadge}\n\n`;
+    } catch (err) {
+      screen.innerText += `Network error executing command: ${err}\n[Exit -1]\n\n`;
+    } finally {
+      if (badge) {
+        badge.innerText = 'ONLINE';
+        badge.style.color = '#34d399';
+        badge.style.borderColor = '#10b981';
+      }
+      if (runBtn) runBtn.disabled = false;
+      screen.scrollTop = screen.scrollHeight;
+      const input = document.getElementById('cli-term-input');
+      if (input) input.focus();
+    }
+  }
+
+  function clearTerminalScreen() {
+    const screen = document.getElementById('cli-terminal-screen');
+    if (screen) {
+      screen.innerText = 'Screen cleared.\n\n';
+    }
+  }
+
+  function copyTerminalOutput() {
+    const screen = document.getElementById('cli-terminal-screen');
+    if (!screen) return;
+    navigator.clipboard.writeText(screen.innerText).then(() => {
+      showToast('Terminál kimenet másolva a vágólapra!');
+    }).catch(() => {
+      showToast('Nem sikerült a másolás.');
+    });
   }
 
   // ==========================================

@@ -220,8 +220,19 @@ case "${1:-}" in
         shift
         PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.backup delete "$@"
         ;;
+    factory-reset)
+        shift
+        if [ -x "$(dirname "$0")/nmb-factory-reset" ]; then
+            exec "$(dirname "$0")/nmb-factory-reset" "$@"
+        elif [ -x /opt/nmb/bin/nmb-factory-reset ]; then
+            exec /opt/nmb/bin/nmb-factory-reset "$@"
+        fi
+        ;;
+    sync-drive-config)
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.config import sync_drive_config; sync_drive_config()"
+        ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config}" >&2
         exit 1
         ;;
 esac
