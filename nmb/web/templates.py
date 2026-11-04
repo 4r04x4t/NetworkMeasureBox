@@ -8551,7 +8551,7 @@ Use UP/DOWN arrow keys for command history.
   function clearTerminalScreen() {
     const screen = document.getElementById('cli-terminal-screen');
     if (screen) {
-      screen.innerText = 'Screen cleared.\n\n';
+      screen.innerText = 'Screen cleared.\\n\\n';
     }
   }
 
