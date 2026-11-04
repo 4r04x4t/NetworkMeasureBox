@@ -82,21 +82,25 @@ def calculate_bufferbloat(
     return grade, round(worst_delta, 2)
 
 
+from nmb.common.user_agent import get_effective_user_agent
+
 _cached_servers_map: dict[int, dict] = {}
 _cached_servers_ts: float = 0.0
 
-OOKLA_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "application/json, text/plain, */*",
-    "Referer": "https://www.speedtest.net/",
-}
+
+def _get_ookla_headers() -> dict[str, str]:
+    return {
+        "User-Agent": get_effective_user_agent(),
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://www.speedtest.net/",
+    }
 
 
 def _query_ookla_api(params: str) -> list[dict]:
     """Query live speedtest.net API with valid browser headers."""
     try:
         url = f"https://www.speedtest.net/api/js/servers?{params}"
-        req = urllib.request.Request(url, headers=OOKLA_HEADERS)
+        req = urllib.request.Request(url, headers=_get_ookla_headers())
         with urllib.request.urlopen(req, timeout=5.0) as resp:
             data = json.loads(resp.read().decode())
             if isinstance(data, list):
@@ -295,7 +299,7 @@ def find_or_install_ookla_binary() -> Optional[str]:
     url = f"https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-{ookla_arch}.tgz"
     log.info("downloading official Ookla Speedtest binary for %s from %s into %s", ookla_arch, url, target_bin)
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "NetworkMeasureBox/2.5"})
+        req = urllib.request.Request(url, headers={"User-Agent": get_effective_user_agent()})
         with urllib.request.urlopen(req, timeout=20) as resp:
             tar_bytes = resp.read()
         with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:gz") as tar:
@@ -522,7 +526,7 @@ def run_native_fallback(server_id: Optional[int] = None) -> SpeedtestResult:
         except Exception:
             pass
 
-        req = urllib.request.Request(test_url, headers={"User-Agent": "NetworkMeasureBox/2.5"})
+        req = urllib.request.Request(test_url, headers={"User-Agent": get_effective_user_agent()})
         with urllib.request.urlopen(req, timeout=30) as resp:
             t_connect = time.monotonic()
             latency_us = int((t_connect - t_start) * 1_000_000)
@@ -559,7 +563,7 @@ def run_native_fallback(server_id: Optional[int] = None) -> SpeedtestResult:
             up_req = urllib.request.Request(
                 up_url,
                 data=up_payload,
-                headers={"User-Agent": "NetworkMeasureBox/2.5", "Content-Type": "application/octet-stream"}
+                headers={"User-Agent": get_effective_user_agent(), "Content-Type": "application/octet-stream"}
             )
             t_up_start = time.monotonic()
             with urllib.request.urlopen(up_req, timeout=15) as up_resp:

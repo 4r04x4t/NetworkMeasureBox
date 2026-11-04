@@ -74,10 +74,11 @@ def enrich_hop_ips(hops: List[Dict[str, Any]]) -> None:
     if to_query:
         # 1. Try ip-api.com batch endpoint
         try:
+            from nmb.common.user_agent import get_effective_user_agent
             req = urllib.request.Request(
                 "http://ip-api.com/batch?fields=query,status,country,countryCode,isp,org,as,asname",
                 data=json.dumps(to_query[:100]).encode("utf-8"),
-                headers={"Content-Type": "application/json", "User-Agent": "NetworkMeasureBox/2.5"}
+                headers={"Content-Type": "application/json", "User-Agent": get_effective_user_agent()}
             )
             with urllib.request.urlopen(req, timeout=4.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -109,9 +110,10 @@ def enrich_hop_ips(hops: List[Dict[str, Any]]) -> None:
                 for ip in to_query:
                     if ip not in _ip_geo_cache:
                         try:
+                            from nmb.common.user_agent import get_effective_user_agent
                             f_req = urllib.request.Request(
                                 f"https://ipwho.is/{ip}",
-                                headers={"User-Agent": "NetworkMeasureBox/2.5"}
+                                headers={"User-Agent": get_effective_user_agent()}
                             )
                             with urllib.request.urlopen(f_req, timeout=2.0) as f_resp:
                                 f_data = json.loads(f_resp.read().decode("utf-8"))

@@ -4198,6 +4198,70 @@ def get_dashboard_html() -> str:
             </div>
           </div>
         </div>
+
+        <!-- USER-AGENT & HEADLESS CLIENT PROFILE -->
+        <div class="router-section-card" style="margin-top: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #ffffff;" data-i18n="ua_title">🌐 HTTP Kliens és Headless User-Agent Kezelő</div>
+              <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;" data-i18n="ua_desc">Állítsd be vagy generálj mindig friss böngésző / headless kliens azonosítót a mérésekhez és lekérdezésekhez (Cloudflare, Ookla, GeoIP, API-k) a WAF és bot-blokkolás elkerülésére.</div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="generateFreshUa('headless')" title="Dinamikus, modern Headless Chrome string előállítása">
+                🎲 <span data-i18n="ua_btn_fresh_headless">Friss Headless UA</span>
+              </button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="generateFreshUa('chrome')" title="Valós asztali Chrome böngésző string előállítása">
+                💻 <span data-i18n="ua_btn_fresh_desktop">Friss Asztali Chrome</span>
+              </button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="generateFreshUa('firefox')" title="Modern Firefox kliens string előállítása">
+                🦊 <span data-i18n="ua_btn_fresh_firefox">Friss Firefox</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="router-row-2">
+            <div class="form-group">
+              <label class="form-label" data-i18n="ua_mode_label">User-Agent Működési Mód:</label>
+              <select id="cfg-ua-mode" class="form-input" onchange="onCfgUaModeChange(this.value)">
+                <option value="auto_fresh">⚡ Dinamikusan frissülő Headless kliens (Auto-Fresh / Automata rotáció)</option>
+                <option value="custom">✏️ Egyéni User-Agent megadása (Kézzel szerkeszthető)</option>
+                <optgroup label="Előre beállított modern profilok (Presets)">
+                  <option value="headless_chrome_linux">🐧 Headless Chrome (Linux x86_64)</option>
+                  <option value="headless_chrome_arm">🍓 Headless Chrome (ARM64 / aarch64 SBC)</option>
+                  <option value="chrome_windows">💻 Google Chrome (Windows 11)</option>
+                  <option value="chrome_linux">🐧 Google Chrome (Linux Desktop)</option>
+                  <option value="chrome_mac">🍏 Google Chrome (macOS Sequoia)</option>
+                  <option value="firefox_linux">🦊 Mozilla Firefox (Linux)</option>
+                  <option value="firefox_windows">🦊 Mozilla Firefox (Windows 11)</option>
+                  <option value="safari_mac">🍏 Apple Safari (macOS)</option>
+                  <option value="chrome_android">📱 Google Chrome Mobile (Android 14)</option>
+                  <option value="nmb_native">📦 Natív NetworkMeasureBox Kliens</option>
+                </optgroup>
+              </select>
+              <div class="form-hint" id="cfg-ua-mode-hint">Az Auto-Fresh mód minden mérésnél friss, életszerű Headless Chrome azonosítót biztosít.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="ua_active_label">Hálózaton aktív User-Agent (Jelenlegi állapot):</label>
+              <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 11px; color: #93c5fd; overflow-wrap: break-word; word-break: break-all; min-height: 38px; display: flex; align-items: center; justify-content: space-between;">
+                <span id="cfg-ua-active-display">Betöltés...</span>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 8px; margin-left: 8px; flex-shrink: 0;" onclick="copyActiveUa()" title="Másolás vágólapra">📋</button>
+              </div>
+              <div class="form-hint">Ezt az azonosítót látják a szerverek az outbound HTTP mérések és lekérdezések során.</div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label class="form-label" style="margin-bottom: 0;" data-i18n="ua_input_label">Szerkeszthető User-Agent Karakterlánc:</label>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="copyInputUa()">📋 <span data-i18n="btn_copy">Másolás</span></button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="resetUaToDefault()">🔄 <span data-i18n="btn_reset">Alaphelyzet</span></button>
+              </div>
+            </div>
+            <textarea id="cfg-user-agent" rows="2" class="form-input" style="font-family: monospace; font-size: 12px; resize: vertical;" placeholder="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/133.0.6943.126 Safari/537.36"></textarea>
+            <div class="form-hint" data-i18n="ua_input_hint">Egyéni módban tetszőleges fejléc megadható (pl. Puppeteer, Playwright, speciális headless böngésző vagy cURL).</div>
+          </div>
+        </div>
       </div>
 
       <!-- SUBTAB 6: ISP SUBSCRIPTION PROFILE -->
@@ -7581,6 +7645,101 @@ def get_dashboard_html() -> str:
     if (fWrap) fWrap.style.display = (val === 'fixed') ? 'block' : 'none';
   }
 
+  const UA_PRESETS_MAP = {
+    headless_chrome_linux: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/133.0.6943.126 Safari/537.36",
+    headless_chrome_arm: "Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/133.0.6943.126 Safari/537.36",
+    chrome_windows: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.6943.126 Safari/537.36",
+    chrome_linux: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.6943.126 Safari/537.36",
+    chrome_mac: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.6943.126 Safari/537.36",
+    firefox_linux: "Mozilla/5.0 (X11; Linux x86_64; rv:135.0) Gecko/20100101 Firefox/135.0",
+    firefox_windows: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
+    safari_mac: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15",
+    chrome_android: "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.6943.126 Mobile Safari/537.36",
+    nmb_native: "NetworkMeasureBox/2.5 (Linux; Headless Diagnostics Client)"
+  };
+
+  function onCfgUaModeChange(mode) {
+    const uaInp = document.getElementById('cfg-user-agent');
+    const hint = document.getElementById('cfg-ua-mode-hint');
+    const activeDisp = document.getElementById('cfg-ua-active-display');
+    if (!uaInp) return;
+
+    if (mode === 'auto_fresh') {
+      if (hint) hint.textContent = 'Az Auto-Fresh mód minden mérésnél automatikusan frissülő, életszerű Headless Chrome azonosítót generál a háttérben.';
+      if (activeDisp && (!activeDisp.textContent || activeDisp.textContent === 'Betöltés...')) {
+        activeDisp.textContent = UA_PRESETS_MAP.headless_chrome_linux;
+      }
+    } else if (mode === 'custom') {
+      if (hint) hint.textContent = 'Egyéni User-Agent: A mezőbe beírt pontos fejlécet küldi a mérőbox minden HTTP kérésben.';
+      if (uaInp.value && activeDisp) activeDisp.textContent = uaInp.value;
+    } else if (UA_PRESETS_MAP[mode]) {
+      uaInp.value = UA_PRESETS_MAP[mode];
+      if (hint) hint.textContent = 'Kiválasztott szabványos profil: ' + mode;
+      if (activeDisp) activeDisp.textContent = UA_PRESETS_MAP[mode];
+    }
+  }
+
+  async function generateFreshUa(category) {
+    try {
+      const resp = await fetch('/api/user-agent/fresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: category || 'headless' })
+      });
+      if (resp.ok) {
+        const d = await resp.json();
+        const uaInp = document.getElementById('cfg-user-agent');
+        const modeSel = document.getElementById('cfg-ua-mode');
+        const activeDisp = document.getElementById('cfg-ua-active-display');
+        if (uaInp && d.user_agent) {
+          uaInp.value = d.user_agent;
+          if (modeSel) modeSel.value = 'custom';
+          if (activeDisp) activeDisp.textContent = d.user_agent;
+          onCfgUaModeChange('custom');
+          showToast('🎲 Új, friss ' + (category || 'headless') + ' User-Agent legenerálva! Mentsd el az alkalmazáshoz.');
+        }
+      }
+    } catch (e) {
+      console.error('generateFreshUa error:', e);
+      const patch = Math.floor(Math.random() * 80) + 60;
+      const fallbackUa = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/133.0.6943.' + patch + ' Safari/537.36';
+      const uaInp = document.getElementById('cfg-user-agent');
+      if (uaInp) {
+        uaInp.value = fallbackUa;
+        const modeSel = document.getElementById('cfg-ua-mode');
+        if (modeSel) modeSel.value = 'custom';
+        const activeDisp = document.getElementById('cfg-ua-active-display');
+        if (activeDisp) activeDisp.textContent = fallbackUa;
+        showToast('🎲 Új friss User-Agent beállítva!');
+      }
+    }
+  }
+
+  function copyActiveUa() {
+    const el = document.getElementById('cfg-ua-active-display');
+    if (el && el.textContent) {
+      navigator.clipboard.writeText(el.textContent.trim());
+      showToast('📋 Aktív User-Agent a vágólapra másolva!');
+    }
+  }
+
+  function copyInputUa() {
+    const el = document.getElementById('cfg-user-agent');
+    if (el && el.value) {
+      navigator.clipboard.writeText(el.value.trim());
+      showToast('📋 User-Agent szöveg a vágólapra másolva!');
+    }
+  }
+
+  function resetUaToDefault() {
+    const modeSel = document.getElementById('cfg-ua-mode');
+    const uaInp = document.getElementById('cfg-user-agent');
+    if (modeSel) modeSel.value = 'auto_fresh';
+    if (uaInp) uaInp.value = '';
+    onCfgUaModeChange('auto_fresh');
+    showToast('🔄 Visszaállítva dinamikus Auto-Fresh módra.');
+  }
+
   async function saveScheduleSettings() {
     const modeRadio = document.querySelector('input[name="sched_mode_radio"]:checked');
     const mode = modeRadio ? modeRadio.value : 'scheduled';
@@ -7747,6 +7906,12 @@ def get_dashboard_html() -> str:
       if (document.getElementById('cfg-sched-gate-percent')) document.getElementById('cfg-sched-gate-percent').value = (d.idle_threshold_percent !== undefined) ? d.idle_threshold_percent : 2.0;
       if (document.getElementById('cfg-sched-idle-kbps')) document.getElementById('cfg-sched-idle-kbps').value = d.idle_threshold_kbps || 500;
 
+      // User-Agent & Headless Client
+      if (document.getElementById('cfg-ua-mode')) document.getElementById('cfg-ua-mode').value = d.user_agent_mode || 'auto_fresh';
+      if (document.getElementById('cfg-user-agent')) document.getElementById('cfg-user-agent').value = d.user_agent || '';
+      if (document.getElementById('cfg-ua-active-display')) document.getElementById('cfg-ua-active-display').textContent = d.effective_user_agent || d.user_agent || 'HeadlessChrome/133.0.6943.126';
+      onCfgUaModeChange(d.user_agent_mode || 'auto_fresh');
+
       // Contract / ISP
       if (document.getElementById('cfg-isp-name')) document.getElementById('cfg-isp-name').value = d.isp_name || '';
       if (document.getElementById('cfg-conn-type')) document.getElementById('cfg-conn-type').value = d.connection_type || 'fiber';
@@ -7822,6 +7987,9 @@ def get_dashboard_html() -> str:
       idle_threshold_mode: document.getElementById('cfg-sched-gate-mode') ? document.getElementById('cfg-sched-gate-mode').value : 'percent',
       idle_threshold_percent: document.getElementById('cfg-sched-gate-percent') ? parseFloat(document.getElementById('cfg-sched-gate-percent').value) || 2.0 : 2.0,
       idle_threshold_kbps: document.getElementById('cfg-sched-idle-kbps') ? parseInt(document.getElementById('cfg-sched-idle-kbps').value) || 500 : 500,
+
+      user_agent_mode: document.getElementById('cfg-ua-mode') ? document.getElementById('cfg-ua-mode').value : 'auto_fresh',
+      user_agent: document.getElementById('cfg-user-agent') ? document.getElementById('cfg-user-agent').value.trim() : '',
 
       isp_name: document.getElementById('cfg-isp-name').value,
       connection_type: document.getElementById('cfg-conn-type').value,

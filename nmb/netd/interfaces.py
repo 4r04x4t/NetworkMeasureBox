@@ -398,7 +398,8 @@ def get_dual_stack_ips(iface: Optional[str] = None, force_refresh: bool = False)
     def _fetch_endpoint(urls: tuple[str, ...]) -> Optional[str]:
         for u in urls:
             try:
-                req = urllib.request.Request(u, headers={"User-Agent": "NetworkMeasureBox/1.0"})
+                from nmb.common.user_agent import get_effective_user_agent
+                req = urllib.request.Request(u, headers={"User-Agent": get_effective_user_agent()})
                 with urllib.request.urlopen(req, timeout=2.0) as resp:
                     val = resp.read().decode("utf-8").strip()
                     if val:

@@ -17,12 +17,19 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+from nmb.common.user_agent import get_effective_user_agent
 from nmb.speed.ookla import SpeedtestResult, calculate_bufferbloat
 
 log = logging.getLogger("nmb.speed.cloudflare")
 
-USER_AGENT = "cloudflare-speed-cli/1.0 (NetworkMeasureBox/2.5; Linux)"
 BASE_URL = "https://speed.cloudflare.com"
+
+
+def _current_ua() -> str:
+    try:
+        return get_effective_user_agent()
+    except Exception:
+        return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/133.0.6943.126 Safari/537.36"
 
 
 @dataclass
@@ -118,7 +125,7 @@ class CloudflareSpeedResult:
 
 
 def _get_request(url: str, timeout: float = 10.0) -> Tuple[bytes, dict]:
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read(), dict(resp.headers)
 
@@ -127,7 +134,7 @@ def _post_request(url: str, data: bytes, timeout: float = 12.0) -> Tuple[bytes, 
     req = urllib.request.Request(
         url,
         data=data,
-        headers={"User-Agent": USER_AGENT, "Content-Type": "application/octet-stream"}
+        headers={"User-Agent": _current_ua(), "Content-Type": "application/octet-stream"}
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read(), dict(resp.headers)
@@ -160,7 +167,7 @@ def measure_idle_latency(count: int = 15) -> Tuple[Optional[float], Optional[flo
     for _ in range(count):
         try:
             t0 = time.monotonic()
-            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
             with urllib.request.urlopen(req, timeout=4.0) as resp:
                 _ = resp.read()
             latencies.append((time.monotonic() - t0) * 1000.0)
@@ -184,7 +191,7 @@ def _probe_loaded_latency(stop_event: threading.Event, output_list: List[float])
     while not stop_event.is_set():
         try:
             t0 = time.monotonic()
-            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
             with urllib.request.urlopen(req, timeout=3.0) as resp:
                 _ = resp.read()
             output_list.append((time.monotonic() - t0) * 1000.0)
@@ -197,7 +204,7 @@ def measure_download_tier(byte_count: int, stop_loaded_probe: Optional[threading
     """Download specific chunk tier in small streamed blocks to prevent RAM bloat."""
     url = f"{BASE_URL}/__down?bytes={byte_count}"
     t0 = time.monotonic()
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
     b_read = 0
     with urllib.request.urlopen(req, timeout=25.0) as resp:
         while True:
@@ -221,7 +228,7 @@ def measure_upload_tier(byte_count: int) -> Tuple[int, float]:
     req = urllib.request.Request(
         url,
         data=payload,
-        headers={"User-Agent": USER_AGENT, "Content-Type": "application/octet-stream"}
+        headers={"User-Agent": _current_ua(), "Content-Type": "application/octet-stream"}
     )
     with urllib.request.urlopen(req, timeout=25.0) as resp:
         _ = resp.read()

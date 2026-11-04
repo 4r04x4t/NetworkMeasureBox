@@ -413,6 +413,8 @@ class SpeedtestConfig:
     server_name: str = ""
     server_host: str = ""
     port_throttle_ports: List[int] = field(default_factory=lambda: [80, 443, 8080, 8443, 5060, 53])
+    user_agent: str = ""                      # Custom User-Agent string when mode is 'custom'
+    user_agent_mode: str = "auto_fresh"       # 'auto_fresh', 'custom', or preset key
 
 
 @dataclass
@@ -649,6 +651,8 @@ def load_config(path: Path | None = None) -> Config:
             cfg.speedtest.server_id = None
         cfg.speedtest.server_name = st.get("server_name", cfg.speedtest.server_name).strip()
         cfg.speedtest.server_host = st.get("server_host", cfg.speedtest.server_host).strip()
+        cfg.speedtest.user_agent = st.get("user_agent", getattr(cfg.speedtest, "user_agent", "")).strip()
+        cfg.speedtest.user_agent_mode = st.get("user_agent_mode", getattr(cfg.speedtest, "user_agent_mode", "auto_fresh")).strip().lower()
         ports_str = st.get("port_throttle_ports", "").strip()
         if ports_str:
             try:
@@ -884,6 +888,8 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["speedtest"]["server_name"] = str(cfg.speedtest.server_name or "")
     parser["speedtest"]["server_host"] = str(cfg.speedtest.server_host or "")
     parser["speedtest"]["port_throttle_ports"] = ",".join(str(p) for p in cfg.speedtest.port_throttle_ports)
+    parser["speedtest"]["user_agent"] = str(getattr(cfg.speedtest, "user_agent", "") or "")
+    parser["speedtest"]["user_agent_mode"] = str(getattr(cfg.speedtest, "user_agent_mode", "auto_fresh")).lower()
 
     # ISP
     parser["isp"]["name"] = str(cfg.isp.name)

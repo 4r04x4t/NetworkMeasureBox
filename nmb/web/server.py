@@ -328,6 +328,19 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             })
             return
 
+        # 9c. User-Agent / Headless Client API
+        if path == "/api/user-agent":
+            from nmb.common.user_agent import get_effective_user_agent, list_user_agent_presets
+            cfg = self.server.cfg
+            self._send_json({
+                "status": "ok",
+                "user_agent": getattr(cfg.speedtest, "user_agent", ""),
+                "user_agent_mode": getattr(cfg.speedtest, "user_agent_mode", "auto_fresh"),
+                "effective_user_agent": get_effective_user_agent(cfg),
+                "presets": list_user_agent_presets(),
+            })
+            return
+
         # 10. i18n Localization API
         if path == "/api/i18n":
             req_lang = self.server.cfg.web.language
@@ -1079,6 +1092,34 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     "name": self.server.cfg.speedtest.server_name,
                     "host": self.server.cfg.speedtest.server_host,
                 }
+            })
+            return
+
+        # 1c. User-Agent Generation & Customization
+        if path in ("/api/user-agent/fresh", "/api/user-agent/generate"):
+            from nmb.common.user_agent import generate_fresh_user_agent
+            cat = str(body_json.get("category", "headless")).strip()
+            fresh_ua = generate_fresh_user_agent(cat)
+            self._send_json({
+                "status": "ok",
+                "category": cat,
+                "user_agent": fresh_ua,
+            })
+            return
+
+        if path == "/api/user-agent":
+            if "user_agent" in body_json:
+                self.server.cfg.speedtest.user_agent = str(body_json["user_agent"]).strip()
+            if "user_agent_mode" in body_json:
+                self.server.cfg.speedtest.user_agent_mode = str(body_json["user_agent_mode"]).strip().lower()
+            save_config(self.server.cfg)
+            from nmb.common.user_agent import get_effective_user_agent
+            self._send_json({
+                "status": "ok",
+                "message": "User-Agent configuration updated successfully.",
+                "user_agent": self.server.cfg.speedtest.user_agent,
+                "user_agent_mode": self.server.cfg.speedtest.user_agent_mode,
+                "effective_user_agent": get_effective_user_agent(self.server.cfg),
             })
             return
 
@@ -2289,6 +2330,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "speedtest_server_id": getattr(cfg.speedtest, "server_id", None),
             "speedtest_server_name": getattr(cfg.speedtest, "server_name", ""),
             "speedtest_server_host": getattr(cfg.speedtest, "server_host", ""),
+            "user_agent": getattr(cfg.speedtest, "user_agent", ""),
+            "user_agent_mode": getattr(cfg.speedtest, "user_agent_mode", "auto_fresh"),
+            "effective_user_agent": __import__("nmb.common.user_agent", fromlist=["get_effective_user_agent"]).get_effective_user_agent(cfg),
+            "user_agent_presets": __import__("nmb.common.user_agent", fromlist=["list_user_agent_presets"]).list_user_agent_presets(),
             "sqm_algorithm": getattr(cfg.system, "sqm_algorithm", "cake"),
             "auth_enabled": bool(getattr(cfg.web, "auth_enabled", True)),
             "admin_username": getattr(cfg.web, "admin_username", "admin"),
@@ -2547,6 +2592,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             cfg.speedtest.server_name = str(body["speedtest_server_name"]).strip()
         if "speedtest_server_host" in body:
             cfg.speedtest.server_host = str(body["speedtest_server_host"]).strip()
+        if "user_agent" in body:
+            cfg.speedtest.user_agent = str(body["user_agent"]).strip()
+        if "user_agent_mode" in body:
+            cfg.speedtest.user_agent_mode = str(body["user_agent_mode"]).strip().lower()
         if "memory_profile" in body:
             cfg.system.memory_profile = str(body["memory_profile"]).strip().lower()
         if "admin_username" in body and str(body["admin_username"]).strip():

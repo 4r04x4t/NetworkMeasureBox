@@ -92,8 +92,9 @@ def _fetch_from_iperf3serverlist() -> List[Dict[str, Any]]:
         "https://export.iperf3serverlist.net/listed_iperf3_servers.json",
         "http://export.iperf3serverlist.net/listed_iperf3_servers.json",
     ]
+    from nmb.common.user_agent import get_effective_user_agent
     headers = {
-        "User-Agent": "Mozilla/5.0 (NetworkMeasureBox Diagnostic Engine)",
+        "User-Agent": get_effective_user_agent(),
         "Accept": "application/json",
     }
     for url in urls:
@@ -149,8 +150,9 @@ def _fetch_from_iperf_fr() -> List[Dict[str, Any]]:
     Fallback: Scrape HTML directory from https://iperf.fr/iperf-servers.php.
     """
     url = "https://iperf.fr/iperf-servers.php"
+    from nmb.common.user_agent import get_effective_user_agent
     headers = {
-        "User-Agent": "Mozilla/5.0 (NetworkMeasureBox Diagnostic Engine)",
+        "User-Agent": get_effective_user_agent(),
     }
     try:
         req = urllib.request.Request(url, headers=headers)

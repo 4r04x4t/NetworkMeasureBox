@@ -73,7 +73,8 @@ def get_public_geoip(ip: Optional[str] = None, timeout: float = 2.5) -> Dict[str
     endpoint += "?fields=status,message,country,countryCode,regionName,city,isp,org,as,query"
 
     try:
-        req = urllib.request.Request(endpoint, headers={"User-Agent": "NetworkMeasureBox-GeoIP/1.0"})
+        from nmb.common.user_agent import get_effective_user_agent
+        req = urllib.request.Request(endpoint, headers={"User-Agent": get_effective_user_agent()})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             if data.get("status") == "success":
