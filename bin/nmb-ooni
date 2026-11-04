@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""
+NetworkMeasureBox: OONI Probe Censorship & Net-Neutrality CLI
+Manages OONI Probe tests (Websites, Middleboxes, Instant Messaging, Circumvention),
+inspects local run history, anomaly breakdowns, and verifies probe onboarding.
+Usage:
+  nmb-ooni run [websites|middlebox|im|circumvention|all] [--url URL]
+  nmb-ooni status
+  nmb-ooni history [--limit 15]
+  nmb-ooni onboard
+  nmb-ooni inspect <run-id>
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parent.parent
+if str(root) not in sys.path:
+    sys.path.insert(0, str(root))
+if "/opt/nmb" not in sys.path:
+    sys.path.append("/opt/nmb")
+
+from nmb.probe import ooni
+
+
+def cmd_status() -> int:
+    st = ooni.get_ooni_status()
+    print("=" * 64)
+    print("  OONI Probe — Censorship & Net-Neutrality Status")
+    print("=" * 64)
+    print(f"Installed     : {'YES' if st.get('installed') else 'NO'}")
+    print(f"Binary Path   : {ooni.find_ooniprobe_bin() or 'Not found'}")
+    print(f"Version       : {st.get('version', 'N/A')}")
+    print(f"Test Running  : {'YES (' + st.get('current_test', '') + ')' if st.get('running') else 'NO (IDLE)'}")
+    print(f"Total Runs    : {len(st.get('history', []))}")
+    print("=" * 64)
+    return 0
+
+
+def cmd_onboard() -> int:
+    print("Verifying / executing OONI Probe unattended onboarding...", file=sys.stderr)
+    ok = ooni.ensure_ooni_onboarded()
+    if ok:
+        print("✓ OONI Probe successfully onboarded and ready for measurements.")
+        return 0
+    print("[Error] OONI Probe onboarding failed. Ensure ooniprobe binary is installed.", file=sys.stderr)
+    return 1
+
+
+def cmd_history(limit: int) -> int:
+    hist = ooni.get_ooni_history(limit=limit)
+    if not hist:
+        print("No OONI Probe measurement history found.")
+        return 0
+
+    print("=" * 80)
+    print("  OONI Probe Measurement Run History")
+    print("=" * 80)
+    fmt = "{:<8} {:<24} {:<18} {:<12} {:<12}"
+    print(fmt.format("Run ID", "Date / Time (UTC)", "Network (ASN)", "Total Tests", "Anomalies"))
+    print("-" * 80)
+    for h in hist:
+        rid = str(h.get("id", ""))
+        dt = h.get("start_time", "")[:19]
+        asn = f"{h.get('network_name', '')} ({h.get('asn', '')})"[:18]
+        tot = str(h.get("measurement_count", 0))
+        anom = str(h.get("anomaly_count", 0))
+        if int(h.get("anomaly_count", 0)) > 0:
+            anom = f"⚠️ {anom}"
+        print(fmt.format(rid, dt, asn, tot, anom))
+    print("=" * 80)
+    return 0
+
+
+def cmd_run(category: str, url: str) -> int:
+    if not ooni.is_ooni_installed():
+        print("[Error] ooniprobe is not installed on this system.", file=sys.stderr)
+        return 1
+
+    ooni.ensure_ooni_onboarded()
+
+    print(f"Launching OONI Probe test: category={category}, url={url or 'default test list'} (this may take 30-90s)...", file=sys.stderr)
+    res = ooni.run_ooni_test_sync(category=category, url=url)
+    if res.get("status") == "ok":
+        print("✓ OONI Probe test completed successfully!")
+        print(f"  Summary: {res.get('summary')}")
+        print(f"  Exit code: {res.get('exit_code')}")
+        return 0
+    else:
+        print(f"[Error] OONI test execution failed: {res.get('message')}", file=sys.stderr)
+        return 1
+
+
+def cmd_inspect(run_id: int) -> int:
+    data = ooni.get_ooni_run_measurements(run_id)
+    if data.get("status") == "error":
+        print(f"[Error] {data.get('message')}", file=sys.stderr)
+        return 1
+
+    print("=" * 80)
+    print(f"  OONI Probe Run #{run_id} Measurement Details")
+    print("=" * 80)
+    msmts = data.get("measurements", [])
+    fmt = "{:<8} {:<32} {:<12} {:<16}"
+    print(fmt.format("ID", "Target / Test Name", "Result", "Anomaly Type"))
+    print("-" * 80)
+    for m in msmts:
+        mid = str(m.get("id", ""))
+        name = (m.get("url") or m.get("test_name") or "")[:32]
+        res = "ANOMALY" if m.get("is_anomaly") else "OK"
+        atype = m.get("anomaly_type") or "-"
+        print(fmt.format(mid, name, res, atype))
+    print("=" * 80)
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="nmb-ooni",
+        description="NetworkMeasureBox: OONI Probe Censorship & Net-Neutrality Diagnostic CLI",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # status
+    sub.add_parser("status", help="Show OONI Probe installation and execution status")
+
+    # onboard
+    sub.add_parser("onboard", help="Run unattended onboarding initialization")
+
+    # history
+    p_hist = sub.add_parser("history", aliases=["list"], help="List recent OONI test runs")
+    p_hist.add_argument("-n", "--limit", type=int, default=15, help="Number of runs to display (default: 15)")
+
+    # run
+    p_run = sub.add_parser("run", help="Execute an OONI Probe test")
+    p_run.add_argument("category", nargs="?", default="websites", choices=["websites", "middlebox", "im", "circumvention", "all"], help="Test category")
+    p_run.add_argument("-u", "--url", default="", help="Custom single URL to test")
+
+    # inspect
+    p_insp = sub.add_parser("inspect", aliases=["details"], help="Inspect measurements in a specific run")
+    p_insp.add_argument("run_id", type=int, help="OONI Run ID")
+
+    args = parser.parse_args()
+
+    if not args.command:
+        return cmd_status()
+
+    cmd = args.command
+    if cmd == "status":
+        return cmd_status()
+    elif cmd == "onboard":
+        return cmd_onboard()
+    elif cmd in ("history", "list"):
+        return cmd_history(args.limit)
+    elif cmd == "run":
+        return cmd_run(args.category, args.url)
+    elif cmd in ("inspect", "details"):
+        return cmd_inspect(args.run_id)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

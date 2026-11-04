@@ -1,0 +1,15 @@
+[Unit]
+Description=NetworkMeasureBox: Embedded iPerf3 Bandwidth Benchmark Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/iperf3 -s -p 5201
+Restart=always
+RestartSec=5s
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

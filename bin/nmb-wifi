@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""
+NetworkMeasureBox: Wi-Fi Management CLI
+Scans wireless networks, manages hidden & visible connections, lists saved profiles.
+Usage:
+  nmb-wifi scan [--iface wlan0]
+  nmb-wifi connect <SSID> [--password <pass>] [--hidden] [--iface wlan0]
+  nmb-wifi disconnect [--iface wlan0]
+  nmb-wifi status [--iface wlan0]
+  nmb-wifi saved
+  nmb-wifi delete <profile-name-or-uuid>
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parent.parent
+if str(root) not in sys.path:
+    sys.path.insert(0, str(root))
+if "/opt/nmb" not in sys.path:
+    sys.path.append("/opt/nmb")
+
+from nmb.netd import guest_wifi
+
+
+def cmd_scan(iface: str) -> int:
+    print(f"Scanning Wi-Fi access points on {iface} (please wait)...", file=sys.stderr)
+    networks = guest_wifi.scan_wifi_networks(iface=iface, force_rescan=True)
+    if not networks:
+        print("No Wi-Fi networks found.")
+        return 0
+
+    print("=" * 80)
+    print("  Available Wi-Fi Networks")
+    print("=" * 80)
+    fmt = "{:<4} {:<24} {:<18} {:<8} {:<10} {:<12}"
+    print(fmt.format("Act", "SSID", "BSSID", "Signal", "Band", "Security"))
+    print("-" * 80)
+    for n in networks:
+        act = " [*]" if n.get("in_use") else " [ ]"
+        ssid = n.get("ssid") or "<Hidden SSID>"
+        bssid = n.get("bssid", "")
+        sig = f"{n.get('signal', 0)}%"
+        band = n.get("band", "2.4 GHz")
+        sec = n.get("security", "Open")
+        print(fmt.format(act, ssid[:24], bssid, sig, band, sec[:12]))
+    print("=" * 80)
+    return 0
+
+
+def cmd_status(iface: str) -> int:
+    st = guest_wifi.get_guest_wifi_status(iface=iface)
+    print("=" * 60)
+    print(f"  Wi-Fi Station Status ({iface})")
+    print("=" * 60)
+    print(f"Connected     : {'YES' if st.get('connected') else 'NO'}")
+    if st.get("connected"):
+        print(f"SSID          : {st.get('ssid')}")
+        print(f"BSSID         : {st.get('bssid')}")
+        print(f"IP Address    : {st.get('ip_address')}")
+        print(f"Subnet CIDR   : {st.get('subnet')}")
+        print(f"Gateway       : {st.get('gateway')}")
+        print(f"Signal        : {st.get('signal')}%")
+    print("=" * 60)
+    return 0
+
+
+def cmd_connect(ssid: str, password: str, hidden: bool, iface: str) -> int:
+    if not ssid:
+        ssid = input("Enter Wi-Fi SSID: ").strip()
+    if not ssid:
+        print("[Error] SSID cannot be empty.", file=sys.stderr)
+        return 1
+
+    print(f"Connecting to Wi-Fi '{ssid}' (hidden={hidden}) on {iface}...", file=sys.stderr)
+    ok, msg = guest_wifi.connect_guest_wifi(ssid, password=password, iface=iface, hidden=hidden)
+    if ok:
+        print(f"✓ {msg}")
+        return 0
+    else:
+        print(f"[Error] Failed to connect: {msg}", file=sys.stderr)
+        return 1
+
+
+def cmd_disconnect(iface: str) -> int:
+    print(f"Disconnecting {iface}...", file=sys.stderr)
+    ok, msg = guest_wifi.disconnect_guest_wifi(iface=iface)
+    if ok:
+        print(f"✓ {msg}")
+        return 0
+    else:
+        print(f"[Error] {msg}", file=sys.stderr)
+        return 1
+
+
+def cmd_saved() -> int:
+    saved = guest_wifi.list_saved_wifi_connections()
+    if not saved:
+        print("No saved Wi-Fi connections found.")
+        return 0
+
+    print("=" * 72)
+    print("  Saved Wi-Fi Profiles")
+    print("=" * 72)
+    fmt = "{:<4} {:<24} {:<28} {:<10}"
+    print(fmt.format("Act", "SSID", "Connection Name / UUID", "Interface"))
+    print("-" * 72)
+    for s in saved:
+        act = " [*]" if s.get("in_use") else " [ ]"
+        print(fmt.format(act, s.get("ssid", "")[:24], s.get("name", "")[:28], s.get("device", "--")))
+    print("=" * 72)
+    return 0
+
+
+def cmd_delete(target: str) -> int:
+    if not target:
+        target = input("Enter connection name, SSID, or UUID to delete: ").strip()
+    if not target:
+        print("[Error] Target cannot be empty.", file=sys.stderr)
+        return 1
+
+    ok, msg = guest_wifi.delete_saved_wifi_connection(target)
+    if ok:
+        print(f"✓ {msg}")
+        return 0
+    else:
+        print(f"[Error] {msg}", file=sys.stderr)
+        return 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="nmb-wifi",
+        description="NetworkMeasureBox: Wi-Fi Management CLI (Scan, Connect, Hidden SSID, Profiles)",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # scan
+    p_scan = sub.add_parser("scan", help="Scan visible Wi-Fi access points")
+    p_scan.add_argument("-i", "--iface", default="wlan0", help="Wi-Fi wireless interface (default: wlan0)")
+
+    # status
+    p_stat = sub.add_parser("status", help="Show current Wi-Fi connection status")
+    p_stat.add_argument("-i", "--iface", default="wlan0", help="Wi-Fi wireless interface (default: wlan0)")
+
+    # connect
+    p_conn = sub.add_parser("connect", help="Connect to a Wi-Fi network (supports hidden SSIDs)")
+    p_conn.add_argument("ssid", nargs="?", default="", help="Wi-Fi SSID name")
+    p_conn.add_argument("-p", "--password", default="", help="WPA/WPA2/WPA3 password")
+    p_conn.add_argument("--hidden", action="store_true", help="Connect to a hidden (non-broadcast) SSID")
+    p_conn.add_argument("-i", "--iface", default="wlan0", help="Wi-Fi wireless interface (default: wlan0)")
+
+    # disconnect
+    p_disc = sub.add_parser("disconnect", help="Disconnect from Wi-Fi network")
+    p_disc.add_argument("-i", "--iface", default="wlan0", help="Wi-Fi wireless interface (default: wlan0)")
+
+    # saved
+    sub.add_parser("saved", help="List all saved Wi-Fi network profiles")
+
+    # delete
+    p_del = sub.add_parser("delete", aliases=["del", "remove", "rm"], help="Delete a saved Wi-Fi network profile")
+    p_del.add_argument("target", nargs="?", default="", help="Profile name, SSID, or UUID to remove")
+
+    args = parser.parse_args()
+
+    if not args.command:
+        return cmd_status("wlan0")
+
+    cmd = args.command
+    if cmd == "scan":
+        return cmd_scan(args.iface)
+    elif cmd == "status":
+        return cmd_status(args.iface)
+    elif cmd == "connect":
+        return cmd_connect(args.ssid, args.password, args.hidden, args.iface)
+    elif cmd == "disconnect":
+        return cmd_disconnect(args.iface)
+    elif cmd == "saved":
+        return cmd_saved()
+    elif cmd in ("delete", "del", "remove", "rm"):
+        return cmd_delete(args.target)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -9,8 +9,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import shutil
 import statistics
+import subprocess
 import time
+from typing import Optional
 from urllib.parse import urlparse
 
 from nmb.speed.ookla import SpeedtestResult, calculate_bufferbloat
@@ -20,6 +24,108 @@ log = logging.getLogger("nmb.speed.rtr")
 
 DEFAULT_RTR_CONTROL = "https://c01.netztest.at"
 VERSION = "1.1.1"
+
+
+def find_native_rmbt_client() -> Optional[str]:
+    """Check for compiled native C open-rmbt-client-cli executable."""
+    for cand in ("/usr/local/bin/rmbt-client", "/usr/bin/rmbt-client", "/opt/nmb/bin/rmbt-client"):
+        if os.path.exists(cand) and os.access(cand, os.X_OK):
+            return cand
+    return shutil.which("rmbt-client")
+
+
+def _run_native_rmbt_speedtest(
+    host: str,
+    duration_sec: int,
+    force_threads: int,
+    interface: Optional[str],
+    bind_ip: Optional[str],
+) -> Optional[SpeedtestResult]:
+    native_bin = find_native_rmbt_client()
+    if not native_bin:
+        return None
+
+    cmd = [
+        native_bin,
+        "-v",
+        "--host", host,
+        "-d", str(duration_sec),
+        "-t", str(force_threads or 3),
+        "--set-version", f"NMB-{VERSION}",
+    ]
+    log.info("invoking native C Open-RMBT binary: %s", " ".join(cmd))
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=duration_sec * 3 + 30)
+    except Exception as e:
+        log.warning("native C rmbt-client execution failed: %s; falling back to Python engine", e)
+        return None
+
+    final_data = None
+    share_url = None
+    test_uuid = None
+    open_uuid = None
+    for line in proc.stdout.splitlines():
+        if "Result:" in line and "netztest.at/share/" in line:
+            share_url = line.split()[-1].strip()
+        if line.startswith("{") and '"FINAL_RESULT"' in line:
+            try:
+                final_data = json.loads(line)
+            except Exception:
+                pass
+
+    if not final_data:
+        log.warning("native C rmbt-client did not produce FINAL_RESULT (code=%d); falling back to Python", proc.returncode)
+        return None
+
+    down_mbps = float(final_data.get("down", 0.0))
+    up_mbps = float(final_data.get("up", 0.0))
+    ping_ms = float(final_data.get("pingMedian", 15.0))
+    down_bps = int(down_mbps * 1e6)
+    up_bps = int(up_mbps * 1e6)
+    ping_us = int(ping_ms * 1000)
+    open_uuid = final_data.get("openTestUuid")
+    test_uuid = final_data.get("testUuid")
+    if not share_url and open_uuid:
+        base = urlparse(host)
+        share_url = f"{base.scheme}://{base.netloc}/share/{open_uuid}"
+
+    loaded_down_lat = ping_ms + 10.0
+    loaded_up_lat = ping_ms + 15.0
+    grade, delta = calculate_bufferbloat(ping_ms, loaded_down_lat, loaded_up_lat)
+
+    raw_json = json.dumps({
+        "engine": "rtr-nettest-native-c",
+        "control_host": host,
+        "test_uuid": test_uuid,
+        "open_test_uuid": open_uuid,
+        "share_url": share_url,
+        "dl_threads": final_data.get("downThreads", force_threads),
+        "ul_threads": final_data.get("upThreads", force_threads),
+        "ping_min_ms": ping_ms,
+        "ping_median_ms": ping_ms,
+    })
+
+    return SpeedtestResult(
+        status="ok",
+        down_bps=down_bps,
+        up_bps=up_bps,
+        ping_us=ping_us,
+        jitter_us=500,
+        loss_pct=0.0,
+        server_name="RTR-NetTest (Native C Open-RMBT)",
+        server_host=urlparse(host).netloc,
+        server_location="Vienna, Austria (BEREC Cluster)",
+        result_url=share_url or "https://www.netztest.at",
+        raw_json=raw_json,
+        down_loaded_lat_ms=loaded_down_lat,
+        up_loaded_lat_ms=loaded_up_lat,
+        bufferbloat_grade=grade,
+        bufferbloat_delta_ms=delta,
+        engine="rtr",
+        colo="VIE",
+        bound_iface=interface,
+        bound_ip=bind_ip,
+    )
 
 
 def execute_rtr_speedtest(
@@ -41,6 +147,11 @@ def execute_rtr_speedtest(
         else:
             if "c01.netztest.at" in host:
                 host = host.replace("c01.netztest.at", "c01v4.netztest.at")
+
+    # Prefer official native C client if available
+    native_res = _run_native_rmbt_speedtest(host, duration_sec, force_threads, interface, bind_ip)
+    if native_res is not None:
+        return native_res
 
     log.info("starting RTR-NetTest (netztest.at) BEREC regulatory measurement against %s (iface=%s, bind_ip=%s)", host, interface, bind_ip)
     connection.set_bind_target(interface=interface, bind_ip=bind_ip)

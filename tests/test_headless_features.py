@@ -298,6 +298,31 @@ class TestHeadlessFeatures(unittest.TestCase):
         connection.set_bind_target(None, None)
         self.assertIsNone(connection._bound_source_ip)
 
+    def test_cli_tools_and_components_integration(self):
+        # 1. Native RMBT client detection
+        from nmb.speed.rtr import find_native_rmbt_client
+        # Should not raise exception
+        native = find_native_rmbt_client()
+        self.assertTrue(native is None or isinstance(native, str))
+
+        # 2. iPerf3 public directory
+        from nmb.speed.iperf_directory import fetch_public_iperf_servers
+        res = fetch_public_iperf_servers()
+        servers = res.get("servers", [])
+        self.assertGreater(len(servers), 0)
+        self.assertIn("host", servers[0])
+
+        # 3. OONI Probe detection and status
+        from nmb.probe.ooni import is_ooni_installed, get_ooni_status
+        st = get_ooni_status()
+        self.assertIn("installed", st)
+        self.assertIn("running", st)
+
+        # 4. VPN candidates and guide
+        from nmb.netd.wireguard import get_candidate_endpoints
+        cand = get_candidate_endpoints(port=51820)
+        self.assertIsInstance(cand, list)
+
 
 if __name__ == "__main__":
     unittest.main()

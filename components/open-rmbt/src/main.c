@@ -1,0 +1,666 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <unistd.h>
+#include <getopt.h>
+#include <pthread.h>
+#include "pthread_barrier_compat.h"
+#include <time.h>
+#include <stdint.h>
+#include <openssl/ssl.h>
+#include <curl/curl.h>
+
+#include "connection.h"
+#include "control.h"
+#include "gui.h"
+#include "pretest.h"
+#include "tests.h"
+#include "uuid_store.h"
+
+#define MAX_THREADS 20
+#define MAX_PINGS   100
+
+/* Compile-time CPU architecture label for client_software_version. */
+#if defined(__aarch64__) || defined(__arm64__)
+#  define CLIENT_ARCH "aarch64"
+#elif defined(__x86_64__) || defined(__amd64__)
+#  define CLIENT_ARCH "x86_64"
+#elif defined(__i386__)
+#  define CLIENT_ARCH "x86"
+#elif defined(__arm__)
+#  define CLIENT_ARCH "arm"
+#else
+#  define CLIENT_ARCH "unknown"
+#endif
+
+/* ── Thread arguments / results ─────────────────────────────────────────────── */
+
+typedef enum { PHASE_DOWNLOAD, PHASE_UPLOAD } Phase;
+
+typedef struct {
+    /* inputs */
+    const char   *addr;
+    uint16_t      port;
+    int           use_tls;
+    int           no_tls_verify;
+    int           protocol;
+    const char   *token;
+    uint32_t      duration;
+    size_t        chunk_size;
+    int           thread_id;
+    int           intermediate;
+    Phase         phase;
+    pthread_barrier_t *barrier;
+    /* outputs */
+    TransferResult result;
+    int            failed;
+} ThreadArg;
+
+static void *thread_func(void *arg)
+{
+    ThreadArg *a = arg;
+
+    RmbtConn *conn = conn_connect(a->addr, a->port, a->use_tls,
+                                  a->no_tls_verify, a->protocol);
+    if (!conn) {
+        pthread_barrier_wait(a->barrier);
+        a->failed = 1;
+        return NULL;
+    }
+    if (conn_greeting(conn, a->token) < 0) {
+        conn_free(conn);
+        pthread_barrier_wait(a->barrier);
+        a->failed = 1;
+        return NULL;
+    }
+
+    pthread_barrier_wait(a->barrier);
+
+    int rc;
+    if (a->phase == PHASE_DOWNLOAD) {
+        rc = run_download(conn, a->duration, a->chunk_size, a->thread_id, &a->result);
+    } else {
+        rc = run_upload(conn, a->duration, a->chunk_size, a->thread_id,
+                        a->intermediate, &a->result);
+    }
+    conn_quit(conn);
+    conn_free(conn);
+
+    if (rc < 0) a->failed = 1;
+    return NULL;
+}
+
+/* Run `n` threads for one phase.  Returns number of successful threads. */
+static int run_phase(int n, const char *addr, uint16_t port,
+                     int use_tls, int no_tls_verify, int protocol,
+                     const char *token, uint32_t duration, size_t chunk_size,
+                     int intermediate, Phase phase,
+                     TransferResult *results, int *result_count)
+{
+    pthread_t       threads[MAX_THREADS];
+    ThreadArg       args[MAX_THREADS];
+    pthread_barrier_t bar;
+
+    pthread_barrier_init(&bar, NULL, n);
+
+    for (int i = 0; i < n; i++) {
+        args[i].addr          = addr;
+        args[i].port          = port;
+        args[i].use_tls       = use_tls;
+        args[i].no_tls_verify = no_tls_verify;
+        args[i].protocol      = protocol;
+        args[i].token         = token;
+        args[i].duration      = duration;
+        args[i].chunk_size    = chunk_size;
+        args[i].thread_id     = i;
+        args[i].intermediate  = intermediate;
+        args[i].phase         = phase;
+        args[i].barrier       = &bar;
+        args[i].failed        = 0;
+        memset(&args[i].result, 0, sizeof(args[i].result));
+        pthread_create(&threads[i], NULL, thread_func, &args[i]);
+    }
+
+    int ok = 0;
+    for (int i = 0; i < n; i++) {
+        pthread_join(threads[i], NULL);
+        if (!args[i].failed)
+            results[ok++] = args[i].result;
+        else
+            fprintf(stderr, "[thread %d] dropped (skipping)\n", i);
+    }
+
+    pthread_barrier_destroy(&bar);
+    *result_count = ok;
+    return ok;
+}
+
+/* ── Helpers ─────────────────────────────────────────────────────────────────── */
+
+static uint64_t now_ms_wall(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (uint64_t)ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
+}
+
+static int cmp_u64(const void *a, const void *b)
+{
+    uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b;
+    return x < y ? -1 : x > y ? 1 : 0;
+}
+
+/* Abort the run: report STATE_CHANGE "ERROR" (with the phase's last reported
+ * error appended, if any), print the ENDING TEST. sentinel and return exit code 1. */
+static int fail(const char *what)
+{
+    const char *detail = gui_last_error();
+    char msg[768];
+    if (detail && *detail) snprintf(msg, sizeof(msg), "%s: %s", what, detail);
+    else                   snprintf(msg, sizeof(msg), "%s", what);
+    gui_error(msg);
+    gui_ending_test();
+    fprintf(stderr, "Error: %s\n", msg);
+    return 1;
+}
+
+/* Median of v[0..n) (mean of the two middle values for an even count), 0 if empty.
+ * Sorts v in place. */
+static double median_u64(uint64_t *v, int n)
+{
+    if (n <= 0) return 0.0;
+    qsort(v, (size_t)n, sizeof(uint64_t), cmp_u64);
+    int m = n / 2;
+    return (n % 2 == 0) ? ((double)v[m - 1] + (double)v[m]) / 2.0 : (double)v[m];
+}
+
+static void print_usage(const char *prog)
+{
+    printf(
+        "Usage: %s -h URL [options]\n\n"
+        "Options:\n"
+        "  -h, --host URL          Control server base URL (required)\n"
+        "  -p, --port PORT         Override test server port\n"
+        "  -u, --uuid UUID         Client UUID (uses/creates ~/.rmbt_client_uuid if omitted)\n"
+        "  -t, --threads N         Force thread count for download and upload\n"
+        "  -d, --duration SECS     Test duration in seconds\n"
+        "      --ws                Use WebSocket (RMBTws) framing\n"
+        "      --http              Use plain HTTP upgrade (RMBThttp, default)\n"
+        "      --no-tls-verify     Skip TLS certificate verification\n"
+        "      --debug             Print control server JSON\n"
+        "      --intermediate      Print upload throughput every 40 ms per thread\n"
+        "  -v, --verbose           Emit machine-readable JSON progress on stdout (GUI)\n"
+        "      --nettype CODE      Network type code (default 98 = LAN)\n"
+        "      --type TYPE         Client type (default DESKTOP)\n"
+        "      --platform NAME     Platform label\n"
+        "      --os/--osver STR    Accepted for compatibility\n"
+        "      --model NAME        Device model\n"
+        "      --server_uuid UUID  Preferred measurement-server UUID (prefer_server)\n"
+        "      --set-version VER   Wrapping app version; reported as device = \"App: VER\"\n"
+        "      --user-loop-mode    Mark this run as one loop iteration (sends loopmode_info)\n"
+        "      --user-loop-mode-max-delay MIN     Max delay between iterations (minutes)\n"
+        "      --user-loop-mode-test-counter N    0-based iteration index\n"
+        "      --user-loop-mode-uuid UUID         Server loop UUID; omit on the first iteration\n"
+        "      --user-loop-mode-max-tests N       Planned number of tests in the loop (positive)\n"
+        "      --user-loop-mode-cert[=true|false] Certification mode (bare flag = true)\n"
+        "      --help              Print this help\n",
+        prog);
+}
+
+/* ── main ────────────────────────────────────────────────────────────────────── */
+
+int main(int argc, char *argv[])
+{
+    SSL_library_init();
+    SSL_load_error_strings();
+    OpenSSL_add_all_algorithms();
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+
+    const char *host         = NULL;
+    const char *uuid_cli     = NULL;
+    int         port_ovr     = 0;
+    int         threads_ovr  = 0;
+    int         dur_ovr      = 0;
+    int         force_ws     = 0;
+    int         force_http   = 0;
+    int         no_tls_verify = 0;
+    int         debug        = 0;
+    int         intermediate = 0;
+    /* JSON progress interface (open-rmbt-desktop). See doc/json_interface.md. */
+    int         verbose      = 0;
+    int         net_type     = 98;
+    const char *client_type  = "DESKTOP";
+    const char *platform_s   = "CLI";
+    const char *model_s      = "Client CLI C";
+    const char *set_version  = NULL;
+    const char *server_uuid  = NULL;
+    /* Loop mode: one measurement per invocation; caller re-spawns per iteration. */
+    int         loop_mode    = 0;
+    int         loop_delay   = 0;
+    int         loop_counter = 0;
+    const char *loop_uuid_arg = NULL;
+    int         loop_max_tests = -1;   /* optional: -1 = omit from loopmode_info */
+    int         loop_cert      = -1;   /* optional: -1 = omit, else 0/1 */
+
+    /* The desktop app passes the historic single-dash long flag `-set-version`.
+     * Normalize it to `--set-version` so getopt_long recognizes it. */
+    for (int i = 1; i < argc; i++)
+        if (strcmp(argv[i], "-set-version") == 0)
+            argv[i] = (char *)"--set-version";
+
+    enum {
+        OPT_NETTYPE = 1000, OPT_TYPE, OPT_PLATFORM, OPT_OS, OPT_OSVER,
+        OPT_MODEL, OPT_SET_VERSION, OPT_SERVER_UUID, OPT_LOOP, OPT_LOOP_DELAY,
+        OPT_LOOP_COUNTER, OPT_LOOP_UUID, OPT_LOOP_MAX_TESTS, OPT_LOOP_CERT
+    };
+
+    static struct option long_opts[] = {
+        {"host",          required_argument, NULL, 'h'},
+        {"port",          required_argument, NULL, 'p'},
+        {"uuid",          required_argument, NULL, 'u'},
+        {"threads",       required_argument, NULL, 't'},
+        {"duration",      required_argument, NULL, 'd'},
+        {"ws",            no_argument,       NULL, 'W'},
+        {"http",          no_argument,       NULL, 'H'},
+        {"no-tls-verify", no_argument,       NULL, 'n'},
+        {"debug",         no_argument,       NULL, 'D'},
+        {"intermediate",  no_argument,       NULL, 'i'},
+        {"verbose",       no_argument,       NULL, 'v'},
+        {"nettype",       required_argument, NULL, OPT_NETTYPE},
+        {"type",          required_argument, NULL, OPT_TYPE},
+        {"platform",      required_argument, NULL, OPT_PLATFORM},
+        {"os",            required_argument, NULL, OPT_OS},
+        {"osver",         required_argument, NULL, OPT_OSVER},
+        {"model",         required_argument, NULL, OPT_MODEL},
+        {"server_uuid",   required_argument, NULL, OPT_SERVER_UUID},
+        {"set-version",   required_argument, NULL, OPT_SET_VERSION},
+        {"user-loop-mode",              no_argument,       NULL, OPT_LOOP},
+        {"user-loop-mode-max-delay",    required_argument, NULL, OPT_LOOP_DELAY},
+        {"user-loop-mode-test-counter", required_argument, NULL, OPT_LOOP_COUNTER},
+        {"user-loop-mode-uuid",         required_argument, NULL, OPT_LOOP_UUID},
+        {"user-loop-mode-max-tests",    required_argument, NULL, OPT_LOOP_MAX_TESTS},
+        {"user-loop-mode-cert",         optional_argument, NULL, OPT_LOOP_CERT},
+        {"help",          no_argument,       NULL, '?'},
+        {NULL, 0, NULL, 0}
+    };
+
+    int opt;
+    while ((opt = getopt_long(argc, argv, "h:p:u:t:d:v", long_opts, NULL)) != -1) {
+        switch (opt) {
+        case 'h': host        = optarg;           break;
+        case 'p': port_ovr    = atoi(optarg);     break;
+        case 'u': uuid_cli    = optarg;           break;
+        case 't': threads_ovr = atoi(optarg);     break;
+        case 'd': dur_ovr     = atoi(optarg);     break;
+        case 'W': force_ws    = 1;                break;
+        case 'H': force_http  = 1;                break;
+        case 'n': no_tls_verify = 1;              break;
+        case 'D': debug       = 1;                break;
+        case 'i': intermediate = 1;               break;
+        case 'v': verbose     = 1;                break;
+        case OPT_NETTYPE:     net_type    = atoi(optarg); break;
+        case OPT_TYPE:        client_type = optarg;       break;
+        case OPT_PLATFORM:    platform_s  = optarg;       break;
+        case OPT_MODEL:       model_s     = optarg;       break;
+        case OPT_SET_VERSION: set_version = optarg;       break;
+        case OPT_SERVER_UUID: server_uuid = optarg;       break;
+        case OPT_OS: case OPT_OSVER:                      break; /* accepted, unused */
+        case OPT_LOOP:         loop_mode     = 1;         break;
+        case OPT_LOOP_DELAY:   loop_delay    = atoi(optarg); break;
+        case OPT_LOOP_COUNTER: loop_counter  = atoi(optarg); break;
+        case OPT_LOOP_UUID:    loop_uuid_arg = optarg;    break;
+        case OPT_LOOP_MAX_TESTS: {
+            char *end;
+            long v = strtol(optarg, &end, 10);
+            if (end == optarg || *end || v <= 0 || v > 1000000) {
+                fprintf(stderr, "Error: --user-loop-mode-max-tests must be a positive number, got: %s\n", optarg);
+                return 1;
+            }
+            loop_max_tests = (int)v;
+            break;
+        }
+        case OPT_LOOP_CERT: {
+            /* Boolean: bare flag = true; or "=true|false" / a following "true|false". */
+            const char *v = optarg;
+            if (!v && optind < argc &&
+                (strcasecmp(argv[optind], "true") == 0 || strcasecmp(argv[optind], "false") == 0))
+                v = argv[optind++];
+            if (!v || strcasecmp(v, "true") == 0)       loop_cert = 1;
+            else if (strcasecmp(v, "false") == 0)       loop_cert = 0;
+            else {
+                fprintf(stderr, "Error: --user-loop-mode-cert expects true or false, got: %s\n", v);
+                return 1;
+            }
+            break;
+        }
+        case '?': print_usage(argv[0]); return 0;
+        default:  print_usage(argv[0]); return 1;
+        }
+    }
+
+    if (!host) {
+        fprintf(stderr, "Error: --host is required\n\n");
+        print_usage(argv[0]);
+        return 1;
+    }
+
+    /* prepend https:// if no scheme given */
+    static char host_buf[512];
+    if (strncmp(host, "http://", 7) != 0 && strncmp(host, "https://", 8) != 0) {
+        snprintf(host_buf, sizeof(host_buf), "https://%s", host);
+        host = host_buf;
+    }
+
+    gui_set_enabled(verbose);
+    gui_starting_test();
+    gui_state_change("INIT");
+
+    /*
+     * Resolve UUID:
+     *  - CLI --uuid: use as-is, skip settings call
+     *  - Otherwise: call /settings with any stored UUID; server returns the
+     *    authoritative UUID; persist it for future runs
+     */
+    char uuid_buf[64] = "";
+    if (uuid_cli) {
+        strncpy(uuid_buf, uuid_cli, sizeof(uuid_buf) - 1);
+    } else {
+        char stored[64] = "";
+        int  has_stored = (uuid_load(stored, sizeof(stored)) == 0);
+
+        if (control_request_settings(host,
+                                     has_stored ? stored : NULL,
+                                     debug,
+                                     uuid_buf, sizeof(uuid_buf)) < 0)
+            return fail("control server settings request failed");
+
+        /* Persist if new or changed */
+        if (!has_stored || strcmp(stored, uuid_buf) != 0)
+            uuid_save(uuid_buf);
+    }
+
+    /* ── Step 1: control server ──────────────────────────────────────────────── */
+    printf("Contacting control server: %s\n", host);
+    TestParams params;
+    /* Omit an empty/"null" loop UUID so the server mints one on the first iteration. */
+    const char *loop_uuid_send = loop_uuid_arg;
+    if (loop_uuid_send && (!*loop_uuid_send || strcmp(loop_uuid_send, "null") == 0))
+        loop_uuid_send = NULL;
+    /* Accept the loop UUID with or without the server's "L" prefix: strip a single
+     * leading 'L' so the value sent on the wire is the bare UUID. */
+    if (loop_uuid_send && loop_uuid_send[0] == 'L')
+        loop_uuid_send++;
+    if (control_request_test(host, uuid_buf, force_ws, server_uuid,
+                             loop_mode, loop_delay, loop_counter, loop_uuid_send,
+                             loop_max_tests, loop_cert,
+                             debug, &params) < 0)
+        return fail("control server test request failed");
+
+    gui_uuid_info(params.test_uuid, params.open_test_uuid, params.token,
+                  params.loop_uuid[0] ? params.loop_uuid : NULL);
+    if (params.loop_uuid[0])
+        printf("Loop UUID: %s\n", params.loop_uuid);
+
+    /* Show token preview */
+    char token_preview[44] = "";
+    snprintf(token_preview, sizeof(token_preview), "%.40s", params.token);
+    printf("Token:    %s...\n", token_preview);
+    printf("Server:   %s:%u (%s)\n",
+           params.server_addr, params.server_port,
+           params.encryption ? "TLS" : "plain TCP");
+
+    int protocol;
+    if (force_ws)
+        protocol = PROTO_WS;
+    else if (force_http)
+        protocol = PROTO_HTTP;
+    else if (strcmp(params.server_type, "RMBTws") == 0)
+        protocol = PROTO_WS;
+    else
+        protocol = PROTO_HTTP;
+
+    printf("Protocol: %s  (server_type: %s)\n",
+           protocol == PROTO_WS ? "RMBTws" : "RMBThttp",
+           params.server_type[0] ? params.server_type : "unset");
+
+    if (params.wait > 0) {
+        printf("Waiting %us before test...\n", params.wait);
+        sleep(params.wait);
+    }
+
+    uint16_t port     = port_ovr ? (uint16_t)port_ovr : params.server_port;
+    uint32_t duration = dur_ovr  ? (uint32_t)dur_ovr  : params.duration;
+    int      server_cap = params.num_threads < MAX_THREADS
+                          ? (int)params.num_threads : MAX_THREADS;
+
+    /* ── Step 2: pre-test ────────────────────────────────────────────────────── */
+    gui_state_change("INIT_DOWN");
+    PretestResult pt;
+    if (run_pretest(params.server_addr, port, params.encryption, no_tls_verify,
+                    protocol, params.token, server_cap, &pt) < 0)
+        return fail("pre-test failed");
+
+    int dl_threads = threads_ovr ? threads_ovr : pt.dl_threads;
+    int ul_threads = threads_ovr ? threads_ovr : pt.ul_threads;
+    if (dl_threads < 1) dl_threads = 1;
+    if (ul_threads < 1) ul_threads = 1;
+    if (dl_threads > server_cap) dl_threads = server_cap;
+    if (ul_threads > server_cap) ul_threads = server_cap;
+    size_t dl_chunk_size = pt.chunk_size;
+    /* Many servers use read() instead of readFully() for upload, so they see
+     * partial reads bounded by the TLS record size (~16 KB).  With very large
+     * chunks (4 MB = 256 reads/chunk) a false-positive terminal-byte detection
+     * exceeds 60% probability per chunk, causing Broken Pipe.  Cap upload at
+     * 512 KB where false positives are rare and servers handle them gracefully. */
+#define MAX_UL_CHUNK (512 * 1024)
+    size_t ul_chunk_size = dl_chunk_size < MAX_UL_CHUNK ? dl_chunk_size : MAX_UL_CHUNK;
+
+    printf("\nTest plan: dl_threads=%d  ul_threads=%d  dl_chunk=%zu KiB  ul_chunk=%zu KiB  duration=%us\n",
+           dl_threads, ul_threads, dl_chunk_size / 1024, ul_chunk_size / 1024, duration);
+
+    uint64_t test_begin_ms = now_ms_wall();
+
+    /* ── Step 3: ping ────────────────────────────────────────────────────────── */
+    gui_state_change("PING");
+    printf("\nPing (1 s, 10-100 pings):\n");
+    PingResult ping_results[MAX_PINGS];
+    int num_pings = 0;
+    char server_version[64] = "";
+    {
+        RmbtConn *conn = conn_connect(params.server_addr, port,
+                                      params.encryption, no_tls_verify, protocol);
+        if (!conn) return fail("cannot connect to measurement server");
+        if (conn_greeting(conn, params.token) < 0) { conn_free(conn); return fail("greeting failed"); }
+        snprintf(server_version, sizeof(server_version), "%s", conn->server_version);
+        num_pings = run_ping(conn, 1.0, 10, MAX_PINGS, ping_results, MAX_PINGS);
+        conn_quit(conn);
+        conn_free(conn);
+    }
+    if (num_pings < 0) return fail("ping phase failed");
+
+    /* ── Step 4: download ────────────────────────────────────────────────────── */
+    gui_state_change("DOWN");
+    printf("\nDownload (%d thread(s), %us):\n", dl_threads, duration);
+    TransferResult dl_results[MAX_THREADS];
+    int num_dl = 0;
+    GuiMonitor *dl_mon = gui_monitor_start(0, duration, params.open_test_uuid);
+    run_phase(dl_threads, params.server_addr, port, params.encryption,
+              no_tls_verify, protocol, params.token,
+              duration, dl_chunk_size, 0, PHASE_DOWNLOAD,
+              dl_results, &num_dl);
+    gui_monitor_stop(dl_mon);
+    if (num_dl == 0) return fail("all download threads failed");
+
+    /* ── Step 5: upload ──────────────────────────────────────────────────────── */
+    gui_state_change("INIT_UP");
+    gui_state_change("UP");
+    printf("\nUpload (%d thread(s), %us):\n", ul_threads, duration);
+    TransferResult ul_results[MAX_THREADS];
+    int num_ul = 0;
+    GuiMonitor *ul_mon = gui_monitor_start(1, duration, params.open_test_uuid);
+    run_phase(ul_threads, params.server_addr, port, params.encryption,
+              no_tls_verify, protocol, params.token,
+              duration, ul_chunk_size, intermediate, PHASE_UPLOAD,
+              ul_results, &num_ul);
+    gui_monitor_stop(ul_mon);
+    if (num_ul == 0) return fail("all upload threads failed");
+
+    /* ── Step 6: aggregate ───────────────────────────────────────────────────── */
+    uint64_t dl_bytes = 0, dl_ns = 0;
+    for (int i = 0; i < num_dl; i++) {
+        dl_bytes += dl_results[i].bytes;
+        if (dl_results[i].elapsed_ns > dl_ns) dl_ns = dl_results[i].elapsed_ns;
+    }
+    uint64_t ul_bytes = 0, ul_ns = 0;
+    for (int i = 0; i < num_ul; i++) {
+        ul_bytes += ul_results[i].bytes;
+        if (ul_results[i].elapsed_ns > ul_ns) ul_ns = ul_results[i].elapsed_ns;
+    }
+    if (!dl_ns) dl_ns = 1;
+    if (!ul_ns) ul_ns = 1;
+
+    double dl_mbps = (double)dl_bytes * 8.0 / (dl_ns / 1e9) / 1e6;
+    double ul_mbps = (double)ul_bytes * 8.0 / (ul_ns / 1e9) / 1e6;
+
+    /* Ping stats (server-measured RTT) */
+    uint64_t ping_shortest_server = UINT64_MAX;
+    uint64_t server_ns_arr[MAX_PINGS];
+    for (int i = 0; i < num_pings; i++) {
+        server_ns_arr[i] = ping_results[i].server_ns;
+        if (ping_results[i].server_ns < ping_shortest_server)
+            ping_shortest_server = ping_results[i].server_ns;
+    }
+    if (ping_shortest_server == UINT64_MAX) ping_shortest_server = 0;
+    double ping_median_ns = median_u64(server_ns_arr, num_pings);
+
+    printf("\n=== Results ===\n");
+    printf("Ping:           %7.3f ms  (%d pings)\n",
+           ping_median_ns / 1e6, num_pings);
+    printf("Download:       %7.3f Mbit/s  (%llu bytes in %.2fs, %d thread(s))\n",
+           dl_mbps, (unsigned long long)dl_bytes, dl_ns / 1e9, num_dl);
+    printf("Upload:         %7.3f Mbit/s  (%llu bytes in %.2fs, %d thread(s))\n",
+           ul_mbps, (unsigned long long)ul_bytes, ul_ns / 1e9, num_ul);
+
+    GuiFinalResult fr = {
+        .test_uuid      = params.test_uuid,
+        .open_test_uuid = params.open_test_uuid,
+        .loop_uuid      = params.loop_uuid,
+        .down_mbps      = dl_mbps,
+        .up_mbps        = ul_mbps,
+        .ping_median_ns = ping_median_ns,
+        .ping_count     = num_pings,
+        .down_bytes     = dl_bytes,
+        .down_ns        = dl_ns,
+        .down_threads   = num_dl,
+        .up_bytes       = ul_bytes,
+        .up_ns          = ul_ns,
+        .up_threads     = num_ul,
+    };
+    gui_final_result(&fr);
+
+    /* ── Step 7: submit ──────────────────────────────────────────────────────── */
+    uint64_t dl_kbps = (uint64_t)((double)dl_bytes * 8e6 / dl_ns);
+    uint64_t ul_kbps = (uint64_t)((double)ul_bytes * 8e6 / ul_ns);
+
+    PingItem ping_items[MAX_PINGS];
+    for (int i = 0; i < num_pings; i++) {
+        ping_items[i].value        = ping_results[i].client_ns;
+        ping_items[i].value_server = ping_results[i].server_ns;
+        ping_items[i].time_ns      = ping_results[i].time_ns;
+    }
+
+    /* Count total samples across all threads. */
+    int num_sd = 0;
+    for (int i = 0; i < num_dl; i++) num_sd += dl_results[i].num_samples;
+    for (int i = 0; i < num_ul; i++) num_sd += ul_results[i].num_samples;
+
+    SpeedItem *sd = calloc((size_t)num_sd, sizeof(SpeedItem));
+    if (!sd) return fail("out of memory");
+    int sd_pos = 0;
+    for (int i = 0; i < num_dl; i++) {
+        for (int j = 0; j < dl_results[i].num_samples; j++) {
+            strcpy(sd[sd_pos].direction, "download");
+            sd[sd_pos].thread = dl_results[i].thread_id;
+            sd[sd_pos].time   = dl_results[i].samples[j].time_ns;
+            sd[sd_pos].bytes  = dl_results[i].samples[j].bytes;
+            sd_pos++;
+        }
+    }
+    for (int i = 0; i < num_ul; i++) {
+        for (int j = 0; j < ul_results[i].num_samples; j++) {
+            strcpy(sd[sd_pos].direction, "upload");
+            sd[sd_pos].thread = ul_results[i].thread_id;
+            sd[sd_pos].time   = ul_results[i].samples[j].time_ns;
+            sd[sd_pos].bytes  = ul_results[i].samples[j].bytes;
+            sd_pos++;
+        }
+    }
+
+    TestResultSubmission result;
+    memset(&result, 0, sizeof(result));
+    strcpy(result.client_language,         "en");
+    strcpy(result.client_name,
+           protocol == PROTO_WS ? "RMBTws" : "RMBT");
+    snprintf(result.client_uuid,            sizeof(result.client_uuid),            "%s", uuid_buf);
+    /* client_version = RMBT measurement-server version (falls back to this
+       client's own version when the server announced none);
+       client_software_version = this client's own version. */
+    snprintf(result.client_version,          sizeof(result.client_version),          "%s",
+             server_version[0] ? server_version : GIT_VERSION_FULL);
+    /* client_software_version = own version (leading 'v' stripped) plus language/arch,
+       e.g. "2.2.1-5-g410aa11 (C/aarch64)". */
+    {
+        const char *ver = GIT_VERSION_FULL;
+        if (ver[0] == 'v') ver++;   /* strip leading 'v' */
+        snprintf(result.client_software_version, sizeof(result.client_software_version),
+                 "%s (C/%s)", ver, CLIENT_ARCH);
+    }
+    snprintf(result.model,    sizeof(result.model),    "%s", model_s);
+    /* device: set from --set-version as "App: <version>" (the wrapping app); empty when unset. */
+    if (set_version && set_version[0])
+        snprintf(result.device, sizeof(result.device), "App: %s", set_version);
+    result.network_type               = (uint32_t)net_type;
+    snprintf(result.platform, sizeof(result.platform), "%s", platform_s);
+    strcpy(result.product,                 "rmbt-client-c");
+    result.pings                      = ping_items;
+    result.num_pings                  = num_pings;
+    result.test_bytes_download        = dl_bytes;
+    result.test_bytes_upload          = ul_bytes;
+    result.test_nsec_download         = dl_ns;
+    result.test_nsec_upload           = ul_ns;
+    result.test_num_threads           = num_dl;
+    result.num_threads_ul             = num_ul;
+    result.test_ping_shortest         = ping_shortest_server;
+    result.test_speed_download        = dl_kbps;
+    result.test_speed_upload          = ul_kbps;
+    snprintf(result.test_token, sizeof(result.test_token), "%s", params.token);
+    snprintf(result.test_uuid,  sizeof(result.test_uuid),  "%s", params.test_uuid);
+    result.time_ms                    = test_begin_ms;
+    strcpy(result.timezone,            "UTC");
+    snprintf(result.client_type, sizeof(result.client_type), "%s", client_type);
+    strcpy(result.version_code,        "1");
+    result.speed_detail               = sd;
+    result.num_speed_detail           = num_sd;
+    result.user_server_selection      = (server_uuid && *server_uuid) ? 1 : 0;
+    strcpy(result.test_status,         "0");
+    result.test_port_remote           = port;
+
+    if (params.open_test_uuid[0])
+        printf("Result:         https://www.netztest.at/share/%s\n", params.open_test_uuid);
+
+    gui_state_change("SUBMITTING_RESULTS");
+    printf("\nSubmitting results to control server...\n");
+    SubmitStatus submitted;
+    control_submit_result(host, &result, debug, &submitted);
+    gui_submit_result(submitted.success, submitted.http_status, submitted.error);
+
+    gui_state_change("END");
+    gui_ending_test();
+
+    for (int i = 0; i < num_dl; i++) free(dl_results[i].samples);
+    for (int i = 0; i < num_ul; i++) free(ul_results[i].samples);
+    free(sd);
+    curl_global_cleanup();
+    return 0;
+}

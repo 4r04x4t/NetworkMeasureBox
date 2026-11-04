@@ -1,0 +1,11 @@
+[Unit]
+Description=NetworkMeasureBox: OONI Probe Censorship & Net-Neutrality Audit Run
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PYTHONPATH=/opt/nmb
+ExecStart=/opt/nmb/bin/nmb-ooni run websites
+TimeoutSec=300

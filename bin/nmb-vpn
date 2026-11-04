@@ -1,0 +1,321 @@
+#!/usr/bin/env python3
+"""
+NetworkMeasureBox: PiVPN-Style Unified VPN CLI (WireGuard & OpenVPN)
+Manages server lifecycle, client profile generation, QR codes, and routing guides.
+Compatible with standard PiVPN command idioms:
+  nmb-vpn add [-n <name>] [-t wireguard|openvpn]
+  nmb-vpn list [-t wireguard|openvpn]
+  nmb-vpn qr [-n <name>]
+  nmb-vpn remove [-n <name>]
+  nmb-vpn status
+  nmb-vpn guide
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parent.parent
+if str(root) not in sys.path:
+    sys.path.insert(0, str(root))
+if "/opt/nmb" not in sys.path:
+    sys.path.append("/opt/nmb")
+
+from nmb.netd import wireguard, openvpn
+
+
+def print_qr_terminal(text: str) -> None:
+    """Render QR code in ANSI text directly to the console."""
+    # 1. Try qrencode ANSI256/UTF8
+    qrencode_bin = shutil.which("qrencode")
+    if qrencode_bin:
+        try:
+            res = subprocess.run([qrencode_bin, "-t", "UTF8", text], capture_output=True, text=True, check=True)
+            print(res.stdout)
+            return
+        except Exception:
+            pass
+
+    # 2. Try python qrcode ascii print
+    try:
+        import qrcode
+        qr = qrcode.QRCode()
+        qr.add_data(text)
+        qr.print_ascii(invert=True)
+        return
+    except Exception:
+        pass
+
+    print("[Notice] Install 'qrencode' or 'python3-qrcode' to render terminal QR codes.")
+
+
+def cmd_status() -> int:
+    wg_stat = wireguard.get_wireguard_status()
+    ov_stat = openvpn.get_openvpn_status()
+
+    print("=" * 70)
+    print("  NetworkMeasureBox — VPN Server Status (WireGuard & OpenVPN)")
+    print("=" * 70)
+    print(f"WireGuard Status : {'ACTIVE' if wg_stat.get('active') else 'INACTIVE'}")
+    print(f"  Interface      : {wg_stat.get('interface', 'wg0')}")
+    print(f"  Listen Port    : {wg_stat.get('port', 51820)}/UDP")
+    print(f"  Subnet         : {wg_stat.get('subnet', '10.66.66.0/24')}")
+    print(f"  Total Peers    : {wg_stat.get('total_peers', 0)}")
+    print(f"  Connected Now  : {wg_stat.get('active_peers_now', 0)}")
+    print("-" * 70)
+    print(f"OpenVPN Status   : {'ACTIVE' if ov_stat.get('active') else 'INACTIVE'}")
+    print(f"  Interface      : {ov_stat.get('interface', 'tun0')}")
+    print(f"  Listen Port    : {ov_stat.get('port', 1194)}/{ov_stat.get('protocol', 'udp').upper()}")
+    print(f"  Subnet         : {ov_stat.get('subnet', '10.88.88.0/24')}")
+    print(f"  Total Clients  : {ov_stat.get('total_clients', 0)}")
+    print(f"  Connected Now  : {ov_stat.get('active_clients_now', 0)}")
+    print("=" * 70)
+    return 0
+
+
+def cmd_list(proto: str) -> int:
+    proto = proto.lower()
+    if proto in ("wireguard", "wg", "all"):
+        wg_stat = wireguard.get_wireguard_status()
+        peers = wg_stat.get("peers", [])
+        print("\n::: WireGuard Clients :::")
+        if not peers:
+            print("  (no WireGuard clients configured)")
+        else:
+            fmt = "{:<16} {:<16} {:<12} {:<12} {:<16}"
+            print(fmt.format("Name", "Virtual IP", "Rx Bytes", "Tx Bytes", "Last Handshake"))
+            print("-" * 72)
+            for p in peers:
+                name = p.get("name", "unknown")
+                vip = p.get("ip", "unknown")
+                rx = p.get("transfer_rx_human", "0 B")
+                tx = p.get("transfer_tx_human", "0 B")
+                lh = p.get("last_handshake_human", "Never")
+                print(fmt.format(name, vip, rx, tx, lh))
+
+    if proto in ("openvpn", "ovpn", "all"):
+        ov_stat = openvpn.get_openvpn_status()
+        clients = ov_stat.get("clients", [])
+        print("\n::: OpenVPN Clients :::")
+        if not clients:
+            print("  (no OpenVPN clients configured)")
+        else:
+            fmt = "{:<16} {:<16} {:<20} {:<16}"
+            print(fmt.format("Name", "Virtual IP", "Connected Since", "Status"))
+            print("-" * 68)
+            for c in clients:
+                name = c.get("name", "unknown")
+                vip = c.get("virtual_ip", "dynamic")
+                since = c.get("connected_since", "offline")
+                conn = "CONNECTED" if c.get("connected") else "OFFLINE"
+                print(fmt.format(name, vip, since, conn))
+    print()
+    return 0
+
+
+def cmd_add(name: str, proto: str, endpoint: str = "") -> int:
+    proto = proto.lower()
+    if not name:
+        name = input("Enter client profile name (e.g. phone, laptop): ").strip()
+    if not name:
+        print("[Error] Client name cannot be empty.", file=sys.stderr)
+        return 1
+
+    if proto in ("wireguard", "wg"):
+        print(f"\n[WireGuard] Generating keys and profile for '{name}'...")
+        ok, msg, peer_dict = wireguard.create_peer(name)
+        if not ok:
+            print(f"[Error] Failed to create WireGuard client: {msg}", file=sys.stderr)
+            return 1
+
+        conf = wireguard.get_client_config(name, endpoint_host=endpoint)
+        conf_path = Path("/var/lib/nmb/wireguard/clients") / f"{name}.conf"
+        try:
+            conf_path.parent.mkdir(parents=True, exist_ok=True)
+            conf_path.write_text(conf, encoding="utf-8")
+        except Exception:
+            pass
+
+        print(f"✓ WireGuard client '{name}' created successfully!")
+        print(f"  Assigned Virtual IP : {peer_dict.get('ip')}")
+        print(f"  Configuration file  : {conf_path}")
+        print("\n::: Scan QR code with the WireGuard mobile app :::\n")
+        print_qr_terminal(conf)
+        return 0
+
+    elif proto in ("openvpn", "ovpn"):
+        print(f"\n[OpenVPN] Generating elliptic-curve certificates for '{name}'...")
+        ok, msg, cl_dict = openvpn.create_client(name)
+        if not ok:
+            print(f"[Error] Failed to create OpenVPN client: {msg}", file=sys.stderr)
+            return 1
+
+        ovpn_path = Path("/var/lib/nmb/openvpn/clients") / f"{name}.ovpn"
+        print(f"✓ OpenVPN client '{name}' created successfully!")
+        print(f"  Unified .ovpn file  : {ovpn_path}")
+        print(f"  Import this file into OpenVPN Connect on iOS, Android, Windows, Mac, or Linux.")
+        return 0
+    else:
+        print(f"[Error] Unsupported VPN protocol: {proto} (must be wireguard or openvpn)", file=sys.stderr)
+        return 1
+
+
+def cmd_qr(name: str) -> int:
+    if not name:
+        name = input("Enter WireGuard client name to show QR code: ").strip()
+    conf = wireguard.get_client_config(name)
+    if not conf:
+        print(f"[Error] WireGuard client '{name}' not found.", file=sys.stderr)
+        return 1
+    print(f"\n::: QR Code for WireGuard client '{name}' :::\n")
+    print_qr_terminal(conf)
+    return 0
+
+
+def cmd_remove(name: str, proto: str) -> int:
+    proto = proto.lower()
+    if not name:
+        name = input("Enter client name to remove: ").strip()
+    if not name:
+        print("[Error] Client name cannot be empty.", file=sys.stderr)
+        return 1
+
+    if proto in ("wireguard", "wg"):
+        ok, msg = wireguard.delete_peer(name)
+        if ok:
+            print(f"✓ WireGuard client '{name}' removed successfully.")
+            return 0
+        print(f"[Error] {msg}", file=sys.stderr)
+        return 1
+    elif proto in ("openvpn", "ovpn"):
+        ok, msg = openvpn.delete_client(name)
+        if ok:
+            print(f"✓ OpenVPN client '{name}' removed successfully.")
+            return 0
+        print(f"[Error] {msg}", file=sys.stderr)
+        return 1
+    else:
+        print(f"[Error] Unsupported VPN protocol: {proto}", file=sys.stderr)
+        return 1
+
+
+def cmd_guide() -> int:
+    """Print dynamic router port forwarding & setup guide."""
+    v4, v6 = wireguard.get_device_addresses()
+    local_ip = v4[0][1] if v4 else "192.168.8.218"
+
+    print("=" * 72)
+    print("  NetworkMeasureBox — VPN Setup & Port Forwarding Guide")
+    print("=" * 72)
+    print("""
+To connect to this box from the Internet (outside your home/office network),
+you need to forward the VPN ports in your upstream ISP / Wi-Fi router.
+
+1. ROUTER PORT FORWARDING CONFIGURATION:
+   Log in to your ISP router (usually http://192.168.1.1 or http://192.168.0.1)
+   and find the 'Port Forwarding' or 'Virtual Server' settings:
+
+   A) WireGuard Port Forwarding:
+      * External Port : 51820
+      * Internal Port : 51820
+      * Protocol      : UDP (NOT TCP!)
+      * Internal IP   : {ip}
+
+   B) OpenVPN Port Forwarding:
+      * External Port : 1194
+      * Internal Port : 1194
+      * Protocol      : UDP
+      * Internal IP   : {ip}
+
+2. DYNAMIC DNS (DuckDNS) FOR CHANGING PUBLIC IPs:
+   If your Internet provider does not give you a static public IP address,
+   configure free DuckDNS in NetworkMeasureBox Web UI (/api/duckdns):
+   * Domain: yourname.duckdns.org
+   * Token : your-duckdns-token
+   Client profiles will automatically use yourname.duckdns.org!
+
+3. CARRIER-GRADE NAT (CGNAT) ADVICE:
+   If your router receives a WAN IP starting with 100.64.x.x or 10.x.x.x,
+   your ISP uses CGNAT. In that case:
+   * Ask your ISP to assign a public IPv4 address, OR
+   * Use IPv6! NetworkMeasureBox supports dual-stack WireGuard over native IPv6
+     without needing IPv4 port forwarding.
+========================================================================""".format(ip=local_ip))
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="nmb-vpn",
+        description="NetworkMeasureBox: PiVPN-Style Unified VPN Management CLI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # add
+    p_add = sub.add_parser("add", aliases=["-a", "a"], help="Add a new VPN client profile")
+    p_add.add_argument("-n", "--name", help="Client profile name (e.g. phone, laptop)")
+    p_add.add_argument("-t", "--type", default="wireguard", choices=["wireguard", "wg", "openvpn", "ovpn"], help="VPN protocol")
+    p_add.add_argument("-e", "--endpoint", default="", help="Custom public IP or DDNS hostname")
+
+    # list
+    p_list = sub.add_parser("list", aliases=["-l", "l", "clients"], help="List existing VPN clients and transfer telemetry")
+    p_list.add_argument("-t", "--type", default="all", choices=["all", "wireguard", "wg", "openvpn", "ovpn"], help="VPN protocol to list")
+
+    # qr
+    p_qr = sub.add_parser("qr", aliases=["-q", "q"], help="Show WireGuard client QR code in terminal")
+    p_qr.add_argument("-n", "--name", help="Client profile name")
+
+    # remove
+    p_del = sub.add_parser("remove", aliases=["-r", "r", "delete", "del"], help="Remove an existing VPN client")
+    p_del.add_argument("-n", "--name", help="Client profile name to remove")
+    p_del.add_argument("-t", "--type", default="wireguard", choices=["wireguard", "wg", "openvpn", "ovpn"], help="VPN protocol")
+
+    # status
+    sub.add_parser("status", aliases=["-s", "s"], help="Display WireGuard and OpenVPN server status")
+
+    # guide
+    sub.add_parser("guide", aliases=["-g", "g"], help="Show router port-forwarding and DDNS configuration guide")
+
+    args, unknown = parser.parse_known_args()
+
+    # PiVPN compatibility flags
+    if not args.command:
+        if "-a" in sys.argv:
+            return cmd_add("", "wireguard")
+        elif "-l" in sys.argv or "-c" in sys.argv:
+            return cmd_list("all")
+        elif "-qr" in sys.argv or "-q" in sys.argv:
+            name_idx = sys.argv.index("-qr") if "-qr" in sys.argv else sys.argv.index("-q")
+            name = sys.argv[name_idx + 1] if len(sys.argv) > name_idx + 1 else ""
+            return cmd_qr(name)
+        elif "-r" in sys.argv:
+            name_idx = sys.argv.index("-r")
+            name = sys.argv[name_idx + 1] if len(sys.argv) > name_idx + 1 else ""
+            return cmd_remove(name, "wireguard")
+        else:
+            return cmd_status()
+
+    cmd = args.command
+    if cmd in ("add", "-a", "a"):
+        return cmd_add(args.name or "", args.type, args.endpoint)
+    elif cmd in ("list", "-l", "l", "clients"):
+        return cmd_list(args.type)
+    elif cmd in ("qr", "-q", "q"):
+        return cmd_qr(args.name or "")
+    elif cmd in ("remove", "-r", "r", "delete", "del"):
+        return cmd_remove(args.name or "", args.type)
+    elif cmd in ("status", "-s", "s"):
+        return cmd_status()
+    elif cmd in ("guide", "-g", "g"):
+        return cmd_guide()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

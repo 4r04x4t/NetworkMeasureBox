@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""
+NetworkMeasureBox: iPerf3 Performance Testing and Daemon CLI
+Manages local iperf3 server daemon and executes high-speed client throughput benchmarks.
+Usage:
+  nmb-iperf test <host> [--port 5201] [--duration 10] [--parallel 4] [--reverse] [--bidir] [--udp]
+  nmb-iperf server [status|start|stop]
+  nmb-iperf public
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parent.parent
+if str(root) not in sys.path:
+    sys.path.insert(0, str(root))
+if "/opt/nmb" not in sys.path:
+    sys.path.append("/opt/nmb")
+
+from nmb.speed import iperf, iperf_directory
+
+
+def cmd_test(args: argparse.Namespace) -> int:
+    host = args.host
+    port = args.port
+    duration = args.duration
+    parallel = args.parallel
+    reverse = args.reverse
+    bidir = args.bidir
+    udp = args.udp
+    proto = "udp" if udp else "tcp"
+
+    print(f"Starting iPerf3 benchmark against {host}:{port} ({proto.upper()}, {parallel} streams, {duration}s, reverse={reverse}, bidir={bidir})...", file=sys.stderr)
+    res = iperf.run_iperf_client_test(
+        host=host,
+        port=port,
+        duration=duration,
+        protocol=proto,
+        parallel=parallel,
+        reverse=reverse,
+        bidir=bidir,
+        udp=udp,
+    )
+
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("status") == "ok" else 1
+
+    if res.get("status") != "ok":
+        print(f"[Error] iPerf3 test failed: {res.get('error')}", file=sys.stderr)
+        return 1
+
+    print("=" * 60)
+    print("  iPerf3 Benchmark Results")
+    print("=" * 60)
+    print(f"Target Server : {res.get('host')}:{res.get('port')}")
+    print(f"Protocol      : {proto.upper()} ({parallel} parallel streams)")
+    print(f"Direction     : {'Simultaneous Bi-directional' if bidir else ('Download (Reverse)' if reverse else 'Upload')}")
+    print(f"Duration      : {res.get('duration_sec')} seconds")
+    print("-" * 60)
+    if "down_mbps" in res:
+        print(f"Download Rate : {res.get('down_mbps', 0):.2f} Mbit/s ({res.get('down_bytes', 0) / 1024 / 1024:.2f} MiB)")
+    if "up_mbps" in res:
+        print(f"Upload Rate   : {res.get('up_mbps', 0):.2f} Mbit/s ({res.get('up_bytes', 0) / 1024 / 1024:.2f} MiB)")
+    if "retransmits" in res and res.get("retransmits") is not None:
+        print(f"Retransmits   : {res.get('retransmits')}")
+    if "jitter_ms" in res and res.get("jitter_ms") is not None:
+        print(f"Jitter        : {res.get('jitter_ms'):.3f} ms")
+    if "loss_percent" in res and res.get("loss_percent") is not None:
+        print(f"Packet Loss   : {res.get('loss_percent'):.2f} %")
+    print("=" * 60)
+    return 0
+
+
+def cmd_server(action: str, port: int) -> int:
+    st = iperf.get_iperf_server_status()
+    if action == "status":
+        print(f"iPerf3 Server Status : {'ACTIVE (RUNNING)' if st.get('running') else 'STOPPED'}")
+        print(f"Listen Port          : {st.get('port', port)}/TCP+UDP")
+        return 0
+    elif action == "start":
+        if st.get("running"):
+            print(f"iPerf3 server already running on port {st.get('port')}.")
+            return 0
+        ok, msg = iperf.start_iperf_server(port=port)
+        if ok:
+            print(f"✓ {msg}")
+            return 0
+        print(f"[Error] {msg}", file=sys.stderr)
+        return 1
+    elif action == "stop":
+        ok, msg = iperf.stop_iperf_server()
+        if ok:
+            print(f"✓ {msg}")
+            return 0
+        print(f"[Error] {msg}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_public() -> int:
+    res = iperf_directory.fetch_public_iperf_servers()
+    servers = res.get("servers", [])
+    print("=" * 80)
+    print("  Curated Public iPerf3 Measurement Targets")
+    print("=" * 80)
+    fmt = "{:<28} {:<12} {:<24} {:<12}"
+    print(fmt.format("Host", "Port", "Location / Provider", "Bandwidth"))
+    print("-" * 80)
+    for s in servers:
+        h = s.get("host", "")
+        p = str(s.get("port", 5201))
+        loc = f"{s.get('location', '')} ({s.get('provider', '')})"
+        bw = s.get("bandwidth", "10G")
+        print(fmt.format(h[:28], p, loc[:24], bw))
+    print("=" * 80)
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="nmb-iperf",
+        description="NetworkMeasureBox: iPerf3 Bandwidth Benchmark & Server Daemon CLI",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # test
+    p_test = sub.add_parser("test", aliases=["client", "run"], help="Run iPerf3 benchmark against target server")
+    p_test.add_argument("host", nargs="?", default="speedtest.init7.net", help="Target iperf3 server hostname or IP")
+    p_test.add_argument("-p", "--port", type=int, default=5201, help="Target iperf3 server port (default: 5201)")
+    p_test.add_argument("-d", "--duration", type=int, default=10, help="Test duration in seconds (default: 10)")
+    p_test.add_argument("-P", "--parallel", type=int, default=4, help="Number of parallel streams (default: 4)")
+    p_test.add_argument("-R", "--reverse", action="store_true", help="Download mode (reverse test)")
+    p_test.add_argument("--bidir", action="store_true", help="Simultaneous full-duplex bi-directional test")
+    p_test.add_argument("-u", "--udp", action="store_true", help="Use UDP instead of TCP")
+    p_test.add_argument("--json", action="store_true", help="Output results in JSON format")
+
+    # server
+    p_srv = sub.add_parser("server", help="Manage background iPerf3 server daemon")
+    p_srv.add_argument("action", nargs="?", default="status", choices=["status", "start", "stop"], help="Server action")
+    p_srv.add_argument("-p", "--port", type=int, default=5201, help="Listen port (default: 5201)")
+
+    # public
+    sub.add_parser("public", aliases=["list"], help="List curated public high-speed iPerf3 servers")
+
+    args = parser.parse_args()
+
+    if not args.command:
+        return cmd_public()
+
+    cmd = args.command
+    if cmd in ("test", "client", "run"):
+        return cmd_test(args)
+    elif cmd == "server":
+        return cmd_server(args.action, args.port)
+    elif cmd in ("public", "list"):
+        return cmd_public()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

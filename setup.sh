@@ -48,7 +48,8 @@ if [ "$OS_TYPE" = "debian" ]; then
         python3 iproute2 nftables iptables ethtool pciutils usbutils \
         dnsmasq hostapd ppp pppoe udhcpc curl ca-certificates procps libcap2-bin \
         wireguard-tools openvpn easy-rsa python3-qrcode qrencode \
-        traceroute iputils-tracepath mtr-tiny iperf3 sqlite3 gnupg dirmngr
+        traceroute iputils-tracepath mtr-tiny iperf3 sqlite3 gnupg dirmngr \
+        gcc make libc-dev libssl-dev libcurl4-openssl-dev pkg-config
     # Install common hardware firmware if available in repositories
     apt-get install -y --no-install-recommends firmware-realtek 2>/dev/null || true
 
@@ -75,6 +76,17 @@ if [ "$OS_TYPE" = "debian" ]; then
                 chmod +x /usr/local/bin/ooniprobe 2>/dev/null || true
             fi
         fi
+    fi
+
+    # Unattended onboarding for OONI Probe
+    if command -v ooniprobe >/dev/null 2>&1; then
+        ooniprobe onboard --yes 2>/dev/null || true
+    fi
+
+    # Compile native Open-RMBT C measurement engine if source is present
+    if [ -d "$SCRIPT_DIR/components/open-rmbt" ]; then
+        info "Compiling native Open-RMBT C measurement client (/usr/local/bin/rmbt-client)..."
+        (cd "$SCRIPT_DIR/components/open-rmbt" && make clean >/dev/null 2>&1 && make >/dev/null 2>&1 && make install >/dev/null 2>&1) || warn "Open-RMBT native compilation deferred; pure Python engine will remain active."
     fi
 
     # Stop and disable OS-packaged dnsmasq & hostapd so nmb-netd has exclusive control
@@ -136,7 +148,7 @@ elif [ "$OS_TYPE" = "alpine" ]; then
     apk add --no-cache \
         python3 iproute2 nftables iptables ethtool dnsmasq hostapd ppp \
         curl ca-certificates busybox-extras libcap traceroute iputils mtr \
-        iperf3 sqlite openvpn wireguard-tools
+        iperf3 sqlite openvpn wireguard-tools build-base gcc make openssl-dev curl-dev pkgconfig
 
     ARCH=$(uname -m)
     OOKLA_ARCH=""
@@ -227,6 +239,7 @@ install -d -m 0755 "$INSTALL_DIR"
 cp -r "$SCRIPT_DIR/nmb" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/bin" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/os" "$INSTALL_DIR/"
+cp -r "$SCRIPT_DIR/components" "$INSTALL_DIR/" 2>/dev/null || true
 cp -r "$SCRIPT_DIR/docs" "$INSTALL_DIR/" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/bin/"* "$INSTALL_DIR/os/"*.sh
 
@@ -301,9 +314,13 @@ if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
 fi
 
 # Symlink executables into /usr/local/bin
-for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper; do
-    ln -sf "$INSTALL_DIR/bin/$b" "/usr/local/bin/$b"
+for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper nmb-vpn nmb-wifi nmb-iperf nmb-ooni nmb-invasive-log nmb-factory-reset; do
+    if [ -f "$INSTALL_DIR/bin/$b" ]; then
+        ln -sf "$INSTALL_DIR/bin/$b" "/usr/local/bin/$b"
+    fi
 done
+# Symlink pivpn to nmb-vpn for drop-in PiVPN CLI compatibility
+ln -sf "$INSTALL_DIR/bin/nmb-vpn" "/usr/local/bin/pivpn"
 
 # ------------------------------------------------------------------------------
 # 7. Initialize Database (Restore from SD or bootstrap new schema)
@@ -326,12 +343,12 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
     systemctl daemon-reload
 
     info "Enabling and starting NetworkMeasureBox systemd target..."
-    systemctl enable nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service
-    systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer
+    systemctl enable nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service
+    systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer
     systemctl enable nmb.target
 
-    systemctl restart nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service
-    systemctl start nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer
+    systemctl restart nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service
+    systemctl start nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer
 
 elif [ "$INIT_SYSTEM" = "openrc" ]; then
     info "Installing OpenRC init scripts to /etc/init.d/..."
@@ -383,12 +400,19 @@ cat <<EOF
   * Developer Telemetry: /var/log/nmb/invasive_dev_snapshot.md (3-min timer)
 
   CLI Tools Installed:
-    nmb-netd     - Network mode manager (--status, --switch auto|standalone|mode_a|mode_b)
-    nmb-probe    - High-performance ICMP latency/jitter engine
-    nmb-speed    - Speedtest & port throttling runner (--trigger manual)
-    nmb-report   - HTML dossier generator & ISP fault dispatcher (--window 24h)
-    nmb-telegram - Management Telegram bot daemon
-    nmb-web      - Embedded management web server (Router Port 80 / dev 8080)
+    nmb-netd         - Network mode manager (--status, --switch auto|standalone|mode_a|mode_b)
+    nmb-probe        - High-performance ICMP latency/jitter engine
+    nmb-speed        - Multi-engine speedtest & port throttling runner (--trigger manual)
+    nmb-report       - HTML dossier generator & ISP fault dispatcher (--window 24h)
+    nmb-telegram     - Management Telegram bot daemon
+    nmb-web          - Embedded management web server (Router Port 80 / dev 8080)
+    nmb-vpn / pivpn  - Unified PiVPN-style WireGuard & OpenVPN management CLI
+    nmb-wifi         - Wi-Fi scanner, connector (hidden SSID support), and saved profiles
+    nmb-iperf        - iPerf3 client bandwidth benchmark & background server manager
+    nmb-ooni         - OONI Probe censorship & net-neutrality diagnostic suite
+    rmbt-client      - Official native C Open-RMBT regulatory speedtest engine
+    nmb-invasive-log - Deep invasive technical diagnostic snapshot generator
+    nmb-factory-reset- Factory reset utility
 
   Next Steps:
     1. Open \033[1;34mhttp://${HOST_IP}\033[0m in your browser to access the dashboard.
