@@ -2665,14 +2665,241 @@ def get_dashboard_html() -> str:
 
       <!-- Remote Subtabs -->
       <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap;">
-        <button id="btn-subtab-duckdns" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('duckdns')" data-i18n="subtab_duckdns">🦆 DuckDNS (DynDNS)</button>
+        <button id="btn-subtab-vpnhub" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('vpnhub')" data-i18n="subtab_vpnhub">🛡️ PiVPN Hub</button>
+        <button id="btn-subtab-guide" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('guide')" data-i18n="subtab_guide">🌐 Port Forwarding Guide</button>
         <button id="btn-subtab-wireguard" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('wireguard')" data-i18n="subtab_wireguard">🛡️ WireGuard Server</button>
         <button id="btn-subtab-openvpn" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('openvpn')" data-i18n="subtab_openvpn">🔒 OpenVPN Server</button>
+        <button id="btn-subtab-duckdns" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('duckdns')" data-i18n="subtab_duckdns">🦆 DuckDNS (DynDNS)</button>
         <button id="btn-subtab-proxy" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('proxy')" data-i18n="subtab_proxy">⚡ HTTPS Proxy</button>
       </div>
 
+      <!-- SUBTAB 0: PIVPN HUB -->
+      <div id="subtab-content-vpnhub" class="remote-subtab">
+        <!-- KPI Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 20px;">
+          <!-- WireGuard Card -->
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="font-weight: 700; font-size: 14px; color: #38bdf8;">🛡️ WireGuard VPN</div>
+              <span id="pivpn-wg-badge" class="badge">Checking...</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+              <div>Port: <code style="color:#38bdf8;">51820 UDP</code></div>
+              <div>Tunnel IPv4: <code style="color:#34d399;">10.8.0.1/24</code></div>
+              <div>Tunnel IPv6: <code style="color:#c084fc;">fd42:42:42::1/64</code></div>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px;">
+              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('wireguard')">⚙️ Settings</button>
+              <button id="pivpn-btn-wg-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleWireguardServer()">Start/Stop</button>
+            </div>
+          </div>
+
+          <!-- OpenVPN Card -->
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="font-weight: 700; font-size: 14px; color: #fbbf24;">🔒 OpenVPN (Elliptic Curve)</div>
+              <span id="pivpn-ovpn-badge" class="badge">Checking...</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+              <div>Port: <code style="color:#fbbf24;">1194 UDP</code></div>
+              <div>Tunnel IPv4: <code style="color:#34d399;">10.9.0.0/24</code></div>
+              <div>Tunnel IPv6: <code style="color:#c084fc;">fd42:42:43::/64</code></div>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px;">
+              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('openvpn')">⚙️ Settings</button>
+              <button id="pivpn-btn-ovpn-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleOpenvpnServer()">Start/Stop</button>
+            </div>
+          </div>
+
+          <!-- Device Live Network Addressing -->
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
+            <div style="font-weight: 700; font-size: 14px; color: #a78bfa; margin-bottom: 8px;">🌐 Box Endpoints & Addressing</div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+              <div>Local LAN IP: <b id="pivpn-lan-ip" style="color:#38bdf8; font-family:monospace;">--</b></div>
+              <div>Public IPv4 / DDNS: <b id="pivpn-pub-ip" style="color:#34d399; font-family:monospace;">--</b></div>
+              <div>Direct IPv6 (No NAT): <b id="pivpn-pub-ipv6" style="color:#c084fc; font-family:monospace; font-size:11px; word-break:break-all;">--</b></div>
+            </div>
+            <div style="margin-top: 10px;">
+              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('guide')">📖 Port Forwarding Guide</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ⚡ 1-Click PiVPN Client Onboarding -->
+        <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; margin-bottom: 20px;">
+          <div style="font-weight: 700; font-size: 15px; color: #38bdf8; margin-bottom: 6px;">⚡ PiVPN Quick Client Generator (1-Click Setup)</div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+            Just like PiVPN: enter a device name, choose your protocol, and instantly get your QR code or configuration profile.
+          </p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-size: 12px; margin-bottom: 4px;">VPN Protocol:</label>
+              <select id="pivpn-quick-proto" class="form-input" style="font-size: 13px; padding: 7px 10px;">
+                <option value="wireguard" selected>🛡️ WireGuard (Recommended: Fast, Battery Efficient, Mobile QR)</option>
+                <option value="openvpn">🔒 OpenVPN (Elliptic Curve TLS, .ovpn profile download)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-size: 12px; margin-bottom: 4px;">Client Device Name:</label>
+              <input type="text" id="pivpn-quick-name" placeholder="e.g. Pixel-Phone, Work-Laptop, iPad" class="form-input" style="font-size: 13px; padding: 7px 10px;">
+            </div>
+            <div>
+              <button class="btn-primary" style="padding: 8px 18px; font-size: 13px; font-weight: 600; width: 100%;" onclick="pivpnQuickAddClient()">
+                ⚡ Generate Client Profile & QR Code
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 👥 Combined Active VPN Clients -->
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: #f1f5f9;">👥 All Configured VPN Clients (WireGuard & OpenVPN)</span>
+          <span id="pivpn-total-clients-badge" class="badge-pill" style="font-size: 11px;">0 Clients</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Client Name</th>
+                <th>Tunnel IP</th>
+                <th>Status</th>
+                <th>Real Endpoint</th>
+                <th>Transfer (RX / TX)</th>
+                <th>Last Active</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pivpn-clients-tbody">
+              <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 16px;">Loading client profiles...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SUBTAB: PORT FORWARDING GUIDE -->
+      <div id="subtab-content-guide" class="remote-subtab" style="display: none;">
+        <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+            <div>
+              <div style="font-size: 16px; font-weight: 700; color: #38bdf8;">🌐 Dynamic Port Forwarding & Remote Access Guide</div>
+              <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;">
+                Everything you need to know to access your NetworkMeasureBox VPN from anywhere in the world.
+              </p>
+            </div>
+          </div>
+
+          <!-- Dynamic Device Addresses Pill Banner -->
+          <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;">
+            <div>
+              <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Box LAN IP (Use this in router port forwarding):</div>
+              <div id="guide-val-lan" style="font-size: 14px; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 2px;">--</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Public IPv4 / DuckDNS Domain:</div>
+              <div id="guide-val-pub4" style="font-size: 14px; font-weight: 700; color: #34d399; font-family: monospace; margin-top: 2px;">--</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Direct Global IPv6 (CGNAT Bypass!):</div>
+              <div id="guide-val-ipv6" style="font-size: 13px; font-weight: 700; color: #c084fc; font-family: monospace; margin-top: 2px; word-break: break-all;">--</div>
+            </div>
+          </div>
+
+          <!-- 4 Detailed Scenarios -->
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Scenario 1: LAN -->
+            <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 16px;">
+              <div style="font-size: 14px; font-weight: 700; color: #34d399; margin-bottom: 6px;">
+                1️⃣ At Home / On Local Wi-Fi (No Port Forwarding Required)
+              </div>
+              <p style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5; margin: 0;">
+                If your phone or laptop is connected to your home Wi-Fi, <strong>you do not need to configure anything on your router!</strong> Simply generate a WireGuard QR code, select the <em>Local LAN IP</em> option in the endpoint dropdown, and scan it with your phone. You'll connect immediately.
+              </p>
+            </div>
+
+            <!-- Scenario 2: WAN Port Forwarding Table -->
+            <div style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 16px;">
+              <div style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;">
+                2️⃣ From Outside (Mobile Internet, Travel, Work): Router Port Forwarding Setup
+              </div>
+              <p style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5; margin-bottom: 12px;">
+                To connect to your home VPN from mobile data (4G/5G) or outside Wi-Fi, log in to your main home router admin page (typically <code>http://192.168.1.1</code>, <code>http://192.168.0.1</code>, or <code>http://192.168.8.1</code>) and locate the <strong>Port Forwarding</strong> / <strong>Virtual Server</strong> / <strong>NAT</strong> settings.
+              </p>
+              
+              <div class="table-wrap" style="margin-bottom: 12px;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Service Name</th>
+                      <th>Protocol</th>
+                      <th>External Port</th>
+                      <th>Internal IP Address</th>
+                      <th>Internal Port</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="font-weight: 700; color: #38bdf8;">WireGuard VPN</td>
+                      <td><span class="badge" style="background:rgba(239,68,68,0.15);color:#f87171;font-weight:700;">UDP</span></td>
+                      <td style="font-weight: 700; font-family: monospace;">51820</td>
+                      <td style="font-weight: 700; color: #38bdf8; font-family: monospace;"><span class="guide-box-lan">192.168.8.218</span></td>
+                      <td style="font-weight: 700; font-family: monospace;">51820</td>
+                      <td style="font-size: 12px; color: #cbd5e1;">Fastest & best for mobile. Must be <strong>UDP</strong>!</td>
+                    </tr>
+                    <tr>
+                      <td style="font-weight: 700; color: #fbbf24;">OpenVPN Server</td>
+                      <td><span class="badge" style="background:rgba(239,68,68,0.15);color:#f87171;font-weight:700;">UDP</span></td>
+                      <td style="font-weight: 700; font-family: monospace;">1194</td>
+                      <td style="font-weight: 700; color: #38bdf8; font-family: monospace;"><span class="guide-box-lan">192.168.8.218</span></td>
+                      <td style="font-weight: 700; font-family: monospace;">1194</td>
+                      <td style="font-size: 12px; color: #cbd5e1;">Universal SSL/TLS tunnel (.ovpn profile).</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+                💡 <strong>Tip for Popular Routers:</strong>
+                <ul style="margin: 4px 0 0 16px; padding: 0;">
+                  <li><strong>Telekom (Sagemcom / Speedport):</strong> Settings → Network / Internet → Port Forwarding → Add new rule.</li>
+                  <li><strong>ASUS (Asuswrt / Merlin):</strong> WAN → Virtual Server / Port Forwarding → Enable Port Forwarding → Add Service.</li>
+                  <li><strong>TP-Link (Archer / Omada):</strong> Advanced → NAT Forwarding → Virtual Servers → Add.</li>
+                  <li><strong>AVM Fritz!Box:</strong> Internet → Permit Access → Port Sharing → New Sharing.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Scenario 3: CGNAT Bypass via IPv6 -->
+            <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 16px;">
+              <div style="font-size: 14px; font-weight: 700; color: #c084fc; margin-bottom: 6px;">
+                3️⃣ Bypass CGNAT / Carrier-Grade NAT Using Direct IPv6 (No Port Forwarding Needed!)
+              </div>
+              <p style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5; margin-bottom: 8px;">
+                <strong>What is CGNAT?</strong> Many ISPs (especially on LTE/5G mobile, or optical providers) do not provide a unique public IPv4 address to your router, but instead place you behind shared NAT (addresses in the <code>100.64.0.0/10</code> range). On CGNAT, traditional IPv4 port forwarding cannot work from the outside.
+              </p>
+              <p style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5; margin-bottom: 8px;">
+                <strong>The Solution:</strong> NetworkMeasureBox is fully Dual-Stack! Your device has a globally routable IPv6 address: <code id="guide-cgnat-ipv6" style="color:#c084fc; font-weight:700;">--</code>.
+              </p>
+              <p style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5; margin: 0;">
+                In IPv6 there is <strong>NO NAT</strong>. You simply open your router's <strong>IPv6 Firewall</strong> (Pinholing) and allow incoming UDP traffic on port <code>51820</code> to the box's IPv6 address. Phones on modern 4G/5G mobile networks have native IPv6 and will connect directly to your VPN, bypassing CGNAT completely!
+              </p>
+            </div>
+
+            <!-- Scenario 4: Dynamic IP via DuckDNS -->
+            <div style="background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 16px;">
+              <div style="font-size: 14px; font-weight: 700; color: #fbbf24; margin-bottom: 6px;">
+                4️⃣ Dynamic Public IPv4: Free Automatic Sync via DuckDNS
+              </div>
+              <p style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5; margin: 0;">
+                If your ISP periodically changes your public IP address, switch to the <strong>DuckDNS</strong> tab. Enter your free token and subdomain from <a href="https://www.duckdns.org" target="_blank" style="color: #38bdf8;">duckdns.org</a>. NetworkMeasureBox will automatically keep your hostname updated every 10 minutes, and all your WireGuard/OpenVPN client profiles will automatically connect to your DuckDNS domain!
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- SUBTAB 1: DUCKDNS -->
-      <div id="subtab-content-duckdns" class="remote-subtab">
+      <div id="subtab-content-duckdns" class="remote-subtab" style="display: none;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
             <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;" data-i18n="duckdns_title">DuckDNS Dynamic DNS Synchronization</div>
@@ -4113,53 +4340,107 @@ def get_dashboard_html() -> str:
 
         <!-- 3. Configuration & Connect Card -->
         <div class="router-section-card" style="margin-top: 14px;">
-          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;">⚙️ Guest Wi-Fi Connection Settings</div>
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 6px;">⚙️ Manuális Wi-Fi Csatlakozás & Rejtett Hálózatok (Manual & Hidden Wi-Fi)</div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+            Csatlakozzon tetszőleges Wi-Fi hálózathoz kézi SSID megadással, beleértve a rejtett hálózatokat és nyílt vendéghálózatokat is.
+          </p>
+
           <div class="router-row-3">
             <div class="form-group">
-              <label class="form-label">Guest Wi-Fi Client State:</label>
+              <label class="form-label">Wi-Fi Kliens Állapota:</label>
               <select id="cfg-guest-wifi-enabled" class="form-input">
-                <option value="true">🟢 Enabled (Guest Wi-Fi Active)</option>
-                <option value="false" selected>🔴 Disabled</option>
+                <option value="true">🟢 Bekapcsolva (Aktív Kliens)</option>
+                <option value="false" selected>🔴 Kikapcsolva</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Wi-Fi Interface:</label>
+              <label class="form-label">Wi-Fi Interfész:</label>
               <input type="text" id="cfg-guest-wifi-iface" value="wlan0" class="form-input" readonly style="background: rgba(15, 23, 42, 0.4); color: #94a3b8;">
             </div>
             <div class="form-group">
-              <label class="form-label">Route Metric:</label>
+              <label class="form-label">Útvonal Metrika (Route Metric):</label>
               <input type="number" id="cfg-guest-wifi-metric" value="600" class="form-input">
-              <div class="form-hint">Higher metric (e.g. 600) ensures primary speedtest and internet benchmarks stay on wired eth0.</div>
+              <div class="form-hint">A magas metrika (pl. 600) biztosítja, hogy a fő sebességmérések mindig a vezetékes (eth0) kapcsolaton fussanak.</div>
             </div>
           </div>
 
           <div class="router-row-3" style="margin-top: 12px;">
             <div class="form-group">
-              <label class="form-label">Guest Wi-Fi SSID:</label>
-              <input type="text" id="cfg-guest-wifi-ssid" placeholder="e.g. Router_Guest or pick from table above" class="form-input">
-              <div class="form-hint">Exact SSID broadcast by your upstream router guest network.</div>
+              <label class="form-label">Hálózat Neve (SSID):</label>
+              <input type="text" id="cfg-guest-wifi-ssid" placeholder="pl. Vendeghalozat vagy rejtett SSID..." class="form-input">
+              <div style="margin-top: 6px;">
+                <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: #cbd5e1; cursor: pointer;">
+                  <input type="checkbox" id="cfg-guest-wifi-hidden">
+                  <span>🔒 <b>Rejtett hálózat (Hidden SSID)</b></span>
+                </label>
+              </div>
             </div>
+
             <div class="form-group">
-              <label class="form-label">Guest Wi-Fi Passphrase:</label>
-              <input type="password" id="cfg-guest-wifi-pass" placeholder="Leave empty if open network..." class="form-input">
-              <div class="form-hint">Leave empty if guest network has no password (Open).</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Automatic Reconnection:</label>
-              <select id="cfg-guest-wifi-autorecon" class="form-input">
-                <option value="true" selected>Yes (Reconnect on boot and link drops)</option>
-                <option value="false">No (Manual only)</option>
+              <label class="form-label">Biztonsági Protokoll:</label>
+              <select id="cfg-guest-wifi-sec" class="form-input" onchange="onGuestWifiSecChange()">
+                <option value="wpa-psk" selected>WPA2 / WPA3 Personal (PSK / SAE vegyes)</option>
+                <option value="sae">WPA3 Personal (SAE kötelező)</option>
+                <option value="wpa2">WPA2 Personal (AES-CCMP)</option>
+                <option value="open">Nyílt hálózat (Open / Nincs jelszó)</option>
               </select>
+              <div class="form-hint">Nyílt hálózat választásakor nem szükséges jelszót megadni.</div>
+            </div>
+
+            <div class="form-group" id="cfg-guest-wifi-pass-wrap">
+              <label class="form-label">Wi-Fi Jelszó (Passphrase):</label>
+              <input type="password" id="cfg-guest-wifi-pass" placeholder="Írja be a Wi-Fi jelszót..." class="form-input">
+              <div class="form-hint">Nyílt hálózat esetén üresen hagyható.</div>
             </div>
           </div>
 
-          <div style="display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap;">
-            <button class="btn-primary" style="padding: 9px 20px;" onclick="connectGuestWifi()">
-              ⚡ Save & Connect Now
+          <div class="router-row-3" style="margin-top: 12px;">
+            <div class="form-group">
+              <label class="form-label">Automatikus Újracsatlakozás:</label>
+              <select id="cfg-guest-wifi-autorecon" class="form-input">
+                <option value="true" selected>Igen (Újracsatlakozás újraindításkor és szakadáskor)</option>
+                <option value="false">Nem (Csak kézi csatlakozás)</option>
+              </select>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-end; padding-bottom: 2px;">
+              <button class="btn-primary" style="padding: 9px 20px; font-weight: 600;" onclick="connectGuestWifi()">
+                ⚡ Csatlakozás Most
+              </button>
+              <button class="btn-secondary" style="border: 1px solid #ef4444; color: #f87171; padding: 9px 18px;" onclick="disconnectGuestWifi()">
+                🔌 Leválasztás
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Saved Wi-Fi Networks Profile Table -->
+        <div class="router-section-card" style="margin-top: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #ffffff;">📋 Mentett Wi-Fi Profilok & Hálózatok</div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                Az eszköz által korábban megismert Wi-Fi profilok listája. Váltson profilok között egyetlen kattintással.
+              </p>
+            </div>
+            <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadSavedGuestWifiConnections()">
+              🔄 Lista Frissítése
             </button>
-            <button class="btn-secondary" style="border: 1px solid #ef4444; color: #f87171; padding: 9px 18px;" onclick="disconnectGuestWifi()">
-              🔌 Disconnect
-            </button>
+          </div>
+
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Hálózat Neve (SSID)</th>
+                  <th>Állapot</th>
+                  <th>Profil UUID</th>
+                  <th>Műveletek</th>
+                </tr>
+              </thead>
+              <tbody id="guest-wifi-saved-tbody">
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 14px;">Mentett profilok betöltése...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -10177,6 +10458,7 @@ Use UP/DOWN arrow keys for command history.
       if (d.ssid && document.getElementById('cfg-guest-wifi-ssid') && !document.getElementById('cfg-guest-wifi-ssid').value) {
         document.getElementById('cfg-guest-wifi-ssid').value = d.ssid;
       }
+      loadSavedGuestWifiConnections();
     } catch (e) {
       console.debug('loadGuestWifiStatus error:', e);
     }
@@ -10202,7 +10484,10 @@ Use UP/DOWN arrow keys for command history.
         }
         let html = '';
         nets.forEach(n => {
-          const safeSsid = escapeHtml(n.ssid);
+          const isHidden = !!(n.is_hidden || !n.ssid || n.ssid.startsWith('<Hidden'));
+          const safeSsid = isHidden
+            ? '<span class="badge" style="background:rgba(234,179,8,0.15);color:#facc15;border:1px solid rgba(234,179,8,0.3);font-size:11px;">🔒 Rejtett / Hidden SSID</span> ' + escapeHtml(n.ssid)
+            : escapeHtml(n.ssid);
           const safeBssid = escapeHtml(n.bssid);
           const safeSec = escapeHtml(n.security);
           const inUseBadge = n.in_use
@@ -10224,8 +10509,8 @@ Use UP/DOWN arrow keys for command history.
             <td><span class="badge-pill" style="background: rgba(56, 189, 248, 0.12); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 11px;">${safeSec}</span></td>
             <td style="font-family: monospace; font-size: 11.5px; color: #94a3b8;">${safeBssid}</td>
             <td>
-              <button class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="selectScannedGuestWifi('${escapeHtml(n.ssid)}', '${escapeHtml(n.security)}')">
-                Select ➡️
+              <button class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="selectScannedGuestWifi('${escapeHtml(n.ssid)}', '${escapeHtml(n.security)}', ${isHidden ? 'true' : 'false'})">
+                Kiválaszt ➡️
               </button>
             </td>
           </tr>`;
@@ -10241,26 +10526,74 @@ Use UP/DOWN arrow keys for command history.
     }
   }
 
-  function selectScannedGuestWifi(ssid, sec) {
+  function selectScannedGuestWifi(ssid, sec, isHidden) {
     const input = document.getElementById('cfg-guest-wifi-ssid');
-    if (input) input.value = ssid;
+    const hiddenBox = document.getElementById('cfg-guest-wifi-hidden');
+    const secSelect = document.getElementById('cfg-guest-wifi-sec');
     const passInput = document.getElementById('cfg-guest-wifi-pass');
-    if (passInput) passInput.focus();
-    showToast(`Selected Wi-Fi: "${ssid}". Enter password if required and click Connect.`);
+
+    if (input) {
+      if (isHidden || !ssid || ssid.startsWith('<Hidden')) {
+        input.value = '';
+        input.placeholder = 'Adja meg a rejtett hálózat pontos nevét (SSID)...';
+        input.focus();
+      } else {
+        input.value = ssid;
+      }
+    }
+    if (hiddenBox) {
+      hiddenBox.checked = !!(isHidden || (ssid && ssid.startsWith('<Hidden')));
+    }
+    if (secSelect) {
+      const secUpper = (sec || '').toUpperCase();
+      if (secUpper.includes('SAE') || secUpper.includes('WPA3')) {
+        secSelect.value = 'sae';
+      } else if (secUpper.includes('OPEN') || secUpper.includes('NONE')) {
+        secSelect.value = 'open';
+      } else {
+        secSelect.value = 'wpa-psk';
+      }
+      onGuestWifiSecChange();
+    }
+    if (passInput && (!sec || !sec.toUpperCase().includes('OPEN'))) {
+      passInput.focus();
+    }
+    showToast(`Kiválasztva: "${ssid || 'Rejtett Wi-Fi'}".`);
+  }
+
+  function onGuestWifiSecChange() {
+    const sec = document.getElementById('cfg-guest-wifi-sec')?.value || 'wpa-psk';
+    const passWrap = document.getElementById('cfg-guest-wifi-pass-wrap');
+    const passInput = document.getElementById('cfg-guest-wifi-pass');
+    if (sec === 'open') {
+      if (passInput) {
+        passInput.disabled = true;
+        passInput.value = '';
+        passInput.placeholder = '(Nyílt hálózat - nincs szükség jelszóra)';
+      }
+      if (passWrap) passWrap.style.opacity = '0.6';
+    } else {
+      if (passInput) {
+        passInput.disabled = false;
+        passInput.placeholder = 'Írja be a Wi-Fi jelszót...';
+      }
+      if (passWrap) passWrap.style.opacity = '1.0';
+    }
   }
 
   async function connectGuestWifi() {
-    const ssid = (document.getElementById('cfg-guest-wifi-ssid').value || '').trim();
-    const pass = (document.getElementById('cfg-guest-wifi-pass').value || '').trim();
-    const metric = parseInt(document.getElementById('cfg-guest-wifi-metric').value) || 600;
-    const iface = (document.getElementById('cfg-guest-wifi-iface').value || 'wlan0').trim();
+    const ssid = (document.getElementById('cfg-guest-wifi-ssid')?.value || '').trim();
+    const pass = (document.getElementById('cfg-guest-wifi-pass')?.value || '').trim();
+    const metric = parseInt(document.getElementById('cfg-guest-wifi-metric')?.value, 10) || 600;
+    const iface = (document.getElementById('cfg-guest-wifi-iface')?.value || 'wlan0').trim();
+    const hidden = !!document.getElementById('cfg-guest-wifi-hidden')?.checked;
 
     if (!ssid) {
-      showToast('Please enter or select a Guest Wi-Fi SSID.');
+      showToast('Kérlek adj meg egy Wi-Fi SSID-t! / Please enter or select a Guest Wi-Fi SSID.');
       return;
     }
 
-    showToast(`Connecting ${iface} to Guest Wi-Fi "${ssid}"... Please wait.`);
+    showToast(`Csatlakozás: ${iface} -> "${ssid}" (Rejtett: ${hidden ? 'Igen' : 'Nem'})...`);
     try {
       const res = await fetch('/api/wifi/guest/connect', {
         method: 'POST',
@@ -10270,6 +10603,7 @@ Use UP/DOWN arrow keys for command history.
           password: pass,
           interface: iface,
           metric: metric,
+          hidden: hidden,
           save: true
         })
       });
@@ -10277,12 +10611,88 @@ Use UP/DOWN arrow keys for command history.
       if (res.ok && d.status === 'ok') {
         showToast('✅ ' + d.message);
         await loadGuestWifiStatus();
+        await loadSavedGuestWifiConnections();
         await loadNetworkDevices();
       } else {
         showToast('❌ ' + (d.message || 'Connection failed'));
       }
     } catch (e) {
       showToast('Error connecting: ' + e);
+    }
+  }
+
+  async function loadSavedGuestWifiConnections() {
+    const tbody = document.getElementById('guest-wifi-saved-tbody');
+    if (!tbody) return;
+    try {
+      const res = await fetch('/api/wifi/guest/saved');
+      if (!res.ok) return;
+      const d = await res.json();
+      const list = d.saved_networks || [];
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 12px;">Nincsenek még mentett Wi-Fi profilok ezen az eszközön.</td></tr>';
+        return;
+      }
+      let html = '';
+      list.forEach(item => {
+        const statusBadge = item.in_use
+          ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">🟢 Aktív / Csatlakozva</span>'
+          : '<span class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px;">⚪ Mentve</span>';
+        const targetId = item.uuid || item.name;
+        html += `<tr>
+          <td style="font-weight: 700; color: #f1f5f9;">${escapeHtml(item.ssid || item.name)}</td>
+          <td>${statusBadge}</td>
+          <td style="font-family: monospace; font-size: 11px; color: #94a3b8;">${escapeHtml(item.uuid || '--')}</td>
+          <td style="display: flex; gap: 6px;">
+            ${!item.in_use ? `<button class="btn-primary" style="font-size: 11px; padding: 3px 8px;" onclick="activateSavedWifi('${escapeHtml(targetId)}')">⚡ Csatlakozás</button>` : ''}
+            <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="forgetSavedWifi('${escapeHtml(targetId)}')">🗑️ Törlés</button>
+          </td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+    } catch (e) {
+      console.debug('loadSavedGuestWifiConnections error:', e);
+    }
+  }
+
+  async function activateSavedWifi(id) {
+    showToast(`Csatlakozás a mentett profilhoz...`);
+    try {
+      const res = await fetch('/api/wifi/guest/saved/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: id })
+      });
+      const d = await res.json();
+      if (res.ok && d.status === 'ok') {
+        showToast('✅ Csatlakozva!');
+        await loadGuestWifiStatus();
+        await loadSavedGuestWifiConnections();
+      } else {
+        showToast('❌ ' + (d.message || 'Hiba a csatlakozás során'));
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  async function forgetSavedWifi(id) {
+    if (!confirm('Biztosan törli / elfelejti ezt a mentett Wi-Fi profilt?')) return;
+    try {
+      const res = await fetch('/api/wifi/guest/saved/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: id })
+      });
+      const d = await res.json();
+      if (res.ok && d.status === 'ok') {
+        showToast('✅ Wi-Fi profil törölve!');
+        await loadSavedGuestWifiConnections();
+      } else {
+        showToast('❌ ' + (d.message || 'Hiba a törlés során'));
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
     }
   }
 
@@ -10571,21 +10981,36 @@ ${pkgList}`;
   // ==========================================
   // Remote Access & VPN & Proxy Subtabs
   // ==========================================
-  let activeRemoteSubtab = 'duckdns';
+  let activeRemoteSubtab = 'vpnhub';
+  let lastWireguardPeers = [];
+  let lastOpenvpnClients = [];
+  let lastWireguardStatus = null;
+  let lastOpenvpnStatus = null;
 
   function switchRemoteSubtab(tabName) {
     activeRemoteSubtab = tabName;
-    ['duckdns', 'wireguard', 'openvpn', 'proxy'].forEach(t => {
+    ['vpnhub', 'guide', 'wireguard', 'openvpn', 'duckdns', 'proxy'].forEach(t => {
       const btn = document.getElementById('btn-subtab-' + t);
       const pane = document.getElementById('subtab-content-' + t);
       if (btn) btn.className = (t === tabName) ? 'btn-primary' : 'btn-secondary';
       if (pane) pane.style.display = (t === tabName) ? 'block' : 'none';
     });
 
-    if (tabName === 'duckdns') loadDuckdnsStatus();
-    else if (tabName === 'wireguard') loadWireguardStatus();
-    else if (tabName === 'openvpn') loadOpenvpnStatus();
-    else if (tabName === 'proxy') loadProxyStatus();
+    if (tabName === 'vpnhub') {
+      loadWireguardStatus();
+      loadOpenvpnStatus();
+      loadPortGuideStatus();
+    } else if (tabName === 'guide') {
+      loadPortGuideStatus();
+    } else if (tabName === 'duckdns') {
+      loadDuckdnsStatus();
+    } else if (tabName === 'wireguard') {
+      loadWireguardStatus();
+    } else if (tabName === 'openvpn') {
+      loadOpenvpnStatus();
+    } else if (tabName === 'proxy') {
+      loadProxyStatus();
+    }
   }
 
   function loadRemoteAccessStatus() {
@@ -10593,6 +11018,231 @@ ${pkgList}`;
     loadWireguardStatus();
     loadOpenvpnStatus();
     loadProxyStatus();
+    loadPortGuideStatus();
+  }
+
+  function renderVpnHub() {
+    // 1. Update WireGuard KPI Badge & Toggle
+    const wgBadge = document.getElementById('pivpn-wg-badge');
+    const wgBtn = document.getElementById('pivpn-btn-wg-toggle');
+    if (wgBadge && lastWireguardStatus) {
+      const isUp = !!(lastWireguardStatus.active || lastWireguardStatus.running);
+      wgBadge.className = 'badge';
+      if (isUp) {
+        wgBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+        wgBadge.style.color = '#10b981';
+        wgBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        wgBadge.textContent = '🟢 Aktív (Port 51820)';
+      } else {
+        wgBadge.style.background = 'rgba(148, 163, 184, 0.15)';
+        wgBadge.style.color = '#94a3b8';
+        wgBadge.style.border = '1px solid #475569';
+        wgBadge.textContent = '⚫ Leállítva';
+      }
+      if (wgBtn) {
+        wgBtn.className = isUp ? 'btn-danger' : 'btn-primary';
+        wgBtn.textContent = isUp ? '⏹️ Leállítás' : '▶️ Indítás';
+      }
+    }
+
+    // 2. Update OpenVPN KPI Badge & Toggle
+    const ovpnBadge = document.getElementById('pivpn-ovpn-badge');
+    const ovpnBtn = document.getElementById('pivpn-btn-ovpn-toggle');
+    if (ovpnBadge && lastOpenvpnStatus) {
+      const isUp = !!(lastOpenvpnStatus.active || lastOpenvpnStatus.running);
+      ovpnBadge.className = 'badge';
+      if (isUp) {
+        ovpnBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+        ovpnBadge.style.color = '#10b981';
+        ovpnBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        ovpnBadge.textContent = '🟢 Aktív (Port 1194)';
+      } else {
+        ovpnBadge.style.background = 'rgba(148, 163, 184, 0.15)';
+        ovpnBadge.style.color = '#94a3b8';
+        ovpnBadge.style.border = '1px solid #475569';
+        ovpnBadge.textContent = '⚫ Leállítva';
+      }
+      if (ovpnBtn) {
+        ovpnBtn.className = isUp ? 'btn-danger' : 'btn-primary';
+        ovpnBtn.textContent = isUp ? '⏹️ Leállítás' : '▶️ Indítás';
+      }
+    }
+
+    // 3. Render Combined Clients Table
+    const tbody = document.getElementById('pivpn-clients-tbody');
+    const totalBadge = document.getElementById('pivpn-total-clients-badge');
+    if (!tbody) return;
+
+    const totalCount = lastWireguardPeers.length + lastOpenvpnClients.length;
+    if (totalBadge) totalBadge.textContent = `${totalCount} Kliens`;
+
+    if (totalCount === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 18px;">Még nincs konfigurált VPN kliens. Használja a fenti 1-kattintásos PiVPN generátort az első profil létrehozásához.</td></tr>';
+      return;
+    }
+
+    let html = '';
+
+    // Render WireGuard peers
+    lastWireguardPeers.forEach(p => {
+      const hsSec = p.latest_handshake || 0;
+      let hsDisplay = '--';
+      let isConnected = false;
+      if (hsSec > 0) {
+        if (hsSec < 180) {
+          isConnected = true;
+          hsDisplay = `<span style="color: #10b981; font-weight: 600;">Aktív (${p.latest_handshake_ago || hsSec + 's'})</span>`;
+        } else {
+          hsDisplay = `<span style="color: var(--text-muted);">${p.latest_handshake_ago || Math.floor(hsSec / 60) + 'm'}</span>`;
+        }
+      }
+      const statusBadge = isConnected
+        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 Kapcsolódva</span>'
+        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Offline</span>';
+
+      const rxFormatted = formatBytes(p.transfer_rx || 0);
+      const txFormatted = formatBytes(p.transfer_tx || 0);
+      let ipDisplay = p.allowed_ips || p.client_ip || '--';
+
+      html += `<tr>
+        <td><span class="badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 11px; font-weight: 700;">🛡️ WireGuard</span></td>
+        <td style="font-weight: 700; color: #f1f5f9;">${escapeHtml(p.name)}</td>
+        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1;">${escapeHtml(ipDisplay)}</td>
+        <td>${statusBadge}</td>
+        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(p.endpoint || '--')}</td>
+        <td style="font-size: 12px;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
+        <td style="font-size: 12px;">${hsDisplay}</td>
+        <td style="display: flex; gap: 6px;">
+          <button class="btn-primary" style="font-size: 11px; padding: 3px 8px;" onclick="showWireguardQr('${p.id}', '${escapeHtml(p.name)}')">
+            📱 QR
+          </button>
+          <a href="/api/wireguard/peer/config?id=${p.id}" download="${escapeHtml(p.name)}.conf" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
+            📥 .conf
+          </a>
+          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteWireguardPeer('${p.id}', '${escapeHtml(p.name)}')">
+            ✕
+          </button>
+        </td>
+      </tr>`;
+    });
+
+    // Render OpenVPN clients
+    lastOpenvpnClients.forEach(c => {
+      const isConnected = !!c.connected;
+      const statusBadge = isConnected
+        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 Kapcsolódva</span>'
+        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Offline</span>';
+
+      const rxFormatted = formatBytes(c.bytes_received || 0);
+      const txFormatted = formatBytes(c.bytes_sent || 0);
+
+      html += `<tr>
+        <td><span class="badge-pill" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); font-size: 11px; font-weight: 700;">🔒 OpenVPN</span></td>
+        <td style="font-weight: 700; color: #f1f5f9;">${escapeHtml(c.name)}</td>
+        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1;">(Dinamikus PKI)</td>
+        <td>${statusBadge}</td>
+        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(c.real_address || '--')}</td>
+        <td style="font-size: 12px;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
+        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(c.connected_since || '--')}</td>
+        <td style="display: flex; gap: 6px;">
+          <a href="/api/openvpn/client/config?name=${encodeURIComponent(c.name)}" download="${escapeHtml(c.name)}.ovpn" class="btn-primary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
+            📥 .ovpn
+          </a>
+          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
+            ✕
+          </button>
+        </td>
+      </tr>`;
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  async function loadPortGuideStatus() {
+    try {
+      const res = await fetch('/api/wireguard/endpoints');
+      if (res.ok) {
+        const d = await res.json();
+        const eps = d.endpoints || [];
+        let lanIp = '192.168.8.218';
+        let pubIp = '--';
+        let ipv6 = '--';
+
+        eps.forEach(ep => {
+          if (ep.type === 'lan' && ep.host) lanIp = ep.host;
+          else if ((ep.type === 'duckdns' || ep.type === 'wan') && ep.host) pubIp = ep.host;
+          else if (ep.type === 'ipv6' && ep.host) ipv6 = ep.host;
+        });
+
+        if (document.getElementById('pivpn-lan-ip')) document.getElementById('pivpn-lan-ip').textContent = lanIp;
+        if (document.getElementById('pivpn-pub-ip')) document.getElementById('pivpn-pub-ip').textContent = pubIp;
+        if (document.getElementById('pivpn-pub-ipv6')) document.getElementById('pivpn-pub-ipv6').textContent = ipv6;
+
+        if (document.getElementById('guide-val-lan')) document.getElementById('guide-val-lan').textContent = lanIp;
+        if (document.getElementById('guide-val-pub4')) document.getElementById('guide-val-pub4').textContent = pubIp;
+        if (document.getElementById('guide-val-ipv6')) document.getElementById('guide-val-ipv6').textContent = ipv6;
+        if (document.getElementById('guide-cgnat-ipv6')) document.getElementById('guide-cgnat-ipv6').textContent = ipv6;
+
+        document.querySelectorAll('.guide-box-lan').forEach(el => { el.textContent = lanIp; });
+      }
+    } catch (e) {
+      console.debug('loadPortGuideStatus error:', e);
+    }
+  }
+
+  async function pivpnQuickAddClient() {
+    const proto = document.getElementById('pivpn-quick-proto')?.value || 'wireguard';
+    const nameInput = document.getElementById('pivpn-quick-name');
+    const name = (nameInput?.value || '').trim();
+    if (!name) {
+      showToast('Kérlek adj meg egy kliens nevet! / Please enter a client name.');
+      return;
+    }
+    showToast(`PiVPN: Kliens profil generálása (${proto.toUpperCase()})...`);
+    if (proto === 'wireguard') {
+      try {
+        const res = await fetch('/api/wireguard/peer/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name })
+        });
+        const d = await res.json();
+        if (res.ok && (d.status === 'ok' || d.peer)) {
+          showToast(`✅ WireGuard kliens elkészült: ${name}`);
+          if (nameInput) nameInput.value = '';
+          await loadWireguardStatus();
+          showWireguardQr(d.peer ? d.peer.id : (d.id || name), name);
+        } else {
+          showToast('❌ Hiba: ' + (d.message || 'Létrehozás sikertelen'));
+        }
+      } catch (e) {
+        showToast('Hiba: ' + e);
+      }
+    } else {
+      try {
+        const res = await fetch('/api/openvpn/client/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name })
+        });
+        const d = await res.json();
+        if (res.ok && d.status === 'ok') {
+          showToast(`✅ OpenVPN profil elkészült: ${name}`);
+          if (nameInput) nameInput.value = '';
+          await loadOpenvpnStatus();
+          const dlLink = document.createElement('a');
+          dlLink.href = `/api/openvpn/client/config?name=${encodeURIComponent(name)}`;
+          dlLink.download = `${name}.ovpn`;
+          document.body.appendChild(dlLink);
+          dlLink.click();
+          document.body.removeChild(dlLink);
+        } else {
+          showToast('❌ Hiba: ' + (d.message || 'Létrehozás sikertelen'));
+        }
+      } catch (e) {
+        showToast('Hiba: ' + e);
+      }
+    }
   }
 
   // ---- DuckDNS ----
@@ -10709,6 +11359,9 @@ ${pkgList}`;
       if (!res.ok) return;
       const d = await res.json();
       wireguardIsActive = !!(d.active || d.running);
+      lastWireguardStatus = d;
+      lastWireguardPeers = d.peers || [];
+      renderVpnHub();
 
       const portInput = document.getElementById('wg-port');
       const subnetInput = document.getElementById('wg-subnet');
@@ -11072,6 +11725,9 @@ ${pkgList}`;
       if (!res.ok) return;
       const d = await res.json();
       openvpnIsActive = !!(d.active || d.running);
+      lastOpenvpnStatus = d;
+      lastOpenvpnClients = d.clients || [];
+      renderVpnHub();
 
       const protoSelect = document.getElementById('ovpn-proto');
       const portInput = document.getElementById('ovpn-port');
@@ -11415,7 +12071,10 @@ ${pkgList}`;
   setInterval(() => {
     const remoteTab = document.getElementById('tab-remote');
     if (remoteTab && remoteTab.classList.contains('active')) {
-      if (activeRemoteSubtab === 'proxy' && proxyIsActive) {
+      if (activeRemoteSubtab === 'vpnhub') {
+        if (wireguardIsActive) loadWireguardStatus();
+        if (openvpnIsActive) loadOpenvpnStatus();
+      } else if (activeRemoteSubtab === 'proxy' && proxyIsActive) {
         loadProxyStatus();
       } else if (activeRemoteSubtab === 'wireguard' && wireguardIsActive) {
         loadWireguardStatus();

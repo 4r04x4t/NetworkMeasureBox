@@ -18,7 +18,7 @@ AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/var/lib/nmb/live /var/log/nmb /run/nmb /etc/nmb
+ReadWritePaths=/var/lib/nmb /var/log/nmb /run/nmb /etc/nmb /etc/wireguard /etc/openvpn
 
 [Install]
 WantedBy=multi-user.target

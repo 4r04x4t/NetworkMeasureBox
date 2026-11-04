@@ -236,6 +236,45 @@ class TestHeadlessFeatures(unittest.TestCase):
             self.assertEqual(mock_bind.call_count, 2)
             server.server_close()
 
+    def test_guest_wifi_saved_and_hidden(self):
+        from nmb.netd.guest_wifi import (
+            list_saved_wifi_connections,
+            delete_saved_wifi_connection,
+            activate_saved_wifi_connection,
+            connect_guest_wifi,
+        )
+
+        mock_out = (
+            "netplan-eth0:802-3-ethernet:75a1216a-9d1a-30cd-8aca-ace5526ec021:eth0\n"
+            "netplan-wlan0-Home5G:802-11-wireless:2b39133f-76b9-3f4c-ac12-1bdd502edc08:wlan0\n"
+            "wifi-OfficeGuest:802-11-wireless:fa4b5c6d-1111-2222-3333-444455556666:--\n"
+        )
+        with mock.patch("shutil.which", return_value="/usr/bin/nmcli"):
+            with mock.patch("nmb.netd.guest_wifi._run_cmd", return_value=(0, mock_out, "")):
+                saved = list_saved_wifi_connections()
+                self.assertEqual(len(saved), 2)
+                self.assertEqual(saved[0]["ssid"], "Home5G")
+                self.assertTrue(saved[0]["in_use"])
+                self.assertEqual(saved[1]["ssid"], "OfficeGuest")
+                self.assertFalse(saved[1]["in_use"])
+
+        with mock.patch("shutil.which", return_value="/usr/bin/nmcli"):
+            with mock.patch("nmb.netd.guest_wifi._run_cmd", return_value=(0, "Connection deleted", "")):
+                ok, msg = delete_saved_wifi_connection("wifi-OfficeGuest")
+                self.assertTrue(ok)
+                self.assertIn("removed", msg)
+
+        with mock.patch("shutil.which", return_value="/usr/bin/nmcli"):
+            with mock.patch("nmb.netd.guest_wifi._run_cmd") as mock_cmd:
+                mock_cmd.return_value = (0, "Connection successfully activated", "")
+                with mock.patch("nmb.netd.guest_wifi.get_guest_wifi_status", return_value={"ssid": "HiddenNet", "ip_address": "192.168.10.5", "subnet": "192.168.10.0/24"}):
+                    ok, msg = connect_guest_wifi("HiddenNet", password="pass", hidden=True)
+                    self.assertTrue(ok)
+                    # Verify 'hidden yes' was passed in initial connect command
+                    first_call_args = mock_cmd.call_args_list[0][0][0]
+                    self.assertIn("hidden", first_call_args)
+                    self.assertIn("yes", first_call_args)
+
 
 if __name__ == "__main__":
     unittest.main()

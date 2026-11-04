@@ -10,8 +10,7 @@ Group=nmb
 Environment=PYTHONPATH=/opt/nmb HOME=/var/lib/nmb MALLOC_ARENA_MAX=2 PYTHONUNBUFFERED=1
 ExecStart=/opt/nmb/bin/nmb-speed --trigger schedule
 TimeoutStartSec=1800
-Nice=15
-IOSchedulingClass=idle
+Nice=0
 
 # Security sandbox
 ProtectSystem=strict

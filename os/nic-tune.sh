@@ -56,6 +56,12 @@ tune_interface() {
         [ -e "$tq" ] || continue
         echo "$mask" > "$tq/xps_cpus" 2>/dev/null || true
     done
+
+    # 7. CPU Frequency Governor Tuning for Peak Gigabit Line-Rate
+    for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        [ -e "$g" ] || continue
+        echo "performance" > "$g" 2>/dev/null || true
+    done
 }
 
 if [ -n "$IFACE" ]; then

@@ -25,15 +25,29 @@ STATUS_LOG = Path("/var/log/nmb/openvpn-status.log")
 
 
 def _ensure_dir() -> None:
-    OV_DIR.mkdir(parents=True, exist_ok=True)
-    PKI_DIR.mkdir(parents=True, exist_ok=True)
-    os.chmod(OV_DIR, 0o700)
-    os.chmod(PKI_DIR, 0o700)
+    try:
+        OV_DIR.mkdir(parents=True, exist_ok=True)
+        PKI_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chmod(OV_DIR, 0o700)
+            os.chmod(PKI_DIR, 0o700)
+        except Exception:
+            pass
+    except Exception as e:
+        log.debug("OpenVPN _ensure_dir non-fatal error: %s", e)
+
+
+def find_openvpn_bin() -> Optional[str]:
+    """Find path to openvpn binary across common system locations."""
+    for cand in ("/usr/sbin/openvpn", "/usr/bin/openvpn", "/usr/local/sbin/openvpn", "/usr/local/bin/openvpn", "/sbin/openvpn", "/bin/openvpn"):
+        if os.path.exists(cand) and os.access(cand, os.X_OK):
+            return cand
+    return shutil.which("openvpn")
 
 
 def is_openvpn_available() -> bool:
     """Return True if openvpn executable exists on system."""
-    return shutil.which("openvpn") is not None
+    return find_openvpn_bin() is not None
 
 
 def run_helper(cmd: str) -> Tuple[int, str]:
@@ -95,14 +109,28 @@ def init_pki() -> bool:
             if csr_path.exists():
                 csr_path.unlink()
 
-        # 3. Generate TLS-Crypt Pre-Shared Key
-        if not tls_crypt.exists():
-            bin_ov = shutil.which("openvpn")
+        # 3. Generate TLS-Crypt Pre-Shared Key with valid OpenVPN static key format
+        if not tls_crypt.exists() or tls_crypt.stat().st_size < 100:
+            bin_ov = find_openvpn_bin()
+            generated = False
             if bin_ov:
-                subprocess.run([bin_ov, "--genkey", "secret", str(tls_crypt)], check=True)
-            else:
-                # Fallback to random 2048-bit hex block
-                tls_crypt.write_text(os.urandom(256).hex())
+                try:
+                    subprocess.run([bin_ov, "--genkey", "secret", str(tls_crypt)], check=True, timeout=5)
+                    generated = True
+                except Exception:
+                    pass
+            if not generated:
+                raw_hex = os.urandom(256).hex()
+                lines = [
+                    "#",
+                    "# 2048 bit OpenVPN static key",
+                    "#",
+                    "-----BEGIN OpenVPN Static key V1-----",
+                ]
+                for i in range(0, len(raw_hex), 32):
+                    lines.append(raw_hex[i : i + 32])
+                lines.append("-----END OpenVPN Static key V1-----")
+                tls_crypt.write_text("\n".join(lines) + "\n")
 
         # Set secure permissions
         for f in (ca_key, server_key, tls_crypt):

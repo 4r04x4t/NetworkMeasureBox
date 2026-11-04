@@ -722,6 +722,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok", "interface": guest_iface, "networks": nets})
             return
 
+        if path in ("/api/network/wifi/guest/saved", "/api/wifi/guest/saved"):
+            from nmb.netd.guest_wifi import list_saved_wifi_connections
+            saved = list_saved_wifi_connections()
+            self._send_json({"status": "ok", "saved_networks": saved})
+            return
+
         # 19. Network MAC Info
         if path in ("/api/network/mac", "/api/mac"):
             wan_iface = self.server.cfg.network.wan_interface
@@ -1254,6 +1260,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             guest_iface = str(body_json.get("interface") or getattr(self.server.cfg.guest_wifi, "interface", "wlan0")).strip()
             metric = int(body_json.get("metric") or getattr(self.server.cfg.guest_wifi, "metric", 600))
             save_it = bool(body_json.get("save", True))
+            hidden = bool(body_json.get("hidden", False))
+            bssid = str(body_json.get("bssid", "")).strip() or None
 
             if not ssid:
                 self._send_json({"status": "error", "message": "SSID cannot be empty"}, status=400)
@@ -1267,7 +1275,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self.server.cfg.guest_wifi.metric = metric
                 save_config(self.server.cfg)
 
-            ok, msg = connect_guest_wifi(ssid=ssid, password=password, iface=guest_iface, metric=metric)
+            ok, msg = connect_guest_wifi(ssid=ssid, password=password, iface=guest_iface, metric=metric, hidden=hidden, bssid=bssid)
             status_data = get_guest_wifi_status(iface=guest_iface, wan_iface=self.server.cfg.network.wan_interface, cfg_guest=self.server.cfg.guest_wifi)
             self._send_json({
                 "status": "ok" if ok else "error",
@@ -1288,6 +1296,20 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "message": msg,
                 "details": status_data,
             })
+            return
+
+        if path in ("/api/network/wifi/guest/saved/delete", "/api/wifi/guest/saved/delete"):
+            from nmb.netd.guest_wifi import delete_saved_wifi_connection
+            target = str(body_json.get("name") or body_json.get("uuid") or "").strip()
+            ok, msg = delete_saved_wifi_connection(target)
+            self._send_json({"status": "ok" if ok else "error", "message": msg})
+            return
+
+        if path in ("/api/network/wifi/guest/saved/activate", "/api/wifi/guest/saved/activate"):
+            from nmb.netd.guest_wifi import activate_saved_wifi_connection
+            target = str(body_json.get("name") or body_json.get("uuid") or "").strip()
+            ok, msg = activate_saved_wifi_connection(target)
+            self._send_json({"status": "ok" if ok else "error", "message": msg})
             return
 
         # 4. Network MAC Management

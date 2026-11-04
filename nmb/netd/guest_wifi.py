@@ -107,6 +107,7 @@ def scan_wifi_networks(iface: str = "wlan0", force_rescan: bool = True) -> List[
                         sig_str = parts[4].strip()
                         security = parts[5].replace("__ESCAPED_COLON__", ":").strip()
 
+                        is_hidden = not bool(parts[2].replace("__ESCAPED_COLON__", ":").strip())
                         if not ssid:
                             ssid = f"<Hidden Network> ({bssid})"
 
@@ -132,6 +133,7 @@ def scan_wifi_networks(iface: str = "wlan0", force_rescan: bool = True) -> List[
                             "channel": chan,
                             "signal": signal,
                             "security": security or "Open",
+                            "is_hidden": is_hidden,
                         })
 
         # Sort: connected first, then by signal strength descending
@@ -311,9 +313,12 @@ def connect_guest_wifi(
     iface: str = "wlan0",
     metric: int = 600,
     timeout: float = 25.0,
+    hidden: bool = False,
+    bssid: Optional[str] = None,
 ) -> Tuple[bool, str]:
     """Connect wireless interface to a Guest Wi-Fi network as a client station.
 
+    Supports hidden SSIDs (hidden=True) and specific BSSID targeting.
     Ensures route metric is higher than the wired interface (e.g. metric 600) so
     that primary Internet bandwidth measurements remain bound to eth0.
     """
@@ -325,10 +330,15 @@ def connect_guest_wifi(
     if not nmcli_bin:
         return False, "nmcli utility not found on system"
 
-    log.info("Connecting Guest Wi-Fi client (%s) to SSID: %s (metric: %d)", iface, ssid, metric)
+    log.info("Connecting Guest Wi-Fi client (%s) to SSID: %s (hidden: %s, metric: %d)", iface, ssid, hidden, metric)
 
-    # 1. Connect using nmcli
-    cmd = [nmcli_bin, "dev", "wifi", "connect", ssid, "ifname", iface]
+    # 1. Connect using nmcli with hidden network support
+    cmd = [nmcli_bin, "dev", "wifi", "connect", ssid]
+    if hidden:
+        cmd.extend(["hidden", "yes"])
+    if bssid:
+        cmd.extend(["bssid", bssid])
+    cmd.extend(["ifname", iface])
     if password:
         cmd.extend(["password", password])
 
@@ -401,3 +411,64 @@ def sync_guest_wifi_connection(cfg: Any) -> None:
             log.warning("Guest Wi-Fi sync worker error: %s", e)
 
     threading.Thread(target=_worker, daemon=True, name="nmb-guest-wifi-sync").start()
+
+
+def list_saved_wifi_connections() -> List[Dict[str, Any]]:
+    """List all saved Wi-Fi connection profiles managed by NetworkManager."""
+    nmcli_bin = shutil.which("nmcli")
+    if not nmcli_bin:
+        return []
+    ret, stdout, _ = _run_cmd([nmcli_bin, "-t", "-f", "NAME,TYPE,UUID,DEVICE", "connection", "show"], timeout=5.0)
+    if ret != 0 or not stdout:
+        return []
+    saved: List[Dict[str, Any]] = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(":")
+        if len(parts) >= 3 and parts[1] == "802-11-wireless":
+            name = parts[0]
+            uuid = parts[2]
+            active_device = parts[3] if len(parts) > 3 else ""
+            clean_name = name
+            for prefix in ("netplan-wlan0-", "netplan-", "wifi-", "wlan0-"):
+                if clean_name.startswith(prefix):
+                    clean_name = clean_name[len(prefix):]
+            saved.append({
+                "name": name,
+                "ssid": clean_name,
+                "uuid": uuid,
+                "in_use": bool(active_device and active_device != "--"),
+                "device": active_device if active_device != "--" else "",
+            })
+    return saved
+
+
+def delete_saved_wifi_connection(name_or_uuid: str) -> Tuple[bool, str]:
+    """Delete a saved Wi-Fi connection profile."""
+    name_or_uuid = name_or_uuid.strip()
+    if not name_or_uuid:
+        return False, "Target profile identifier cannot be empty"
+    nmcli_bin = shutil.which("nmcli")
+    if not nmcli_bin:
+        return False, "nmcli utility not found"
+    ret, stdout, stderr = _run_cmd([nmcli_bin, "connection", "delete", name_or_uuid], timeout=8.0)
+    if ret == 0:
+        return True, f"Connection '{name_or_uuid}' removed."
+    return False, stderr.strip() or stdout.strip() or "Failed to delete connection"
+
+
+def activate_saved_wifi_connection(name_or_uuid: str) -> Tuple[bool, str]:
+    """Activate an existing saved Wi-Fi connection profile."""
+    name_or_uuid = name_or_uuid.strip()
+    if not name_or_uuid:
+        return False, "Target profile identifier cannot be empty"
+    nmcli_bin = shutil.which("nmcli")
+    if not nmcli_bin:
+        return False, "nmcli utility not found"
+    ret, stdout, stderr = _run_cmd([nmcli_bin, "connection", "up", name_or_uuid], timeout=15.0)
+    if ret == 0:
+        return True, f"Activated connection '{name_or_uuid}'."
+    return False, stderr.strip() or stdout.strip() or "Failed to activate connection"
+

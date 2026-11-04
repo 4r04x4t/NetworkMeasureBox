@@ -31,8 +31,30 @@ class RmbtConn:
     def connect(cls, host, port, use_tls, no_tls_verify, protocol):
         c = cls()
         c.protocol = protocol
-        source_addr = (_bound_source_ip, 0) if _bound_source_ip else None
-        raw = socket.create_connection((host, port), timeout=30, source_address=source_addr)
+        source_addr = None
+        target_host = host
+        if _bound_source_ip:
+            try:
+                src_is_v6 = ":" in _bound_source_ip
+                if "httpv6" in target_host and not src_is_v6:
+                    target_host = target_host.replace("httpv6", "http")
+                resolved = socket.getaddrinfo(target_host, port)
+                has_matching = any(
+                    (r[0] == socket.AF_INET6 and src_is_v6) or (r[0] == socket.AF_INET and not src_is_v6)
+                    for r in resolved
+                )
+                if has_matching:
+                    source_addr = (_bound_source_ip, 0)
+            except Exception:
+                pass
+
+        try:
+            raw = socket.create_connection((target_host, port), timeout=30, source_address=source_addr)
+        except OSError:
+            if source_addr:
+                raw = socket.create_connection((target_host, port), timeout=30)
+            else:
+                raise
         raw.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         if _bound_interface:
             try:

@@ -483,6 +483,15 @@ def run_speedtest_cli(interface: Optional[str] = None, bind_ip: Optional[str] = 
         return None
 
 
+def detect_engine() -> str:
+    """Return the detected best available speedtest engine name."""
+    if is_official_ookla_available():
+        return "official_ookla"
+    if is_speedtest_cli_available():
+        return "speedtest_cli"
+    return "native_stream"
+
+
 def run_native_fallback(server_id: Optional[int] = None, interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
     """Native standard library HTTP streaming speed probe.
 
@@ -532,15 +541,15 @@ def run_native_fallback(server_id: Optional[int] = None, interface: Optional[str
         except Exception:
             pass
 
-        def _open(req, to):
+        def _open(req, timeout=30):
             if bind_ip:
                 try:
                     from nmb.speed.cloudflare import BoundHTTPHandler, BoundHTTPSHandler
                     opener = urllib.request.build_opener(BoundHTTPHandler(bind_ip), BoundHTTPSHandler(bind_ip))
-                    return opener.open(req, timeout=to)
+                    return opener.open(req, timeout=timeout)
                 except Exception:
                     pass
-            return urllib.request.urlopen(req, timeout=to)
+            return urllib.request.urlopen(req, timeout=timeout)
 
         req = urllib.request.Request(test_url, headers={"User-Agent": get_effective_user_agent()})
         with _open(req, timeout=30) as resp:

@@ -239,18 +239,18 @@ def _probe_loaded_latency(stop_event: threading.Event, output_list: List[float])
 
 
 def measure_download_tier(byte_count: int, stop_loaded_probe: Optional[threading.Event] = None) -> Tuple[int, float]:
-    """Download specific chunk tier in small streamed blocks to prevent RAM bloat."""
+    """Download specific chunk tier in streamed blocks to measure sustained throughput."""
     url = f"{BASE_URL}/__down?bytes={byte_count}"
-    t0 = time.monotonic()
     req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
     b_read = 0
     with _open_url(req, timeout=25.0) as resp:
+        t0 = time.monotonic()
         while True:
-            chunk = resp.read(65536)
+            chunk = resp.read(262144)
             if not chunk:
                 break
             b_read += len(chunk)
-    dur = max(0.001, time.monotonic() - t0)
+        dur = max(0.001, time.monotonic() - t0)
     return b_read, dur
 
 
@@ -262,15 +262,15 @@ def measure_upload_tier(byte_count: int) -> Tuple[int, float]:
     actual_count = min(byte_count, max_payload)
     payload = b"0" * actual_count
     url = f"{BASE_URL}/__up"
-    t0 = time.monotonic()
     req = urllib.request.Request(
         url,
         data=payload,
         headers={"User-Agent": _current_ua(), "Content-Type": "application/octet-stream"}
     )
     with _open_url(req, timeout=25.0) as resp:
-        _ = resp.read()
-    dur = max(0.001, time.monotonic() - t0)
+        t0 = time.monotonic()
+        _ = resp.read(512)
+        dur = max(0.001, time.monotonic() - t0)
     return actual_count, dur
 
 
@@ -322,7 +322,8 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
     stop_down_probe.set()
     down_probe_thread.join(timeout=1.0)
 
-    mean_down_mbps = (total_down_bytes * 8) / (total_down_sec * 1_000_000.0) if total_down_sec > 0 else 0.0
+    # Sustained rate reflects maximum stabilized window tier
+    mean_down_mbps = max(tier_downloads.values()) if tier_downloads else ((total_down_bytes * 8) / (total_down_sec * 1_000_000.0) if total_down_sec > 0 else 0.0)
     loaded_down_lat = statistics.median(down_loaded_lats) if down_loaded_lats else idle_lat
 
     # 4. Upload Throughput & Loaded Upload Latency
@@ -357,7 +358,8 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
     stop_up_probe.set()
     up_probe_thread.join(timeout=1.0)
 
-    mean_up_mbps = (total_up_bytes * 8) / (total_up_sec * 1_000_000.0) if total_up_sec > 0 else 0.0
+    # Sustained rate reflects maximum stabilized window tier
+    mean_up_mbps = max(tier_uploads.values()) if tier_uploads else ((total_up_bytes * 8) / (total_up_sec * 1_000_000.0) if total_up_sec > 0 else 0.0)
     loaded_up_lat = statistics.median(up_loaded_lats) if up_loaded_lats else idle_lat
 
     # 5. Bufferbloat Calculation

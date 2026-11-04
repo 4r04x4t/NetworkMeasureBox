@@ -48,9 +48,34 @@ if [ "$OS_TYPE" = "debian" ]; then
         python3 iproute2 nftables iptables ethtool pciutils usbutils \
         dnsmasq hostapd ppp pppoe udhcpc curl ca-certificates procps libcap2-bin \
         wireguard-tools openvpn easy-rsa python3-qrcode qrencode \
-        traceroute iputils-tracepath mtr-tiny
+        traceroute iputils-tracepath mtr-tiny iperf3 sqlite3 gnupg dirmngr
     # Install common hardware firmware if available in repositories
     apt-get install -y --no-install-recommends firmware-realtek 2>/dev/null || true
+
+    # Install OONI Probe (Censorship & Internet Freedom Engine)
+    if ! command -v ooniprobe >/dev/null 2>&1 && ! command -v ooniprobe-cli >/dev/null 2>&1; then
+        info "Configuring official OONI Probe repository..."
+        mkdir -p /etc/apt/keyrings
+        curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB5A08F01796E7F521861B449372D1FF271F2DD50" | gpg --dearmor >/etc/apt/keyrings/ooni-apt-keyring.gpg 2>/dev/null || true
+        chmod 644 /etc/apt/keyrings/ooni-apt-keyring.gpg 2>/dev/null || true
+        echo "deb [signed-by=/etc/apt/keyrings/ooni-apt-keyring.gpg] https://deb.ooni.org/ unstable main" >/etc/apt/sources.list.d/ooniprobe.list
+        apt-get update -y 2>/dev/null || true
+        DEBIAN_FRONTEND=noninteractive apt-get install -y ooniprobe-cli 2>/dev/null || true
+
+        # Fallback to standalone miniooni binary if debian repo failed
+        if ! command -v ooniprobe >/dev/null 2>&1 && ! command -v ooniprobe-cli >/dev/null 2>&1; then
+            ARCH=$(uname -m)
+            OONI_ARCH=""
+            [ "$ARCH" = "x86_64" ] && OONI_ARCH="amd64"
+            [ "$ARCH" = "aarch64" ] && OONI_ARCH="arm64"
+            [ "$ARCH" = "armv7l" ] && OONI_ARCH="armv7"
+            if [ -n "$OONI_ARCH" ]; then
+                info "Downloading standalone miniooni binary for $OONI_ARCH..."
+                curl -sL "https://github.com/ooni/probe-cli/releases/download/v3.31.1/miniooni-linux-$OONI_ARCH" -o /usr/local/bin/ooniprobe 2>/dev/null || true
+                chmod +x /usr/local/bin/ooniprobe 2>/dev/null || true
+            fi
+        fi
+    fi
 
     # Stop and disable OS-packaged dnsmasq & hostapd so nmb-netd has exclusive control
     systemctl disable --now dnsmasq hostapd 2>/dev/null || true
@@ -110,7 +135,8 @@ elif [ "$OS_TYPE" = "alpine" ]; then
     apk update
     apk add --no-cache \
         python3 iproute2 nftables iptables ethtool dnsmasq hostapd ppp \
-        curl ca-certificates busybox-extras libcap traceroute iputils mtr
+        curl ca-certificates busybox-extras libcap traceroute iputils mtr \
+        iperf3 sqlite openvpn wireguard-tools
 
     ARCH=$(uname -m)
     OOKLA_ARCH=""
@@ -128,6 +154,19 @@ elif [ "$OS_TYPE" = "alpine" ]; then
             info "Installed /usr/local/bin/speedtest"
         fi
         rm -rf "$TMP_DIR"
+    fi
+
+    # Install standalone OONI probe for Alpine
+    if ! command -v ooniprobe >/dev/null 2>&1 && ! command -v ooniprobe-cli >/dev/null 2>&1; then
+        OONI_ARCH=""
+        [ "$ARCH" = "x86_64" ] && OONI_ARCH="amd64"
+        [ "$ARCH" = "aarch64" ] && OONI_ARCH="arm64"
+        [ "$ARCH" = "armv7l" ] && OONI_ARCH="armv7"
+        if [ -n "$OONI_ARCH" ]; then
+            info "Downloading standalone miniooni binary for $OONI_ARCH..."
+            curl -sL "https://github.com/ooni/probe-cli/releases/download/v3.31.1/miniooni-linux-$OONI_ARCH" -o /usr/local/bin/ooniprobe 2>/dev/null || true
+            chmod +x /usr/local/bin/ooniprobe 2>/dev/null || true
+        fi
     fi
 fi
 

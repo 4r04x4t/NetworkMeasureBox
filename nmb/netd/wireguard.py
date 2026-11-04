@@ -182,9 +182,17 @@ def _ensure_dir() -> None:
         pass
 
 
+def find_wireguard_bin() -> Optional[str]:
+    """Find path to wg binary across common system locations."""
+    for cand in ("/usr/bin/wg", "/usr/sbin/wg", "/usr/local/bin/wg", "/usr/local/sbin/wg", "/sbin/wg", "/bin/wg"):
+        if os.path.exists(cand) and os.access(cand, os.X_OK):
+            return cand
+    return shutil.which("wg")
+
+
 def is_wireguard_available() -> bool:
     """Return True if wg command is installed on system."""
-    return shutil.which("wg") is not None
+    return find_wireguard_bin() is not None
 
 
 def run_helper(cmd: str) -> Tuple[int, str]:

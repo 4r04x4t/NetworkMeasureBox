@@ -455,6 +455,7 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
             srv_desc = f"#{res.server_id} - {res.server_name}" if res.server_id else "Auto-selected closest"
             if res.server_location:
                 srv_desc += f" ({res.server_location})"
+            loss_pct_str = f"{res.loss_pct:.1f}%" if res.loss_pct is not None else "--"
             meroscript = f"""#!/bin/sh
 # ==============================================================================
 # NetworkMeasureBox - Realtime Ookla Speedtest Execution
@@ -474,7 +475,7 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
 # 3. Measured Real Telemetry:
 # Download Speed: {down_mbps:.2f} Mbps ({(down_mbps/8):.2f} MB/s){down_contract_note}
 # Upload Speed: {up_mbps:.2f} Mbps ({(up_mbps/8):.2f} MB/s){up_contract_note}
-# Ping Latency: {ping_ms_val:.2f} ms | Jitter: {jitter_ms_val:.2f} ms | Packet Loss: {res.loss_pct:.1f}%
+# Ping Latency: {ping_ms_val:.2f} ms | Jitter: {jitter_ms_val:.2f} ms | Packet Loss: {loss_pct_str}
 # Loaded Latency: Download: {res.down_loaded_lat_ms or '--'} ms | Upload: {res.up_loaded_lat_ms or '--'} ms
 # Bufferbloat Grade: {res.bufferbloat_grade or '--'} (+{res.bufferbloat_delta_ms or 0} ms delta)
 # Official Result URL: {res.result_url or '--'}
