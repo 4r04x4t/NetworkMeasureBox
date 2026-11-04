@@ -268,8 +268,69 @@ case "${1:-}" in
     crashes-clear)
         PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.report.crash_trap import clear_crash_reports; n = clear_crash_reports(); print(f'Cleared {n} crash report(s).')"
         ;;
+    heal-symlink)
+        LINK_NAME="${2:-}"
+        TARGET_PATH="${3:-}"
+        if [ -n "$LINK_NAME" ] && [ -n "$TARGET_PATH" ] && [ -f "$TARGET_PATH" ]; then
+            ln -sf "$TARGET_PATH" "/usr/local/bin/$LINK_NAME"
+            chmod 755 "$TARGET_PATH" 2>/dev/null || true
+        fi
+        ;;
+    heal-permissions)
+        DIR_PATH="${2:-}"
+        if [ -n "$DIR_PATH" ]; then
+            mkdir -p "$DIR_PATH"
+            chown nmb:nmb "$DIR_PATH" 2>/dev/null || true
+            chmod 2775 "$DIR_PATH" 2>/dev/null || true
+        fi
+        ;;
+    heal-restore-config)
+        MIRROR_PATH="${2:-}"
+        if [ -f "$MIRROR_PATH" ]; then
+            mkdir -p /etc/nmb
+            cp "$MIRROR_PATH" /etc/nmb/nmb.conf
+            chown nmb:nmb /etc/nmb/nmb.conf 2>/dev/null || true
+            chmod 640 /etc/nmb/nmb.conf
+        fi
+        ;;
+    heal-install-file)
+        SRC_PATH="${2:-}"
+        DST_PATH="${3:-}"
+        if [ -f "$SRC_PATH" ] && [ -n "$DST_PATH" ]; then
+            install -m 755 "$SRC_PATH" "$DST_PATH"
+        fi
+        ;;
+    heal-dpkg-repair)
+        # Kill stale apt processes holding locks if unresponsive
+        killall -9 apt-get dpkg 2>/dev/null || true
+        rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock* 2>/dev/null || true
+        dpkg --configure -a 2>&1 || true
+        DEBIAN_FRONTEND=noninteractive apt-get install -f -y 2>&1 || true
+        DEBIAN_FRONTEND=noninteractive apt-get update -y 2>&1 || true
+        ;;
+    heal-pkg-install)
+        PKG="${2:-}"
+        if [ -n "$PKG" ]; then
+            if command -v apt-get >/dev/null 2>&1; then
+                export DEBIAN_FRONTEND=noninteractive
+                apt-get update -y 2>/dev/null || true
+                exec apt-get install -y --reinstall --no-install-recommends "$PKG"
+            elif command -v apk >/dev/null 2>&1; then
+                exec apk add --no-cache "$PKG"
+            elif command -v pacman >/dev/null 2>&1; then
+                exec pacman -S --noconfirm "$PKG"
+            fi
+        fi
+        ;;
+    heal-audit)
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "import json; from nmb.common.heal import audit_system_health; print(json.dumps(audit_system_health(), indent=2))"
+        ;;
+    heal-fix)
+        shift
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.heal fix "$@"
+        ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|invasive-log|diagnostic-bundle|crashes-list|crashes-clear}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|invasive-log|diagnostic-bundle|crashes-list|crashes-clear|heal-symlink|heal-permissions|heal-restore-config|heal-install-file|heal-dpkg-repair|heal-pkg-install|heal-audit|heal-fix}" >&2
         exit 1
         ;;
 esac

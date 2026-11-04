@@ -1,0 +1,288 @@
+#!/usr/bin/env python3
+"""NetworkMeasureBox Automated Self-Healing, Component Correction,
+and Safe Stable Updates Management CLI (nmb-heal).
+
+Provides:
+  nmb-heal audit   - Run comprehensive system & component health audit
+  nmb-heal fix     - Execute automated self-healing across detected issues
+  nmb-heal update  - Check or apply stable updates with automated rollback protection
+  nmb-heal status  - Display persistent health state and escalation history
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+# Add project root to sys.path
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from nmb.common.heal import (
+    audit_system_health,
+    auto_heal_all,
+    check_stable_updates,
+    apply_stable_update,
+    load_heal_state,
+)
+
+
+def _color(text: str, code: str) -> str:
+    if not sys.stdout.isatty():
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    report = audit_system_health()
+    if args.json:
+        print(json.dumps(report, indent=2))
+        return 0 if report["overall_status"] == "healthy" else 1
+
+    status_color = "1;32" if report["overall_status"] == "healthy" else ("1;33" if report["overall_status"] == "warning" else "1;31")
+    print(_color("=" * 78, "1;34"))
+    print(_color("  NetworkMeasureBox — Comprehensive Component & Health Audit", "1;32"))
+    print(_color("=" * 78, "1;34"))
+
+    print(f"Overall Status: {_color(report['overall_status'].upper(), status_color)} | "
+          f"Issues: {_color(str(report['issues_count']), '1;33')} (Critical: {report['critical_count']}, Warnings: {report['warning_count']})\n")
+
+    cat_labels = {
+        "binaries": "1. External & Compiled Binaries",
+        "symlinks": "2. CLI Symlinks in /usr/local/bin",
+        "database": "3. SQLite Databases & Table Integrity",
+        "config": "4. System Configuration & Boot Mirror",
+        "filesystem": "5. Directory Hierarchy & Permissions",
+        "services": "6. Systemd Units & Maintenance Timers",
+        "network": "7. Network Stack, Loopback & DNS Resolution",
+    }
+
+    for cat, title in cat_labels.items():
+        data = report["components"].get(cat, {})
+        c_status = data.get("status", "ok")
+        c_col = "1;32" if c_status == "ok" else ("1;33" if c_status == "degraded" else "1;31")
+        print(_color(f"[{title}]", "1;37") + f" — [{_color(c_status.upper(), c_col)}]")
+
+        items = data.get("items", [])
+        if not items:
+            print("    (No items checked)")
+            continue
+
+        for item in items:
+            st = item.get("status", "ok")
+            label = item.get("label", item.get("id"))
+            msg = item.get("message", "")
+            if st == "ok":
+                mark = _color("✔ OK", "1;32")
+                print(f"    {mark:<10} {label:<36} : {msg}")
+            elif st == "warning":
+                mark = _color("▲ WARN", "1;33")
+                print(f"    {mark:<10} {label:<36} : {_color(msg, '1;33')}")
+            else:
+                mark = _color("✖ FAIL", "1;31")
+                print(f"    {mark:<10} {label:<36} : {_color(msg, '1;31')}")
+        print()
+
+    print(_color("=" * 78, "1;34"))
+    if report["overall_status"] != "healthy":
+        print(_color("  Recommendation: Run 'nmb-heal fix' to automatically repair detected issues.", "1;33"))
+        print(_color("=" * 78, "1;34"))
+        return 1
+
+    print(_color("  All system components and services are operational.", "1;32"))
+    print(_color("=" * 78, "1;34"))
+    return 0
+
+
+def cmd_fix(args: argparse.Namespace) -> int:
+    print(_color("=" * 78, "1;34"))
+    print(_color("  NetworkMeasureBox — Automated Multi-Tier Self-Healing Engine", "1;32"))
+    print(_color("=" * 78, "1;34"))
+
+    tier_override = getattr(args, "tier", None)
+    if tier_override:
+        print(f"Enforcing Escalation Tier: {_color(str(tier_override), '1;33')}")
+    else:
+        print("Using adaptive multi-attempt escalation (Tier 1: Soft -> Tier 2: Reinstall -> Tier 3: Aggressive).")
+
+    print("\nScanning system for damaged or missing components...")
+    res = auto_heal_all(force_tier=tier_override)
+
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return 0 if res["success"] else 1
+
+    print(f"Initial Status : {_color(res['pre_status'].upper(), '1;33')} ({res['issues_detected']} issue(s) detected)")
+
+    repairs = res.get("repairs_executed", [])
+    if repairs:
+        print(f"\n{_color('Repairs & Correction Actions Executed:', '1;36')}")
+        for r in repairs:
+            print(f"  * {r}")
+    else:
+        print("\nNo automated repair actions required.")
+
+    post_status = res.get("post_status", "unknown")
+    post_color = "1;32" if post_status == "healthy" else ("1;33" if post_status == "warning" else "1;31")
+    print(f"\nPost-Healing Status: {_color(post_status.upper(), post_color)} ({res.get('post_issues_count', 0)} issue(s) remaining)")
+    print(_color("=" * 78, "1;34"))
+
+    return 0 if res["success"] else 1
+
+
+def cmd_update(args: argparse.Namespace) -> int:
+    apply_mode = getattr(args, "apply", False)
+
+    if not apply_mode:
+        print(_color("=" * 78, "1;34"))
+        print(_color("  NetworkMeasureBox — Stable Software Updates Check", "1;32"))
+        print(_color("=" * 78, "1;34"))
+        up = check_stable_updates()
+        if args.json:
+            print(json.dumps(up, indent=2))
+            return 0
+
+        print(f"Current Installed Version : {_color(up['current_version'], '1;32')}")
+        print(f"Latest Available Version  : {_color(up['available_version'], '1;36')}")
+        print(f"Git Branch                : {up['git_branch']} (Commit: {up['current_commit']})")
+        print(f"Stability Classification  : {_color('STABLE', '1;32') if up['is_stable'] else _color('PRE-RELEASE / UNSTABLE', '1;31')}")
+        print(f"OS Security/Pkg Updates   : {up['os_updates_count']} package(s) available")
+
+        if up.get("changelog"):
+            print(f"\n{_color('Recent Upstream Commits:', '1;36')}")
+            for c in up["changelog"]:
+                print(f"  • {c}")
+
+        print(f"\nStatus: {_color(up['message'], '1;33' if up['update_available'] else '1;32')}")
+        print(_color("=" * 78, "1;34"))
+        if up["update_available"]:
+            print(_color("To apply this stable update with automatic rollback safety, run:", "1;33"))
+            print(_color("  nmb-heal update --apply", "1;32"))
+            print(_color("=" * 78, "1;34"))
+        return 0
+
+    # Apply Mode
+    print(_color("=" * 78, "1;34"))
+    print(_color("  NetworkMeasureBox — Safe Stable Software Update Execution", "1;32"))
+    print(_color("=" * 78, "1;34"))
+    target_ref = getattr(args, "ref", None)
+    print("Initiating atomic pre-update safety checkpoint and verification...")
+    res = apply_stable_update(target_ref=target_ref)
+
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return 0 if res["success"] else 1
+
+    if res["success"]:
+        print(_color(f"\n✔ {res.get('message', 'Update completed successfully.')}", "1;32"))
+        print(f"Safety Checkpoint Saved : {_color(res.get('checkpoint', ''), '1;36')}")
+        print(f"Active Version          : {_color(res.get('new_version', ''), '1;32')}")
+        print(_color("All automated unit tests passed and systemd services reloaded.", "1;32"))
+    else:
+        if res.get("rolled_back"):
+            print(_color("\n✖ UPDATE FAILED VERIFICATION — AUTOMATIC ROLLBACK APPLIED!", "1;31"))
+            print(f"Reason              : {_color(res.get('error', 'Verification tests failed'), '1;33')}")
+            print(f"Rollback Checkpoint : {_color(res.get('checkpoint', ''), '1;36')}")
+            print(f"System Status       : {_color('Safely restored to previous working state', '1;32')}")
+        else:
+            print(_color(f"\n✖ Update Error: {res.get('error')}", "1;31"))
+
+    print(_color("=" * 78, "1;34"))
+    return 0 if res["success"] else 1
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    state = load_heal_state()
+    if args.json:
+        print(json.dumps(state, indent=2))
+        return 0
+
+    print(_color("=" * 78, "1;34"))
+    print(_color("  NetworkMeasureBox — Self-Healing State & Escalation History", "1;32"))
+    print(_color("=" * 78, "1;34"))
+
+    overall = state.get("overall_health", "unknown")
+    col = "1;32" if overall == "healthy" else ("1;33" if overall == "warning" else "1;31")
+    print(f"Health Status          : {_color(overall.upper(), col)}")
+    print(f"Clean Audit Streak     : {_color(str(state.get('consecutive_clean_audits', 0)), '1;36')} consecutive runs")
+    last_ts = state.get("last_audit_ts", 0)
+    last_str = time.ctime(last_ts) if last_ts else "Never"
+    print(f"Last Audit Timestamp   : {last_str}")
+
+    comps = state.get("components", {})
+    if comps:
+        print(f"\n{_color('Tracked Component Issues & Escalation Levels:', '1;37')}")
+        for cid, cinfo in comps.items():
+            res_str = _color("RESOLVED", "1;32") if cinfo.get("resolved") else _color("ACTIVE ISSUE", "1;31")
+            consec = cinfo.get("consecutive_failures", 0)
+            tier = cinfo.get("last_tier_attempted", 1)
+            print(f"  • {cinfo.get('label', cid):<34} [{res_str}]")
+            print(f"    Consecutive Failures: {consec} | Escalation Tier: Tier {tier} | Total: {cinfo.get('total_failures', 0)}")
+            if cinfo.get("last_actions"):
+                print(f"    Last Actions: {'; '.join(cinfo['last_actions'])}")
+
+    hist = state.get("history", [])
+    if hist:
+        print(f"\n{_color('Recent Self-Healing History (Last 5 events):', '1;37')}")
+        for h in hist[-5:]:
+            h_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(h.get("timestamp", 0)))
+            print(f"  [{h_time}] Tier {h.get('tier', 1)} on {h.get('item_id', 'component')}:")
+            for a in h.get("actions", []):
+                print(f"    - {a}")
+
+    print(_color("=" * 78, "1;34"))
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="nmb-heal",
+        description="NetworkMeasureBox Automated Self-Healing & Stable Updates CLI",
+    )
+    subparsers = parser.add_subparsers(dest="command")
+
+    # audit
+    p_audit = subparsers.add_parser("audit", help="Run comprehensive component and system health audit")
+    p_audit.add_argument("--json", action="store_true", help="Output audit report as JSON")
+
+    # fix
+    p_fix = subparsers.add_parser("fix", help="Execute automated self-healing across detected issues")
+    p_fix.add_argument("--tier", type=int, choices=[1, 2, 3], help="Force escalation tier (1=soft, 2=reinstall/compile, 3=aggressive)")
+    p_fix.add_argument("--json", action="store_true", help="Output fix report as JSON")
+
+    # update
+    p_update = subparsers.add_parser("update", help="Check or apply stable software updates with auto-rollback")
+    p_update.add_argument("--check", action="store_true", help="Check for available stable updates (default)")
+    p_update.add_argument("--apply", action="store_true", help="Apply available stable update with rollback protection")
+    p_update.add_argument("--ref", type=str, help="Specific stable git tag or commit ref to apply")
+    p_update.add_argument("--json", action="store_true", help="Output update report as JSON")
+
+    # status
+    p_status = subparsers.add_parser("status", help="Show persistent self-healing state and escalation history")
+    p_status.add_argument("--json", action="store_true", help="Output state as JSON")
+
+    args = parser.parse_args()
+
+    if not args.command:
+        return cmd_audit(argparse.Namespace(json=False))
+
+    if args.command == "audit":
+        return cmd_audit(args)
+    elif args.command == "fix":
+        return cmd_fix(args)
+    elif args.command == "update":
+        return cmd_update(args)
+    elif args.command == "status":
+        return cmd_status(args)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+

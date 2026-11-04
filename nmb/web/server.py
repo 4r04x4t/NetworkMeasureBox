@@ -49,6 +49,13 @@ from nmb.netd.os_detector import detect_os_info, get_dynamic_interfaces, check_u
 from nmb.netd.explorer import scan_network_devices, get_cached_devices, get_explorer_summary
 from nmb.netd.guest_wifi import scan_wifi_networks, get_guest_wifi_status, connect_guest_wifi, disconnect_guest_wifi, sync_guest_wifi_connection
 from nmb.netd.wifi import detect_wifi_capabilities, get_wifi_status
+from nmb.common.heal import (
+    audit_system_health,
+    auto_heal_all,
+    check_stable_updates,
+    apply_stable_update,
+    load_heal_state,
+)
 from nmb.report.csv_export import export_ping_summary_csv, export_speedtests_csv
 from nmb.report.dossier import generate_html_dossier
 from nmb.report.llm_bundle import generate_llm_diagnostic_bundle
@@ -427,6 +434,19 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         if path in ("/api/adblock/update/status", "/api/adblock/gravity/status"):
             self._send_json(get_gravity_update_status())
+            return
+
+        # Self-Healing & Component Health Audit Endpoints
+        if path == "/api/heal/status":
+            self._send_json({
+                "status": "ok",
+                "audit": audit_system_health(),
+                "state": load_heal_state(),
+            })
+            return
+
+        if path == "/api/heal/updates":
+            self._send_json(check_stable_updates())
             return
 
         # 12. Distro-Aware System Updates
@@ -1789,6 +1809,27 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 13. System Upgrade Trigger
         if path == "/api/system/updates/upgrade":
             res = trigger_system_upgrade()
+            self._send_json(res)
+            return
+
+        # Automated Self-Healing & Stable Update Application Endpoints
+        if path == "/api/heal/audit":
+            self._send_json({
+                "status": "ok",
+                "audit": audit_system_health(),
+            })
+            return
+
+        if path == "/api/heal/fix":
+            tier = body_json.get("tier") if isinstance(body_json, dict) else None
+            tier_val = int(tier) if tier in (1, 2, 3) else None
+            res = auto_heal_all(force_tier=tier_val)
+            self._send_json(res)
+            return
+
+        if path == "/api/heal/update/apply":
+            ref = body_json.get("ref") if isinstance(body_json, dict) else None
+            res = apply_stable_update(target_ref=ref)
             self._send_json(res)
             return
 

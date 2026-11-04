@@ -314,7 +314,7 @@ if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
 fi
 
 # Symlink executables into /usr/local/bin
-for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper nmb-vpn nmb-wifi nmb-iperf nmb-ooni nmb-invasive-log nmb-factory-reset nmb-driver nmb-adblock; do
+for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper nmb-vpn nmb-wifi nmb-iperf nmb-ooni nmb-invasive-log nmb-factory-reset nmb-driver nmb-adblock nmb-heal; do
     if [ -f "$INSTALL_DIR/bin/$b" ]; then
         ln -sf "$INSTALL_DIR/bin/$b" "/usr/local/bin/$b"
     fi
@@ -346,11 +346,11 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
 
     info "Enabling and starting NetworkMeasureBox systemd target..."
     systemctl enable nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service nmb-adblock.service
-    systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer
+    systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
     systemctl enable nmb.target
 
     systemctl restart nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service nmb-adblock.service
-    systemctl start nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer
+    systemctl start nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
 
 elif [ "$INIT_SYSTEM" = "openrc" ]; then
     info "Installing OpenRC init scripts to /etc/init.d/..."
@@ -417,6 +417,7 @@ cat <<EOF
     nmb-factory-reset- Factory reset utility
     nmb-driver       - Hardware network adapter & kernel firmware scanner/installer
     nmb-adblock/pihole- Built-in OS-independent DNS ad-blocker & sinkhole engine
+    nmb-heal         - Automated self-healing engine & stable updates with rollback
 
   Next Steps:
     1. Open \033[1;34mhttp://${HOST_IP}\033[0m in your browser to access the dashboard.

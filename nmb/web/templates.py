@@ -4067,6 +4067,7 @@ def get_dashboard_html() -> str:
         <button class="router-subtab-btn" id="btn-rsub-kernel" onclick="switchRouterSubtab('rsub-kernel')" data-i18n="subtab_kernel">⚡ Kernel Performance</button>
         <button class="router-subtab-btn" id="btn-rsub-system" onclick="switchRouterSubtab('rsub-system')" data-i18n="subtab_system">🛡️ Firewall & System</button>
         <button class="router-subtab-btn" id="btn-rsub-backup" onclick="switchRouterSubtab('rsub-backup')" data-i18n="subtab_backup">📦 Backup & Restore</button>
+        <button class="router-subtab-btn" id="btn-rsub-heal" onclick="switchRouterSubtab('rsub-heal')" data-i18n="subtab_heal">🔄 Self-Healing & Updates</button>
       </div>
 
       <!-- SUBTAB 1: WAN / INTERNET -->
@@ -5614,6 +5615,131 @@ def get_dashboard_html() -> str:
             <button class="btn-danger" style="background: #dc2626; border-color: #ef4444; font-size: 12.5px; padding: 8px 18px; color: white;" onclick="executeFactoryReset()" data-i18n="backup_reset_btn">
               ⚠️ Execute Factory Reset
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 12: SELF-HEALING & STABLE UPDATES -->
+      <div id="rsub-heal" class="router-subtab-content">
+        <!-- Header Overview Card -->
+        <div class="router-section-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+                <span>🔄</span>
+                <span data-i18n="heal_title">Automated Self-Healing & Stable Update Engine</span>
+              </div>
+              <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.5;" data-i18n="heal_desc">
+                Proactive self-correction mechanism that monitors, repairs, and replaces missing or damaged components across multiple escalation tiers, with automated safety rollback on stable updates.
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="triggerHealAudit()" data-i18n="heal_btn_audit">
+                🔍 Run Health Audit
+              </button>
+              <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #0284c7; border-color: #38bdf8;" onclick="triggerAutoHeal(null)" data-i18n="heal_btn_fix">
+                🛠️ Auto-Repair Components
+              </button>
+            </div>
+          </div>
+
+          <!-- Overall Status Summary Bar -->
+          <div style="margin-top: 16px; padding: 12px 16px; background: rgba(15, 23, 42, 0.6); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">System Health:</span>
+              <span id="heal-overall-badge" class="badge-pill" style="font-size: 12px; padding: 4px 10px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669;">
+                ✔ HEALTHY
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px; font-size: 12px; color: #94a3b8;">
+              <div>Clean Streak: <strong id="heal-streak-count" style="color: #38bdf8;">0</strong> runs</div>
+              <div>Last Audit: <span id="heal-last-audit-time" style="color: #cbd5e1;">Never</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2 Column Section: Health Matrix & Updates -->
+        <div class="router-row-2">
+          <!-- Card 1: Adaptive Escalation & State Tracking -->
+          <div class="router-section-card">
+            <div style="font-size: 14px; font-weight: 700; color: #f59e0b; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span>📈</span>
+              <span data-i18n="heal_card_state">Adaptive Escalation & Failure Tracking</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;">
+              Automatically escalates recovery aggressiveness when a component fails repeatedly ("sokadik alkalom után"):
+              <span style="color: #cbd5e1;">Tier 1 (Soft fix)</span> ➔ <span style="color: #f59e0b;">Tier 2 (Reinstall / Recompile)</span> ➔ <span style="color: #ef4444;">Tier 3 (Aggressive Dpkg / Backup Restore)</span>.
+            </p>
+            <div id="heal-escalation-container" style="max-height: 240px; overflow-y: auto;">
+              <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 20px;">Loading escalation tracking state...</div>
+            </div>
+          </div>
+
+          <!-- Card 2: Stable Software Updates & Safe Rollback -->
+          <div class="router-section-card">
+            <div style="font-size: 14px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span>🚀</span>
+              <span data-i18n="heal_card_update">Stable Software Updates & Auto-Rollback</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 14px;">
+              Checks upstream stable versions and safely applies them. Every update automatically creates an atomic pre-update backup snapshot and executes the automated test suite. If tests fail, the system rolls back instantly.
+            </p>
+            <div style="background: rgba(15, 23, 42, 0.5); padding: 12px 14px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 14px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px;">
+                <span style="color: var(--text-muted);">Current Installed Version:</span>
+                <strong id="heal-cur-ver" style="color: #ffffff;">2.4.0</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px;">
+                <span style="color: var(--text-muted);">Latest Upstream Stable:</span>
+                <strong id="heal-avail-ver" style="color: #38bdf8;">2.4.0</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                <span style="color: var(--text-muted);">Stability Verification:</span>
+                <span id="heal-stability-tag" class="badge-pill" style="font-size: 11px; padding: 2px 8px; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669;">
+                  ✔ STABLE RELEASE
+                </span>
+              </div>
+            </div>
+            <div id="heal-update-msg" style="font-size: 12px; color: #94a3b8; margin-bottom: 14px; line-height: 1.4;">
+              System is running the verified stable software release.
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="checkStableUpdates(true)" data-i18n="heal_btn_check_up">
+                🔄 Check for Updates
+              </button>
+              <button id="btn-apply-update" class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #9333ea; border-color: #a855f7;" onclick="applyStableUpdate()" data-i18n="heal_btn_apply_up">
+                🚀 Apply Stable Update
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Full Width Card: Detailed Component Health Table -->
+        <div class="router-section-card">
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span>📋</span>
+              <span data-i18n="heal_card_health">System & Component Health Status</span>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="triggerAutoHeal(1)">Force Tier 1 Fix</button>
+              <button class="btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="triggerAutoHeal(2)">Force Tier 2 Fix</button>
+              <button class="btn-secondary" style="font-size: 11px; padding: 4px 8px; border-color: #ef4444; color: #f87171;" onclick="triggerAutoHeal(3)">Force Tier 3 Fix</button>
+            </div>
+          </div>
+          <div class="table-container" style="max-height: 480px; overflow-y: auto;">
+            <table class="router-table" style="width: 100%; font-size: 12px;">
+              <thead>
+                <tr>
+                  <th style="width: 25%;" data-i18n="heal_col_component">Component / Subsystem</th>
+                  <th style="width: 12%;" data-i18n="heal_col_status">Status</th>
+                  <th data-i18n="heal_col_details">Diagnostic Details</th>
+                </tr>
+              </thead>
+              <tbody id="heal-components-tbody">
+                <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 24px;">Click 'Run Health Audit' to inspect system status.</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -8186,6 +8312,10 @@ def get_dashboard_html() -> str:
     if (subtabId === 'rsub-backup') {
       loadBackupsList();
     }
+    if (subtabId === 'rsub-heal') {
+      loadHealStatus();
+      checkStableUpdates();
+    }
   }
 
   // WAN Protocol change handler (DHCP, PPPoE, Static)
@@ -9324,6 +9454,245 @@ def get_dashboard_html() -> str:
     } catch (e) {
       showToast(t('error', 'Error: ') + e);
       if (msgEl) msgEl.innerText = t('network_error', 'Network error: ') + e;
+    }
+  }
+
+  // =========================================================================
+  // Self-Healing, Multi-Tier Escalation & Stable Updates Engine
+  // =========================================================================
+  async function loadHealStatus() {
+    try {
+      const res = await fetch('/api/heal/status');
+      if (!res.ok) return;
+      const data = await res.json();
+      const audit = data.audit || {};
+      const state = data.state || {};
+
+      // 1. Overall status badge
+      const badge = document.getElementById('heal-overall-badge');
+      if (badge) {
+        const st = audit.overall_status || 'unknown';
+        if (st === 'healthy') {
+          badge.className = 'badge-pill';
+          badge.style.background = 'rgba(16, 185, 129, 0.15)';
+          badge.style.color = '#34d399';
+          badge.style.border = '1px solid #059669';
+          badge.textContent = '✔ HEALTHY';
+        } else if (st === 'warning') {
+          badge.className = 'badge-pill';
+          badge.style.background = 'rgba(245, 158, 11, 0.15)';
+          badge.style.color = '#fbbf24';
+          badge.style.border = '1px solid #d97706';
+          badge.textContent = '▲ WARNING (' + audit.warning_count + ')';
+        } else {
+          badge.className = 'badge-pill';
+          badge.style.background = 'rgba(239, 68, 68, 0.15)';
+          badge.style.color = '#f87171';
+          badge.style.border = '1px solid #dc2626';
+          badge.textContent = '✖ CRITICAL ISSUES (' + audit.critical_count + ')';
+        }
+      }
+
+      // 2. Streaks and timestamps
+      const streakEl = document.getElementById('heal-streak-count');
+      if (streakEl) streakEl.textContent = state.consecutive_clean_audits || 0;
+
+      const timeEl = document.getElementById('heal-last-audit-time');
+      if (timeEl && audit.timestamp) {
+        timeEl.textContent = new Date(audit.timestamp * 1000).toLocaleTimeString();
+      }
+
+      // 3. Components table
+      const tbody = document.getElementById('heal-components-tbody');
+      if (tbody && audit.components) {
+        let html = '';
+        const catTitles = {
+          binaries: '⚙️ External & Compiled Binaries',
+          symlinks: '🔗 CLI Symlinks (/usr/local/bin)',
+          database: '💾 SQLite Database & Tables',
+          config: '📄 System Configuration',
+          filesystem: '📁 Filesystem Permissions',
+          services: '🐧 Systemd Units & Timers',
+          network: '🌐 Network Stack & DNS',
+        };
+
+        for (const [catKey, catTitle] of Object.entries(catTitles)) {
+          const catData = audit.components[catKey];
+          if (!catData || !catData.items) continue;
+          html += `<tr style="background: rgba(255, 255, 255, 0.03);"><td colspan="3" style="font-weight: 700; color: #38bdf8; padding: 8px 12px;">${catTitle}</td></tr>`;
+          for (const item of catData.items) {
+            let statusPill = '';
+            if (item.status === 'ok') {
+              statusPill = '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; font-size: 11px;">✔ OK</span>';
+            } else if (item.status === 'warning') {
+              statusPill = '<span class="badge-pill" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #d97706; font-size: 11px;">▲ WARN</span>';
+            } else {
+              statusPill = '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #dc2626; font-size: 11px;">✖ FAIL</span>';
+            }
+            html += `<tr>
+              <td style="font-weight: 600; color: #ffffff; padding: 7px 12px;">${escapeHtml(item.label || item.id)}</td>
+              <td style="padding: 7px 12px;">${statusPill}</td>
+              <td style="font-size: 11.5px; color: ${item.status === 'ok' ? '#94a3b8' : '#fca5a5'}; padding: 7px 12px;">${escapeHtml(item.message || '')}</td>
+            </tr>`;
+          }
+        }
+        tbody.innerHTML = html;
+      }
+
+      // 4. Escalation tracking container
+      const escContainer = document.getElementById('heal-escalation-container');
+      if (escContainer) {
+        const comps = state.components || {};
+        const entries = Object.values(comps);
+        if (entries.length === 0) {
+          escContainer.innerHTML = '<div style="font-size: 12px; color: #34d399; text-align: center; padding: 20px;">✔ No recurring component failures tracked. System baseline clean.</div>';
+        } else {
+          let escHtml = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+          for (const c of entries) {
+            const isResolved = c.resolved;
+            const tierBadge = c.last_tier_attempted ? `<span class="badge-pill" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #d97706; font-size: 10px;">Tier ${c.last_tier_attempted}</span>` : '';
+            const statusBadge = isResolved
+              ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; font-size: 10px;">RESOLVED</span>'
+              : '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #dc2626; font-size: 10px;">ACTIVE ISSUE</span>';
+            escHtml += `<div style="padding: 8px 10px; background: rgba(0,0,0,0.25); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); font-size: 11.5px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <strong style="color: #ffffff;">${escapeHtml(c.label || c.id)}</strong>
+                <div style="display: flex; gap: 4px;">${tierBadge}${statusBadge}</div>
+              </div>
+              <div style="color: #94a3b8; font-size: 11px;">Consecutive failures: <strong style="color: ${c.consecutive_failures > 1 ? '#f87171' : '#fbbf24'};">${c.consecutive_failures || 0}</strong> | Total: ${c.total_failures || 0}</div>
+              ${c.last_actions && c.last_actions.length ? `<div style="color: #38bdf8; font-size: 10.5px; margin-top: 2px;">Last action: ${escapeHtml(c.last_actions[c.last_actions.length - 1])}</div>` : ''}
+            </div>`;
+          }
+          escHtml += '</div>';
+          escContainer.innerHTML = escHtml;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading self-heal status:', e);
+    }
+  }
+
+  async function triggerHealAudit() {
+    showToast('Running comprehensive component health audit...');
+    try {
+      const res = await fetch('/api/heal/audit', { method: 'POST' });
+      if (!res.ok) {
+        showToast('Health audit failed.');
+        return;
+      }
+      showToast('Health audit complete.');
+      await loadHealStatus();
+    } catch (e) {
+      showToast('Error running audit: ' + e);
+    }
+  }
+
+  async function triggerAutoHeal(tier) {
+    const tierMsg = tier ? (' (Forcing Escalation Tier ' + tier + ')') : ' with adaptive escalation';
+    showToast('Executing automated self-healing' + tierMsg + '...');
+    try {
+      const res = await fetch('/api/heal/fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier: tier })
+      });
+      const data = await res.json();
+      const repairs = data.repairs_executed || [];
+      if (repairs.length > 0) {
+        alert('Self-Healing Completed:\n\n' + repairs.join('\n'));
+      } else {
+        showToast('Self-healing check completed: All components healthy.');
+      }
+      await loadHealStatus();
+    } catch (e) {
+      showToast('Error during self-healing: ' + e);
+    }
+  }
+
+  async function checkStableUpdates(showToastAlert) {
+    try {
+      const res = await fetch('/api/heal/updates');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const curEl = document.getElementById('heal-cur-ver');
+      if (curEl) curEl.textContent = data.current_version || '2.4.0';
+
+      const availEl = document.getElementById('heal-avail-ver');
+      if (availEl) availEl.textContent = data.available_version || data.current_version || '2.4.0';
+
+      const tagEl = document.getElementById('heal-stability-tag');
+      if (tagEl) {
+        if (data.is_stable) {
+          tagEl.style.background = 'rgba(16, 185, 129, 0.15)';
+          tagEl.style.color = '#34d399';
+          tagEl.style.border = '1px solid #059669';
+          tagEl.textContent = '✔ STABLE RELEASE';
+        } else {
+          tagEl.style.background = 'rgba(239, 68, 68, 0.15)';
+          tagEl.style.color = '#f87171';
+          tagEl.style.border = '1px solid #dc2626';
+          tagEl.textContent = '▲ UNSTABLE / PRE-RELEASE';
+        }
+      }
+
+      const msgEl = document.getElementById('heal-update-msg');
+      if (msgEl) {
+        let msg = data.message || 'System software is up to date.';
+        if (data.changelog && data.changelog.length) {
+          msg += '<br><span style="color: #38bdf8; font-weight: 600;">Recent commits:</span><br>' + data.changelog.slice(0, 3).map(c => '• ' + escapeHtml(c)).join('<br>');
+        }
+        msgEl.innerHTML = msg;
+      }
+
+      const btnApply = document.getElementById('btn-apply-update');
+      if (btnApply) {
+        if (data.update_available && data.is_stable) {
+          btnApply.style.opacity = '1';
+          btnApply.style.cursor = 'pointer';
+          btnApply.disabled = false;
+        } else {
+          btnApply.style.opacity = '0.5';
+          btnApply.style.cursor = 'not-allowed';
+          btnApply.disabled = true;
+        }
+      }
+
+      if (showToastAlert) {
+        showToast(data.update_available ? 'Stable update available!' : 'System is already up to date.');
+      }
+    } catch (e) {
+      console.error('Error checking stable updates:', e);
+    }
+  }
+
+  async function applyStableUpdate() {
+    if (!confirm('Apply stable update with automatic safety rollback protection?\n\nAn atomic pre-update backup checkpoint will be created before applying. If automated tests fail, the system will roll back immediately.')) {
+      return;
+    }
+
+    showToast('Creating safety checkpoint and applying stable update...');
+    try {
+      const res = await fetch('/api/heal/update/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Update Applied Successfully!\n\nVersion: ' + data.new_version + '\nSafety Checkpoint: ' + data.checkpoint + '\n\nAll unit tests passed. Reloading dashboard...');
+        setTimeout(() => { window.location.reload(); }, 2000);
+      } else {
+        if (data.rolled_back) {
+          alert('⚠️ UPDATE VERIFICATION FAILED — AUTOMATIC ROLLBACK APPLIED!\n\nReason: ' + data.error + '\n\nSystem state and database were safely and automatically restored to checkpoint:\n' + data.checkpoint);
+        } else {
+          alert('Update failed: ' + (data.error || 'Unknown error'));
+        }
+        await loadHealStatus();
+        await checkStableUpdates(false);
+      }
+    } catch (e) {
+      showToast('Error applying update: ' + e);
     }
   }
 
