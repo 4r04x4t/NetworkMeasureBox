@@ -1908,7 +1908,7 @@ def get_dashboard_html() -> str:
     <button class="app-tab-btn" onclick="switchTab('tab-portscan')" data-i18n="tab_portscan">Port Neutrality</button>
     <button class="app-tab-btn" onclick="switchTab('tab-script')" data-i18n="tab_script">Measurement & Servers</button>
     <button class="app-tab-btn" onclick="switchTab('tab-syslog')" data-i18n="tab_syslog">🛠️ Developer & System Logs</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminál</button>
+    <button class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminal</button>
     <button class="app-tab-btn" onclick="switchTab('tab-info')" data-i18n="tab_router">🛠️ Router & System</button>
     <button class="app-tab-btn" onclick="switchTab('tab-llm')" data-i18n="tab_llm">🤖 AI Diagnostics (LLM)</button>
   </div>
@@ -1926,12 +1926,12 @@ def get_dashboard_html() -> str:
       <div style="display: flex; align-items: center; gap: 10px;">
         <span style="font-size: 20px;">⚠️</span>
         <div>
-          <b style="color: #fbbf24;" data-i18n="default_pass_warn_title">Biztonsági Figyelmeztetés / Security Notice:</b>
-          <div style="color: #cbd5e1; font-size: 13px;" data-i18n="default_pass_warn_desc">Az alapértelmezett 'admin' jelszó aktív. Kérjük, módosítsa a Beállítások menüben! (Default administrator credentials active. Please update in Settings.)</div>
+          <b style="color: #fbbf24;" data-i18n="default_pass_warn_title">Security Notice:</b>
+          <div style="color: #cbd5e1; font-size: 13px;" data-i18n="default_pass_warn_desc">Default administrator credentials active. Please update in Settings!</div>
         </div>
       </div>
       <button class="btn btn-secondary" onclick="switchTab('tab-config')" style="white-space: nowrap; font-size: 12px; padding: 6px 12px; border-color: #f59e0b; color: #fbbf24;" data-i18n="btn_change_password">
-        ⚙️ Jelszó Módosítása / Settings
+        ⚙️ Change Password / Settings
       </button>
     </div>
 
@@ -1939,12 +1939,12 @@ def get_dashboard_html() -> str:
     <div class="engine-selector-box">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <span style="font-weight: 700; font-size: 13.5px; color: #f1f5f9;" data-i18n="engine_select_title">🎯 Aktív Mérőmotor Kiválasztása (Active Engine):</span>
-          <span id="home-active-engine-badge" class="badge" style="background: rgba(2,132,199,0.25); color: #38bdf8; border: 1px solid #0284c7; font-weight: 700; font-size: 11.5px; padding: 3px 8px;">
-            ⚡ OOKLA AKTÍV
+          <span style="font-weight: 700; font-size: 13.5px; color: #f1f5f9;" data-i18n="engine_select_title">🎯 Select Active Measurement Engine:</span>
+          <span id="home-active-engine-badge" class="badge" style="background: rgba(2,132,199,0.25); color: #38bdf8; border: 1px solid #0284c7; font-weight: 700; font-size: 11.5px; padding: 3px 8px;" data-i18n="engine_ookla_badge">
+            ⚡ OOKLA ACTIVE
           </span>
         </div>
-        <span style="font-size: 12px; color: #94a3b8;" data-i18n="engine_select_desc">A kiválasztott motor azonnal érvényes a manuális indításra és az automata ütemezésre is</span>
+        <span style="font-size: 12px; color: #94a3b8;" data-i18n="engine_select_desc">Selected engine applies immediately to manual runs and automated schedule</span>
       </div>
 
       <div class="engine-pills">
@@ -1961,17 +1961,17 @@ def get_dashboard_html() -> str:
           <span>⚡</span> iPerf3 Bandwidth
         </div>
         <div class="engine-pill" id="pill-engine-all" onclick="selectEngine('all')">
-          <span>🏆</span> Összesített (Kombinált)
+          <span>🏆</span> <span data-i18n="engine_all_label">Combined (All Engines)</span>
         </div>
       </div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
-        <div class="engine-desc" id="engine-desc-text" style="margin: 0; flex: 1; min-width: 260px;">
-          ⚡ <b>Ookla Speedtest:</b> Globális szerverflotta, célzott szerverválasztás (#31717 2Connect), részletes letöltés/feltöltés és bufferbloat loaded latency.
+        <div class="engine-desc" id="engine-desc-text" style="margin: 0; flex: 1; min-width: 260px;" data-i18n-html="engine_desc_ookla">
+          ⚡ <b>Ookla Speedtest:</b> Global server fleet, selectable target server (e.g. 2Connect #31717), detailed download/upload and bufferbloat.
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 11.5px; color: #64748b;">(Beállítások szinkronizálva)</span>
-          <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchTab('tab-script')">⚙️ Ütemezés beállításai ➔</button>
+          <span style="font-size: 11.5px; color: #64748b;" data-i18n="settings_synced">(Settings synchronized)</span>
+          <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchTab('tab-script')" data-i18n="btn_schedule_settings">⚙️ Schedule Settings ➔</button>
         </div>
       </div>
     </div>
@@ -2004,7 +2004,7 @@ def get_dashboard_html() -> str:
         </div>
                   <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="script_interval">⏱️ Interval:</span>
           <select id="home-interval-select" class="form-input" style="width: auto; min-width: 170px; padding: 7px 12px; font-size: 13px;" onchange="onHomeIntervalSelect(this.value)">
-            <optgroup label="⏱️ Másodpercek (Seconds)" data-i18n-label="sched_group_seconds">
+            <optgroup label="⏱️ Seconds" data-i18n-label="sched_group_seconds">
               <option value="*/5 * * * * *">⚡ 5s (Ultra)</option>
               <option value="*/10 * * * * *">⚡ 10s</option>
               <option value="*/15 * * * * *">⚡ 15s</option>
@@ -2012,7 +2012,7 @@ def get_dashboard_html() -> str:
               <option value="*/30 * * * * *">⏱️ 30s</option>
               <option value="*/45 * * * * *">⏱️ 45s</option>
             </optgroup>
-            <optgroup label="🕒 Percek és órák (Minutes &amp; Hours)" data-i18n-label="sched_group_standard">
+            <optgroup label="🕒 Minutes &amp; Hours" data-i18n-label="sched_group_standard">
               <option value="*/1 * * * *">⚡ 1m (60s)</option>
               <option value="*/5 * * * *">⚡ 5m (&lt; 2%)</option>
               <option value="*/10 * * * *">⚡ 10m</option>
@@ -2705,8 +2705,8 @@ def get_dashboard_html() -> str:
             <div style="margin-bottom: 14px;">
               <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="wireguard_endpoint">Public Endpoint Host / DuckDNS:</label>
               <input type="text" id="wg-endpoint" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (DuckDNS or WAN IP / IPv6)">
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
-                💡 <strong>Tipp:</strong> Otthoni Wi-Fi-re csatlakozó telefonhoz/géphez a QR párosításkor a <em>Helyi LAN</em> opciót válassza! Távoli (mobilnetes) eléréshez a fő routeren (192.168.50.1) az 51820 UDP portot továbbítani kell.
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4;" data-i18n-html="wireguard_tip_box">
+                💡 <strong>Tip:</strong> For phones/laptops connected to home Wi-Fi, select <em>Local LAN</em> for QR pairing! For remote cellular access, forward UDP port 51820 on your main router.
               </div>
             </div>
             <div style="display: flex; gap: 8px;">
@@ -3337,32 +3337,32 @@ def get_dashboard_html() -> str:
           <div id="sched-interval-container">
             <label class="form-label" style="font-size: 12px;" data-i18n="script_interval">Measurement Interval:</label>
             <select id="sched-interval-select" class="form-input" onchange="onSchedIntervalChange(this.value); markSchedDirty();">
-              <optgroup label="⏱️ Másodperces gyakoriság (Seconds intervals)" data-i18n-label="sched_group_seconds">
-                <option value="*/5 * * * * *">⚡ 5 másodpercenként (5s ultra rapid)</option>
-                <option value="*/10 * * * * *">⚡ 10 másodpercenként (10s frequent)</option>
-                <option value="*/15 * * * * *">⏱️ 15 másodpercenként (15s)</option>
-                <option value="*/20 * * * * *">⏱️ 20 másodpercenként (20s)</option>
-                <option value="*/30 * * * * *">⏱️ 30 másodpercenként (30s)</option>
-                <option value="*/45 * * * * *">⏱️ 45 másodpercenként (45s)</option>
+              <optgroup label="⏱️ Seconds intervals" data-i18n-label="sched_group_seconds">
+                <option value="*/5 * * * * *" data-i18n="sched_opt_5s">⚡ Every 5 seconds (5s ultra rapid)</option>
+                <option value="*/10 * * * * *" data-i18n="sched_opt_10s">⚡ Every 10 seconds (10s frequent)</option>
+                <option value="*/15 * * * * *" data-i18n="sched_opt_15s">⏱️ Every 15 seconds (15s)</option>
+                <option value="*/20 * * * * *" data-i18n="sched_opt_20s">⏱️ Every 20 seconds (20s)</option>
+                <option value="*/30 * * * * *" data-i18n="sched_opt_30s">⏱️ Every 30 seconds (30s)</option>
+                <option value="*/45 * * * * *" data-i18n="sched_opt_45s">⏱️ Every 45 seconds (45s)</option>
               </optgroup>
-              <optgroup label="🕒 Normál gyakoriság (Minutes &amp; Hours)" data-i18n-label="sched_group_standard">
-                <option value="*/1 * * * *">⚡ 1 percenként (60s)</option>
-                <option value="*/5 * * * *">⚡ 5 percenként (5 min - &lt; 2% gate)</option>
-                <option value="*/10 * * * *">⚡ 10 percenként (10 min)</option>
-                <option value="*/15 * * * *">⏱️ 15 percenként (15 min)</option>
-                <option value="*/30 * * * *">⏱️ 30 percenként (30 min)</option>
-                <option value="0 * * * *">🕐 1 óránként (1 hour)</option>
-                <option value="0 */2 * * *">🕑 2 óránként (2 hours)</option>
-                <option value="0 */4 * * *">🕓 4 óránként (4 hours)</option>
-                <option value="0 */6 * * *" selected>🕕 6 óránként (6 hours - Recommended)</option>
-                <option value="0 */12 * * *">🕛 12 óránként (12 hours)</option>
-                <option value="0 3 * * *">🌙 24 óránként (Nightly at 03:00)</option>
-                <option value="custom">✏️ Egyedi / Custom (pl. 15s, 10m, cron)...</option>
+              <optgroup label="🕒 Standard intervals (Minutes &amp; Hours)" data-i18n-label="sched_group_standard">
+                <option value="*/1 * * * *" data-i18n="sched_opt_1m">⚡ Every 1 minute (60s)</option>
+                <option value="*/5 * * * *" data-i18n="sched_opt_5m">⚡ Every 5 minutes (5 min - &lt; 2% gate)</option>
+                <option value="*/10 * * * *" data-i18n="sched_opt_10m">⚡ Every 10 minutes (10 min)</option>
+                <option value="*/15 * * * *" data-i18n="sched_opt_15m">⏱️ Every 15 minutes (15 min)</option>
+                <option value="*/30 * * * *" data-i18n="sched_opt_30m">⏱️ Every 30 minutes (30 min)</option>
+                <option value="0 * * * *" data-i18n="sched_opt_1h">🕐 Every 1 hour (1 hour)</option>
+                <option value="0 */2 * * *" data-i18n="sched_opt_2h">🕑 Every 2 hours (2 hours)</option>
+                <option value="0 */4 * * *" data-i18n="sched_opt_4h">🕓 Every 4 hours (4 hours)</option>
+                <option value="0 */6 * * *" selected data-i18n="sched_opt_6h">🕕 Every 6 hours (6 hours - Recommended)</option>
+                <option value="0 */12 * * *" data-i18n="sched_opt_12h">🕛 Every 12 hours (12 hours)</option>
+                <option value="0 3 * * *" data-i18n="sched_opt_24h">🌙 Every 24 hours (Nightly at 03:00)</option>
+                <option value="custom" data-i18n="sched_opt_custom">✏️ Custom (e.g. 15s, 10m, cron)...</option>
               </optgroup>
             </select>
             <div id="sched-custom-cron-wrap" style="display: none; margin-top: 8px;">
-              <input type="text" id="sched-custom-cron-input" placeholder="pl. 10s (másodperc), 15 (perc) vagy */15 * * * * * (cron)" data-i18n-placeholder="sched_custom_placeholder" class="form-input" oninput="markSchedDirty()">
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;" data-i18n-html="sched_custom_hint">Másodpercben (pl. <code>10s</code>, <code>30s</code>), percben (pl. <code>5</code>, <code>20m</code>) vagy 5/6 mezős cron formátumban.</div>
+              <input type="text" id="sched-custom-cron-input" placeholder="e.g. 10s (seconds), 15 (minutes) or */15 * * * * * (cron)" data-i18n-placeholder="sched_custom_placeholder" class="form-input" oninput="markSchedDirty()">
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;" data-i18n-html="sched_custom_hint">In seconds (e.g. <code>10s</code>, <code>30s</code>), minutes (e.g. <code>5</code>, <code>20m</code>) or 5/6-field cron format.</div>
             </div>
           </div>
 
@@ -4217,29 +4217,29 @@ def get_dashboard_html() -> str:
         <div class="router-section-card" style="margin-top: 16px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
             <div>
-              <div style="font-size: 14px; font-weight: 700; color: #ffffff;" data-i18n="ua_title">🌐 HTTP Kliens és Headless User-Agent Kezelő</div>
-              <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;" data-i18n="ua_desc">Állítsd be vagy generálj mindig friss böngésző / headless kliens azonosítót a mérésekhez és lekérdezésekhez (Cloudflare, Ookla, GeoIP, API-k) a WAF és bot-blokkolás elkerülésére.</div>
+              <div style="font-size: 14px; font-weight: 700; color: #ffffff;" data-i18n="ua_title">🌐 HTTP Client &amp; Headless User-Agent Manager</div>
+              <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;" data-i18n="ua_desc">Configure or dynamically rotate browser / headless client headers for speedtests and probes (Cloudflare, Ookla, GeoIP, APIs) to avoid WAF and bot blocks.</div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="generateFreshUa('headless')" title="Dinamikus, modern Headless Chrome string előállítása">
-                🎲 <span data-i18n="ua_btn_fresh_headless">Friss Headless UA</span>
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="generateFreshUa('headless')" title="Generate dynamic, modern Headless Chrome string">
+                🎲 <span data-i18n="ua_btn_fresh_headless">Fresh Headless UA</span>
               </button>
-              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="generateFreshUa('chrome')" title="Valós asztali Chrome böngésző string előállítása">
-                💻 <span data-i18n="ua_btn_fresh_desktop">Friss Asztali Chrome</span>
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="generateFreshUa('chrome')" title="Generate real desktop Chrome browser string">
+                💻 <span data-i18n="ua_btn_fresh_desktop">Fresh Desktop Chrome</span>
               </button>
-              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="generateFreshUa('firefox')" title="Modern Firefox kliens string előállítása">
-                🦊 <span data-i18n="ua_btn_fresh_firefox">Friss Firefox</span>
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="generateFreshUa('firefox')" title="Generate modern Firefox client string">
+                🦊 <span data-i18n="ua_btn_fresh_firefox">Fresh Firefox</span>
               </button>
             </div>
           </div>
 
           <div class="router-row-2">
             <div class="form-group">
-              <label class="form-label" data-i18n="ua_mode_label">User-Agent Működési Mód:</label>
+              <label class="form-label" data-i18n="ua_mode_label">User-Agent Operating Mode:</label>
               <select id="cfg-ua-mode" class="form-input" onchange="onCfgUaModeChange(this.value)">
-                <option value="auto_fresh">⚡ Dinamikusan frissülő Headless kliens (Auto-Fresh / Automata rotáció)</option>
-                <option value="custom">✏️ Egyéni User-Agent megadása (Kézzel szerkeszthető)</option>
-                <optgroup label="Előre beállított modern profilok (Presets)">
+                <option value="auto_fresh" data-i18n="ua_mode_auto_fresh">⚡ Dynamic Headless Client (Auto-Fresh / Automatic Rotation)</option>
+                <option value="custom" data-i18n="ua_mode_custom">✏️ Custom User-Agent (Manual Edit)</option>
+                <optgroup label="Predefined Modern Profiles (Presets)" data-i18n-label="ua_group_presets">
                   <option value="headless_chrome_linux">🐧 Headless Chrome (Linux x86_64)</option>
                   <option value="headless_chrome_arm">🍓 Headless Chrome (ARM64 / aarch64 SBC)</option>
                   <option value="chrome_windows">💻 Google Chrome (Windows 11)</option>
@@ -4249,31 +4249,31 @@ def get_dashboard_html() -> str:
                   <option value="firefox_windows">🦊 Mozilla Firefox (Windows 11)</option>
                   <option value="safari_mac">🍏 Apple Safari (macOS)</option>
                   <option value="chrome_android">📱 Google Chrome Mobile (Android 14)</option>
-                  <option value="nmb_native">📦 Natív NetworkMeasureBox Kliens</option>
+                  <option value="nmb_native" data-i18n="ua_opt_nmb_native">📦 Native NetworkMeasureBox Client</option>
                 </optgroup>
               </select>
-              <div class="form-hint" id="cfg-ua-mode-hint">Az Auto-Fresh mód minden mérésnél friss, életszerű Headless Chrome azonosítót biztosít.</div>
+              <div class="form-hint" id="cfg-ua-mode-hint" data-i18n="ua_hint_auto_fresh">Auto-Fresh mode automatically generates a realistic, modern Headless Chrome identifier on each measurement.</div>
             </div>
             <div class="form-group">
-              <label class="form-label" data-i18n="ua_active_label">Hálózaton aktív User-Agent (Jelenlegi állapot):</label>
+              <label class="form-label" data-i18n="ua_active_label">Active Outbound User-Agent (Current State):</label>
               <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 11px; color: #93c5fd; overflow-wrap: break-word; word-break: break-all; min-height: 38px; display: flex; align-items: center; justify-content: space-between;">
-                <span id="cfg-ua-active-display">Betöltés...</span>
-                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 8px; margin-left: 8px; flex-shrink: 0;" onclick="copyActiveUa()" title="Másolás vágólapra">📋</button>
+                <span id="cfg-ua-active-display" data-i18n="loading">Loading...</span>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 8px; margin-left: 8px; flex-shrink: 0;" onclick="copyActiveUa()" title="Copy to clipboard">📋</button>
               </div>
-              <div class="form-hint">Ezt az azonosítót látják a szerverek az outbound HTTP mérések és lekérdezések során.</div>
+              <div class="form-hint" data-i18n="ua_active_hint">This is the exact User-Agent header remote servers see during speedtests and latency queries.</div>
             </div>
           </div>
 
           <div class="form-group" style="margin-top: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <label class="form-label" style="margin-bottom: 0;" data-i18n="ua_input_label">Szerkeszthető User-Agent Karakterlánc:</label>
+              <label class="form-label" style="margin-bottom: 0;" data-i18n="ua_input_label">Editable User-Agent String:</label>
               <div style="display: flex; gap: 6px;">
-                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="copyInputUa()">📋 <span data-i18n="btn_copy">Másolás</span></button>
-                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="resetUaToDefault()">🔄 <span data-i18n="btn_reset">Alaphelyzet</span></button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="copyInputUa()">📋 <span data-i18n="btn_copy">Copy</span></button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="resetUaToDefault()">🔄 <span data-i18n="btn_reset">Reset</span></button>
               </div>
             </div>
             <textarea id="cfg-user-agent" rows="2" class="form-input" style="font-family: monospace; font-size: 12px; resize: vertical;" placeholder="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/133.0.6943.126 Safari/537.36"></textarea>
-            <div class="form-hint" data-i18n="ua_input_hint">Egyéni módban tetszőleges fejléc megadható (pl. Puppeteer, Playwright, speciális headless böngésző vagy cURL).</div>
+            <div class="form-hint" data-i18n="ua_input_hint">In custom mode, enter any desired client header (e.g. Puppeteer, Playwright, cURL, or custom tester identifier).</div>
           </div>
         </div>
       </div>
@@ -4294,7 +4294,7 @@ def get_dashboard_html() -> str:
                 <option value="docsis">Cable TV / DOCSIS / Coaxial</option>
                 <option value="xdsl">xDSL (VDSL2 / ADSL2+)</option>
                 <option value="fwa">Cellular / 4G / 5G / Fixed Wireless (FWA)</option>
-                <option value="dialup">Telefonos modem / Dial-Up</option>
+                <option value="dialup" data-i18n="isp_opt_dialup">Dial-Up Modem</option>
                 <option value="satellite">Satellite (Starlink / Sat)</option>
                 <option value="ethernet">Dedicated Leased Line / Ethernet</option>
                 <option value="other">Other Network Type</option>
@@ -4662,38 +4662,38 @@ def get_dashboard_html() -> str:
             <div>
               <div style="font-size: 14.5px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px;">
                 <span>💾</span>
-                <span data-i18n="drive_config_title">Meghajtóból szerkeszthető konfiguráció (Drive Configuration)</span>
+                <span data-i18n="drive_config_title">Drive-Editable Configuration (Boot Partition)</span>
               </div>
               <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n="drive_config_desc">
-                A mérőbox FAT32 rendszerpartícióján lévő konfigurációs fájl közvetlenül szerkeszthető Windows, macOS vagy Linux számítógépen az SD kártya vagy pendrive bedugásakor.
+                Configuration file on the FAT32 boot partition editable directly in Windows, macOS, or Linux when SD card is inserted.
               </p>
             </div>
-            <span id="drive-cfg-status-badge" class="badge-pill" style="background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid #10b981;">
-              ✅ Aktív és szinkronizálva
+            <span id="drive-cfg-status-badge" class="badge-pill" style="background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid #10b981;" data-i18n="drive_status_synced">
+              ✅ Active and Synchronized
             </span>
           </div>
 
           <div style="background: rgba(15,23,42,0.6); padding: 12px 16px; border-radius: 6px; border: 1px solid #1e293b; margin-bottom: 14px; font-size: 12.5px;">
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 6px;">
-              <span style="color: #94a3b8;">Fizikai meghajtó fájl útvonal (Drive Path):</span>
+              <span style="color: #94a3b8;" data-i18n="drive_path_label">Physical Drive File Path:</span>
               <code id="drive-cfg-path" style="color: #38bdf8;">/boot/firmware/nmb.conf</code>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 6px;">
-              <span style="color: #94a3b8;">Rendszer belső útvonal (System Path):</span>
+              <span style="color: #94a3b8;" data-i18n="drive_sys_path_label">Internal System Path:</span>
               <code style="color: #cbd5e1;">/etc/nmb/nmb.conf</code>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 0; flex-wrap: wrap; gap: 6px;">
-              <span style="color: #94a3b8;">Automatikus kétirányú szinkronizálás:</span>
-              <span style="color: #10b981; font-weight: 600;">Bekapcsolva (Rendszerindításkor és Beállítások mentésekor)</span>
+              <span style="color: #94a3b8;" data-i18n="drive_auto_sync_label">Automated Bidirectional Sync:</span>
+              <span style="color: #10b981; font-weight: 600;" data-i18n="drive_auto_sync_enabled">Enabled (On boot and when saving Settings)</span>
             </div>
           </div>
 
           <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <button class="btn-primary" style="padding: 7px 16px; font-size: 12.5px;" onclick="syncDriveConfigNow()">
-              🔄 Szinkronizálás a meghajtóra most
+            <button class="btn-primary" style="padding: 7px 16px; font-size: 12.5px;" onclick="syncDriveConfigNow()" data-i18n="drive_btn_sync_now">
+              🔄 Sync to Drive Now
             </button>
-            <button class="btn-secondary" style="padding: 7px 16px; font-size: 12.5px;" onclick="execQuickTermCmd('cat /etc/nmb/nmb.conf'); switchTab('tab-terminal');">
-              📄 Konfiguráció megtekintése a Terminálban
+            <button class="btn-secondary" style="padding: 7px 16px; font-size: 12.5px;" onclick="execQuickTermCmd('cat /etc/nmb/nmb.conf'); switchTab('tab-terminal');" data-i18n="drive_btn_view_term">
+              📄 View Config in Terminal
             </button>
             <span id="drive-sync-msg" style="font-size: 12px; color: #94a3b8;"></span>
           </div>
@@ -4704,19 +4704,19 @@ def get_dashboard_html() -> str:
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
             <div style="font-size: 14.5px; font-weight: 700; color: #f87171; display: flex; align-items: center; gap: 8px;">
               <span>⚠️</span>
-              <span data-i18n="factory_reset_title">Gyári beállítások visszaállítása (Factory Reset)</span>
+              <span data-i18n="factory_reset_title">⚠️ Factory Reset / Restore Defaults</span>
             </div>
           </div>
           <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;" data-i18n="factory_reset_desc">
-            Visszaállítja a mérőboxot a tiszta gyári alapbeállításokra és leállítja az egyedi VPN-eket. A folyamat előtt egy automatikus biztonsági mentési ellenőrzőpont készül, így az adatok biztonságban maradnak.
+            Revert device settings to pristine defaults. An automated safety backup checkpoint is created first.
           </p>
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #cbd5e1; cursor: pointer;">
               <input type="checkbox" id="sys-reset-keep-db" checked style="accent-color: #38bdf8;">
-              <span>Mérési előzmények megőrzése (SQLite adatbázis megmarad)</span>
+              <span data-i18n="factory_reset_keep_db">Preserve measurement history (SQLite database retained)</span>
             </label>
-            <button class="btn-danger" style="background: #dc2626; border-color: #ef4444; font-size: 12.5px; padding: 8px 18px; color: white;" onclick="executeFactoryResetFromSettings()">
-              ⚠️ Gyári visszaállítás indítása (Factory Reset)
+            <button class="btn-danger" style="background: #dc2626; border-color: #ef4444; font-size: 12.5px; padding: 8px 18px; color: white;" onclick="executeFactoryResetFromSettings()" data-i18n="factory_reset_btn">
+              ⚠️ Initiate Factory Reset
             </button>
           </div>
         </div>
@@ -4869,24 +4869,24 @@ def get_dashboard_html() -> str:
             <div>
               <div style="font-size: 15px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px;">
                 <span>🩺</span>
-                <span data-i18n="invasive_log_title">Mélyszintű Rendszerdiagnosztika & AI Fejlesztői Log</span>
+                <span data-i18n="invasive_log_title">Deep System Diagnostics &amp; AI Developer Snapshot</span>
               </div>
               <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; max-width: 900px;" data-i18n="invasive_log_desc">
-                Folyamatosan frissülő, részletes mélyszintű rendszer-pillanatkép (hardver telemetria, aktív socketek, hálózati interfész hiba-statisztikák, kernel útvonalak, SQLite épség és hibanaplók). Fizikailag nem elérhető eszköz esetén ez a napló közvetlenül átadható a fejlesztőnek / AI asszisztensnek a munka folytatásához. A fájl automatikusan kiíródik a FAT32 boot partícióra is, így kártyaolvasóval is kimenthető.
+                Continuously updated low-level system snapshot (hardware telemetry, active sockets, routes, interfaces, Ookla anti-ban circuit breaker, crash trap reports).
               </p>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <a href="/api/dev/diagnostic-bundle.tar.gz" download="nmb_diagnostic_bundle.tar.gz" class="btn-primary" style="font-size: 12px; padding: 7px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; background: #059669; border-color: #10b981;">
-                📦 Teljes Csomag (.tar.gz)
+              <a href="/api/dev/diagnostic-bundle.tar.gz" download="nmb_diagnostic_bundle.tar.gz" class="btn-primary" style="font-size: 12px; padding: 7px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; background: #059669; border-color: #10b981;" data-i18n="btn_invasive_bundle">
+                📦 Diagnostic Bundle (.tar.gz)
               </a>
               <a href="/api/dev/invasive-log.md" download="nmb_invasive_dev_snapshot.md" class="btn-primary" style="font-size: 12px; padding: 7px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" data-i18n="btn_invasive_download">
-                📥 Fejlesztői Log Letöltése (.md)
+                📥 Download Dev Log (.md)
               </a>
               <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="copyInvasiveLog()" data-i18n="btn_invasive_copy">
-                📋 Log Másolása
+                📋 Copy Log
               </button>
               <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="refreshInvasiveLog()" data-i18n="btn_invasive_refresh">
-                🔄 Frissítés
+                🔄 Refresh
               </button>
             </div>
           </div>
@@ -4895,51 +4895,51 @@ def get_dashboard_html() -> str:
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px;">
             <!-- Wired Priority Status -->
             <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_cable_status">Mérési Interfész Elsőbbség:</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_cable_status">Ethernet Cable Link &amp; Routing Priority:</div>
               <div id="diag-cable-badge" style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
-                <span>🔌 <span id="diag-cable-txt">Ellenőrzés...</span></span>
-                <button class="btn-secondary" style="font-size: 10px; padding: 3px 8px;" onclick="enforceWiredPriority()">Prioritás</button>
+                <span>🔌 <span id="diag-cable-txt" data-i18n="invasive_cable_checking">Checking...</span></span>
+                <button class="btn-secondary" style="font-size: 10px; padding: 3px 8px;" onclick="enforceWiredPriority()" data-i18n="btn_enforce_priority">Enforce Priority</button>
               </div>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" id="diag-cable-sub">Bedugott kábel esetén a vezetékes kapcsolat szigorúan elsőbbséget élvez</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" id="diag-cable-sub" data-i18n="invasive_cable_sub_wired">Wired connection strictly prioritized at routing metric 50.</div>
             </div>
 
             <!-- Ookla Anti-Ban Status -->
             <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_antiban_status">Ookla Tiltásvédelem & Karantén:</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_antiban_status">Ookla Anti-Ban &amp; Server Quarantine:</div>
               <div id="diag-antiban-badge" style="font-size: 14px; font-weight: 700; color: #10b981; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
-                <span>🛡️ <span id="diag-antiban-txt">Aktív (0 szerver karanténban)</span></span>
-                <button class="btn-secondary" style="font-size: 10px; padding: 3px 8px;" onclick="clearOoklaQuarantine()" data-i18n="btn_clear_quarantine">Karantén törlése</button>
+                <span>🛡️ <span id="diag-antiban-txt" data-i18n="invasive_antiban_healthy">Active (0 servers quarantined - Healthy)</span></span>
+                <button class="btn-secondary" style="font-size: 10px; padding: 3px 8px;" onclick="clearOoklaQuarantine()" data-i18n="btn_clear_quarantine">Clear Quarantined Servers</button>
               </div>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">429-es hibánál automatikus szervercsere és RTR/Cloudflare tartalék</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" data-i18n="invasive_antiban_sub">Automatic server rotation and RTR/Cloudflare failover upon HTTP 429 rate limit.</div>
             </div>
 
             <!-- Boot Partition Mirror Status -->
             <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_boot_mirror">FAT32 Boot Tükrözés:</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_boot_mirror">FAT32 Boot Mirror:</div>
               <div style="font-size: 14px; font-weight: 700; color: #fbbf24; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
                 <span>💾</span> <span id="diag-boot-txt">/boot/firmware/nmb_invasive_dev_snapshot.md</span>
               </div>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Közvetlenül elérhető PC kártyaolvasóval ha a hálózat nem működne</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" data-i18n="invasive_boot_mirror_sub">Directly accessible via PC card reader if device cannot boot or connect to network.</div>
             </div>
 
             <!-- Crash Reports Status -->
             <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
-              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Python Összeomlási Események:</div>
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_crash_title">Python Crash Interceptor:</div>
               <div id="diag-crash-badge" style="font-size: 14px; font-weight: 700; color: #10b981; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
-                <span>💥 <span id="diag-crash-txt">0 hiba rögzítve</span></span>
-                <button id="btn-clear-crashes" class="btn-secondary" style="font-size: 10px; padding: 3px 8px; display: none;" onclick="clearCrashReports()">Törlés</button>
+                <span>💥 <span id="diag-crash-txt" data-i18n="invasive_crash_clean">0 errors recorded (Clean)</span></span>
+                <button id="btn-clear-crashes" class="btn-secondary" style="font-size: 10px; padding: 3px 8px; display: none;" onclick="clearCrashReports()" data-i18n="btn_clear_crashes">Clear</button>
               </div>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Váratlan hibánál a helyi változókat is elmenti a boot partícióra</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" data-i18n="invasive_crash_sub">Introspects call stack and local variables (with credentials redacted) on unexpected exceptions.</div>
             </div>
           </div>
 
           <!-- Diagnostic Preview Box -->
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 12px; font-weight: 600; color: #94a3b8;" data-i18n="invasive_preview_label">Élő Mélyszintű Diagnosztikai Betekintő (Markdown Snippet):</span>
+              <span style="font-size: 12px; font-weight: 600; color: #94a3b8;" data-i18n="invasive_preview_label">Live Deep Developer Snapshot (Markdown Preview):</span>
               <span id="invasive-last-updated" style="font-size: 11px; color: var(--text-muted); font-family: monospace;"></span>
             </div>
-            <pre id="invasive-log-preview" style="background: #0b1120; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; max-height: 320px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">Mélyszintű diagnosztikai pillanatkép betöltése...</pre>
+            <pre id="invasive-log-preview" style="background: #0b1120; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; max-height: 320px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;" data-i18n="invasive_loading">Loading deep system diagnostic snapshot...</pre>
           </div>
         </div>
       </div>
@@ -5122,20 +5122,20 @@ def get_dashboard_html() -> str:
     <div class="app-box">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
         <div>
-          <div class="section-subtitle" style="margin: 0;" data-i18n="cli_terminal_title">💻 Linux Command Line Interface (CLI Terminál)</div>
+          <div class="section-subtitle" style="margin: 0;" data-i18n="cli_terminal_title">💻 Linux Command Line Interface (CLI Terminal)</div>
           <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;" data-i18n="cli_terminal_desc">
-            Interaktív webes shell terminál a mérőbox teljes körű diagnosztikájához, hálózati ellenőrzéséhez és parancssori vezérléséhez.
+            Interactive web shell terminal for comprehensive box diagnostics, network troubleshooting, and CLI management.
           </p>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="copyTerminalOutput()">📋 Kimenet másolása</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="clearTerminalScreen()">🧹 Képernyő törlése</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="copyTerminalOutput()" data-i18n="btn_copy">📋 Copy Output</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="clearTerminalScreen()" data-i18n="btn_clear">🧹 Clear Screen</button>
         </div>
       </div>
 
       <!-- Quick Action Buttons -->
       <div style="margin-bottom: 14px;">
-        <div style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">⚡ Gyors diagnosztikai parancsok (Quick Shortcuts):</div>
+        <div style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;" data-i18n="terminal_shortcuts_title">⚡ Quick Diagnostic Shortcuts:</div>
         <div class="cli-quick-btns">
           <button class="cli-quick-btn" onclick="execQuickTermCmd('ip -br a')">ip -br a</button>
           <button class="cli-quick-btn" onclick="execQuickTermCmd('ip route')">ip route</button>
@@ -5171,8 +5171,8 @@ def get_dashboard_html() -> str:
 
         <form id="cli-term-form" onsubmit="submitTerminalCmd(event)" class="cli-input-row">
           <span class="cli-prompt-lbl">nmb@box:~$</span>
-          <input type="text" id="cli-term-input" class="cli-input-field" placeholder="Írj be egy Linux shell parancsot (pl. ip a, ping -c 3 8.8.8.8, hostapd_cli status) és nyomj Entert..." autocomplete="off" spellcheck="false">
-          <button type="submit" id="btn-term-run" class="btn-primary" style="padding: 6px 16px; font-size: 12px;">▶️ Futtatás</button>
+          <input type="text" id="cli-term-input" class="cli-input-field" placeholder="Enter a Linux shell command (e.g. ip a, ping -c 3 8.8.8.8, hostapd_cli status) and press Enter..." data-i18n-placeholder="terminal_placeholder" autocomplete="off" spellcheck="false">
+          <button type="submit" id="btn-term-run" class="btn-primary" style="padding: 6px 16px; font-size: 12px;" data-i18n="btn_run">▶️ Run</button>
         </form>
       </div>
     </div>
@@ -5246,6 +5246,19 @@ def get_dashboard_html() -> str:
     });
     if (typeof cachedGuestWifiStatus !== 'undefined' && cachedGuestWifiStatus) {
       renderGuestWifiStatus(cachedGuestWifiStatus);
+    }
+    if (typeof selectedEngine !== 'undefined' && typeof selectEngine === 'function') {
+      selectEngine(selectedEngine, true);
+    }
+    const uaModeSel = document.getElementById('cfg-ua-mode');
+    if (uaModeSel && typeof onCfgUaModeChange === 'function') {
+      onCfgUaModeChange(uaModeSel.value);
+    }
+    if (typeof updateWgQrTip === 'function') {
+      updateWgQrTip();
+    }
+    if (typeof checkAntiBanAndInterfaceStatus === 'function') {
+      checkAntiBanAndInterfaceStatus();
     }
   }
 
@@ -5910,13 +5923,13 @@ def get_dashboard_html() -> str:
     const activeBadge = document.getElementById('home-active-engine-badge');
     if (activeBadge) {
       const labels = {
-        ookla: '⚡ OOKLA AKTÍV',
-        cloudflare: '☁️ CLOUDFLARE AKTÍV',
-        rtr: '🇦🇹 RTR-NETTEST AKTÍV',
-        iperf3: '⚡ IPERF3 AKTÍV',
-        all: '🏆 ÖSSZESÍTETT (KOMBINÁLT) AKTÍV'
+        ookla: t('engine_ookla_badge', '⚡ OOKLA ACTIVE'),
+        cloudflare: t('engine_cloudflare_badge', '☁️ CLOUDFLARE ACTIVE'),
+        rtr: t('engine_rtr_badge', '🇦🇹 RTR-NETTEST ACTIVE'),
+        iperf3: t('engine_iperf3_badge', '⚡ IPERF3 ACTIVE'),
+        all: t('engine_all_badge', '🏆 COMBINED ACTIVE')
       };
-      activeBadge.innerText = labels[selectedEngine] || (selectedEngine.toUpperCase() + ' AKTÍV');
+      activeBadge.innerText = labels[selectedEngine] || (selectedEngine.toUpperCase() + ' ' + t('status_active', 'ACTIVE'));
       if (selectedEngine === 'ookla') {
         activeBadge.style.background = 'rgba(2,132,199,0.25)';
         activeBadge.style.color = '#38bdf8';
@@ -6022,15 +6035,15 @@ def get_dashboard_html() -> str:
         if (drivePathEl && data.drive_config.path) drivePathEl.innerText = data.drive_config.path;
         if (driveBadgeEl) {
           if (data.drive_config.exists) {
-            driveBadgeEl.innerText = '✅ Aktív és szinkronizálva';
+            driveBadgeEl.innerText = t('drive_status_synced', '✅ Active and Synchronized');
             driveBadgeEl.style.color = '#34d399';
             driveBadgeEl.style.borderColor = '#10b981';
           } else if (data.drive_config.is_writable) {
-            driveBadgeEl.innerText = '⚡ Kész a szinkronizálásra';
+            driveBadgeEl.innerText = t('drive_status_ready', '⚡ Ready for Synchronization');
             driveBadgeEl.style.color = '#38bdf8';
             driveBadgeEl.style.borderColor = '#0284c7';
           } else {
-            driveBadgeEl.innerText = '⚠️ Csak olvasás / Nincs meghajtó';
+            driveBadgeEl.innerText = t('drive_status_readonly', '⚠️ Read-Only / No Drive Detected');
             driveBadgeEl.style.color = '#f59e0b';
             driveBadgeEl.style.borderColor = '#d97706';
           }
@@ -6186,7 +6199,7 @@ def get_dashboard_html() -> str:
       const resetBtn = document.getElementById('btn-reset-default-server');
       if (bannerEl) {
         if (sched && sched.id) {
-          bannerEl.innerHTML = `<span style="color:#38bdf8;">#${escapeHtml(sched.id)}</span> — <b>${escapeHtml(sched.name || 'Egyedi Szerver')}</b> <code style="color:#94a3b8; font-size:12px;">(${escapeHtml(sched.host || '')})</code>`;
+          bannerEl.innerHTML = `<span style="color:#38bdf8;">#${escapeHtml(sched.id)}</span> — <b>${escapeHtml(sched.name || t('custom_server', 'Custom Server'))}</b> <code style="color:#94a3b8; font-size:12px;">(${escapeHtml(sched.host || '')})</code>`;
           if (resetBtn) resetBtn.style.display = 'inline-block';
         } else {
           bannerEl.innerText = t('target_server_auto', 'Automatic closest benchmark server (Auto)');
@@ -6321,7 +6334,7 @@ def get_dashboard_html() -> str:
       if (sched && sched.id) {
         if (schedInputEl && document.activeElement !== schedInputEl && !schedFormDirty && !isScheduleInputActive()) schedInputEl.value = sched.id;
         if (schedResolved) {
-          schedResolved.innerHTML = `🎯 <b>${escapeHtml(sched.name || 'Szerver #' + sched.id)}</b> <code style="color:#94a3b8;">(${escapeHtml(sched.host || '')})</code>`;
+          schedResolved.innerHTML = `🎯 <b>${escapeHtml(sched.name || t('server_prefix', 'Server') + ' #' + sched.id)}</b> <code style="color:#94a3b8;">(${escapeHtml(sched.host || '')})</code>`;
         }
         if (homeSelect && document.activeElement !== homeSelect) {
           let hasOption = Array.from(homeSelect.options).some(o => o.value == sched.id);
@@ -6729,7 +6742,7 @@ def get_dashboard_html() -> str:
     }
     const sid = parseInt(val);
     if (action === 'default') {
-      setDefaultServer(sid, `Egyedi Szerver #${sid}`, '');
+      setDefaultServer(sid, `${t('custom_server', 'Custom Server')} #${sid}`, '');
     } else {
       runSingleServerTest(sid);
     }
@@ -7596,7 +7609,7 @@ def get_dashboard_html() -> str:
       return;
     }
     const sid = parseInt(val);
-    setDefaultServer(sid, 'Egyedi Szerver #' + sid, '');
+    setDefaultServer(sid, t('custom_server', 'Custom Server') + ' #' + sid, '');
   }
 
   function copyScriptToClipboard() {
@@ -7688,7 +7701,7 @@ def get_dashboard_html() -> str:
         nameEl.innerHTML = `⚠️ Server #${val} (engine will attempt target during test)`;
       }
     } catch (e) {
-      nameEl.innerText = 'Szerver #' + val;
+      nameEl.innerText = t('server_prefix', 'Server') + ' #' + val;
     }
   }
 
@@ -7767,16 +7780,16 @@ def get_dashboard_html() -> str:
     if (!uaInp) return;
 
     if (mode === 'auto_fresh') {
-      if (hint) hint.textContent = 'Az Auto-Fresh mód minden mérésnél automatikusan frissülő, életszerű Headless Chrome azonosítót generál a háttérben.';
-      if (activeDisp && (!activeDisp.textContent || activeDisp.textContent === 'Betöltés...')) {
+      if (hint) hint.textContent = t('ua_hint_auto_fresh', 'Auto-Fresh mode automatically generates a realistic, modern Headless Chrome identifier on each measurement.');
+      if (activeDisp && (!activeDisp.textContent || activeDisp.textContent === 'Betöltés...' || activeDisp.textContent === 'Loading...')) {
         activeDisp.textContent = UA_PRESETS_MAP.headless_chrome_linux;
       }
     } else if (mode === 'custom') {
-      if (hint) hint.textContent = 'Egyéni User-Agent: A mezőbe beírt pontos fejlécet küldi a mérőbox minden HTTP kérésben.';
+      if (hint) hint.textContent = t('ua_hint_custom', 'Custom User-Agent: Exact string entered below will be sent on all outbound HTTP probes.');
       if (uaInp.value && activeDisp) activeDisp.textContent = uaInp.value;
     } else if (UA_PRESETS_MAP[mode]) {
       uaInp.value = UA_PRESETS_MAP[mode];
-      if (hint) hint.textContent = 'Kiválasztott szabványos profil: ' + mode;
+      if (hint) hint.textContent = t('ua_hint_preset', 'Selected standard preset profile:') + ' ' + mode;
       if (activeDisp) activeDisp.textContent = UA_PRESETS_MAP[mode];
     }
   }
@@ -7798,7 +7811,7 @@ def get_dashboard_html() -> str:
           if (modeSel) modeSel.value = 'custom';
           if (activeDisp) activeDisp.textContent = d.user_agent;
           onCfgUaModeChange('custom');
-          showToast('🎲 Új, friss ' + (category || 'headless') + ' User-Agent legenerálva! Mentsd el az alkalmazáshoz.');
+          showToast(t('ua_toast_generated', '🎲 Fresh User-Agent generated! Save settings to apply.'));
         }
       }
     } catch (e) {
@@ -7812,7 +7825,7 @@ def get_dashboard_html() -> str:
         if (modeSel) modeSel.value = 'custom';
         const activeDisp = document.getElementById('cfg-ua-active-display');
         if (activeDisp) activeDisp.textContent = fallbackUa;
-        showToast('🎲 Új friss User-Agent beállítva!');
+        showToast(t('ua_toast_set', '🎲 Fresh User-Agent applied!'));
       }
     }
   }
@@ -7821,7 +7834,7 @@ def get_dashboard_html() -> str:
     const el = document.getElementById('cfg-ua-active-display');
     if (el && el.textContent) {
       navigator.clipboard.writeText(el.textContent.trim());
-      showToast('📋 Aktív User-Agent a vágólapra másolva!');
+      showToast(t('ua_toast_copied', '📋 User-Agent copied to clipboard!'));
     }
   }
 
@@ -7829,7 +7842,7 @@ def get_dashboard_html() -> str:
     const el = document.getElementById('cfg-user-agent');
     if (el && el.value) {
       navigator.clipboard.writeText(el.value.trim());
-      showToast('📋 User-Agent szöveg a vágólapra másolva!');
+      showToast(t('ua_toast_copied', '📋 User-Agent copied to clipboard!'));
     }
   }
 
@@ -7839,7 +7852,7 @@ def get_dashboard_html() -> str:
     if (modeSel) modeSel.value = 'auto_fresh';
     if (uaInp) uaInp.value = '';
     onCfgUaModeChange('auto_fresh');
-    showToast('🔄 Visszaállítva dinamikus Auto-Fresh módra.');
+    showToast(t('ua_toast_reset', '🔄 Reset to dynamic Auto-Fresh mode.'));
   }
 
   async function saveScheduleSettings() {
@@ -8366,16 +8379,16 @@ def get_dashboard_html() -> str:
 
   async function executeFactoryResetFromSettings() {
     const keepDb = document.getElementById('sys-reset-keep-db') ? document.getElementById('sys-reset-keep-db').checked : true;
-    const confirmMsg = t('backup_confirm_reset', 'FIGYELEM! Biztosan visszaállítja a gyári alapbeállításokat? Minden egyedi hálózati és VPN konfiguráció törlődni fog!');
+    const confirmMsg = t('factory_reset_confirm', 'WARNING! Are you sure you want to restore factory defaults? All custom network and VPN configurations will be reset!');
     if (!confirm(confirmMsg)) return;
 
-    const check = prompt('A gyári visszaállítás megerősítéséhez írja be: RESET (vagy nyomjon Mégse gombot)');
+    const check = prompt(t('factory_reset_prompt', 'To confirm factory reset, type: RESET (or click Cancel)'));
     if (check !== 'RESET') {
-      showToast('Gyári visszaállítás megszakítva.');
+      showToast(t('factory_reset_cancelled', 'Factory reset cancelled.'));
       return;
     }
 
-    showToast('Gyári visszaállítás folyamatban... Automatikus biztonsági mentési pont készül.');
+    showToast(t('factory_reset_in_progress', 'Factory reset in progress... Automated safety backup is being created.'));
 
     try {
       const res = await fetch('/api/backup/reset', {
@@ -8385,46 +8398,46 @@ def get_dashboard_html() -> str:
       });
       const data = await res.json();
       if (!res.ok || data.status !== 'ok') {
-        showToast('Hiba a gyári visszaállítás során: ' + (data.message || 'Ismeretlen hiba'));
-        alert('Gyári visszaállítás sikertelen: ' + (data.message || 'Ismeretlen hiba'));
+        showToast(t('factory_reset_failed', 'Factory reset failed: ') + (data.message || 'Unknown error'));
+        alert(t('factory_reset_failed', 'Factory reset failed: ') + (data.message || 'Unknown error'));
         return;
       }
-      alert('A gyári beállítások sikeresen visszaállítva! Az oldal 2 másodperc múlva újratöltődik.');
+      alert(t('factory_reset_success', 'Factory reset completed successfully! The page will reload in 2 seconds.'));
       setTimeout(() => { window.location.reload(); }, 2000);
     } catch (e) {
-      showToast('Hálózati hiba: ' + e);
+      showToast(t('network_error', 'Network error: ') + e);
     }
   }
 
   async function syncDriveConfigNow() {
     const msgEl = document.getElementById('drive-sync-msg');
-    showToast('Szinkronizálás a meghajtóra...');
-    if (msgEl) msgEl.innerText = 'Szinkronizálás folyamatban...';
+    showToast(t('drive_toast_syncing', 'Syncing configuration to drive...'));
+    if (msgEl) msgEl.innerText = t('drive_toast_syncing', 'Syncing configuration to drive...');
     try {
       const res = await fetch('/api/config/drive-sync', { method: 'POST' });
       const data = await res.json();
       if (res.ok && data.status === 'ok') {
-        showToast('✅ ' + data.message);
+        showToast('✅ ' + (data.message || t('drive_toast_synced', '✅ Successfully synchronized to boot drive!')));
         if (msgEl) {
-          msgEl.innerText = '✅ Sikeresen szinkronizálva!';
+          msgEl.innerText = t('drive_toast_synced', '✅ Successfully synchronized to boot drive!');
           msgEl.style.color = '#34d399';
         }
         const b = document.getElementById('drive-cfg-status-badge');
         if (b) {
-          b.innerText = '✅ Aktív és szinkronizálva';
+          b.innerText = t('drive_status_synced', '✅ Active and Synchronized');
           b.style.color = '#34d399';
           b.style.borderColor = '#10b981';
         }
       } else {
-        showToast(data.message || 'Nem sikerült a szinkronizálás.');
+        showToast(data.message || t('drive_toast_failed', 'Failed to synchronize configuration.'));
         if (msgEl) {
-          msgEl.innerText = data.message || 'Sikertelen.';
+          msgEl.innerText = data.message || t('drive_toast_failed', 'Failed to synchronize configuration.');
           msgEl.style.color = '#f59e0b';
         }
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
-      if (msgEl) msgEl.innerText = 'Hálózati hiba: ' + e;
+      showToast(t('error', 'Error: ') + e);
+      if (msgEl) msgEl.innerText = t('network_error', 'Network error: ') + e;
     }
   }
 
@@ -8515,7 +8528,7 @@ Use UP/DOWN arrow keys for command history.
     screen.innerText += `nmb@box:~$ ${cmd}\n`;
     screen.scrollTop = screen.scrollHeight;
     if (badge) {
-      badge.innerText = 'FUTÁS...';
+      badge.innerText = t('status_running', 'RUNNING...');
       badge.style.color = '#fbbf24';
       badge.style.borderColor = '#f59e0b';
     }
@@ -8559,9 +8572,9 @@ Use UP/DOWN arrow keys for command history.
     const screen = document.getElementById('cli-terminal-screen');
     if (!screen) return;
     navigator.clipboard.writeText(screen.innerText).then(() => {
-      showToast('Terminál kimenet másolva a vágólapra!');
+      showToast(t('terminal_copied', 'Terminal output copied to clipboard!'));
     }).catch(() => {
-      showToast('Nem sikerült a másolás.');
+      showToast(t('terminal_copy_failed', 'Failed to copy terminal output.'));
     });
   }
 
@@ -8581,31 +8594,31 @@ Use UP/DOWN arrow keys for command history.
         previewEl.innerText = invasiveLogMarkdown;
         if (updatedEl) {
           const nowStr = new Date().toLocaleTimeString();
-          updatedEl.innerText = 'Frissítve: ' + nowStr;
+          updatedEl.innerText = t('status_updated', 'Updated: ') + nowStr;
         }
       }
     } catch (e) {
-      if (previewEl) previewEl.innerText = 'Hiba a diagnosztikai napló lekérésekor: ' + e;
+      if (previewEl) previewEl.innerText = t('error', 'Error: ') + e;
     }
   }
 
   async function refreshInvasiveLog() {
     const previewEl = document.getElementById('invasive-log-preview');
-    if (previewEl) previewEl.innerText = 'Pillanatkép újragenerálása folyamatban (hardver, routing, socketek, SQLite)...';
+    if (previewEl) previewEl.innerText = t('invasive_loading', 'Loading deep system diagnostic snapshot...');
     try {
       const res = await fetch('/api/dev/invasive-log/generate', { method: 'POST' });
       if (res.ok) {
         const d = await res.json();
         invasiveLogMarkdown = d.markdown || '';
         if (previewEl) previewEl.innerText = invasiveLogMarkdown;
-        showToast('Mélyszintű diagnosztikai pillanatkép sikeresen frissítve!');
+        showToast(t('invasive_toast_refreshed', 'Deep diagnostic snapshot refreshed successfully!'));
         const updatedEl = document.getElementById('invasive-last-updated');
-        if (updatedEl) updatedEl.innerText = 'Frissítve: ' + new Date().toLocaleTimeString();
+        if (updatedEl) updatedEl.innerText = t('status_updated', 'Updated: ') + new Date().toLocaleTimeString();
       } else {
-        showToast('Nem sikerült a pillanatkép frissítése.');
+        showToast(t('invasive_toast_refresh_failed', 'Failed to refresh diagnostic snapshot.'));
       }
     } catch (e) {
-      showToast('Hálózati hiba a frissítés során.');
+      showToast(t('network_error', 'Network error: ') + e);
     }
     checkAntiBanAndInterfaceStatus();
   }
@@ -8618,13 +8631,13 @@ Use UP/DOWN arrow keys for command history.
       } catch (e) {}
     }
     if (!invasiveLogMarkdown) {
-      showToast('Nincs másolható diagnosztikai tartalom.');
+      showToast(t('invasive_toast_copy_empty', 'No diagnostic content available to copy.'));
       return;
     }
     navigator.clipboard.writeText(invasiveLogMarkdown).then(() => {
-      showToast('📋 Teljes mélyszintű fejlesztői napló vágólapra másolva!');
+      showToast(t('invasive_toast_copied', '📋 Full developer diagnostic log copied to clipboard!'));
     }).catch(() => {
-      showToast('Nem sikerült a vágólapra másolás.');
+      showToast(t('terminal_copy_failed', 'Failed to copy to clipboard.'));
     });
   }
 
@@ -8637,11 +8650,12 @@ Use UP/DOWN arrow keys for command history.
         const res = await fetch('/api/network/preferred-interface');
         if (res.ok) {
           const d = await res.json();
+          const ifaceInfo = `${d.interface}${d.bound_ip ? ' - ' + d.bound_ip : ''}`;
           if (d.is_wired) {
-            cableTxt.innerText = `Vezetékes kábel aktív (${d.interface}${d.bound_ip ? ' - ' + d.bound_ip : ''}) [ELSŐDLEGES]`;
+            cableTxt.innerText = t('invasive_cable_wired', 'Wired cable active ({iface}) [PRIORITIZED]').replace('{iface}', ifaceInfo);
             if (cableBadge) cableBadge.style.color = '#34d399';
           } else {
-            cableTxt.innerText = `Wi-Fi / Vezeték nélküli (${d.interface}${d.bound_ip ? ' - ' + d.bound_ip : ''})`;
+            cableTxt.innerText = t('invasive_cable_wireless', 'Wireless Wi-Fi ({iface})').replace('{iface}', ifaceInfo);
             if (cableBadge) cableBadge.style.color = '#fbbf24';
           }
         }
@@ -8661,15 +8675,15 @@ Use UP/DOWN arrow keys for command history.
           const q = d.quarantined_servers || {};
           const count = Object.keys(q).length;
           if (count === 0) {
-            antibanTxt.innerText = 'Aktív (0 szerver karanténban - Egészséges)';
+            antibanTxt.innerText = t('invasive_antiban_healthy', 'Active (0 servers quarantined - Healthy)');
             if (antibanBadge) antibanBadge.style.color = '#10b981';
           } else {
-            antibanTxt.innerText = `Aktív (${count} szerver karanténban)`;
+            antibanTxt.innerText = t('invasive_antiban_quarantine', 'Active ({count} servers quarantined)').replace('{count}', count);
             if (antibanBadge) antibanBadge.style.color = '#f59e0b';
           }
         }
       } catch (e) {
-        antibanTxt.innerText = 'Aktív';
+        antibanTxt.innerText = t('status_active', 'Active');
       }
     }
     // 3. Crash Incident Reports
@@ -8681,11 +8695,11 @@ Use UP/DOWN arrow keys for command history.
       const res = await fetch('/api/network/enforce-wired-priority', { method: 'POST' });
       if (res.ok) {
         const d = await res.json();
-        showToast(d.adjusted ? 'Vezetékes útvonal prioritás sikeresen beállítva (metric 50)!' : 'Vezetékes útvonal már optimális vagy nincs aktív kábel.');
+        showToast(d.adjusted ? t('invasive_toast_priority_set', 'Wired route priority enforced (metric 50)!') : t('invasive_toast_priority_optimal', 'Wired route is already optimal or no active cable.'));
         checkAntiBanAndInterfaceStatus();
       }
     } catch (e) {
-      showToast('Hiba az útvonal prioritás beállításakor.');
+      showToast(t('invasive_toast_priority_failed', 'Error enforcing route priority.'));
     }
   }
 
@@ -8700,11 +8714,11 @@ Use UP/DOWN arrow keys for command history.
         const d = await res.json();
         const count = (d.crashes || []).length;
         if (count === 0) {
-          crashTxt.innerText = '0 hiba rögzítve (Tiszta)';
+          crashTxt.innerText = t('invasive_crash_clean', '0 errors recorded (Clean)');
           if (crashBadge) crashBadge.style.color = '#10b981';
           if (clearBtn) clearBtn.style.display = 'none';
         } else {
-          crashTxt.innerText = `${count} összeomlás rögzítve!`;
+          crashTxt.innerText = t('invasive_crash_detected', '{count} crash report(s) captured!').replace('{count}', count);
           if (crashBadge) crashBadge.style.color = '#ef4444';
           if (clearBtn) clearBtn.style.display = 'inline-block';
         }
@@ -8718,11 +8732,11 @@ Use UP/DOWN arrow keys for command history.
     try {
       const res = await fetch('/api/dev/crashes/clear', { method: 'POST' });
       if (res.ok) {
-        showToast('Összeomlási naplók sikeresen törölve.');
+        showToast(t('invasive_toast_crashes_cleared', 'Crash reports cleared successfully.'));
         loadCrashReports();
       }
     } catch (e) {
-      showToast('Hiba a hibajelentések törlésekor.');
+      showToast(t('invasive_toast_crashes_failed', 'Error clearing crash reports.'));
     }
   }
 
@@ -8730,11 +8744,11 @@ Use UP/DOWN arrow keys for command history.
     try {
       const res = await fetch('/api/speed/anti-ban/clear', { method: 'POST' });
       if (res.ok) {
-        showToast('Ookla szerver karantén sikeresen törölve.');
+        showToast(t('invasive_toast_quarantine_cleared', 'Ookla server quarantine cleared successfully.'));
         checkAntiBanAndInterfaceStatus();
       }
     } catch (e) {
-      showToast('Hiba a karantén törlésekor.');
+      showToast(t('invasive_toast_quarantine_failed', 'Error clearing server quarantine.'));
     }
   }
 
@@ -10711,7 +10725,7 @@ ${pkgList}`;
       tipDiv.style.background = 'rgba(148, 163, 184, 0.1)';
       tipDiv.style.borderColor = 'rgba(148, 163, 184, 0.25)';
       tipDiv.style.color = '#cbd5e1';
-      tipDiv.innerHTML = '✏️ ' + (t('wireguard_custom_endpoint_placeholder') || 'Adja meg a kívánt címet és portot (pl. 192.168.50.161:51820).');
+      tipDiv.innerHTML = '✏️ ' + (t('wireguard_custom_endpoint_placeholder', 'Enter the desired host and port (e.g. 192.168.50.161:51820).'));
       return;
     }
     if (customWrap) customWrap.style.display = 'none';
@@ -10723,18 +10737,18 @@ ${pkgList}`;
       tipDiv.style.background = 'rgba(16, 185, 129, 0.1)';
       tipDiv.style.borderColor = 'rgba(16, 185, 129, 0.25)';
       tipDiv.style.color = '#a7f3d0';
-      tipDiv.innerHTML = (t('wireguard_tip_lan') || '💡 <strong>Ajánlott otthoni Wi-Fi-re csatlakozó eszközökhöz:</strong> A telefon közvetlenül a mérőboxhoz kapcsolódik a belső hálózaton (0ms NAT késleltetés, nincs loopback hiba).');
+      tipDiv.innerHTML = t('wireguard_tip_lan', '💡 <strong>Recommended for devices on local Wi-Fi:</strong> Phone connects directly to the box on LAN (0ms NAT latency, no loopback issues).');
     } else if (epType === 'ipv6') {
       tipDiv.style.background = 'rgba(168, 85, 247, 0.1)';
       tipDiv.style.borderColor = 'rgba(168, 85, 247, 0.25)';
       tipDiv.style.color = '#e9d5ff';
-      tipDiv.innerHTML = (t('wireguard_tip_ipv6') || '⚡ <strong>Közvetlen IPv6 kapcsolat:</strong> Megkerüli az IPv4 NAT-ot és router porttovábbítást, amennyiben a mobilhálózat támogatja az IPv6-ot.');
+      tipDiv.innerHTML = t('wireguard_tip_ipv6', '⚡ <strong>Direct IPv6 connection:</strong> Bypasses IPv4 NAT and router port forwarding if cellular carrier supports IPv6.');
     } else {
       // ddns or wan
       tipDiv.style.background = 'rgba(245, 158, 11, 0.12)';
       tipDiv.style.borderColor = 'rgba(245, 158, 11, 0.3)';
       tipDiv.style.color = '#fde68a';
-      tipDiv.innerHTML = (t('wireguard_tip_wan') || '⚠️ <strong>Távoli mobilnetes eléréshez:</strong> A fő routeren (192.168.50.1) az <strong>51820 UDP</strong> portot továbbítani kell a mérőboxra! Ha a telefon ugyanazon a Wi-Fi-n van, válassza a Helyi LAN opciót.');
+      tipDiv.innerHTML = t('wireguard_tip_wan', '⚠️ <strong>For remote cellular access:</strong> Forward UDP port <strong>51820</strong> on your main router (192.168.50.1) to this box. When connected to local Wi-Fi, select Local LAN.');
     }
   }
 
@@ -10814,7 +10828,7 @@ ${pkgList}`;
         const isSelected = ep.is_default ? 'selected' : '';
         html += `<option value="${escapeHtml(ep.endpoint)}" data-type="${escapeHtml(ep.type)}" ${isSelected}>${escapeHtml(ep.label)}</option>`;
       });
-      html += `<option value="custom" data-type="custom">✏️ Egyéni cím megadása (Custom host:port)...</option>`;
+      html += `<option value="custom" data-type="custom">` + escapeHtml(t('wireguard_custom_option', '✏️ Specify custom address (Custom host:port)...')) + `</option>`;
       select.innerHTML = html;
     }
 
