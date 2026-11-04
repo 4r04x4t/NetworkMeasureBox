@@ -180,7 +180,13 @@ case "${1:-}" in
         PKG="${2:-all}"
         if command -v apt-get >/dev/null 2>&1; then
             export DEBIAN_FRONTEND=noninteractive
-            if [ -f /etc/debian_version ] && ! grep -q "non-free" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
+            # Enable non-free and non-free-firmware components across deb822 sources and classic sources.list
+            for src in /etc/apt/sources.list.d/*.sources; do
+                if [ -f "$src" ] && grep -qi "Components:" "$src" && ! grep -qi "non-free-firmware" "$src"; then
+                    sed -i '/Components:/ s/$/ contrib non-free non-free-firmware/' "$src" 2>/dev/null || true
+                fi
+            done
+            if [ -s /etc/apt/sources.list ] && ! grep -qi "non-free" /etc/apt/sources.list 2>/dev/null; then
                 sed -i 's/main$/main contrib non-free non-free-firmware/' /etc/apt/sources.list 2>/dev/null || true
             fi
             apt-get update -y

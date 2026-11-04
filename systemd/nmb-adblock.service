@@ -1,0 +1,26 @@
+[Unit]
+Description=NetworkMeasureBox: Built-in OS-Independent DNS Ad-Blocker & Sinkhole (Pi-hole Engine)
+After=network.target nmb-db.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+Environment=PYTHONPATH=/opt/nmb MALLOC_ARENA_MAX=2 PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m nmb.netd.adblock daemon
+Restart=always
+RestartSec=3s
+KillMode=mixed
+TimeoutStopSec=5
+
+UMask=0002
+SupplementaryGroups=nmb
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_NET_ADMIN CAP_DAC_OVERRIDE
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_NET_ADMIN
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+

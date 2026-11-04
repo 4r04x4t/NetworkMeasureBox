@@ -1,0 +1,12 @@
+[Unit]
+Description=NetworkMeasureBox: Adblock Gravity Blocklist Weekly Updater
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PYTHONPATH=/opt/nmb
+ExecStart=/opt/nmb/bin/nmb-adblock update
+TimeoutSec=180
+

@@ -1900,6 +1900,7 @@ def get_dashboard_html() -> str:
     <button class="app-tab-btn" onclick="switchTab('tab-speed')" data-i18n="tab_speed">Speed Results</button>
     <button class="app-tab-btn" onclick="switchTab('tab-iperf')" data-i18n="tab_iperf">⚡ iPerf3 Tests</button>
     <button class="app-tab-btn" onclick="switchTab('tab-traceroute')" data-i18n="tab_traceroute">🔍 Traceroute</button>
+    <button class="app-tab-btn" onclick="switchTab('tab-adblock')" data-i18n="tab_adblock">🛡️ DNS Ad-Blocker</button>
     <button class="app-tab-btn" onclick="switchTab('tab-ooni')" data-i18n="tab_ooni">🛡️ Censorship (OONI)</button>
     <button class="app-tab-btn" onclick="switchTab('tab-remote')" data-i18n="tab_remote">🌐 Remote Access & VPN</button>
     <button class="app-tab-btn" onclick="switchTab('tab-explorer')" data-i18n="tab_explorer">🌐 Network Explorer</button>
@@ -2440,6 +2441,198 @@ def get_dashboard_html() -> str:
             <tr><td colspan="11" style="text-align: center; color: var(--text-muted);" data-i18n="traceroute_empty">Enter a destination and click Trace Route to begin.</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: DNS AD-BLOCKER & SINKHOLE (PI-HOLE ENGINE) -->
+  <div id="tab-adblock" class="tab-content">
+    <div class="app-box">
+      <!-- Title & Actions Bar -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <div class="section-subtitle" style="margin: 0;" data-i18n="adblock_title">🛡️ DNS Ad-Blocker & Sinkhole (Pi-hole Engine)</div>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;" data-i18n="adblock_desc">
+            Universal, OS-independent DNS-based ad, tracker, and malware sinkhole. Blocks ads network-wide in Standalone and Router modes.
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <button id="btn-toggle-adblock" class="btn-primary" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="toggleAdblock()">
+            🛡️ Ad-Blocker: Active
+          </button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="updateGravity()" data-i18n="adblock_btn_update">
+            🔄 Update Gravity
+          </button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="toggleAdblockGuide()" data-i18n="adblock_btn_guide">
+            📖 Router DHCP Guide
+          </button>
+        </div>
+      </div>
+
+      <!-- Top Pi-hole Style Stat Metric Cards -->
+      <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px;">
+        <!-- Card 1: Blocked Today -->
+        <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #ef4444;">
+          <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_blocked">Blocked Today</div>
+          <div style="display: flex; align-items: baseline; gap: 10px; margin-top: 6px;">
+            <div id="adblock-stat-blocked" style="font-size: 26px; font-weight: 800; color: #f87171;">0</div>
+            <span id="adblock-stat-pct" class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 12px; padding: 2px 8px; border-radius: 4px; font-weight: 700;">0.0%</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Total Queries -->
+        <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #38bdf8;">
+          <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_queries">Queries Today</div>
+          <div id="adblock-stat-queries" style="font-size: 26px; font-weight: 800; color: #38bdf8; margin-top: 6px;">0</div>
+        </div>
+
+        <!-- Card 3: Domains on Blocklist (Gravity) -->
+        <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #10b981;">
+          <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_gravity">Domains on Blocklist</div>
+          <div id="adblock-stat-gravity" style="font-size: 26px; font-weight: 800; color: #34d399; margin-top: 6px;">0</div>
+        </div>
+
+        <!-- Card 4: Upstream DNS -->
+        <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #a855f7;">
+          <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_upstream">Upstream DNS</div>
+          <div id="adblock-stat-upstream" style="font-size: 15px; font-weight: 700; color: #c084fc; margin-top: 8px; word-break: break-all;">1.1.1.1, 9.9.9.9</div>
+        </div>
+      </div>
+
+      <!-- Dynamic Router DHCP Configuration Banner (Collapsible) -->
+      <div id="adblock-guide-box" style="display: none; background: rgba(2, 132, 199, 0.08); border: 1px solid #0284c7; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="font-weight: 700; color: #38bdf8; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <span>📖</span> <span data-i18n="adblock_guide_title">Home Router DHCP DNS Configuration Guide</span>
+          </div>
+          <button class="btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="toggleAdblockGuide()">✕ Close</button>
+        </div>
+        <p style="font-size: 12.5px; color: #cbd5e1; margin-bottom: 12px;" data-i18n="adblock_guide_desc">
+          To block ads across all phones, PCs, tablets, and smart TVs on your home network, set your router's DHCP DNS server to this device's IP:
+        </p>
+        <div style="display: flex; align-items: center; gap: 10px; background: rgba(0, 0, 0, 0.3); padding: 10px 14px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 14px;">
+          <span style="font-size: 12px; color: var(--text-muted);">Primary DNS IP:</span>
+          <span id="adblock-guide-ip" style="font-size: 18px; font-weight: 800; color: #34d399; font-family: monospace;">192.168.8.218</span>
+          <button class="btn-secondary" style="font-size: 11px; padding: 3px 8px; margin-left: auto;" onclick="copyToClipboard(document.getElementById('adblock-guide-ip').innerText)" data-i18n="btn_copy">📋 Copy</button>
+        </div>
+        <div id="adblock-guide-steps" style="font-size: 12px; color: #94a3b8; line-height: 1.6;">
+          <div>1. Log into your home router's admin panel (e.g. http://192.168.1.1).</div>
+          <div>2. Navigate to LAN / DHCP Server / DNS settings.</div>
+          <div>3. Set Primary DNS Server to this box's IP address.</div>
+          <div>4. Save and reboot your router. All devices on your network will be protected automatically!</div>
+        </div>
+      </div>
+
+      <!-- Whitelist and Blacklist Management (2 Columns) -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-bottom: 22px;">
+        <!-- Whitelist Box -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-weight: 700; color: #34d399; font-size: 13.5px;" data-i18n="adblock_whitelist_title">✅ Whitelist (Always Allowed Domains)</div>
+            <span id="adblock-wl-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">0</span>
+          </div>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input type="text" id="adblock-wl-input" placeholder="e.g. example.com" style="flex: 1; padding: 6px 10px; font-size: 12.5px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockWhitelist()" data-i18n="adblock_btn_add">➕ Add</button>
+          </div>
+          <div style="max-height: 160px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
+            <table class="data-table" style="margin: 0; width: 100%;">
+              <tbody id="adblock-wl-tbody">
+                <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">No domains whitelisted</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Blacklist Box -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-weight: 700; color: #f87171; font-size: 13.5px;" data-i18n="adblock_blacklist_title">⛔ Blacklist (Custom Blocked Domains)</div>
+            <span id="adblock-bl-badge" class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">0</span>
+          </div>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input type="text" id="adblock-bl-input" placeholder="e.g. adserver.bad.com" style="flex: 1; padding: 6px 10px; font-size: 12.5px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockBlacklist()" data-i18n="adblock_btn_add">➕ Add</button>
+          </div>
+          <div style="max-height: 160px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
+            <table class="data-table" style="margin: 0; width: 100%;">
+              <tbody id="adblock-bl-tbody">
+                <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">No custom blacklisted domains</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Blocked & Top Queried Domains (2 Columns) -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-bottom: 22px;">
+        <!-- Top Blocked Domains -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+          <div style="font-weight: 700; color: #f87171; font-size: 13px; margin-bottom: 10px;" data-i18n="adblock_top_blocked">Top Blocked Ad & Tracking Domains</div>
+          <div style="max-height: 190px; overflow-y: auto;">
+            <table class="data-table" style="margin: 0; width: 100%;">
+              <thead>
+                <tr>
+                  <th style="font-size: 11.5px;">Domain</th>
+                  <th style="font-size: 11.5px; width: 80px; text-align: right;">Count</th>
+                </tr>
+              </thead>
+              <tbody id="adblock-top-blocked-tbody">
+                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-size: 12px;">No blocked queries yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top Queried Domains -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+          <div style="font-weight: 700; color: #38bdf8; font-size: 13px; margin-bottom: 10px;" data-i18n="adblock_top_queries">Top Queried Domains</div>
+          <div style="max-height: 190px; overflow-y: auto;">
+            <table class="data-table" style="margin: 0; width: 100%;">
+              <thead>
+                <tr>
+                  <th style="font-size: 11.5px;">Domain</th>
+                  <th style="font-size: 11.5px; width: 80px; text-align: right;">Count</th>
+                </tr>
+              </thead>
+              <tbody id="adblock-top-queried-tbody">
+                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-size: 12px;">No queries recorded yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live DNS Query Stream Table -->
+      <div style="margin-top: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="font-weight: 700; color: #fff; font-size: 13.5px;" data-i18n="adblock_querylog_title">Live DNS Query Stream</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;" data-i18n="adblock_querylog_desc">Real-time log of DNS queries processed from local devices.</p>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="adblock-log-filter" placeholder="Filter domain or client..." onkeyup="filterAdblockLog()" style="padding: 5px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff; width: 190px;">
+            <button class="btn-secondary" style="font-size: 11px; padding: 5px 10px;" onclick="loadAdblockQueryLog()">🔄 Refresh</button>
+          </div>
+        </div>
+
+        <div style="overflow-x: auto; max-height: 380px; border: 1px solid #1e293b; border-radius: 8px;">
+          <table class="data-table" style="margin: 0; width: 100%;">
+            <thead>
+              <tr>
+                <th style="font-size: 11.5px; width: 85px;" data-i18n="adblock_col_time">Time</th>
+                <th style="font-size: 11.5px; width: 130px;" data-i18n="adblock_col_client">Client IP</th>
+                <th style="font-size: 11.5px; width: 65px;" data-i18n="adblock_col_type">Type</th>
+                <th style="font-size: 11.5px; width: 110px;" data-i18n="adblock_col_status">Status</th>
+                <th style="font-size: 11.5px; width: 80px;" data-i18n="adblock_col_duration">Latency</th>
+                <th style="font-size: 11.5px;" data-i18n="adblock_col_domain">Domain</th>
+              </tr>
+            </thead>
+            <tbody id="adblock-querylog-tbody">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-size: 12px;">Loading recent DNS queries...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -5760,7 +5953,27 @@ def get_dashboard_html() -> str:
       loadRemoteAccessStatus();
     }
     if (tabId === 'tab-explorer') {
-    
+      loadNetworkDevices();
+    }
+    if (tabId === 'tab-adblock') {
+      loadAdblockStatus();
+      loadAdblockQueryLog();
+      startAdblockPolling();
+    } else {
+      stopAdblockPolling();
+    }
+    if (tabId === 'tab-llm') {
+      loadLlmBundle();
+    }
+    if (tabId === 'tab-syslog') {
+      if (devLogActiveSubtab === 'syslog') {
+        fetchSystemSyslog(true);
+      } else if (devLogActiveSubtab === 'devlog') {
+        fetchDevLogs(true);
+      }
+    }
+  }
+
   // =========================================================================
   // Multi-Port Matrix & Hardware Network Drivers Subsystem
   // =========================================================================
@@ -6085,18 +6298,345 @@ def get_dashboard_html() -> str:
 
 
   loadInterfaceMatrix();
-  loadNetworkDevices();
-      loadGuestWifiStatus();
+  loadDriverStatus();
+
+  // =========================================================================
+  // DNS Ad-Blocker & Sinkhole (Pi-hole Engine)
+  // =========================================================================
+  let adblockPollTimer = null;
+  let cachedAdblockStatus = null;
+  let cachedAdblockLogs = [];
+
+  async function loadAdblockStatus() {
+    try {
+      const res = await fetch('/api/adblock/status');
+      if (!res.ok) return;
+      const data = await res.json();
+      cachedAdblockStatus = data;
+      renderAdblockStatus(data);
+    } catch (e) {
+      console.error('Failed to load adblock status:', e);
     }
-    if (tabId === 'tab-llm') {
-      loadLlmBundle();
-    }
-    if (tabId === 'tab-syslog') {
-      if (devLogActiveSubtab === 'syslog') {
-        fetchSystemSyslog(true);
-      } else if (devLogActiveSubtab === 'devlog') {
-        fetchDevLogs(true);
+  }
+
+  function renderAdblockStatus(data) {
+    if (!data) return;
+
+    // Toggle button & status
+    const toggleBtn = document.getElementById('btn-toggle-adblock');
+    if (toggleBtn) {
+      if (data.enabled) {
+        toggleBtn.innerHTML = '🛡️ Ad-Blocker: Active';
+        toggleBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+      } else {
+        toggleBtn.innerHTML = '⏸️ Ad-Blocker: Paused';
+        toggleBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)';
       }
+    }
+
+    // Stat Cards
+    const blkToday = document.getElementById('adblock-stat-blocked');
+    const blkPct = document.getElementById('adblock-stat-pct');
+    const totalQ = document.getElementById('adblock-stat-queries');
+    const gravCount = document.getElementById('adblock-stat-gravity');
+    const upstreams = document.getElementById('adblock-stat-upstream');
+
+    if (blkToday) blkToday.innerText = (data.blocked_queries || 0).toLocaleString();
+    if (blkPct) blkPct.innerText = (data.blocked_percentage || 0.0) + '%';
+    if (totalQ) totalQ.innerText = (data.total_queries || 0).toLocaleString();
+    if (gravCount) gravCount.innerText = (data.domains_in_blocklist || 0).toLocaleString();
+    if (upstreams && data.upstreams) upstreams.innerText = data.upstreams.join(', ');
+
+    // Guide Box IP
+    const guideIp = document.getElementById('adblock-guide-ip');
+    if (guideIp && data.guide && data.guide.box_ip) {
+      guideIp.innerText = data.guide.box_ip;
+    }
+
+    // Whitelist count badge
+    const wlBadge = document.getElementById('adblock-wl-badge');
+    if (wlBadge) wlBadge.innerText = data.whitelist_count || 0;
+
+    // Blacklist count badge
+    const blBadge = document.getElementById('adblock-bl-badge');
+    if (blBadge) blBadge.innerText = data.blacklist_count || 0;
+
+    // Top Blocked Domains Table
+    const topBlockedTbody = document.getElementById('adblock-top-blocked-tbody');
+    if (topBlockedTbody) {
+      const topB = data.top_blocked_domains || [];
+      if (topB.length === 0) {
+        topBlockedTbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-size: 12px;">No blocked queries yet</td></tr>';
+      } else {
+        topBlockedTbody.innerHTML = topB.map(item => `
+          <tr>
+            <td style="font-size: 12px; font-weight: 600; color: #f87171; word-break: break-all;">${escapeHtml(item.domain)}</td>
+            <td style="font-size: 12px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    // Top Queried Domains Table
+    const topQueriedTbody = document.getElementById('adblock-top-queried-tbody');
+    if (topQueriedTbody) {
+      const topQ = data.top_queried_domains || [];
+      if (topQ.length === 0) {
+        topQueriedTbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-size: 12px;">No queries recorded yet</td></tr>';
+      } else {
+        topQueriedTbody.innerHTML = topQ.map(item => `
+          <tr>
+            <td style="font-size: 12px; font-weight: 600; color: #38bdf8; word-break: break-all;">${escapeHtml(item.domain)}</td>
+            <td style="font-size: 12px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    // Load whitelist & blacklist entries
+    loadAdblockLists();
+  }
+
+  async function loadAdblockLists() {
+    try {
+      const [wlRes, blRes] = await Promise.all([
+        fetch('/api/adblock/whitelist'),
+        fetch('/api/adblock/blacklist')
+      ]);
+
+      if (wlRes.ok) {
+        const wlData = await wlRes.json();
+        const wlTbody = document.getElementById('adblock-wl-tbody');
+        if (wlTbody) {
+          const list = wlData.whitelist || [];
+          if (list.length === 0) {
+            wlTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">No domains whitelisted</td></tr>';
+          } else {
+            wlTbody.innerHTML = list.map(d => `
+              <tr>
+                <td style="font-size: 12px; font-weight: 600; color: #34d399;">${escapeHtml(d)}</td>
+                <td style="text-align: right; width: 60px;">
+                  <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockWhitelist('${escapeHtml(d)}')">✕</button>
+                </td>
+              </tr>
+            `).join('');
+          }
+        }
+      }
+
+      if (blRes.ok) {
+        const blData = await blRes.json();
+        const blTbody = document.getElementById('adblock-bl-tbody');
+        if (blTbody) {
+          const list = blData.blacklist || [];
+          if (list.length === 0) {
+            blTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">No custom blacklisted domains</td></tr>';
+          } else {
+            blTbody.innerHTML = list.map(d => `
+              <tr>
+                <td style="font-size: 12px; font-weight: 600; color: #f87171;">${escapeHtml(d)}</td>
+                <td style="text-align: right; width: 60px;">
+                  <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockBlacklist('${escapeHtml(d)}')">✕</button>
+                </td>
+              </tr>
+            `).join('');
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load adblock lists:', e);
+    }
+  }
+
+  async function toggleAdblock() {
+    if (!cachedAdblockStatus) return;
+    const newEn = !cachedAdblockStatus.enabled;
+    try {
+      showToast(newEn ? 'Enabling DNS Ad-Blocker sinkhole...' : 'Pausing DNS Ad-Blocker...');
+      const res = await fetch('/api/adblock/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newEn })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(newEn ? 'DNS Ad-Blocker Activated!' : 'DNS Ad-Blocker Paused');
+        loadAdblockStatus();
+      }
+    } catch (e) {
+      showToast('Error toggling adblock: ' + e);
+    }
+  }
+
+  async function updateGravity() {
+    try {
+      showToast('Updating Adblock Gravity (downloading latest blocklists)...');
+      const res = await fetch('/api/adblock/update', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Gravity update started in background...');
+        setTimeout(loadAdblockStatus, 4000);
+      }
+    } catch (e) {
+      showToast('Error updating gravity: ' + e);
+    }
+  }
+
+  function toggleAdblockGuide() {
+    const box = document.getElementById('adblock-guide-box');
+    if (!box) return;
+    box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
+  }
+
+  async function addAdblockWhitelist() {
+    const input = document.getElementById('adblock-wl-input');
+    if (!input || !input.value.trim()) return;
+    const dom = input.value.trim();
+    try {
+      const res = await fetch('/api/adblock/whitelist/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: dom })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`Added '${dom}' to whitelist`);
+        input.value = '';
+        loadAdblockStatus();
+      } else {
+        showToast('Invalid domain');
+      }
+    } catch (e) {
+      showToast('Error: ' + e);
+    }
+  }
+
+  async function removeAdblockWhitelist(dom) {
+    try {
+      const res = await fetch('/api/adblock/whitelist/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: dom })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`Removed '${dom}' from whitelist`);
+        loadAdblockStatus();
+      }
+    } catch (e) {
+      showToast('Error: ' + e);
+    }
+  }
+
+  async function addAdblockBlacklist() {
+    const input = document.getElementById('adblock-bl-input');
+    if (!input || !input.value.trim()) return;
+    const dom = input.value.trim();
+    try {
+      const res = await fetch('/api/adblock/blacklist/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: dom })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`Added '${dom}' to blacklist`);
+        input.value = '';
+        loadAdblockStatus();
+      } else {
+        showToast('Invalid domain');
+      }
+    } catch (e) {
+      showToast('Error: ' + e);
+    }
+  }
+
+  async function removeAdblockBlacklist(dom) {
+    try {
+      const res = await fetch('/api/adblock/blacklist/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: dom })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`Removed '${dom}' from blacklist`);
+        loadAdblockStatus();
+      }
+    } catch (e) {
+      showToast('Error: ' + e);
+    }
+  }
+
+  async function loadAdblockQueryLog() {
+    try {
+      const res = await fetch('/api/adblock/querylog?limit=80');
+      if (!res.ok) return;
+      const data = await res.json();
+      cachedAdblockLogs = data.queries || [];
+      renderAdblockQueryLog(cachedAdblockLogs);
+    } catch (e) {
+      console.error('Failed to load adblock query log:', e);
+    }
+  }
+
+  function renderAdblockQueryLog(queries) {
+    const tbody = document.getElementById('adblock-querylog-tbody');
+    if (!tbody) return;
+    if (!queries || queries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-size: 12px;">No queries logged yet. As devices query DNS, requests will stream in here.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = queries.map(q => {
+      let stBadge = '';
+      if (q.status === 'BLOCKED') {
+        stBadge = `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🛑 BLOCKED</span>`;
+      } else if (q.status === 'CACHED') {
+        stBadge = `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">⚡ CACHED</span>`;
+      } else {
+        stBadge = `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🟢 ALLOWED</span>`;
+      }
+
+      return `<tr>
+        <td style="font-size: 12px; color: #94a3b8; font-family: monospace;">${escapeHtml(q.time_str || '')}</td>
+        <td style="font-size: 12px; color: #cbd5e1; font-family: monospace;">${escapeHtml(q.client_ip || '')}</td>
+        <td><span class="badge" style="background: rgba(255,255,255,0.06); color: #cbd5e1; font-size: 10.5px; padding: 2px 5px; border-radius: 3px;">${escapeHtml(q.type || 'A')}</span></td>
+        <td>${stBadge}</td>
+        <td style="font-size: 12px; color: var(--text-muted); font-family: monospace;">${q.latency_ms ? q.latency_ms.toFixed(1) + 'ms' : '<0.1ms'}</td>
+        <td style="font-size: 12px; font-weight: 600; color: ${q.status === 'BLOCKED' ? '#f87171' : '#f1f5f9'}; word-break: break-all;">${escapeHtml(q.domain || '')}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function filterAdblockLog() {
+    const filterInput = document.getElementById('adblock-log-filter');
+    if (!filterInput) return;
+    const term = filterInput.value.toLowerCase().trim();
+    if (!term) {
+      renderAdblockQueryLog(cachedAdblockLogs);
+      return;
+    }
+    const filtered = cachedAdblockLogs.filter(q =>
+      (q.domain && q.domain.toLowerCase().includes(term)) ||
+      (q.client_ip && q.client_ip.toLowerCase().includes(term)) ||
+      (q.status && q.status.toLowerCase().includes(term))
+    );
+    renderAdblockQueryLog(filtered);
+  }
+
+  function startAdblockPolling() {
+    if (adblockPollTimer) clearInterval(adblockPollTimer);
+    adblockPollTimer = setInterval(() => {
+      loadAdblockStatus();
+      loadAdblockQueryLog();
+    }, 4000);
+  }
+
+  function stopAdblockPolling() {
+    if (adblockPollTimer) {
+      clearInterval(adblockPollTimer);
+      adblockPollTimer = null;
     }
   }
 

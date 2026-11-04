@@ -30,6 +30,21 @@ from nmb.config import Config, load_config, save_config, CONNECTION_TYPES, find_
 from nmb.db import database as db
 from nmb.netd import interfaces, dns
 from nmb.netd.drivers import get_full_driver_status, trigger_driver_install, get_driver_install_status, get_interfaces_matrix
+from nmb.netd.adblock import (
+    get_full_adblock_status,
+    set_adblock_enabled,
+    trigger_gravity_update,
+    get_gravity_update_status,
+    get_adblock_engine,
+    get_live_recent_queries,
+    get_whitelist_entries,
+    add_whitelist_entry,
+    remove_whitelist_entry,
+    get_blacklist_entries,
+    add_blacklist_entry,
+    remove_blacklist_entry,
+    get_router_dhcp_guide,
+)
 from nmb.netd.os_detector import detect_os_info, get_dynamic_interfaces, check_updates_available, trigger_system_upgrade, get_upgrade_status
 from nmb.netd.explorer import scan_network_devices, get_cached_devices, get_explorer_summary
 from nmb.netd.guest_wifi import scan_wifi_networks, get_guest_wifi_status, connect_guest_wifi, disconnect_guest_wifi, sync_guest_wifi_connection
@@ -385,6 +400,33 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         if path == "/api/system/drivers/status":
             self._send_json(get_driver_install_status())
+            return
+
+        # DNS Ad-Blocker (Pi-hole Engine) Endpoints
+        if path == "/api/adblock/status":
+            self._send_json(get_full_adblock_status())
+            return
+
+        if path == "/api/adblock/querylog":
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            limit = int(qs.get("limit", ["50"])[0])
+            self._send_json({"status": "ok", "queries": get_live_recent_queries(limit)})
+            return
+
+        if path == "/api/adblock/whitelist":
+            self._send_json({"status": "ok", "whitelist": get_whitelist_entries()})
+            return
+
+        if path == "/api/adblock/blacklist":
+            self._send_json({"status": "ok", "blacklist": get_blacklist_entries()})
+            return
+
+        if path == "/api/adblock/guide":
+            self._send_json(get_router_dhcp_guide())
+            return
+
+        if path in ("/api/adblock/update/status", "/api/adblock/gravity/status"):
+            self._send_json(get_gravity_update_status())
             return
 
         # 12. Distro-Aware System Updates
@@ -1673,6 +1715,42 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             pkg = body_json.get("package", "all")
             res = trigger_driver_install(pkg)
             self._send_json(res)
+            return
+
+        # DNS Ad-Blocker (Pi-hole Engine) Actions
+        if path == "/api/adblock/toggle":
+            en = bool(body_json.get("enabled", True))
+            res = set_adblock_enabled(en)
+            self._send_json(res)
+            return
+
+        if path in ("/api/adblock/update", "/api/adblock/gravity/update"):
+            res = trigger_gravity_update()
+            self._send_json(res)
+            return
+
+        if path == "/api/adblock/whitelist/add":
+            dom = str(body_json.get("domain", "")).strip()
+            ok = add_whitelist_entry(dom)
+            self._send_json({"status": "ok" if ok else "error", "domain": dom})
+            return
+
+        if path == "/api/adblock/whitelist/remove":
+            dom = str(body_json.get("domain", "")).strip()
+            ok = remove_whitelist_entry(dom)
+            self._send_json({"status": "ok" if ok else "not_found", "domain": dom})
+            return
+
+        if path == "/api/adblock/blacklist/add":
+            dom = str(body_json.get("domain", "")).strip()
+            ok = add_blacklist_entry(dom)
+            self._send_json({"status": "ok" if ok else "error", "domain": dom})
+            return
+
+        if path == "/api/adblock/blacklist/remove":
+            dom = str(body_json.get("domain", "")).strip()
+            ok = remove_blacklist_entry(dom)
+            self._send_json({"status": "ok" if ok else "not_found", "domain": dom})
             return
 
         # Interface Role Matrix Configuration

@@ -1,0 +1,388 @@
+#!/usr/bin/env python3
+"""NetworkMeasureBox DNS Ad-Blocker & Sinkhole Management CLI (nmb-adblock / pihole).
+
+Provides full command-line management for the built-in OS-independent Pi-hole equivalent
+DNS ad-blocker, gravity updater, whitelist/blacklist manager, and live query monitor.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+# Add project root to sys.path
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from nmb.netd.adblock import (
+    get_full_adblock_status,
+    set_adblock_enabled,
+    execute_gravity_update,
+    trigger_gravity_update,
+    get_adblock_engine,
+    get_live_recent_queries,
+    get_whitelist_entries,
+    add_whitelist_entry,
+    remove_whitelist_entry,
+    get_blacklist_entries,
+    add_blacklist_entry,
+    remove_blacklist_entry,
+    get_router_dhcp_guide,
+    is_adblock_running,
+)
+
+
+def _color(text: str, code: str) -> str:
+    if not sys.stdout.isatty():
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    status = get_full_adblock_status()
+    if args.json:
+        print(json.dumps(status, indent=2))
+        return 0
+
+    print(_color("=" * 76, "1;34"))
+    print(_color("  NetworkMeasureBox — DNS Ad-Blocker & Sinkhole Status (Pi-hole Engine)", "1;32"))
+    print(_color("=" * 76, "1;34"))
+
+    enabled = status.get("enabled", False)
+    running = status.get("is_running", False)
+    badge = _color("ENABLED (ACTIVE)", "1;32") if enabled else _color("DISABLED", "1;31")
+    service_badge = _color("RUNNING (Port 53)", "1;32") if running else _color("STOPPED", "1;33")
+
+    domains = status.get("domains_in_blocklist", 0)
+    total_q = status.get("total_queries", 0)
+    blocked_q = status.get("blocked_queries", 0)
+    cached_q = status.get("cached_queries", 0)
+    pct = status.get("blocked_percentage", 0.0)
+    wl_count = status.get("whitelist_count", 0)
+    bl_count = status.get("blacklist_count", 0)
+    last_up = status.get("last_gravity_update_iso") or "Never"
+    upstreams = ", ".join(status.get("upstreams", []))
+
+    print(f"  * Status            : {badge} [Service: {service_badge}]")
+    print(f"  * Blocklist Gravity : {_color(f'{domains:,}', '1;36')} domains active")
+    print(f"  * Total Queries     : {_color(f'{total_q:,}', '1;37')} (Today)")
+    print(f"  * Blocked Queries   : {_color(f'{blocked_q:,}', '1;31')} ({_color(f'{pct}%', '1;33')})")
+    print(f"  * Cached Queries    : {cached_q:,}")
+    print(f"  * Whitelist/Blacklist: {wl_count} allowed | {bl_count} custom blocked")
+    print(f"  * Last Gravity Sync : {last_up}")
+    print(f"  * Upstream DNS      : {upstreams}")
+    print(_color("=" * 76, "1;34"))
+
+    guide = status.get("guide", {})
+    box_ip = guide.get("box_ip")
+    if box_ip:
+        print(f"  {_color('💡 Network Router Setup:', '1;33')} Set Primary DNS to {_color(box_ip, '1;32')} in router DHCP settings.")
+
+    return 0
+
+
+def cmd_enable(args: argparse.Namespace) -> int:
+    res = set_adblock_enabled(True)
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return 0
+    print(_color("✅ DNS Ad-Blocker ENABLED. Sinkhole active on port 53.", "1;32"))
+    return 0
+
+
+def cmd_disable(args: argparse.Namespace) -> int:
+    res = set_adblock_enabled(False)
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return 0
+    print(_color("⚠️ DNS Ad-Blocker DISABLED. Queries will pass through unfiltered.", "1;33"))
+    return 0
+
+
+def cmd_update(args: argparse.Namespace) -> int:
+    print(_color("Updating Adblock Gravity (fetching external blocklists)...", "1;36"))
+    res = execute_gravity_update()
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("status") == "ok" else 1
+
+    print(res.get("output", ""))
+    if res.get("status") == "ok":
+        print(_color(f"\n✅ Gravity update complete! Active blocked domains: {res.get('total_domains', 0):,}", "1;32"))
+        return 0
+    else:
+        print(_color("\n❌ Gravity update encountered an error.", "1;31"))
+        return 1
+
+
+def cmd_whitelist(args: argparse.Namespace) -> int:
+    action = args.action or "list"
+    domain = args.domain
+
+    if action == "add":
+        if not domain:
+            print(_color("Error: domain required for 'add'", "1;31"), file=sys.stderr)
+            return 1
+        ok = add_whitelist_entry(domain)
+        if args.json:
+            print(json.dumps({"status": "ok" if ok else "error", "domain": domain}))
+            return 0 if ok else 1
+        print(_color(f"✅ Added '{domain}' to whitelist.", "1;32") if ok else _color("Invalid domain format.", "1;31"))
+        return 0 if ok else 1
+
+    elif action == "remove":
+        if not domain:
+            print(_color("Error: domain required for 'remove'", "1;31"), file=sys.stderr)
+            return 1
+        ok = remove_whitelist_entry(domain)
+        if args.json:
+            print(json.dumps({"status": "ok" if ok else "not_found", "domain": domain}))
+            return 0 if ok else 1
+        print(_color(f"✅ Removed '{domain}' from whitelist.", "1;32") if ok else _color(f"Domain '{domain}' was not in whitelist.", "1;33"))
+        return 0 if ok else 1
+
+    else: # list
+        entries = get_whitelist_entries()
+        if args.json:
+            print(json.dumps(entries, indent=2))
+            return 0
+        print(_color(f"Whitelisted Domains ({len(entries)}):", "1;37"))
+        if not entries:
+            print("  (No whitelisted domains)")
+        for d in entries:
+            print(f"  * {_color(d, '1;32')}")
+        return 0
+
+
+def cmd_blacklist(args: argparse.Namespace) -> int:
+    action = args.action or "list"
+    domain = args.domain
+
+    if action == "add":
+        if not domain:
+            print(_color("Error: domain required for 'add'", "1;31"), file=sys.stderr)
+            return 1
+        ok = add_blacklist_entry(domain)
+        if args.json:
+            print(json.dumps({"status": "ok" if ok else "error", "domain": domain}))
+            return 0 if ok else 1
+        print(_color(f"✅ Added '{domain}' to blacklist (blocked immediately).", "1;32") if ok else _color("Invalid domain format.", "1;31"))
+        return 0 if ok else 1
+
+    elif action == "remove":
+        if not domain:
+            print(_color("Error: domain required for 'remove'", "1;31"), file=sys.stderr)
+            return 1
+        ok = remove_blacklist_entry(domain)
+        if args.json:
+            print(json.dumps({"status": "ok" if ok else "not_found", "domain": domain}))
+            return 0 if ok else 1
+        print(_color(f"✅ Removed '{domain}' from blacklist.", "1;32") if ok else _color(f"Domain '{domain}' was not in blacklist.", "1;33"))
+        return 0 if ok else 1
+
+    else: # list
+        entries = get_blacklist_entries()
+        if args.json:
+            print(json.dumps(entries, indent=2))
+            return 0
+        print(_color(f"Custom Blacklisted Domains ({len(entries)}):", "1;37"))
+        if not entries:
+            print("  (No custom blacklisted domains)")
+        for d in entries:
+            print(f"  * {_color(d, '1;31')}")
+        return 0
+
+
+def cmd_querylog(args: argparse.Namespace) -> int:
+    limit = args.limit or 50
+    queries = get_live_recent_queries(limit)
+
+    if args.json:
+        print(json.dumps(queries, indent=2))
+        return 0
+
+    print(_color(f"Recent DNS Queries (Last {len(queries)}):", "1;37"))
+    print("-" * 76)
+    print(f"{'TIME':<10} {'CLIENT IP':<16} {'TYPE':<6} {'STATUS':<10} {'LATENCY':<8} {'DOMAIN'}")
+    print("-" * 76)
+
+    for q in queries:
+        status = q.get("status", "")
+        if status == "BLOCKED":
+            st_col = _color(f"{status:<10}", "1;31")
+        elif status == "CACHED":
+            st_col = _color(f"{status:<10}", "1;36")
+        else:
+            st_col = _color(f"{status:<10}", "1;32")
+
+        time_str = q.get("time_str", "")
+        client = q.get("client_ip", "")
+        qtype = q.get("type", "")
+        lat = f"{q.get('latency_ms', 0):.1f}ms"
+        dom = q.get("domain", "")
+        print(f"{time_str:<10} {client:<16} {qtype:<6} {st_col} {lat:<8} {dom}")
+
+    return 0
+
+
+def cmd_stats(args: argparse.Namespace) -> int:
+    stats = get_full_adblock_status()
+    if args.json:
+        print(json.dumps(stats, indent=2))
+        return 0
+
+    print(_color("=" * 76, "1;34"))
+    print(_color("  Adblock Top Telemetry Statistics", "1;32"))
+    print(_color("=" * 76, "1;34"))
+
+    print(f"\n{_color('[1] Top Blocked Ad / Tracking Domains:', '1;31')}")
+    top_b = stats.get("top_blocked_domains", [])
+    if not top_b:
+        print("  (No blocked queries recorded yet)")
+    else:
+        for item in top_b:
+            c_str = f"{item['count']:>5}"
+            print(f"  * {_color(c_str, '1;31')}  {item['domain']}")
+
+    print(f"\n{_color('[2] Top Queried Domains:', '1;36')}")
+    top_q = stats.get("top_queried_domains", [])
+    if not top_q:
+        print("  (No queries recorded yet)")
+    else:
+        for item in top_q:
+            c_str = f"{item['count']:>5}"
+            print(f"  * {_color(c_str, '1;36')}  {item['domain']}")
+
+    print(f"\n{_color('[3] Top Querying Clients:', '1;33')}")
+    top_c = stats.get("top_clients", [])
+    if not top_c:
+        print("  (No clients recorded yet)")
+    else:
+        for item in top_c:
+            c_str = f"{item['count']:>5}"
+            print(f"  * {_color(c_str, '1;33')}  {item['ip']}")
+
+    print(_color("\n" + "=" * 76, "1;34"))
+    return 0
+
+
+def cmd_guide(args: argparse.Namespace) -> int:
+    guide = get_router_dhcp_guide()
+    if args.json:
+        print(json.dumps(guide, indent=2))
+        return 0
+
+    print(_color("=" * 76, "1;34"))
+    print(_color("  NetworkMeasureBox — Router DHCP DNS Setup Guide", "1;32"))
+    print(_color("=" * 76, "1;34"))
+
+    box_ip = guide.get("box_ip", "192.168.8.218")
+    gw_ip = guide.get("router_gateway_ip", "192.168.1.1")
+
+    print(f"\n{_color('Target DNS Server IP for this Device:', '1;33')} {_color(box_ip, '1;32')}")
+    print(f"Detected Router Gateway IP       : {gw_ip}")
+
+    print(f"\n{_color('Magyar Útmutató (Router DHCP Beállítás):', '1;36')}")
+    for step in guide.get("steps_hu", []):
+        print(f"  {step}")
+
+    print(f"\n{_color('English Setup Instructions:', '1;36')}")
+    for step in guide.get("steps_en", []):
+        print(f"  {step}")
+
+    print(_color("\n" + "=" * 76, "1;34"))
+    return 0
+
+
+def main() -> int:
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument("--json", action="store_true", help="Output in JSON format")
+
+    parser = argparse.ArgumentParser(
+        prog="nmb-adblock",
+        parents=[parent_parser],
+        description="NetworkMeasureBox DNS Ad-Blocker & Sinkhole Management CLI (Pi-hole Engine)",
+    )
+    # Pi-hole flag aliases
+    parser.add_argument("-g", "--update", action="store_true", help="Update gravity blocklists (pihole -g alias)")
+    parser.add_argument("-w", "--whitelist-add", metavar="DOMAIN", help="Add domain to whitelist (pihole -w alias)")
+    parser.add_argument("-b", "--blacklist-add", metavar="DOMAIN", help="Add domain to blacklist (pihole -b alias)")
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    # status
+    subparsers.add_parser("status", parents=[parent_parser], help="Display adblock status and telemetry")
+
+    # enable / disable
+    subparsers.add_parser("enable", parents=[parent_parser], help="Enable DNS adblocking")
+    subparsers.add_parser("disable", parents=[parent_parser], help="Disable DNS adblocking")
+
+    # update
+    subparsers.add_parser("update", parents=[parent_parser], help="Update gravity blocklists")
+
+    # whitelist
+    p_wl = subparsers.add_parser("whitelist", parents=[parent_parser], help="Manage whitelisted domains")
+    p_wl.add_argument("action", nargs="?", choices=["add", "remove", "list"], default="list")
+    p_wl.add_argument("domain", nargs="?", help="Domain to add or remove")
+
+    # blacklist
+    p_bl = subparsers.add_parser("blacklist", parents=[parent_parser], help="Manage custom blacklisted domains")
+    p_bl.add_argument("action", nargs="?", choices=["add", "remove", "list"], default="list")
+    p_bl.add_argument("domain", nargs="?", help="Domain to add or remove")
+
+    # querylog
+    p_log = subparsers.add_parser("querylog", parents=[parent_parser], help="Display recent DNS queries in real time")
+    p_log.add_argument("--limit", type=int, default=50, help="Number of queries to show (default: 50)")
+
+    # stats
+    subparsers.add_parser("stats", parents=[parent_parser], help="Display top blocked domains and client statistics")
+
+    # guide
+    subparsers.add_parser("guide", parents=[parent_parser], help="Show dynamic router DHCP configuration instructions")
+
+    args = parser.parse_args()
+
+    # Handle Pi-hole flag aliases
+    if args.update:
+        return cmd_update(args)
+    if args.whitelist_add:
+        args.action = "add"
+        args.domain = args.whitelist_add
+        return cmd_whitelist(args)
+    if args.blacklist_add:
+        args.action = "add"
+        args.domain = args.blacklist_add
+        return cmd_blacklist(args)
+
+    cmd = args.command or "status"
+
+    if cmd == "status":
+        return cmd_status(args)
+    elif cmd == "enable":
+        return cmd_enable(args)
+    elif cmd == "disable":
+        return cmd_disable(args)
+    elif cmd == "update":
+        return cmd_update(args)
+    elif cmd == "whitelist":
+        return cmd_whitelist(args)
+    elif cmd == "blacklist":
+        return cmd_blacklist(args)
+    elif cmd == "querylog":
+        return cmd_querylog(args)
+    elif cmd == "stats":
+        return cmd_stats(args)
+    elif cmd == "guide":
+        return cmd_guide(args)
+    else:
+        parser.print_help()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+"""NetworkMeasureBox Hardware Driver & Firmware Scanner / Installer CLI (nmb-driver).
+
+Comprehensive CLI tool to inspect physical network adapters, PCI/USB controllers,
+firmware loading states from kernel ring buffers, and install missing driver packages.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+# Add project root to sys.path
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from nmb.netd.drivers import (
+    get_full_driver_status,
+    detect_all_physical_interfaces,
+    detect_hardware_controllers,
+    detect_missing_firmware,
+    get_recommended_driver_packages,
+    execute_driver_install,
+    trigger_driver_install,
+    get_driver_install_status,
+)
+
+
+def _color(text: str, code: str) -> str:
+    if not sys.stdout.isatty():
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
+
+def cmd_scan(args: argparse.Namespace) -> int:
+    status = get_full_driver_status()
+    if args.json:
+        print(json.dumps(status, indent=2))
+        return 0
+
+    print(_color("=" * 76, "1;34"))
+    print(_color("  NetworkMeasureBox — Hardware Network Drivers & Firmware Scanner", "1;32"))
+    print(_color("=" * 76, "1;34"))
+
+    # 1. Physical Interfaces
+    ifaces = status.get("interfaces", [])
+    print(f"\n{_color('[1] Physical Network Interfaces:', '1;37')} ({len(ifaces)} detected)")
+    if not ifaces:
+        print("    (No physical network interfaces detected)")
+    else:
+        for idx, iface in enumerate(ifaces, 1):
+            name = iface.get("name", "unknown")
+            chipset = iface.get("chipset_name", "Unknown Chipset")
+            driver = iface.get("driver", "unknown")
+            fw = iface.get("firmware_version") or "N/A"
+            speed = f"{iface.get('speed_mbps')} Mbps" if iface.get("speed_mbps") else "Link Down / Wi-Fi"
+            carrier = _color("UP", "1;32") if iface.get("carrier") else _color("DOWN", "1;31")
+            ips = ", ".join(iface.get("ip_addresses", [])) or "No IP"
+            mac = iface.get("mac", "unknown")
+
+            print(f"  {_color(f'{idx}. Interface:', '1;36')} {_color(name, '1;33')} [{carrier}]")
+            print(f"     Chipset : {chipset}")
+            print(f"     Driver  : {_color(driver, '1;32')} (Firmware: {fw})")
+            print(f"     Speed   : {speed} | MAC: {mac}")
+            print(f"     IP(s)   : {ips}")
+            print(f"     Modes   : {', '.join(iface.get('supported_modes', [])[:3])}")
+
+    # 2. Hardware Controllers (PCI / USB)
+    controllers = status.get("controllers", [])
+    print(f"\n{_color('[2] Hardware Bus Controllers (PCI / USB):', '1;37')} ({len(controllers)} detected)")
+    if not controllers:
+        print("    (Onboard platform controllers or no standalone PCI/USB NICs)")
+    else:
+        for c in controllers:
+            bus = c.get("bus", "").upper()
+            bus_id = c.get("bus_id", "")
+            chipset = c.get("chipset_name", "")
+            has_drv = c.get("has_driver", False)
+            drv_badge = _color("DRIVER ACTIVE", "1;32") if has_drv else _color("NO DRIVER", "1;31")
+            bound = c.get("interface_name") or "None"
+            print(f"  * [{bus} {bus_id}] {chipset}")
+            print(f"    Status: {drv_badge} | Driver: {c.get('driver') or 'None'} | Bound Iface: {bound}")
+
+    # 3. Missing Firmware Diagnostics
+    missing_fw = status.get("missing_firmware", [])
+    print(f"\n{_color('[3] Kernel Firmware Loading Diagnostics:', '1;37')}")
+    if not missing_fw:
+        print(f"  {_color('✅ No missing firmware errors detected in kernel ring buffer.', '1;32')}")
+    else:
+        print(f"  {_color(f'⚠️ {len(missing_fw)} Missing Firmware Blob(s) Detected:', '1;31')}")
+        for m in missing_fw:
+            print(f"    - Blob: {_color(m.get('firmware_file',''), '1;33')}")
+            print(f"      Log : {m.get('error_line','')}")
+
+    # 4. Recommended Packages
+    recs = status.get("recommended_packages", [])
+    print(f"\n{_color('[4] Recommended Driver & Firmware Packages:', '1;37')}")
+    if not recs:
+        print("  All default Linux kernel drivers are up to date.")
+    else:
+        for r in recs:
+            rec_badge = _color("[RECOMMENDED]", "1;32") if r.get("recommended") else "[OPTIONAL]"
+            print(f"  * {_color(r.get('package',''), '1;33')} {rec_badge}")
+            print(f"    {r.get('description','')}")
+
+    print(_color("\n" + "=" * 76, "1;34"))
+    all_ready = status.get("all_drivers_ready", False)
+    if all_ready:
+        print(f"  Overall Status: {_color('✅ ALL NETWORK HARDWARE & DRIVERS READY', '1;32')}")
+        return 0
+    else:
+        print(f"  Overall Status: {_color('⚠️ HARDWARE REQUIRES DRIVERS / FIRMWARE', '1;31')}")
+        print(f"  Run {_color('nmb-driver install all', '1;33')} to install recommended firmware packages.")
+        return 1
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    status = get_full_driver_status()
+    if args.json:
+        print(json.dumps(status, indent=2))
+        return 0
+
+    all_ready = status.get("all_drivers_ready", False)
+    unsupported = status.get("unsupported_controllers_count", 0)
+    missing_fw = status.get("missing_firmware_count", 0)
+    ifaces_count = len(status.get("interfaces", []))
+
+    if all_ready:
+        print(_color(f"✅ Driver Health OK: {ifaces_count} physical interface(s) active, zero missing firmware blobs.", "1;32"))
+        return 0
+    else:
+        print(_color(f"⚠️ Driver Health Alert: {unsupported} unsupported controller(s), {missing_fw} missing firmware blob(s).", "1;31"))
+        return 1
+
+
+def cmd_missing(args: argparse.Namespace) -> int:
+    missing = detect_missing_firmware()
+    if args.json:
+        print(json.dumps(missing, indent=2))
+        return 0
+
+    if not missing:
+        print(_color("✅ No missing firmware errors detected in kernel logs.", "1;32"))
+        return 0
+
+    print(_color(f"⚠️ Detected {len(missing)} missing firmware file(s):", "1;31"))
+    for m in missing:
+        print(f"  * Firmware: {_color(m.get('firmware_file',''), '1;33')}")
+        print(f"    Line    : {m.get('error_line','')}")
+    return 1
+
+
+def cmd_install(args: argparse.Namespace) -> int:
+    package = args.package or "all"
+    print(_color(f"Initiating installation of driver package: {package}...", "1;36"))
+
+    if args.async_mode:
+        res = trigger_driver_install(package)
+        if args.json:
+            print(json.dumps(res, indent=2))
+            return 0
+        print(f"Installation started in background (Status: {res.get('status')})")
+        return 0
+
+    res = execute_driver_install(package)
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("status") == "ok" else 1
+
+    stdout = res.get("stdout") or ""
+    stderr = res.get("stderr") or ""
+    if stdout:
+        print(stdout)
+    if stderr:
+        print(_color(stderr, "1;31"))
+
+    if res.get("status") == "ok":
+        print(_color("\n✅ Driver installation finished successfully.", "1;32"))
+        return 0
+    else:
+        print(_color(f"\n❌ Driver installation failed with exit code: {res.get('returncode')}", "1;31"))
+        return 1
+
+
+def main() -> int:
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument("--json", action="store_true", help="Output results in JSON format")
+
+    parser = argparse.ArgumentParser(
+        prog="nmb-driver",
+        parents=[parent_parser],
+        description="NetworkMeasureBox Network Hardware Driver & Firmware Management CLI",
+    )
+    subparsers = parser.add_subparsers(dest="command")
+
+    # scan
+    subparsers.add_parser("scan", parents=[parent_parser], help="Scan interfaces, controllers, and firmware health")
+
+    # status
+    subparsers.add_parser("status", parents=[parent_parser], help="Quick driver readiness status check (exit 0/1)")
+
+    # missing
+    subparsers.add_parser("missing", parents=[parent_parser], help="Check kernel logs for missing firmware failures")
+
+    # install
+    p_inst = subparsers.add_parser("install", parents=[parent_parser], help="Install driver & firmware packages")
+    p_inst.add_argument("package", nargs="?", default="all", help="Package to install (default: all)")
+    p_inst.add_argument("--async", dest="async_mode", action="store_true", help="Run installation in background")
+
+    args = parser.parse_args()
+    cmd = args.command or "scan"
+
+    if cmd == "scan":
+        return cmd_scan(args)
+    elif cmd == "status":
+        return cmd_status(args)
+    elif cmd == "missing":
+        return cmd_missing(args)
+    elif cmd == "install":
+        return cmd_install(args)
+    else:
+        parser.print_help()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
