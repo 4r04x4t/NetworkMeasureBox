@@ -3124,59 +3124,82 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
       <div id="subtab-content-duckdns" class="remote-subtab" style="display: none;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
-            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;" data-i18n="duckdns_title">DuckDNS Dynamic DNS Synchronization</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div style="font-weight: 700; font-size: 14px; color: #38bdf8;" data-i18n="duckdns_title">DuckDNS Dynamic DNS Synchronization</div>
+              <span id="duckdns-config-state-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);" data-i18n="duckdns_saved_active">Saved & Active</span>
+            </div>
             <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;" data-i18n="duckdns_desc">
               Automatically keeps your free DuckDNS hostname pointed at the device's public WAN IP address.
             </p>
+
+            <div id="duckdns-unsaved-alert" style="display: none; margin-bottom: 14px; padding: 8px 12px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; font-size: 12px; color: #f59e0b;" data-i18n="duckdns_unsaved_warning">
+              ⚠️ Unsaved changes in form (Click 'Save DuckDNS Settings'!)
+            </div>
+
             <div style="margin-bottom: 12px;">
               <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
-                <input type="checkbox" id="duckdns-enabled"> <span data-i18n="duckdns_enable">Enable DuckDNS Dynamic DNS Updater</span>
+                <input type="checkbox" id="duckdns-enabled" onchange="checkDuckdnsUnsavedChanges()"> <span data-i18n="duckdns_enable">Enable DuckDNS Dynamic DNS Updater</span>
               </label>
             </div>
             <div style="margin-bottom: 12px;">
               <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_domain">DuckDNS Subdomain (.duckdns.org):</label>
               <div style="display: flex; align-items: center; gap: 6px;">
-                <input type="text" id="duckdns-domain" class="form-input" style="font-size: 13px; padding: 7px 10px; flex: 1;" placeholder="my-box">
+                <input type="text" id="duckdns-domain" class="form-input" style="font-size: 13px; padding: 7px 10px; flex: 1;" placeholder="my-box" oninput="checkDuckdnsUnsavedChanges()">
                 <span style="font-size: 12px; color: var(--text-muted);">.duckdns.org</span>
               </div>
             </div>
             <div style="margin-bottom: 12px;">
               <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_token">DuckDNS Account Token:</label>
-              <input type="password" id="duckdns-token" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="00000000-0000-0000-0000-000000000000">
+              <input type="password" id="duckdns-token" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="00000000-0000-0000-0000-000000000000" oninput="checkDuckdnsUnsavedChanges()">
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
               <div>
                 <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_interval">Update Interval (Minutes):</label>
-                <input type="number" id="duckdns-interval" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" min="5" max="1440" value="10">
+                <input type="number" id="duckdns-interval" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" min="1" max="1440" value="10" oninput="checkDuckdnsUnsavedChanges()">
               </div>
               <div>
                 <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_custom_ip">Override Public IP (optional):</label>
-                <input type="text" id="duckdns-custom-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto-detect">
+                <input type="text" id="duckdns-custom-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto-detect" oninput="checkDuckdnsUnsavedChanges()">
               </div>
             </div>
-            <div style="display: flex; gap: 10px;">
-              <button class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveDuckdnsSettings()" data-i18n="duckdns_btn_save">Save DuckDNS Settings</button>
-              <button class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="updateDuckdnsNow()" data-i18n="duckdns_btn_update">🔄 Force Update Now</button>
+            <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+              <button id="btn-save-duckdns" class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveDuckdnsSettings()" data-i18n="duckdns_btn_save">Save DuckDNS Settings</button>
+              <button id="btn-update-duckdns" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="updateDuckdnsNow()" data-i18n="duckdns_btn_update">🔄 Force Update Now</button>
+            </div>
+
+            <div id="duckdns-saved-card" style="padding: 12px; background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px;">
+              <div style="font-size: 12px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;" data-i18n="duckdns_saved_card_title">💾 Saved Configuration in /etc/nmb/nmb.conf</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11.5px; color: var(--text-muted);">
+                <div>Active Hostname: <span id="duckdns-saved-fqdn" style="color: #38bdf8; font-weight: 600;">--</span></div>
+                <div>Update Interval: <span id="duckdns-saved-interval" style="color: #34d399; font-weight: 700;">--</span></div>
+                <div>Status: <span id="duckdns-saved-enabled" style="font-weight: 600; color: var(--text-main);">--</span></div>
+                <div>Account Token: <span id="duckdns-saved-token-state" style="color: var(--text-main);">--</span></div>
+                <div style="grid-column: span 2;">IP Override: <span id="duckdns-saved-custom-ip" style="color: var(--text-main);">Auto-detect</span></div>
+              </div>
             </div>
           </div>
 
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
             <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;">DuckDNS Live Status</div>
-            <div style="margin-bottom: 12px;">
+            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
               <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_status">Last Update Status:</span>
-              <span id="duckdns-status-badge" class="badge" style="margin-left: 8px;">Checking...</span>
+              <span id="duckdns-status-badge" class="badge">Checking...</span>
             </div>
-            <div style="margin-bottom: 12px;">
+            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
               <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_ip">Detected Public IP:</span>
-              <span id="duckdns-detected-ip" style="font-weight: 700; margin-left: 8px; color: #38bdf8;">--</span>
+              <span id="duckdns-detected-ip" style="font-weight: 700; color: #38bdf8;">--</span>
             </div>
-            <div style="margin-bottom: 12px;">
+            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
               <span style="font-size: 12px; color: var(--text-muted);">Last Updated:</span>
-              <span id="duckdns-last-time" style="margin-left: 8px; color: var(--text-main);">--</span>
+              <span id="duckdns-last-time" style="color: var(--text-main);">--</span>
             </div>
-            <div style="margin-bottom: 12px;">
-              <span style="font-size: 12px; color: var(--text-muted);">Next Scheduled:</span>
-              <span id="duckdns-next-time" style="margin-left: 8px; color: var(--text-muted);">--</span>
+            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_next_sync">Next Scheduled Sync:</span>
+              <span id="duckdns-next-time" style="color: var(--text-muted);">--</span>
+            </div>
+            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_countdown_next">Countdown:</span>
+              <span id="duckdns-countdown-badge" class="badge" style="background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); font-weight: 700;">--</span>
             </div>
             <div id="duckdns-msg-box" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; color: #94a3b8; margin-top: 14px;">
               Ready.
@@ -12411,22 +12434,125 @@ ${pkgList}`;
   }
 
   // ---- DuckDNS ----
+  let savedDuckdnsConfig = {
+    enabled: false,
+    domain: '',
+    token_set: false,
+    interval_min: 10,
+    custom_ip: '',
+    fqdn: '',
+  };
+  let duckdnsCountdownTimer = null;
+  let duckdnsNextTs = 0;
+
+  function updateDuckdnsCountdown() {
+    const el = document.getElementById('duckdns-countdown-badge');
+    if (!el) return;
+    if (!duckdnsNextTs || duckdnsNextTs <= 0 || !savedDuckdnsConfig.enabled) {
+      el.textContent = '--';
+      return;
+    }
+    const diff = Math.max(0, Math.round(duckdnsNextTs - Date.now() / 1000));
+    if (diff <= 0) {
+      el.textContent = t('duckdns_syncing', 'Syncing...');
+      return;
+    }
+    const m = Math.floor(diff / 60);
+    const s = diff % 60;
+    el.textContent = `${m}m ${s < 10 ? '0' : ''}${s}s`;
+  }
+
+  function checkDuckdnsUnsavedChanges() {
+    const alertEl = document.getElementById('duckdns-unsaved-alert');
+    const badgeEl = document.getElementById('duckdns-config-state-badge');
+    if (!alertEl || !badgeEl) return;
+
+    const enNow = !!document.getElementById('duckdns-enabled')?.checked;
+    const domNow = (document.getElementById('duckdns-domain')?.value || '').trim();
+    const intNow = parseInt(document.getElementById('duckdns-interval')?.value, 10) || 10;
+    const custNow = (document.getElementById('duckdns-custom-ip')?.value || '').trim();
+    const tokNow = (document.getElementById('duckdns-token')?.value || '').trim();
+
+    const isChanged = (
+      enNow !== savedDuckdnsConfig.enabled ||
+      domNow !== savedDuckdnsConfig.domain ||
+      intNow !== savedDuckdnsConfig.interval_min ||
+      custNow !== savedDuckdnsConfig.custom_ip ||
+      tokNow.length > 0
+    );
+
+    if (isChanged) {
+      alertEl.style.display = 'block';
+      badgeEl.className = 'badge';
+      badgeEl.style.background = 'rgba(245, 158, 11, 0.15)';
+      badgeEl.style.color = '#f59e0b';
+      badgeEl.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+      badgeEl.textContent = t('duckdns_unsaved_warning', '⚠️ Unsaved Changes');
+    } else {
+      alertEl.style.display = 'none';
+      badgeEl.className = 'badge';
+      badgeEl.style.background = savedDuckdnsConfig.enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)';
+      badgeEl.style.color = savedDuckdnsConfig.enabled ? '#10b981' : '#94a3b8';
+      badgeEl.style.border = savedDuckdnsConfig.enabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #475569';
+      badgeEl.textContent = savedDuckdnsConfig.enabled ? t('duckdns_saved_active', 'Saved & Active') : t('duckdns_saved_inactive', 'Disabled');
+    }
+  }
+
   async function loadDuckdnsStatus() {
     try {
       const res = await fetch('/api/duckdns/status');
       if (!res.ok) return;
       const d = await res.json();
 
+      const effInterval = d.update_interval_min || d.interval_min || 10;
+      savedDuckdnsConfig = {
+        enabled: !!d.enabled,
+        domain: d.domain || '',
+        token_set: !!d.token_set,
+        interval_min: effInterval,
+        custom_ip: d.custom_ip || '',
+        fqdn: d.fqdn || (d.domain ? d.domain + '.duckdns.org' : ''),
+      };
+
+      duckdnsNextTs = d.next_update_ts || 0;
+      if (!duckdnsCountdownTimer) {
+        duckdnsCountdownTimer = setInterval(updateDuckdnsCountdown, 1000);
+      }
+      updateDuckdnsCountdown();
+
       const enChbox = document.getElementById('duckdns-enabled');
       const domInput = document.getElementById('duckdns-domain');
       const intInput = document.getElementById('duckdns-interval');
       const custInput = document.getElementById('duckdns-custom-ip');
 
-      if (enChbox && d.enabled !== undefined) enChbox.checked = !!d.enabled;
+      if (enChbox && d.enabled !== undefined && !enChbox.dataset.focused) enChbox.checked = !!d.enabled;
       if (domInput && d.domain !== undefined && !domInput.dataset.focused) domInput.value = d.domain || '';
-      if (intInput && d.interval_min !== undefined && !intInput.dataset.focused) intInput.value = d.interval_min || 10;
+      if (intInput && !intInput.dataset.focused) intInput.value = effInterval;
       if (custInput && d.custom_ip !== undefined && !custInput.dataset.focused) custInput.value = d.custom_ip || '';
 
+      // Update Saved Configuration Summary Box
+      const svFqdn = document.getElementById('duckdns-saved-fqdn');
+      if (svFqdn) svFqdn.textContent = savedDuckdnsConfig.fqdn || '(None)';
+
+      const svInt = document.getElementById('duckdns-saved-interval');
+      if (svInt) svInt.textContent = `${effInterval} ${t('duckdns_minutes_abbr', 'minutes')}`;
+
+      const svEn = document.getElementById('duckdns-saved-enabled');
+      if (svEn) {
+        svEn.textContent = d.enabled ? ('🟢 ' + t('duckdns_saved_active', 'Enabled')) : ('⚪ ' + t('duckdns_saved_inactive', 'Disabled'));
+      }
+
+      const svTok = document.getElementById('duckdns-saved-token-state');
+      if (svTok) {
+        svTok.textContent = d.token_set ? '•••••••••••• (Configured)' : 'Not configured';
+      }
+
+      const svCust = document.getElementById('duckdns-saved-custom-ip');
+      if (svCust) {
+        svCust.textContent = d.custom_ip ? d.custom_ip : 'Auto-detect WAN IPv4';
+      }
+
+      // Update Live Status Card
       const badge = document.getElementById('duckdns-status-badge');
       if (badge) {
         if (!d.enabled) {
@@ -12434,14 +12560,14 @@ ${pkgList}`;
           badge.style.background = 'rgba(148, 163, 184, 0.15)';
           badge.style.color = '#94a3b8';
           badge.style.border = '1px solid #475569';
-          badge.textContent = 'Disabled';
-        } else if (d.last_status === 'OK') {
+          badge.textContent = t('duckdns_saved_inactive', 'Disabled');
+        } else if (d.last_status === 'OK' || d.last_status === 'success') {
           badge.className = 'badge';
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#10b981';
           badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
           badge.textContent = '🟢 Synced (OK)';
-        } else if (d.last_status === 'KO') {
+        } else if (d.last_status === 'KO' || d.last_status === 'failed') {
           badge.className = 'badge';
           badge.style.background = 'rgba(239, 68, 68, 0.15)';
           badge.style.color = '#ef4444';
@@ -12467,14 +12593,23 @@ ${pkgList}`;
 
       const msgBox = document.getElementById('duckdns-msg-box');
       if (msgBox) {
-        msgBox.textContent = `FQDN: ${d.domain ? d.domain + '.duckdns.org' : '(none configured)'} • Public IP: ${d.detected_ip || '--'} • Response: ${d.last_status || 'Ready'}`;
+        msgBox.textContent = `FQDN: ${savedDuckdnsConfig.fqdn || '(none)'} • WAN IP: ${d.detected_ip || d.last_ip || '--'} • Response: ${d.last_message || d.last_status || 'Ready'}`;
       }
+
+      checkDuckdnsUnsavedChanges();
     } catch (e) {
       console.error('loadDuckdnsStatus error:', e);
     }
   }
 
   async function saveDuckdnsSettings() {
+    const btn = document.getElementById('btn-save-duckdns');
+    const oldText = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '💾 ' + t('saving', 'Saving...');
+    }
+
     const enabled = !!document.getElementById('duckdns-enabled')?.checked;
     const domain = (document.getElementById('duckdns-domain')?.value || '').trim();
     const token = (document.getElementById('duckdns-token')?.value || '').trim();
@@ -12485,33 +12620,70 @@ ${pkgList}`;
       const res = await fetch('/api/duckdns/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled, domain, token, interval_min, custom_ip }),
+        body: JSON.stringify({
+          enabled,
+          domain,
+          token,
+          interval_min,
+          update_interval_min: interval_min,
+          custom_ip,
+        }),
       });
       const d = await res.json();
       if (res.ok) {
-        showToast('DuckDNS settings successfully saved');
-        loadDuckdnsStatus();
+        const tokInput = document.getElementById('duckdns-token');
+        if (tokInput && token) tokInput.value = '';
+        showToast(`✅ ${t('duckdns_toast_saved', 'DuckDNS settings successfully saved! Interval:')} ${interval_min} ${t('duckdns_minutes_abbr', 'minutes')}`);
+        await loadDuckdnsStatus();
+
+        // Highlight card to visually confirm save
+        const svCard = document.getElementById('duckdns-saved-card');
+        if (svCard) {
+          svCard.style.transition = 'background 0.3s ease, border-color 0.3s ease';
+          svCard.style.background = 'rgba(16, 185, 129, 0.18)';
+          svCard.style.borderColor = '#10b981';
+          setTimeout(() => {
+            svCard.style.background = 'rgba(56, 189, 248, 0.06)';
+            svCard.style.borderColor = 'rgba(56, 189, 248, 0.25)';
+          }, 1500);
+        }
       } else {
-        showToast('DuckDNS save error: ' + (d.message || 'Failed'));
+        showToast('❌ DuckDNS save error: ' + (d.message || 'Failed'));
       }
     } catch (e) {
-      showToast('Save DuckDNS error: ' + e);
+      showToast('❌ Save DuckDNS error: ' + e);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }
     }
   }
 
   async function updateDuckdnsNow() {
+    const btn = document.getElementById('btn-update-duckdns');
+    const oldText = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '🔄 ' + t('updating', 'Updating...');
+    }
     showToast('Triggering DuckDNS DynDNS synchronization...');
     try {
       const res = await fetch('/api/duckdns/update', { method: 'POST' });
       const d = await res.json();
-      if (res.ok && d.success) {
-        showToast(`DuckDNS updated! IP: ${d.ip || 'OK'}`);
+      if (res.ok && (d.success || d.status === 'ok')) {
+        showToast(`✅ DuckDNS updated! Public IP: ${d.ip || 'OK'}`);
       } else {
         showToast('DuckDNS update returned: ' + (d.status || d.message || 'Failed'));
       }
-      setTimeout(loadDuckdnsStatus, 1000);
+      setTimeout(loadDuckdnsStatus, 800);
     } catch (e) {
       showToast('DuckDNS update error: ' + e);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }
     }
   }
 
@@ -13245,6 +13417,8 @@ ${pkgList}`;
         loadWireguardStatus();
       } else if (activeRemoteSubtab === 'openvpn' && openvpnIsActive) {
         loadOpenvpnStatus();
+      } else if (activeRemoteSubtab === 'duckdns') {
+        loadDuckdnsStatus();
       }
     }
   }, 3000);

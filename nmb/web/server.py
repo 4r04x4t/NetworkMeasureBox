@@ -620,7 +620,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 17b. DuckDNS DynDNS Status
         if path == "/api/duckdns/status":
             from nmb.netd.duckdns import get_duckdns_status
-            self._send_json(get_duckdns_status())
+            self._send_json(get_duckdns_status(self.server.cfg))
             return
 
         # 17c. WireGuard VPN Status, Config & QR
@@ -1906,11 +1906,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # 16. DuckDNS DynDNS Settings & Update
         if path == "/api/duckdns/save":
-            from nmb.netd.duckdns import start_duckdns_service, stop_duckdns_service
+            from nmb.netd.duckdns import start_duckdns_service, stop_duckdns_service, update_duckdns, get_duckdns_status, wake_duckdns_daemon
             enabled = bool(body_json.get("enabled", False))
             domain = str(body_json.get("domain", "")).strip()
             token = str(body_json.get("token", "")).strip()
-            interval = int(body_json.get("update_interval_min", 10))
+            raw_interval = body_json.get("update_interval_min", body_json.get("interval_min", 10))
+            try:
+                interval = max(1, int(raw_interval))
+            except (ValueError, TypeError):
+                interval = 10
             custom_ip = str(body_json.get("custom_ip", "")).strip()
 
             self.server.cfg.duckdns.enabled = enabled
@@ -1921,18 +1925,44 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.server.cfg.duckdns.custom_ip = custom_ip
             save_config(self.server.cfg)
 
+            detail = None
             if enabled:
+                if self.server.cfg.duckdns.token and domain:
+                    detected_v6 = None
+                    try:
+                        from nmb.netd.wireguard import get_device_addresses
+                        _, v6_addrs = get_device_addresses()
+                        if v6_addrs:
+                            detected_v6 = v6_addrs[0][1]
+                    except Exception:
+                        pass
+                    detail = update_duckdns(domain=domain, token=self.server.cfg.duckdns.token, ip=custom_ip or None, ipv6=detected_v6)
                 start_duckdns_service(lambda: self.server.cfg)
-                from nmb.netd.duckdns import update_duckdns
-                res = update_duckdns(domain=domain, token=self.server.cfg.duckdns.token, ip=custom_ip or None)
-                self._send_json({"status": "ok", "message": "DuckDNS settings saved & update triggered", "detail": res})
+                wake_duckdns_daemon()
+                msg = f"DuckDNS settings saved to /etc/nmb/nmb.conf. Interval set to {interval} minute(s)."
             else:
                 stop_duckdns_service()
-                self._send_json({"status": "ok", "message": "DuckDNS updater disabled"})
+                msg = "DuckDNS updater disabled and configuration saved."
+
+            st = get_duckdns_status(self.server.cfg)
+            self._send_json({
+                "status": "ok",
+                "message": msg,
+                "saved_config": {
+                    "enabled": enabled,
+                    "domain": domain,
+                    "update_interval_min": interval,
+                    "interval_min": interval,
+                    "custom_ip": custom_ip,
+                    "token_set": bool(self.server.cfg.duckdns.token),
+                },
+                "status_data": st,
+                "detail": detail,
+            })
             return
 
         if path == "/api/duckdns/update":
-            from nmb.netd.duckdns import update_duckdns
+            from nmb.netd.duckdns import update_duckdns, get_duckdns_status, wake_duckdns_daemon
             d_cfg = self.server.cfg.duckdns
             if not d_cfg.domain or not d_cfg.token:
                 self._send_json({"status": "error", "message": "DuckDNS domain and token are not configured."}, status=400)
@@ -1946,6 +1976,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
             res = update_duckdns(domain=d_cfg.domain, token=d_cfg.token, ip=d_cfg.custom_ip or None, ipv6=detected_v6)
+            wake_duckdns_daemon()
+            res["status_data"] = get_duckdns_status(self.server.cfg)
             self._send_json(res)
             return
 

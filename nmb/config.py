@@ -530,11 +530,11 @@ def load_config(path: Path | None = None) -> Config:
                 except Exception as e:
                     log.debug("drive mtime check exception: %s", e)
 
-    def _safe_exists(p: Optional[Path]) -> bool:
+    def _safe_exists(p: Optional[Path | str]) -> bool:
         if not p:
             return False
         try:
-            return p.exists()
+            return Path(p).exists()
         except (PermissionError, OSError):
             return False
 
@@ -798,7 +798,7 @@ def load_config(path: Path | None = None) -> Config:
 
 def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     """Atomically write Config back to nmb.conf preserving structure."""
-    path = target_path or DEFAULT_CONFIG_PATH
+    path = Path(target_path) if target_path else Path(getattr(cfg.system, "config_path", DEFAULT_CONFIG_PATH) or DEFAULT_CONFIG_PATH)
     parser = configparser.ConfigParser()
     if path.exists():
         try:

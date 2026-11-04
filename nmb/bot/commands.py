@@ -84,6 +84,8 @@ class CommandHandler:
             self._cmd_mode(chat_id, args)
         elif cmd in ("/vpn", "/wireguard", "/pivpn"):
             self._cmd_vpn(chat_id, args)
+        elif cmd in ("/dyndns", "/duckdns"):
+            self._cmd_dyndns(chat_id, args)
         elif cmd in ("/adblock", "/pihole", "/sinkhole"):
             self._cmd_adblock(chat_id, args)
         elif cmd in ("/heal", "/repair", "/audit"):
@@ -131,6 +133,14 @@ class CommandHandler:
 • /vpn qr <code>&lt;name&gt;</code> - Receive QR code image for mobile pairing
 • /vpn start <code>[wg|ovpn]</code> / /vpn stop <code>[wg|ovpn]</code> - Toggle servers
 • /vpn del <code>&lt;name&gt;</code> - Delete/revoke client peer
+
+<b>🦆 Dynamic DNS (DuckDNS):</b>
+• /dyndns (or /duckdns) - Status, public IP & sync countdown
+• /dyndns update - Force immediate DynDNS synchronization
+• /dyndns interval <code>&lt;minutes&gt;</code> - Change update interval (e.g. 5)
+• /dyndns on | /dyndns off - Toggle background updater
+• /dyndns domain <code>&lt;subdomain&gt;</code> - Set DuckDNS subdomain
+• /dyndns token <code>&lt;token&gt;</code> - Set DuckDNS account token
 
 <b>🛡️ DNS Ad-Blocker (Pi-hole Sinkhole):</b>
 • /adblock - Sinkhole status, blocked queries today, gravity size
@@ -717,6 +727,183 @@ class CommandHandler:
             self.client.send_message(chat_id, f"Client <code>{html.escape(name)}</code> not found.")
         except Exception as e:
             self.client.send_message(chat_id, f"Error deleting client: {html.escape(str(e))}")
+
+    # =========================================================================
+    # 3b. DuckDNS Dynamic DNS (DynDNS)
+    # =========================================================================
+
+    def _cmd_dyndns(self, chat_id: int, args: list[str]) -> None:
+        import nmb.netd.duckdns as dd
+        from nmb.config import save_config
+
+        subcmd = args[0].lower() if args else ""
+        d_cfg = self.cfg.duckdns
+
+        if subcmd in ("update", "sync", "now", "force"):
+            if not d_cfg.domain or not d_cfg.token:
+                self.client.send_message(
+                    chat_id,
+                    "⚠️ <b>DuckDNS not configured</b>: Subdomain and token must be set before synchronizing.\n"
+                    "Use: <code>/dyndns domain &lt;subdomain&gt;</code> and <code>/dyndns token &lt;token&gt;</code>"
+                )
+                return
+
+            self.client.send_message(chat_id, "⏳ <i>Triggering DuckDNS synchronization...</i>")
+            detected_v6 = None
+            try:
+                from nmb.netd.wireguard import get_device_addresses
+                _, v6_addrs = get_device_addresses()
+                if v6_addrs:
+                    detected_v6 = v6_addrs[0][1]
+            except Exception:
+                pass
+
+            res = dd.update_duckdns(
+                domain=d_cfg.domain,
+                token=d_cfg.token,
+                ip=d_cfg.custom_ip if d_cfg.custom_ip else None,
+                ipv6=detected_v6,
+            )
+            dd.wake_duckdns_daemon()
+
+            if res.get("status") == "ok" or res.get("success"):
+                ip = res.get("ip") or "detected WAN IP"
+                fqdn = res.get("fqdn") or f"{dd.clean_domain(d_cfg.domain)}.duckdns.org"
+                updated_tag = " (IP Updated)" if res.get("updated") else " (IP Unchanged)"
+                self.client.send_message(
+                    chat_id,
+                    f"✅ <b>DuckDNS Synced Successfully!</b>\n\n"
+                    f"• <b>Hostname:</b> <code>{html.escape(fqdn)}</code>\n"
+                    f"• <b>Public IP:</b> <code>{html.escape(ip)}</code>{updated_tag}\n"
+                    f"• <b>Status:</b> <code>{html.escape(res.get('message', 'OK'))}</code>"
+                )
+            else:
+                self.client.send_message(
+                    chat_id,
+                    f"❌ <b>DuckDNS Update Failed:</b>\n\n"
+                    f"<code>{html.escape(res.get('message', 'Unknown error'))}</code>"
+                )
+            return
+
+        if subcmd in ("interval", "every", "time"):
+            if len(args) < 2:
+                curr_int = d_cfg.update_interval_min
+                self.client.send_message(
+                    chat_id,
+                    f"ℹ️ Current DuckDNS update interval is <b>{curr_int} minutes</b>.\n"
+                    f"Usage to change: <code>/dyndns interval &lt;minutes&gt;</code> (e.g. <code>/dyndns interval 5</code>)"
+                )
+                return
+            try:
+                new_int = max(1, min(1440, int(args[1])))
+            except ValueError:
+                self.client.send_message(chat_id, "❌ Invalid interval. Please specify a number between 1 and 1440.")
+                return
+
+            d_cfg.update_interval_min = new_int
+            save_config(self.cfg)
+            dd.wake_duckdns_daemon()
+
+            self.client.send_message(
+                chat_id,
+                f"✅ <b>DuckDNS Interval Updated!</b>\n\n"
+                f"• <b>New Interval:</b> <code>{new_int} minutes</code>\n"
+                f"• <b>Saved to:</b> <code>/etc/nmb/nmb.conf</code>\n"
+                f"• <b>Daemon Status:</b> Woken up immediately; new schedule active."
+            )
+            return
+
+        if subcmd in ("on", "enable", "start"):
+            d_cfg.enabled = True
+            save_config(self.cfg)
+            dd.start_duckdns_service(lambda: self.cfg)
+            dd.wake_duckdns_daemon()
+            self.client.send_message(
+                chat_id,
+                "✅ <b>DuckDNS updater enabled and started!</b>\n"
+                f"Hostname: <code>{html.escape(dd.clean_domain(d_cfg.domain))}.duckdns.org</code> (Interval: {d_cfg.update_interval_min}m)"
+            )
+            return
+
+        if subcmd in ("off", "disable", "stop"):
+            d_cfg.enabled = False
+            save_config(self.cfg)
+            dd.stop_duckdns_service()
+            self.client.send_message(chat_id, "⚪ <b>DuckDNS updater disabled and stopped.</b>")
+            return
+
+        if subcmd in ("domain", "host", "subdomain"):
+            if len(args) < 2:
+                curr_dom = d_cfg.domain
+                self.client.send_message(
+                    chat_id,
+                    f"ℹ️ Current DuckDNS domain: <code>{html.escape(curr_dom or '(none)')}</code>\n"
+                    f"Usage: <code>/dyndns domain &lt;subdomain&gt;</code>"
+                )
+                return
+            new_dom = dd.clean_domain(args[1])
+            d_cfg.domain = new_dom
+            save_config(self.cfg)
+            dd.wake_duckdns_daemon()
+            self.client.send_message(
+                chat_id,
+                f"✅ <b>DuckDNS Subdomain set to:</b> <code>{html.escape(new_dom)}.duckdns.org</code>"
+            )
+            return
+
+        if subcmd == "token":
+            if len(args) < 2:
+                is_set = "Configured" if d_cfg.token else "Not configured"
+                self.client.send_message(
+                    chat_id,
+                    f"ℹ️ DuckDNS Token: <b>{is_set}</b>\n"
+                    f"Usage: <code>/dyndns token &lt;token&gt;</code>"
+                )
+                return
+            new_tok = args[1].strip()
+            d_cfg.token = new_tok
+            save_config(self.cfg)
+            dd.wake_duckdns_daemon()
+            self.client.send_message(
+                chat_id,
+                "✅ <b>DuckDNS Token updated & securely saved in /etc/nmb/nmb.conf!</b>"
+            )
+            return
+
+        # Default: Status overview
+        st = dd.get_duckdns_status(self.cfg)
+        status_badge = "🟢 ENABLED (Running)" if st.get("enabled") else "⚪ DISABLED"
+        last_st = st.get("last_status", "Never Run")
+        last_st_badge = "🟢 OK" if last_st == "OK" else ("🔴 KO" if last_st == "KO" else html.escape(str(last_st)))
+        fqdn = st.get("fqdn") or (f"{st.get('domain')}.duckdns.org" if st.get("domain") else "<i>(Not configured)</i>")
+        wan_ip = st.get("last_ip") or st.get("detected_ip") or "<i>(Pending detection)</i>"
+        interval_m = st.get("update_interval_min", 10)
+        last_up = st.get("last_update") or "Never"
+        next_secs = st.get("next_update_seconds", 0)
+        if next_secs > 0:
+            nm = next_secs // 60
+            ns = next_secs % 60
+            next_str = f"in {nm}m {ns}s ({st.get('next_update', '')})"
+        else:
+            next_str = st.get("next_update") or "--"
+
+        msg = f"""<b>🦆 DuckDNS Dynamic DNS (DynDNS)</b>
+<b>Daemon Status:</b> {status_badge}
+
+• <b>FQDN:</b> <code>{fqdn}</code>
+• <b>Public WAN IP:</b> <code>{wan_ip}</code>
+• <b>Update Interval:</b> <code>{interval_m} minutes</code>
+• <b>Last Update:</b> <code>{html.escape(last_up)}</code> ({last_st_badge})
+• <b>Next Scheduled Sync:</b> <code>{html.escape(next_str)}</code>
+• <b>Token Configured:</b> {"Yes (Configured)" if st.get("token_set") else "No"}
+• <b>Last Message:</b> <i>{html.escape(st.get("last_message") or "Ready")}</i>
+
+<b>Quick Commands:</b>
+• <code>/dyndns update</code> - Force immediate sync
+• <code>/dyndns interval &lt;minutes&gt;</code> - Change sync interval
+• <code>/dyndns on</code> | <code>/dyndns off</code> - Toggle updater
+• <code>/dyndns domain &lt;name&gt;</code> - Change subdomain"""
+        self.client.send_message(chat_id, msg)
 
     # =========================================================================
     # 4. DNS Ad-Blocker (Pi-hole Sinkhole)
