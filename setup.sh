@@ -199,14 +199,15 @@ if [ ! -f "$CONFIG_FILE" ]; then
     info "Created default configuration at $CONFIG_FILE"
 fi
 
-# Generate strong random admin password on installation if default "admin"
-ADMIN_PASS="admin"
-if grep -q "admin_password = admin" "$CONFIG_FILE" 2>/dev/null; then
+# Read or preserve admin password from config (factory router default: admin / admin)
+if [ "${RANDOM_ADMIN_PASSWORD:-0}" = "1" ] && grep -q "admin_password = admin" "$CONFIG_FILE" 2>/dev/null; then
     ADMIN_PASS=$(head -c 16 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 14)
     sed -i "s/admin_password = admin/admin_password = $ADMIN_PASS/" "$CONFIG_FILE"
     info "Generated secure random Web UI admin password: $ADMIN_PASS"
 else
     ADMIN_PASS=$(grep -E '^\s*admin_password\s*=' "$CONFIG_FILE" 2>/dev/null | cut -d= -f2 | tr -d ' ' || echo "admin")
+    [ -z "$ADMIN_PASS" ] && ADMIN_PASS="admin"
+    info "Standard router Web UI admin credentials: admin / $ADMIN_PASS"
 fi
 
 # Write headless first-boot credentials file to /var/lib/nmb and /boot partition
