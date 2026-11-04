@@ -45,7 +45,7 @@ from nmb.speed.iperf_directory import fetch_public_iperf_servers, probe_iperf_se
 from nmb.speed.ookla import get_available_servers
 from nmb.speed.runner import run_measurement_cycle
 from nmb.speed.scheduler import AutonomousScheduler, get_cron_description, normalize_cron_expression
-from nmb.speed.traceroute import run_traceroute, get_latest_traceroute, is_traceroute_running
+from nmb.speed.traceroute import run_traceroute, get_latest_traceroute, is_traceroute_running, stop_traceroute
 from nmb.web.i18n import get_translations_for_lang, TRANSLATIONS
 from nmb.web.templates import get_dashboard_html, get_logout_html
 
@@ -1572,6 +1572,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 max_hops = max(1, min(64, int(body_json.get("max_hops", 30))))
             except (ValueError, TypeError):
                 max_hops = 30
+            method = str(body_json.get("method", "icmp")).lower().strip() or "icmp"
+            ip_version = str(body_json.get("ip_version", "auto")).lower().strip() or "auto"
 
             if is_traceroute_running():
                 self._send_json({"status": "busy", "message": "Traceroute already in progress."}, status=409)
@@ -1579,16 +1581,23 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
             def _async_traceroute():
                 try:
-                    run_traceroute(host=target_host, max_hops=max_hops)
+                    run_traceroute(host=target_host, max_hops=max_hops, method=method, ip_version=ip_version)
                 except Exception as e:
                     log.error("Traceroute execution error: %s", e)
 
             threading.Thread(target=_async_traceroute, daemon=True, name="nmb-traceroute-worker").start()
             self._send_json({
                 "status": "started",
-                "message": f"Traceroute started to {target_host} (max {max_hops} hops)",
+                "message": f"Traceroute started to {target_host} ({method.upper()}, max {max_hops} hops)",
                 "target": target_host,
+                "method": method,
             })
+            return
+
+        # 11a. Traceroute Stop
+        if path == "/api/traceroute/stop":
+            stop_res = stop_traceroute()
+            self._send_json(stop_res)
             return
 
         # 11b. OONI Probe Censorship Test Run

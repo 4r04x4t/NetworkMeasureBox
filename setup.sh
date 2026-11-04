@@ -47,7 +47,8 @@ if [ "$OS_TYPE" = "debian" ]; then
     apt-get install -y --no-install-recommends \
         python3 iproute2 nftables iptables ethtool pciutils usbutils \
         dnsmasq hostapd ppp pppoe udhcpc curl ca-certificates procps libcap2-bin \
-        wireguard-tools openvpn easy-rsa python3-qrcode qrencode
+        wireguard-tools openvpn easy-rsa python3-qrcode qrencode \
+        traceroute iputils-tracepath mtr-tiny
     # Install common hardware firmware if available in repositories
     apt-get install -y --no-install-recommends firmware-realtek 2>/dev/null || true
 
@@ -109,7 +110,7 @@ elif [ "$OS_TYPE" = "alpine" ]; then
     apk update
     apk add --no-cache \
         python3 iproute2 nftables iptables ethtool dnsmasq hostapd ppp \
-        curl ca-certificates busybox-extras libcap
+        curl ca-certificates busybox-extras libcap traceroute iputils mtr
 
     ARCH=$(uname -m)
     OOKLA_ARCH=""

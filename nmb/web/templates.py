@@ -2334,24 +2334,87 @@ def get_dashboard_html() -> str:
             Diagnose intermediate network latency, routing loops, peering bottlenecks, and carrier packet loss.
           </p>
         </div>
-      </div>
-
-      <div style="background: #090e1a; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-        <div class="form-group" style="margin: 0; flex: 1; min-width: 240px;">
-          <label class="form-label" data-i18n="traceroute_target">Destination Host / IP:</label>
-          <input type="text" id="traceroute-target" value="1.1.1.1" placeholder="e.g. 1.1.1.1, 8.8.8.8, or cloudflare.com" class="form-input">
-        </div>
-        <div class="form-group" style="margin: 0; width: 120px;">
-          <label class="form-label" data-i18n="traceroute_max_hops">Max Hops:</label>
-          <input type="number" id="traceroute-max-hops" value="30" min="1" max="64" class="form-input">
-        </div>
-        <div style="margin-top: 22px;">
-          <button id="btn-traceroute-run" class="btn-primary" style="padding: 9px 20px;" onclick="runTracerouteTest()">
-            ▶️ Trace Route
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-traceroute-copy" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="copyTracerouteText()" data-i18n="traceroute_btn_copy">
+            📋 Copy Route
           </button>
         </div>
-        <div id="traceroute-indicator" style="display: none; margin-top: 22px; color: #38bdf8; font-size: 13px; font-weight: 600;">
-          ⏳ Probing route hops...
+      </div>
+
+      <!-- Control Bar -->
+      <div style="background: #090e1a; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+        <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+          <div class="form-group" style="margin: 0; flex: 2; min-width: 240px;">
+            <label class="form-label" data-i18n="traceroute_target">Destination Host / IP:</label>
+            <input type="text" id="traceroute-target" value="1.1.1.1" placeholder="e.g. 1.1.1.1, 8.8.8.8, or bix.hu" class="form-input">
+          </div>
+          <div class="form-group" style="margin: 0; flex: 1; min-width: 170px;">
+            <label class="form-label" data-i18n="traceroute_method">Probing Protocol:</label>
+            <select id="traceroute-method" class="form-select">
+              <option value="icmp" selected data-i18n="traceroute_method_icmp">⚡ ICMP Echo (Best Visibility)</option>
+              <option value="udp" data-i18n="traceroute_method_udp">🌐 UDP Probes (Standard)</option>
+              <option value="tcp" data-i18n="traceroute_method_tcp">🔒 TCP SYN Port 80 (Firewall Bypass)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0; width: 110px;">
+            <label class="form-label" data-i18n="traceroute_protocol_ver">IP Version:</label>
+            <select id="traceroute-ip-version" class="form-select">
+              <option value="auto" selected>Auto</option>
+              <option value="ipv4">IPv4</option>
+              <option value="ipv6">IPv6</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0; width: 100px;">
+            <label class="form-label" data-i18n="traceroute_max_hops">Max Hops:</label>
+            <input type="number" id="traceroute-max-hops" value="30" min="1" max="64" class="form-input">
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="btn-traceroute-run" class="btn-primary" style="padding: 9px 18px;" onclick="runTracerouteTest()" data-i18n="traceroute_btn_trace">
+              ▶️ Trace Route
+            </button>
+            <button id="btn-traceroute-stop" class="btn-danger" style="display: none; padding: 9px 16px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #f87171; border-radius: 6px; font-weight: 600; cursor: pointer;" onclick="stopTracerouteTest()" data-i18n="traceroute_btn_stop">
+              ⏹️ Stop Trace
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Target Presets -->
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+          <span style="font-size: 11.5px; color: var(--text-muted);">Quick Targets:</span>
+          <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('1.1.1.1')">Cloudflare (1.1.1.1)</button>
+          <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('8.8.8.8')">Google DNS (8.8.8.8)</button>
+          <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('9.9.9.9')">Quad9 (9.9.9.9)</button>
+          <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('bix.hu')">BIX Budapest (bix.hu)</button>
+          <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('netztest.at')">RTR-NetTest (netztest.at)</button>
+        </div>
+
+        <div id="traceroute-indicator" style="display: none; margin-top: 12px; color: #38bdf8; font-size: 13px; font-weight: 600;">
+          <span class="spinner-small" style="display: inline-block; vertical-align: middle; margin-right: 6px;"></span>
+          <span data-i18n="traceroute_status_probing">⏳ Probing route hops in real-time...</span>
+        </div>
+      </div>
+
+      <!-- Route Summary Cards Grid -->
+      <div id="traceroute-summary-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px;">
+        <div class="stat-card" style="padding: 12px 14px; background: #0b1120; border: 1px solid #1e293b; border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="traceroute_stat_target">Destination Target:</div>
+          <div id="tr-stat-target" style="font-size: 15px; font-weight: 700; color: #f1f5f9; margin-top: 4px; font-family: monospace;">--</div>
+        </div>
+        <div class="stat-card" style="padding: 12px 14px; background: #0b1120; border: 1px solid #1e293b; border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="traceroute_stat_hops">Total Hops:</div>
+          <div id="tr-stat-hops" style="font-size: 16px; font-weight: 700; color: #38bdf8; margin-top: 4px;">--</div>
+        </div>
+        <div class="stat-card" style="padding: 12px 14px; background: #0b1120; border: 1px solid #1e293b; border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="traceroute_stat_rtt">Target Latency:</div>
+          <div id="tr-stat-rtt" style="font-size: 16px; font-weight: 700; color: #10b981; margin-top: 4px;">--</div>
+        </div>
+        <div class="stat-card" style="padding: 12px 14px; background: #0b1120; border: 1px solid #1e293b; border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="traceroute_stat_loss">Route Loss Rate:</div>
+          <div id="tr-stat-loss" style="font-size: 16px; font-weight: 700; color: #e2e8f0; margin-top: 4px;">--</div>
+        </div>
+        <div class="stat-card" style="padding: 12px 14px; background: #0b1120; border: 1px solid #1e293b; border-radius: 8px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="traceroute_stat_carriers">Carriers Traversed:</div>
+          <div id="tr-stat-carriers" style="font-size: 12px; font-weight: 600; color: #f59e0b; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</div>
         </div>
       </div>
 
@@ -2361,18 +2424,20 @@ def get_dashboard_html() -> str:
           <thead>
             <tr>
               <th style="width: 50px;">Hop</th>
+              <th style="width: 80px;" data-i18n="traceroute_col_type">Hop Type</th>
               <th>IP Address</th>
               <th>Reverse DNS Hostname</th>
               <th data-i18n="traceroute_col_country">Country / Region</th>
               <th data-i18n="traceroute_col_isp">Provider / Carrier / ISP</th>
-              <th>RTT 1</th>
-              <th>RTT 2</th>
-              <th>RTT 3</th>
-              <th>Status</th>
+              <th style="width: 75px;">RTT 1</th>
+              <th style="width: 75px;">RTT 2</th>
+              <th style="width: 75px;">RTT 3</th>
+              <th style="width: 140px;" data-i18n="traceroute_col_latency">Latency Graph</th>
+              <th style="width: 90px;">Status</th>
             </tr>
           </thead>
           <tbody id="traceroute-table-body">
-            <tr><td colspan="9" style="text-align: center; color: var(--text-muted);" data-i18n="traceroute_empty">Enter a destination and click Trace Route to begin.</td></tr>
+            <tr><td colspan="11" style="text-align: center; color: var(--text-muted);" data-i18n="traceroute_empty">Enter a destination and click Trace Route to begin.</td></tr>
           </tbody>
         </table>
       </div>
@@ -9149,23 +9214,44 @@ Use UP/DOWN arrow keys for command history.
   }
 
   // ==========================================
-  // Traceroute Engine
+  // Traceroute Engine (Live Streaming & Protocol Selection)
   // ==========================================
   let traceroutePollingTimer = null;
+  let latestTracerouteHopsData = [];
+  let latestTracerouteMeta = null;
+
+  function setTracerouteTarget(target) {
+    const el = document.getElementById('traceroute-target');
+    if (el) {
+      el.value = target;
+      el.focus();
+    }
+  }
 
   async function runTracerouteTest() {
     const target = (document.getElementById('traceroute-target').value || '').trim() || '1.1.1.1';
     const maxHops = parseInt(document.getElementById('traceroute-max-hops').value) || 30;
+    const methodEl = document.getElementById('traceroute-method');
+    const method = methodEl ? methodEl.value : 'icmp';
+    const ipVerEl = document.getElementById('traceroute-ip-version');
+    const ipVersion = ipVerEl ? ipVerEl.value : 'auto';
 
-    document.getElementById('btn-traceroute-run').disabled = true;
-    document.getElementById('traceroute-indicator').style.display = 'inline-block';
-    showToast('Starting traceroute to ' + target + '...');
+    const btnRun = document.getElementById('btn-traceroute-run');
+    const btnStop = document.getElementById('btn-traceroute-stop');
+    const indicator = document.getElementById('traceroute-indicator');
+
+    if (btnRun) btnRun.disabled = true;
+    if (btnStop) btnStop.style.display = 'inline-block';
+    if (indicator) indicator.style.display = 'inline-block';
+
+    const startedMsg = t('traceroute_toast_started', 'Starting visual traceroute to {target}...').replace('{target}', target);
+    showToast(startedMsg);
 
     try {
       const res = await fetch('/api/traceroute/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ host: target, max_hops: maxHops })
+        body: JSON.stringify({ host: target, max_hops: maxHops, method: method, ip_version: ipVersion })
       });
       if (!res.ok) {
         const err = await res.json();
@@ -9174,8 +9260,18 @@ Use UP/DOWN arrow keys for command history.
       pollTracerouteStatus();
     } catch (e) {
       showToast('Traceroute failed: ' + e);
-      document.getElementById('btn-traceroute-run').disabled = false;
-      document.getElementById('traceroute-indicator').style.display = 'none';
+      if (btnRun) btnRun.disabled = false;
+      if (btnStop) btnStop.style.display = 'none';
+      if (indicator) indicator.style.display = 'none';
+    }
+  }
+
+  async function stopTracerouteTest() {
+    try {
+      await fetch('/api/traceroute/stop', { method: 'POST' });
+      showToast(t('traceroute_toast_stopped', 'Traceroute stopped.'));
+    } catch (e) {
+      showToast('Error stopping traceroute: ' + e);
     }
   }
 
@@ -9185,27 +9281,71 @@ Use UP/DOWN arrow keys for command history.
       const res = await fetch('/api/traceroute/status');
       if (res.ok) {
         const d = await res.json();
+        latestTracerouteMeta = d.latest;
         if (d.latest && d.latest.hops) {
-          renderTracerouteHops(d.latest.hops);
+          latestTracerouteHopsData = d.latest.hops;
+          renderTracerouteHops(d.latest.hops, d.latest);
         }
         if (d.is_running) {
-          document.getElementById('btn-traceroute-run').disabled = true;
-          document.getElementById('traceroute-indicator').style.display = 'inline-block';
-          traceroutePollingTimer = setTimeout(pollTracerouteStatus, 2000);
+          const btnRun = document.getElementById('btn-traceroute-run');
+          const btnStop = document.getElementById('btn-traceroute-stop');
+          const indicator = document.getElementById('traceroute-indicator');
+          if (btnRun) btnRun.disabled = true;
+          if (btnStop) btnStop.style.display = 'inline-block';
+          if (indicator) indicator.style.display = 'inline-block';
+
+          traceroutePollingTimer = setTimeout(pollTracerouteStatus, 1000);
           return;
         }
       }
     } catch (e) {}
-    document.getElementById('btn-traceroute-run').disabled = false;
-    document.getElementById('traceroute-indicator').style.display = 'none';
+
+    const btnRun = document.getElementById('btn-traceroute-run');
+    const btnStop = document.getElementById('btn-traceroute-stop');
+    const indicator = document.getElementById('traceroute-indicator');
+    if (btnRun) btnRun.disabled = false;
+    if (btnStop) btnStop.style.display = 'none';
+    if (indicator) indicator.style.display = 'none';
   }
 
-  function renderTracerouteHops(hops) {
+  function renderTracerouteHops(hops, meta) {
     const tbody = document.getElementById('traceroute-table-body');
+    if (!tbody) return;
+
     if (!hops || hops.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: var(--text-muted);">' + t('no_hops_captured', 'No hops captured.') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color: var(--text-muted);">' + t('no_hops_captured', 'No hops captured.') + '</td></tr>';
       return;
     }
+
+    // Update Summary Cards if meta is available
+    if (meta) {
+      const targetEl = document.getElementById('tr-stat-target');
+      const hopsEl = document.getElementById('tr-stat-hops');
+      const rttEl = document.getElementById('tr-stat-rtt');
+      const lossEl = document.getElementById('tr-stat-loss');
+      const carriersEl = document.getElementById('tr-stat-carriers');
+
+      if (targetEl) targetEl.textContent = meta.target + (meta.resolved_ip && meta.resolved_ip !== meta.target ? ' (' + meta.resolved_ip + ')' : '');
+      if (hopsEl) hopsEl.textContent = (meta.total_hops || hops.length) + (meta.destination_reached ? ' 🎯' : '');
+      if (rttEl) rttEl.textContent = meta.dest_rtt_ms !== null && meta.dest_rtt_ms !== undefined ? meta.dest_rtt_ms + ' ms' : '--';
+      if (lossEl) {
+        const lossRate = meta.loss_pct !== undefined ? meta.loss_pct : (meta.loss_hops ? Math.round(meta.loss_hops / hops.length * 100) : 0);
+        lossEl.textContent = lossRate + '%';
+        lossEl.style.color = lossRate === 0 ? '#10b981' : (lossRate < 30 ? '#f59e0b' : '#ef4444');
+      }
+      if (carriersEl) {
+        const carr = meta.carriers || [];
+        carriersEl.textContent = carr.length > 0 ? carr.join(' → ') : '--';
+        carriersEl.title = carr.join(', ');
+      }
+    }
+
+    // Determine max RTT for scaling the bar
+    let maxRtt = 20;
+    hops.forEach(h => {
+      if (h.rtt_ms && h.rtt_ms > maxRtt) maxRtt = h.rtt_ms;
+    });
+
     let html = '';
     hops.forEach(h => {
       const rtts = h.rtts || [];
@@ -9216,6 +9356,21 @@ Use UP/DOWN arrow keys for command history.
       const statusPill = isLoss
         ? '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; font-size: 11px;">Packet Loss (*)</span>'
         : '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">OK</span>';
+
+      // Hop Type Pill
+      let typePill = '';
+      const hType = h.hop_type || (h.ip === '*' ? 'timeout' : 'public');
+      if (hType === 'target') {
+        typePill = '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; font-size: 10px; padding: 2px 6px;">🎯 Target</span>';
+      } else if (hType === 'lan') {
+        typePill = '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; font-size: 10px; padding: 2px 6px;">🏠 LAN</span>';
+      } else if (hType === 'cgnat') {
+        typePill = '<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; font-size: 10px; padding: 2px 6px;">📡 CGNAT</span>';
+      } else if (hType === 'timeout') {
+        typePill = '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; font-size: 10px; padding: 2px 6px;">⚠️ Timeout</span>';
+      } else {
+        typePill = '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 10px; padding: 2px 6px;">🌐 Public</span>';
+      }
 
       // Country with flag emoji and badge
       let countryHtml = '--';
@@ -9238,8 +9393,27 @@ Use UP/DOWN arrow keys for command history.
         ispHtml = '<span style="color: #64748b;">-- (Silent Hop / Timeout)</span>';
       }
 
+      // Latency Bar Graph
+      let latencyBarHtml = '<span style="color: #64748b; font-size: 11px;">--</span>';
+      if (h.rtt_ms !== null && h.rtt_ms !== undefined) {
+        const pct = Math.min(100, Math.max(8, Math.round((h.rtt_ms / maxRtt) * 100)));
+        let barColor = '#10b981';
+        if (h.rtt_ms > 80) barColor = '#ef4444';
+        else if (h.rtt_ms > 40) barColor = '#f59e0b';
+        else if (h.rtt_ms > 20) barColor = '#38bdf8';
+
+        latencyBarHtml = `
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="flex: 1; background: #1e293b; border-radius: 3px; height: 8px; overflow: hidden;">
+              <div style="width: ${pct}%; background: ${barColor}; height: 100%; border-radius: 3px; transition: width 0.3s ease;"></div>
+            </div>
+            <span style="font-size: 11px; font-family: monospace; color: ${barColor}; font-weight: 600; min-width: 48px; text-align: right;">${h.rtt_ms} ms</span>
+          </div>`;
+      }
+
       html += `<tr>
         <td style="font-weight: 700; color: #38bdf8;">${h.hop}</td>
+        <td>${typePill}</td>
         <td style="font-family: monospace; font-weight: 600; color: #e2e8f0;">${escapeHtml(h.ip)}</td>
         <td style="color: #cbd5e1; font-family: monospace; font-size: 12px;">${escapeHtml(h.hostname || h.host || '--')}</td>
         <td>${countryHtml}</td>
@@ -9247,10 +9421,57 @@ Use UP/DOWN arrow keys for command history.
         <td style="font-family: monospace; color: #94a3b8;">${rtt1}</td>
         <td style="font-family: monospace; color: #94a3b8;">${rtt2}</td>
         <td style="font-family: monospace; color: #94a3b8;">${rtt3}</td>
+        <td>${latencyBarHtml}</td>
         <td>${statusPill}</td>
       </tr>`;
     });
     tbody.innerHTML = html;
+  }
+
+  function copyTracerouteText() {
+    if (!latestTracerouteHopsData || latestTracerouteHopsData.length === 0) {
+      showToast(t('no_hops_captured', 'No hops captured.'));
+      return;
+    }
+    let text = '=== NetworkMeasureBox Traceroute Results ===\\n';
+    if (latestTracerouteMeta) {
+      text += `Target: ${latestTracerouteMeta.target} (${latestTracerouteMeta.resolved_ip || '--'})\\n`;
+      text += `Method: ${(latestTracerouteMeta.method || 'icmp').toUpperCase()}\\n`;
+      text += `Total Hops: ${latestTracerouteMeta.total_hops || latestTracerouteHopsData.length}\\n`;
+      text += `Target Latency: ${latestTracerouteMeta.dest_rtt_ms || '--'} ms\\n`;
+      text += `Carriers: ${(latestTracerouteMeta.carriers || []).join(' -> ') || '--'}\\n\\n`;
+    }
+    text += 'Hop | IP Address       | Hostname                       | RTT     | Country | Carrier\\n';
+    text += '----+------------------+--------------------------------+---------+---------+-------------------\\n';
+    latestTracerouteHopsData.forEach(h => {
+      const hopNo = String(h.hop).padStart(3, ' ');
+      const ip = (h.ip || '*').padEnd(16, ' ');
+      const host = (h.hostname || h.host || '--').slice(0, 30).padEnd(30, ' ');
+      const rtt = (h.rtt_ms !== null && h.rtt_ms !== undefined ? `${h.rtt_ms} ms` : '*').padEnd(7, ' ');
+      const country = (h.country_code || h.country || '--').slice(0, 7).padEnd(7, ' ');
+      const carrier = (h.isp || '--').slice(0, 25);
+      text += `${hopNo} | ${ip} | ${host} | ${rtt} | ${country} | ${carrier}\\n`;
+    });
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(t('traceroute_toast_copied', 'Route copied to clipboard!'));
+      }).catch(() => {
+        _fallbackCopy(text);
+      });
+    } else {
+      _fallbackCopy(text);
+    }
+  }
+
+  function _fallbackCopy(str) {
+    const el = document.createElement('textarea');
+    el.value = str;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    showToast(t('traceroute_toast_copied', 'Route copied to clipboard!'));
   }
 
   async function loadTracerouteStatus() {
@@ -9258,8 +9479,13 @@ Use UP/DOWN arrow keys for command history.
       const res = await fetch('/api/traceroute/status');
       if (res.ok) {
         const d = await res.json();
+        latestTracerouteMeta = d.latest;
         if (d.latest && d.latest.hops) {
-          renderTracerouteHops(d.latest.hops);
+          latestTracerouteHopsData = d.latest.hops;
+          renderTracerouteHops(d.latest.hops, d.latest);
+        }
+        if (d.is_running) {
+          pollTracerouteStatus();
         }
       }
     } catch (e) {}
