@@ -1161,14 +1161,13 @@ def is_adblock_running() -> bool:
         return True
     # If called from CLI, check if port 53 is actively answering or systemd service is active
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(0.15)
-        # DNS query for test
-        s.sendto(b"\xaa\xbb\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x06google\x03com\x00\x00\x01\x00\x01", ("127.0.0.1", DNS_PORT))
-        resp, _ = s.recvfrom(512)
-        s.close()
-        if resp:
-            return True
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(0.15)
+            # DNS query for test
+            s.sendto(b"\xaa\xbb\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x06google\x03com\x00\x00\x01\x00\x01", ("127.0.0.1", DNS_PORT))
+            resp, _ = s.recvfrom(512)
+            if resp:
+                return True
     except Exception:
         pass
 

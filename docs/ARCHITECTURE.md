@@ -91,3 +91,43 @@ docs/
 
 For resource-constrained embedded routers, OpenWrt CPEs (16MB Flash / 32MB–64MB RAM), and multi-gigabit line-rate throughput without Python runtime overhead, refer to the [De-Pythonization Architecture Blueprint](DEPYTHONIZATION_ROADMAP.md), which details the migration of all core engines and merged ecosystem components into a unified static binary (`nmbd`) in **Go** and **C11**.
 
+## 5. Telegram Bot Integration & Proactive Automation (`nmb-telegram`)
+
+The `nmb-telegram` daemon runs alongside `nmb-web` to provide mobile chat management and proactive incident alerts without external dependencies (pure Python standard library HTTPS multipart/form-data client).
+
+### Interactive Commands
+- **📡 Diagnostics**: `/status`, `/ping`, `/test [ookla|cloudflare|rtr|iperf]`, `/report` (HTML dossier), `/ai` (Markdown bundle), `/mode`
+- **🛡️ VPN Hub**:
+  - `/vpn` - WireGuard & OpenVPN daemon status and client counts
+  - `/vpn clients` - Connected peer roster with IP, latest handshake, and RX/TX traffic
+  - `/vpn add <name> [wg|ovpn]` - Creates client peer, automatically dispatches QR code PNG image & `.conf` file
+  - `/vpn qr <name>` - Generates and sends QR code image for camera scan pairing
+  - `/vpn conf <name>` - Sends downloadable configuration profile
+  - `/vpn start [wg|ovpn]` / `/vpn stop [wg|ovpn]` - Daemon process toggles
+  - `/vpn del <name>` - Peer revocation
+- **🛡️ DNS Ad-Blocker (Pi-hole Sinkhole)**:
+  - `/adblock` - Queries today, blocked count, sinkhole %, Gravity domain count
+  - `/adblock on` / `/adblock off` - Enable or disable DNS sinkhole
+  - `/adblock block <domain>` / `/adblock unblock <domain>` - Custom domain blacklisting and whitelisting
+  - `/adblock update` - Background Gravity compilation
+  - `/adblock guide` - Home router DHCP DNS setup instructions
+- **🩺 Self-Healing**:
+  - `/heal audit` - Component health audit
+  - `/heal fix [tier]` - Automated repair escalation (Tiers 1–3)
+  - `/heal updates` - Verified stable release check
+  - `/heal apply` - Atomic update with automatic pre-checkpoint & rollback
+- **📊 Tasks & Process Load**: `/tasks` (or `/top`), `/kill <pid> [signal]`
+- **📶 Wi-Fi & Guest Wi-Fi**: `/wifi` (telemetry), `/wifi scan` (nearby APs), `/wifi connect <ssid> [pw]`, `/wifi saved`
+- **📦 Backups**: `/backup list`, `/backup create [label]`, `/backup send <filename>` (sends `.tar.gz` archive directly in Telegram)
+- **🔧 Hardware & Power**: `/drivers`, `/reboot now`
+
+### Proactive Background Alerting (`AlertMonitor`)
+Stateful alerts with SQLite deduplication (alert table):
+1. **Network Outages**: Triggers when all probe targets become unreachable; alerts on start and resolution with total outage duration.
+2. **Rolling Packet Loss**: Triggers when 5-minute rolling packet loss exceeds configured threshold (e.g. 10.0%); resolves when normalized.
+3. **Core Daemon Failures**: Proactively monitors `nmb-netd`, `nmb-web`, `nmb-probe`, and `nmb-scheduler`. When a service crashes, alerts the admin and triggers automated Tier 1 self-healing recovery.
+4. **Hardware Thermal Overheating**: Proactively reads SoC thermal sensor (`/sys/class/thermal/thermal_zone0/temp`). Warns if temperature exceeds 82°C.
+5. **Critically Low Disk Storage**: Warns if available root disk space drops below 500 MB.
+6. **Dual-WAN Automatic Failover**: Alerts when primary WAN link fails and traffic fails over to secondary WAN or mobile uplink.
+
+

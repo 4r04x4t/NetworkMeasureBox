@@ -80,6 +80,9 @@ class TelegramClient:
             body.extend(f"--{boundary}\r\n".encode())
             body.extend(b'Content-Disposition: form-data; name="caption"\r\n\r\n')
             body.extend(f"{caption}\r\n".encode())
+            body.extend(f"--{boundary}\r\n".encode())
+            body.extend(b'Content-Disposition: form-data; name="parse_mode"\r\n\r\n')
+            body.extend(b"HTML\r\n")
 
         # file
         body.extend(f"--{boundary}\r\n".encode())
@@ -100,4 +103,45 @@ class TelegramClient:
                 return bool(res_data.get("ok"))
         except Exception as e:
             log.warning("failed to send document to telegram: %s", e)
+            return False
+
+    def send_photo(self, chat_id: int, photo_bytes: bytes, caption: str = "", filename: str = "image.png") -> bool:
+        """Send photo using multipart/form-data."""
+        boundary = "----------------NMBBoundaryPhoto7MA4YWxkTrZu0gW"
+        url = self.endpoint + "sendPhoto"
+
+        body = bytearray()
+        # chat_id
+        body.extend(f"--{boundary}\r\n".encode())
+        body.extend(b'Content-Disposition: form-data; name="chat_id"\r\n\r\n')
+        body.extend(f"{chat_id}\r\n".encode())
+
+        # caption
+        if caption:
+            body.extend(f"--{boundary}\r\n".encode())
+            body.extend(b'Content-Disposition: form-data; name="caption"\r\n\r\n')
+            body.extend(f"{caption}\r\n".encode())
+            body.extend(f"--{boundary}\r\n".encode())
+            body.extend(b'Content-Disposition: form-data; name="parse_mode"\r\n\r\n')
+            body.extend(b"HTML\r\n")
+
+        # photo file
+        body.extend(f"--{boundary}\r\n".encode())
+        body.extend(f'Content-Disposition: form-data; name="photo"; filename="{filename}"\r\n'.encode())
+        body.extend(b"Content-Type: image/png\r\n\r\n")
+        body.extend(photo_bytes)
+        body.extend(b"\r\n")
+        body.extend(f"--{boundary}--\r\n".encode())
+
+        req = urllib.request.Request(url, data=bytes(body), headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "NetworkMeasureBox/1.0",
+        })
+
+        try:
+            with urllib.request.urlopen(req, timeout=30.0) as resp:
+                res_data = json.loads(resp.read().decode("utf-8"))
+                return bool(res_data.get("ok"))
+        except Exception as e:
+            log.warning("failed to send photo to telegram: %s", e)
             return False
