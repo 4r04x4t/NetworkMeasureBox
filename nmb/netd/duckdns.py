@@ -211,6 +211,13 @@ def get_duckdns_status(cfg: Optional[Any] = None) -> Dict[str, Any]:
     now = time.time()
     last_ts = state.get("last_update_ts", 0.0)
     next_ts = state.get("next_update_ts", 0.0)
+    interval_m = state.get("update_interval_min", 10)
+
+    if state.get("enabled") and last_ts > 0 and interval_m > 0:
+        expected_next = last_ts + (interval_m * 60)
+        if next_ts <= 0 or abs(next_ts - expected_next) > 3.0:
+            next_ts = expected_next
+            state["next_update_ts"] = next_ts
 
     state["detected_ip"] = state.get("last_ip", "")
     state["running"] = bool(_duckdns_thread and _duckdns_thread.is_alive())
