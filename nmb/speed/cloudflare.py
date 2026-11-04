@@ -17,12 +17,48 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+import http.client
 from nmb.common.user_agent import get_effective_user_agent
 from nmb.speed.ookla import SpeedtestResult, calculate_bufferbloat
 
 log = logging.getLogger("nmb.speed.cloudflare")
 
 BASE_URL = "https://speed.cloudflare.com"
+
+_bound_source_ip: Optional[str] = None
+
+
+class BoundHTTPHandler(urllib.request.HTTPHandler):
+    def __init__(self, source_ip: str):
+        self.source_ip = source_ip
+        super().__init__()
+
+    def http_open(self, req):
+        return self.do_open(self._build_conn, req)
+
+    def _build_conn(self, host, **kwargs):
+        kwargs["source_address"] = (self.source_ip, 0)
+        return http.client.HTTPConnection(host, **kwargs)
+
+
+class BoundHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, source_ip: str):
+        self.source_ip = source_ip
+        super().__init__()
+
+    def https_open(self, req):
+        return self.do_open(self._build_conn, req)
+
+    def _build_conn(self, host, **kwargs):
+        kwargs["source_address"] = (self.source_ip, 0)
+        return http.client.HTTPSConnection(host, **kwargs)
+
+
+def _open_url(req: urllib.request.Request, timeout: float = 10.0):
+    if _bound_source_ip:
+        opener = urllib.request.build_opener(BoundHTTPHandler(_bound_source_ip), BoundHTTPSHandler(_bound_source_ip))
+        return opener.open(req, timeout=timeout)
+    return urllib.request.urlopen(req, timeout=timeout)
 
 
 def _current_ua() -> str:
@@ -62,7 +98,7 @@ class CloudflareSpeedResult:
     tier_uploads: Dict[str, float] = field(default_factory=dict)
     error: Optional[str] = None
 
-    def to_speedtest_result(self) -> SpeedtestResult:
+    def to_speedtest_result(self, bound_iface: Optional[str] = None, bound_ip: Optional[str] = None) -> SpeedtestResult:
         """Convert to standard NMB SpeedtestResult for DB persistence."""
         srv_name = f"Cloudflare Edge ({self.meta.colo})" if self.meta.colo else "Cloudflare Global Edge"
         srv_loc = f"{self.meta.city}, {self.meta.country}" if self.meta.city else "Anycast Edge"
@@ -121,12 +157,14 @@ class CloudflareSpeedResult:
             bufferbloat_delta_ms=self.bufferbloat_delta_ms,
             engine="cloudflare",
             colo=self.meta.colo or None,
+            bound_iface=bound_iface,
+            bound_ip=bound_ip,
         )
 
 
 def _get_request(url: str, timeout: float = 10.0) -> Tuple[bytes, dict]:
     req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _open_url(req, timeout=timeout) as resp:
         return resp.read(), dict(resp.headers)
 
 
@@ -136,7 +174,7 @@ def _post_request(url: str, data: bytes, timeout: float = 12.0) -> Tuple[bytes, 
         data=data,
         headers={"User-Agent": _current_ua(), "Content-Type": "application/octet-stream"}
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _open_url(req, timeout=timeout) as resp:
         return resp.read(), dict(resp.headers)
 
 
@@ -168,7 +206,7 @@ def measure_idle_latency(count: int = 15) -> Tuple[Optional[float], Optional[flo
         try:
             t0 = time.monotonic()
             req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
-            with urllib.request.urlopen(req, timeout=4.0) as resp:
+            with _open_url(req, timeout=4.0) as resp:
                 _ = resp.read()
             latencies.append((time.monotonic() - t0) * 1000.0)
         except Exception:
@@ -192,7 +230,7 @@ def _probe_loaded_latency(stop_event: threading.Event, output_list: List[float])
         try:
             t0 = time.monotonic()
             req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
+            with _open_url(req, timeout=3.0) as resp:
                 _ = resp.read()
             output_list.append((time.monotonic() - t0) * 1000.0)
         except Exception:
@@ -206,7 +244,7 @@ def measure_download_tier(byte_count: int, stop_loaded_probe: Optional[threading
     t0 = time.monotonic()
     req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
     b_read = 0
-    with urllib.request.urlopen(req, timeout=25.0) as resp:
+    with _open_url(req, timeout=25.0) as resp:
         while True:
             chunk = resp.read(65536)
             if not chunk:
@@ -230,15 +268,17 @@ def measure_upload_tier(byte_count: int) -> Tuple[int, float]:
         data=payload,
         headers={"User-Agent": _current_ua(), "Content-Type": "application/octet-stream"}
     )
-    with urllib.request.urlopen(req, timeout=25.0) as resp:
+    with _open_url(req, timeout=25.0) as resp:
         _ = resp.read()
     dur = max(0.001, time.monotonic() - t0)
     return actual_count, dur
 
 
-def execute_cloudflare_speedtest() -> SpeedtestResult:
-    """Execute complete Cloudflare Speed Test mirroring cloudflare-speed-cli."""
-    log.info("starting Cloudflare global edge network measurement cycle")
+def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
+    """Execute complete Cloudflare Speed Test mirroring cloudflare-speed-cli with optional interface binding."""
+    global _bound_source_ip
+    _bound_source_ip = bind_ip
+    log.info("starting Cloudflare global edge network measurement cycle (iface=%s, bind_ip=%s)", interface, bind_ip)
     t_start = time.monotonic()
 
     # 1. Edge Metadata
@@ -342,4 +382,4 @@ def execute_cloudflare_speedtest() -> SpeedtestResult:
     )
     from nmb.common.memory import trim_process_memory
     trim_process_memory()
-    return res.to_speedtest_result()
+    return res.to_speedtest_result(bound_iface=interface, bound_ip=bind_ip)

@@ -130,34 +130,29 @@ def _run_single_engine(
     """Execute a single measurement engine and persist results."""
     t_start = time.monotonic()
     log.info("launching speedtest engine=%s (target_server_id=%s, trigger=%s, target_iface=%s)", engine, target_server_id, trigger, target_iface)
-    # Determine target interface (supports Multi-WAN selection)
-    meas_target = getattr(cfg.network, "measurement_interface", "wan")
-    if target_iface:
-        chosen_iface = target_iface
-    elif meas_target in ("wan2", "secondary") and getattr(cfg.network, "wan2_interface", ""):
-        chosen_iface = cfg.network.wan2_interface
-    else:
-        chosen_iface = cfg.network.wan_interface or "eth0"
 
+    # Determine target interface (strictly prioritizing active wired Ethernet cable)
+    from nmb.netd.interfaces import find_preferred_measurement_interface
+    chosen_iface, bound_ip, is_wired = find_preferred_measurement_interface(cfg, target_iface=target_iface)
     wan_iface = chosen_iface
-    from nmb.netd.interfaces import get_ip_addresses
-    wan_addrs = get_ip_addresses(wan_iface)
-    bound_ip = wan_addrs[0].split("/")[0] if wan_addrs else None
-    bound_iface = wan_iface
-    log.info("binding speedtest engine=%s to interface=%s (ip=%s)", engine, bound_iface, bound_ip)
+    bound_iface = chosen_iface
+    if is_wired:
+        log.info("wired Ethernet cable active on %s (carrier=1, ip=%s) — STRICT WIRED PRIORITY applied for %s", bound_iface, bound_ip, engine)
+    else:
+        log.info("binding speedtest engine=%s to interface=%s (ip=%s)", engine, bound_iface, bound_ip)
 
     set_speedtest_running(True)
     sampler = CpuLoadSampler(interval_sec=0.25)
     sampler.start()
     try:
         if engine == "cloudflare":
-            log.debug("starting Cloudflare Edge speedtest")
-            res = execute_cloudflare_speedtest()
+            log.debug("starting Cloudflare Edge speedtest (bound_iface=%s, bound_ip=%s)", bound_iface, bound_ip)
+            res = execute_cloudflare_speedtest(interface=bound_iface, bind_ip=bound_ip)
             if hasattr(res, "to_speedtest_result"):
-                res = res.to_speedtest_result()
+                res = res.to_speedtest_result(bound_iface=bound_iface, bound_ip=bound_ip)
         elif engine == "rtr":
-            log.debug("starting RTR-NetTest / Open-RMBT speedtest")
-            res = execute_rtr_speedtest()
+            log.debug("starting RTR-NetTest / Open-RMBT speedtest (bound_iface=%s, bound_ip=%s)", bound_iface, bound_ip)
+            res = execute_rtr_speedtest(interface=bound_iface, bind_ip=bound_ip)
         elif engine == "iperf3":
             from nmb.speed.iperf import run_iperf_client_test
             target_host = cfg.iperf.target_host or "speedtest.init7.net"
@@ -221,7 +216,56 @@ def _run_single_engine(
                 tcp_window=tcp_window,
             )
         else:
-            res = execute_speedtest(server_id=target_server_id, interface=bound_iface, bind_ip=bound_ip)
+            from nmb.speed.anti_ban import (
+                is_ookla_ban_error,
+                quarantine_server,
+                get_smart_rotated_server,
+                record_server_attempt,
+            )
+            # Smart server selection (auto-quarantine bypass)
+            effective_server_id = get_smart_rotated_server(target_server_id)
+            if effective_server_id:
+                record_server_attempt(effective_server_id)
+            log.info("executing Ookla engine with target_server_id=%s (effective_server_id=%s, iface=%s, ip=%s)",
+                     target_server_id, effective_server_id, bound_iface, bound_ip)
+
+            res = execute_speedtest(server_id=effective_server_id, interface=bound_iface, bind_ip=bound_ip)
+
+            # Check for ban / 429 rate-limit error signatures
+            is_ban, ban_reason = is_ookla_ban_error(res.error) if (res and res.status != "ok") else (False, "")
+            if is_ban:
+                log.warning("Ookla ban or rate-limit detected (server=%s): %s", effective_server_id, ban_reason)
+                if effective_server_id:
+                    quarantine_server(effective_server_id, duration_sec=7200, reason=ban_reason)
+
+                # Retry once with an alternative rotated server if one is available
+                alt_server_id = get_smart_rotated_server(None)
+                if alt_server_id and alt_server_id != effective_server_id:
+                    log.info("retrying Ookla speedtest with rotated non-banned server %d...", alt_server_id)
+                    record_server_attempt(alt_server_id)
+                    res = execute_speedtest(server_id=alt_server_id, interface=bound_iface, bind_ip=bound_ip)
+                    is_ban, ban_reason = is_ookla_ban_error(res.error) if (res and res.status != "ok") else (False, "")
+                    if is_ban and alt_server_id:
+                        quarantine_server(alt_server_id, duration_sec=7200, reason=ban_reason)
+
+            # Circuit breaker: if Ookla failed or was banned, fall back seamlessly to RTR-NetTest or Cloudflare
+            if res.status != "ok" and (is_ban or not res.down_bps):
+                log.warning("Ookla circuit breaker triggered (error: %s). Seamlessly falling back to RTR-NetTest / Cloudflare to protect measurement history.", res.error)
+                try:
+                    cb_res = execute_rtr_speedtest(interface=bound_iface, bind_ip=bound_ip)
+                    if cb_res.status == "ok":
+                        log.info("circuit breaker fallback to RTR-NetTest succeeded (down=%s, up=%s)", cb_res.down_bps, cb_res.up_bps)
+                        res = cb_res
+                    else:
+                        log.info("RTR fallback status=%s; attempting Cloudflare Edge fallback...", cb_res.status)
+                        cf_res = execute_cloudflare_speedtest(interface=bound_iface, bind_ip=bound_ip)
+                        if hasattr(cf_res, "to_speedtest_result"):
+                            cf_res = cf_res.to_speedtest_result(bound_iface=bound_iface, bound_ip=bound_ip)
+                        if cf_res.status == "ok":
+                            log.info("circuit breaker fallback to Cloudflare Edge succeeded (down=%s, up=%s)", cf_res.down_bps, cf_res.up_bps)
+                            res = cf_res
+                except Exception as cb_err:
+                    log.error("circuit breaker fallback attempt failed: %s", cb_err)
     finally:
         set_speedtest_running(False)
         cpu_telemetry = sampler.stop()
@@ -507,7 +551,9 @@ def run_measurement_cycle(
     else:
         wait_timeout = min(max_wait, 30.0)
 
-    check_gate_iface = target_iface or (cfg.network.wan2_interface if getattr(cfg.network, "measurement_interface", "wan") in ("wan2", "secondary") and getattr(cfg.network, "wan2_interface", "") else cfg.network.wan_interface)
+    from nmb.netd.interfaces import find_preferred_measurement_interface
+    pref_gate_iface, _, _ = find_preferred_measurement_interface(cfg, target_iface=target_iface)
+    check_gate_iface = pref_gate_iface
     if not force:
         gate = TrafficGate(check_gate_iface)
         cap_mbps = gate.get_interface_capacity_mbps(check_gate_iface, contract_down_mbps=cfg.isp.contract_down_mbps)

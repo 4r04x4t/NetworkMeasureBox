@@ -1,0 +1,166 @@
+"""Ookla Speedtest Anti-Ban, Rate-Limit Protection & Server Fleet Circuit Breaker.
+
+Provides automated safeguards against temporary IP/server bans by Ookla:
+1. Ban & 429 signature detection in CLI stderr and API responses.
+2. Dynamic Server Quarantine (cooldown periods for rate-limited servers).
+3. Anti-hotspotting server pool rotation across top regional low-latency targets.
+4. Seamless Circuit Breaker: Automatically falls back to RTR-NetTest or Cloudflare Edge
+   when Ookla rate limits are detected, ensuring uninterrupted measurement history.
+"""
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from typing import Any, Dict, List, Optional, Tuple
+
+log = logging.getLogger("nmb.speed.anti_ban")
+
+# Quarantined server registry: server_id -> unquarantine_timestamp (monotonic)
+_quarantined_servers: Dict[int, float] = {}
+_server_history: Dict[int, float] = {}  # server_id -> last_attempt_timestamp
+_lock = threading.Lock()
+
+BAN_SIGNATURES = [
+    "429",
+    "too many requests",
+    "rate limit",
+    "rate-limit",
+    "banned",
+    "throttled",
+    "blocked",
+    "selection failed",
+    "could not retrieve speedtest configuration",
+    "configuration - could not retrieve",
+    "forbidden",
+    "refused by server",
+    "connection refused",
+    "temporarily unavailable",
+    "socket error",
+]
+
+
+def is_ookla_ban_error(error_text: Optional[str], return_code: Optional[int] = None) -> Tuple[bool, str]:
+    """Detect if an error or stderr output matches known Ookla rate-limit or ban signatures."""
+    if not error_text and return_code is None:
+        return False, ""
+
+    txt = (error_text or "").lower()
+    for sig in BAN_SIGNATURES:
+        if sig in txt:
+            return True, f"Detected Ookla rate limit / ban signature: '{sig}'"
+
+    # Returncode 1 or 2 with empty or generic failure when server was specified
+    if return_code in (1, 2) and any(w in txt for w in ("server", "connect", "timeout", "network", "resolve")):
+        return True, f"Ookla server connection failure (code {return_code}): {txt[:80]}"
+
+    return False, ""
+
+
+def quarantine_server(server_id: int, duration_sec: int = 7200, reason: str = "") -> None:
+    """Quarantine a specific Ookla server so automated runs avoid it during cooldown."""
+    until = time.monotonic() + duration_sec
+    with _lock:
+        _quarantined_servers[server_id] = until
+    log.warning("quarantining Ookla server %d for %ds (reason: %s)", server_id, duration_sec, reason or "rate limit")
+
+    # Log to SQLite event table if possible
+    try:
+        from nmb.db import database as db
+        conn = db.connect()
+        with db.tx(conn):
+            conn.execute(
+                "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warn', 'speed', 'ookla_quarantine', ?)",
+                (db.now_ms(), f"Ookla szerver #{server_id} ideiglenesen karanténba helyezve ({duration_sec // 60} perc) a tiltás elkerülésére: {reason}")
+            )
+        conn.close()
+    except Exception as e:
+        log.debug("could not write quarantine event to db: %s", e)
+
+
+def is_server_quarantined(server_id: int) -> bool:
+    """Check if a server ID is currently in the quarantine cooldown window."""
+    now = time.monotonic()
+    with _lock:
+        if server_id in _quarantined_servers:
+            if now < _quarantined_servers[server_id]:
+                return True
+            else:
+                del _quarantined_servers[server_id]
+    return False
+
+
+def get_quarantined_servers() -> Dict[int, float]:
+    """Return dictionary of quarantined server IDs with remaining seconds."""
+    now = time.monotonic()
+    result: Dict[int, float] = {}
+    with _lock:
+        expired = []
+        for sid, until in _quarantined_servers.items():
+            if now < until:
+                result[sid] = round(until - now, 1)
+            else:
+                expired.append(sid)
+        for sid in expired:
+            del _quarantined_servers[sid]
+    return result
+
+
+def clear_quarantine() -> None:
+    """Clear all quarantined servers."""
+    with _lock:
+        _quarantined_servers.clear()
+    log.info("cleared all Ookla server quarantines")
+
+
+def record_server_attempt(server_id: int) -> None:
+    """Record that an Ookla server was attempted."""
+    with _lock:
+        _server_history[server_id] = time.monotonic()
+
+
+def get_smart_rotated_server(target_server_id: Optional[int] = None) -> Optional[int]:
+    """Select the next optimal, non-quarantined Ookla server from the local regional pool.
+
+    If target_server_id is given and not quarantined, verifies it. If it is quarantined
+    or None, picks the least recently used healthy server from the nearby fleet.
+    """
+    if target_server_id is not None and not is_server_quarantined(target_server_id):
+        return target_server_id
+
+    if target_server_id is not None and is_server_quarantined(target_server_id):
+        log.info("designated Ookla server %d is quarantined; selecting non-banned alternative from fleet", target_server_id)
+
+    # Fetch available low-latency servers
+    try:
+        from nmb.speed.ookla import get_available_servers
+        servers = get_available_servers(limit=30)
+    except Exception as e:
+        log.warning("failed to fetch available servers for rotation: %s", e)
+        return None
+
+    if not servers:
+        return None
+
+    now = time.monotonic()
+    candidates = []
+    with _lock:
+        for s in servers:
+            sid = s.get("id")
+            if not sid:
+                continue
+            if sid in _quarantined_servers and now < _quarantined_servers[sid]:
+                continue
+            last_ts = _server_history.get(sid, 0.0)
+            candidates.append((last_ts, sid))
+
+    if not candidates:
+        log.warning("all candidate Ookla servers are quarantined; clearing quarantine window")
+        clear_quarantine()
+        return servers[0].get("id")
+
+    # Pick the least recently attempted server (lowest last_ts)
+    candidates.sort(key=lambda x: x[0])
+    chosen_id = candidates[0][1]
+    log.info("smart server rotation selected Ookla server %d (least recently used)", chosen_id)
+    return chosen_id

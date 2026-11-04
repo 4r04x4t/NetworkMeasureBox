@@ -1,0 +1,22 @@
+#!/bin/sh
+# NetworkMeasureBox Invasive Developer Snapshot Generator
+# Generates and prints the deep invasive technical diagnostic snapshot.
+set -eu
+
+PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "
+import sys
+from nmb.report.invasive_logger import generate_invasive_snapshot, PRIMARY_SNAPSHOT_PATH, get_boot_drive_snapshot_target
+
+print('=== Generating NetworkMeasureBox Invasive Diagnostic Snapshot ===', file=sys.stderr)
+md, meta = generate_invasive_snapshot(force_write=True)
+print(f'Snapshot written to: {PRIMARY_SNAPSHOT_PATH}', file=sys.stderr)
+boot_target = get_boot_drive_snapshot_target()
+if boot_target:
+    print(f'FAT32 Boot drive mirror: {boot_target}', file=sys.stderr)
+
+if '--json' in sys.argv:
+    import json
+    print(json.dumps(meta, indent=2))
+else:
+    print(md)
+" "$@"

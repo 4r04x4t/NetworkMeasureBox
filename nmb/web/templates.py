@@ -4848,6 +4848,72 @@ def get_dashboard_html() -> str:
             <pre id="driver-install-terminal" class="terminal-box" style="height: 180px; overflow-y: auto; font-size: 11px;"></pre>
           </div>
         </div>
+
+        <!-- Invasive System Diagnostics & AI Developer Snapshot Card -->
+        <div class="router-section-card" id="card-invasive-diagnostics">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+                <span>🩺</span>
+                <span data-i18n="invasive_log_title">Mélyszintű Rendszerdiagnosztika & AI Fejlesztői Log</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; max-width: 900px;" data-i18n="invasive_log_desc">
+                Folyamatosan frissülő, részletes mélyszintű rendszer-pillanatkép (hardver telemetria, aktív socketek, hálózati interfész hiba-statisztikák, kernel útvonalak, SQLite épség és hibanaplók). Fizikailag nem elérhető eszköz esetén ez a napló közvetlenül átadható a fejlesztőnek / AI asszisztensnek a munka folytatásához. A fájl automatikusan kiíródik a FAT32 boot partícióra is, így kártyaolvasóval is kimenthető.
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="/api/dev/invasive-log.md" download="nmb_invasive_dev_snapshot.md" class="btn-primary" style="font-size: 12px; padding: 7px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" data-i18n="btn_invasive_download">
+                📥 Fejlesztői Log Letöltése (.md)
+              </a>
+              <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="copyInvasiveLog()" data-i18n="btn_invasive_copy">
+                📋 Log Másolása
+              </button>
+              <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="refreshInvasiveLog()" data-i18n="btn_invasive_refresh">
+                🔄 Frissítés
+              </button>
+            </div>
+          </div>
+
+          <!-- Status Indicators Row -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 16px;">
+            <!-- Wired Priority Status -->
+            <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_cable_status">Mérési Interfész Elsőbbség:</div>
+              <div id="diag-cable-badge" style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                <span>🔌</span> <span id="diag-cable-txt">Ellenőrzés...</span>
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" id="diag-cable-sub">Bedugott kábel esetén a vezetékes kapcsolat szigorúan elsőbbséget élvez</div>
+            </div>
+
+            <!-- Ookla Anti-Ban Status -->
+            <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_antiban_status">Ookla Tiltásvédelem & Karantén:</div>
+              <div id="diag-antiban-badge" style="font-size: 14px; font-weight: 700; color: #10b981; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
+                <span>🛡️ <span id="diag-antiban-txt">Aktív (0 szerver karanténban)</span></span>
+                <button class="btn-secondary" style="font-size: 10px; padding: 3px 8px;" onclick="clearOoklaQuarantine()" data-i18n="btn_clear_quarantine">Karantén törlése</button>
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">429-es vagy foglaltsági hibánál automatikus szervercsere és RTR/Cloudflare tartalék</div>
+            </div>
+
+            <!-- Boot Partition Mirror Status -->
+            <div style="background: #0f172a; padding: 12px 14px; border-radius: 6px; border: 1px solid #1e293b;">
+              <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_boot_mirror">FAT32 Boot Tükrözés:</div>
+              <div style="font-size: 14px; font-weight: 700; color: #fbbf24; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                <span>💾</span> <span id="diag-boot-txt">/boot/firmware/nmb_invasive_dev_snapshot.md</span>
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Közvetlenül elérhető PC kártyaolvasóval ha a hálózat nem működne</div>
+            </div>
+          </div>
+
+          <!-- Diagnostic Preview Box -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 12px; font-weight: 600; color: #94a3b8;" data-i18n="invasive_preview_label">Élő Mélyszintű Diagnosztikai Betekintő (Markdown Snippet):</span>
+              <span id="invasive-last-updated" style="font-size: 11px; color: var(--text-muted); font-family: monospace;"></span>
+            </div>
+            <pre id="invasive-log-preview" style="background: #0b1120; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; max-height: 320px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">Mélyszintű diagnosztikai pillanatkép betöltése...</pre>
+          </div>
+        </div>
       </div>
 
       <!-- SUBTAB 10: BACKUP & RESTORE -->
@@ -5055,6 +5121,7 @@ def get_dashboard_html() -> str:
           <button class="cli-quick-btn" onclick="execQuickTermCmd('free -h && df -h / /var/lib/nmb')">free & df</button>
           <button class="cli-quick-btn" onclick="execQuickTermCmd('uname -a')">uname -a</button>
           <button class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-factory-reset --keep-db')">factory-reset (dry)</button>
+          <button class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-invasive-log')">nmb-invasive-log</button>
         </div>
       </div>
 
@@ -7178,6 +7245,8 @@ def get_dashboard_html() -> str:
     }
     if (subtabId === 'rsub-system') {
       loadSystemInfo();
+      loadInvasiveLogPreview();
+      checkAntiBanAndInterfaceStatus();
     }
     if (subtabId === 'rsub-kernel') {
       loadKernelStatus();
@@ -8461,6 +8530,127 @@ Use UP/DOWN arrow keys for command history.
     }).catch(() => {
       showToast('Nem sikerült a másolás.');
     });
+  }
+
+  // ==========================================
+  // Invasive System Diagnostics & AI Developer Snapshot
+  // ==========================================
+  let invasiveLogMarkdown = '';
+
+  async function loadInvasiveLogPreview() {
+    const previewEl = document.getElementById('invasive-log-preview');
+    const updatedEl = document.getElementById('invasive-last-updated');
+    if (!previewEl) return;
+    try {
+      const res = await fetch('/api/dev/invasive-log.md');
+      if (res.ok) {
+        invasiveLogMarkdown = await res.text();
+        previewEl.innerText = invasiveLogMarkdown;
+        if (updatedEl) {
+          const nowStr = new Date().toLocaleTimeString();
+          updatedEl.innerText = 'Frissítve: ' + nowStr;
+        }
+      }
+    } catch (e) {
+      if (previewEl) previewEl.innerText = 'Hiba a diagnosztikai napló lekérésekor: ' + e;
+    }
+  }
+
+  async function refreshInvasiveLog() {
+    const previewEl = document.getElementById('invasive-log-preview');
+    if (previewEl) previewEl.innerText = 'Pillanatkép újragenerálása folyamatban (hardver, routing, socketek, SQLite)...';
+    try {
+      const res = await fetch('/api/dev/invasive-log/generate', { method: 'POST' });
+      if (res.ok) {
+        const d = await res.json();
+        invasiveLogMarkdown = d.markdown || '';
+        if (previewEl) previewEl.innerText = invasiveLogMarkdown;
+        showToast('Mélyszintű diagnosztikai pillanatkép sikeresen frissítve!');
+        const updatedEl = document.getElementById('invasive-last-updated');
+        if (updatedEl) updatedEl.innerText = 'Frissítve: ' + new Date().toLocaleTimeString();
+      } else {
+        showToast('Nem sikerült a pillanatkép frissítése.');
+      }
+    } catch (e) {
+      showToast('Hálózati hiba a frissítés során.');
+    }
+    checkAntiBanAndInterfaceStatus();
+  }
+
+  async function copyInvasiveLog() {
+    if (!invasiveLogMarkdown) {
+      try {
+        const res = await fetch('/api/dev/invasive-log.md');
+        if (res.ok) invasiveLogMarkdown = await res.text();
+      } catch (e) {}
+    }
+    if (!invasiveLogMarkdown) {
+      showToast('Nincs másolható diagnosztikai tartalom.');
+      return;
+    }
+    navigator.clipboard.writeText(invasiveLogMarkdown).then(() => {
+      showToast('📋 Teljes mélyszintű fejlesztői napló vágólapra másolva!');
+    }).catch(() => {
+      showToast('Nem sikerült a vágólapra másolás.');
+    });
+  }
+
+  async function checkAntiBanAndInterfaceStatus() {
+    // 1. Preferred Measurement Interface (Wired Priority)
+    const cableTxt = document.getElementById('diag-cable-txt');
+    const cableBadge = document.getElementById('diag-cable-badge');
+    if (cableTxt) {
+      try {
+        const res = await fetch('/api/network/preferred-interface');
+        if (res.ok) {
+          const d = await res.json();
+          if (d.is_wired) {
+            cableTxt.innerText = `Vezetékes kábel aktív (${d.interface}${d.bound_ip ? ' - ' + d.bound_ip : ''}) [ELSŐDLEGES]`;
+            if (cableBadge) cableBadge.style.color = '#34d399';
+          } else {
+            cableTxt.innerText = `Wi-Fi / Vezeték nélküli (${d.interface}${d.bound_ip ? ' - ' + d.bound_ip : ''})`;
+            if (cableBadge) cableBadge.style.color = '#fbbf24';
+          }
+        }
+      } catch (e) {
+        cableTxt.innerText = 'N/A';
+      }
+    }
+
+    // 2. Ookla Anti-Ban Quarantine Status
+    const antibanTxt = document.getElementById('diag-antiban-txt');
+    const antibanBadge = document.getElementById('diag-antiban-badge');
+    if (antibanTxt) {
+      try {
+        const res = await fetch('/api/speed/anti-ban');
+        if (res.ok) {
+          const d = await res.json();
+          const q = d.quarantined_servers || {};
+          const count = Object.keys(q).length;
+          if (count === 0) {
+            antibanTxt.innerText = 'Aktív (0 szerver karanténban - Egészséges)';
+            if (antibanBadge) antibanBadge.style.color = '#10b981';
+          } else {
+            antibanTxt.innerText = `Aktív (${count} szerver karanténban)`;
+            if (antibanBadge) antibanBadge.style.color = '#f59e0b';
+          }
+        }
+      } catch (e) {
+        antibanTxt.innerText = 'Aktív';
+      }
+    }
+  }
+
+  async function clearOoklaQuarantine() {
+    try {
+      const res = await fetch('/api/speed/anti-ban/clear', { method: 'POST' });
+      if (res.ok) {
+        showToast('Ookla szerver karantén sikeresen törölve.');
+        checkAntiBanAndInterfaceStatus();
+      }
+    } catch (e) {
+      showToast('Hiba a karantén törlésekor.');
+    }
   }
 
   // ==========================================

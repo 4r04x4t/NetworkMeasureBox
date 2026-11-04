@@ -96,7 +96,7 @@ def generate_fresh_user_agent(category: str = "headless") -> str:
     firefox_version = f"{major_firefox}.{minor_firefox}" if minor_firefox else f"{major_firefox}.0"
 
     cat = category.lower().strip()
-    if cat in ("headless", "headless_chrome"):
+    if cat in ("headless", "headless_chrome", "headless_client"):
         platform = random.choice(["X11; Linux x86_64", "X11; Linux aarch64", "Windows NT 10.0; Win64; x64"])
         return f"Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/{chrome_version} Safari/537.36"
 
@@ -108,7 +108,7 @@ def generate_fresh_user_agent(category: str = "headless") -> str:
         ])
         return f"Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_version} Safari/537.36"
 
-    if cat == "firefox":
+    if cat in ("firefox", "desktop_firefox"):
         platform = random.choice(["X11; Linux x86_64; rv:", "Windows NT 10.0; Win64; x64; rv:"])
         return f"Mozilla/5.0 ({platform}{firefox_version}) Gecko/20100101 Firefox/{firefox_version}"
 
@@ -178,3 +178,4 @@ def list_user_agent_presets() -> List[Dict[str, str]]:
             "ua": data["ua"],
         })
     return items
+

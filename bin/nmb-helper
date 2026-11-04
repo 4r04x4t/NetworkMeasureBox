@@ -231,8 +231,18 @@ case "${1:-}" in
     sync-drive-config)
         PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.config import sync_drive_config; sync_drive_config()"
         ;;
+    invasive-log)
+        shift
+        if [ -x "$(dirname "$0")/nmb-invasive-log" ]; then
+            exec "$(dirname "$0")/nmb-invasive-log" "$@"
+        elif [ -x /opt/nmb/bin/nmb-invasive-log ]; then
+            exec /opt/nmb/bin/nmb-invasive-log "$@"
+        else
+            PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.report.invasive_logger import generate_invasive_snapshot; md, _ = generate_invasive_snapshot(force_write=True); print(md)"
+        fi
+        ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|invasive-log}" >&2
         exit 1
         ;;
 esac

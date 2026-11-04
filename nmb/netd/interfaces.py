@@ -329,6 +329,81 @@ def get_default_gateway_iface() -> Optional[str]:
     return None
 
 
+def is_wired_interface(iface: str) -> bool:
+    """Return True if interface is a wired Ethernet controller."""
+    name = iface.lower()
+    return name.startswith(("eth", "en", "end", "eno", "ens", "enp")) and not name.startswith(("wl", "ww", "br", "lo", "docker", "tun", "wg"))
+
+
+def find_active_wired_interface() -> Optional[Tuple[str, str]]:
+    """Check if an Ethernet cable is physically connected with carrier and IP.
+
+    Returns (interface_name, bound_ip) if active wired connection is found, else None.
+    """
+    if not SYS_CLASS_NET.exists():
+        return None
+
+    wired_candidates = []
+    for ifp in SYS_CLASS_NET.iterdir():
+        name = ifp.name
+        if is_wired_interface(name) and get_carrier(name):
+            oper = get_operstate(name)
+            if oper != "down":
+                addrs = get_ip_addresses(name)
+                if addrs:
+                    ip_only = addrs[0].split("/")[0]
+                    wired_candidates.append((name, ip_only))
+
+    if wired_candidates:
+        wired_candidates.sort(key=lambda x: (0 if "0" in x[0] else 1, x[0]))
+        return wired_candidates[0]
+    return None
+
+
+def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface: Optional[str] = None) -> Tuple[str, Optional[str], bool]:
+    """Resolve optimal measurement interface, strictly prioritizing active wired Ethernet connections.
+
+    Returns (interface_name, bound_ip, is_wired).
+    """
+    # 1. If explicit interface was requested by caller and exists
+    if target_iface and interface_exists(target_iface):
+        addrs = get_ip_addresses(target_iface)
+        ip = addrs[0].split("/")[0] if addrs else None
+        return target_iface, ip, is_wired_interface(target_iface)
+
+    # 2. STRICT WIRED PRIORITY: If a cable is plugged in with carrier & IP
+    wired = find_active_wired_interface()
+    if wired:
+        w_iface, w_ip = wired
+        log.info("physical Ethernet cable detected on %s (carrier=1, ip=%s); prioritizing wired connection for benchmark", w_iface, w_ip)
+        return w_iface, w_ip, True
+
+    # 3. Check configured measurement_interface or wan_interface
+    if cfg is not None:
+        meas_target = getattr(cfg.network, "measurement_interface", "wan")
+        if meas_target in ("wan2", "secondary") and getattr(cfg.network, "wan2_interface", ""):
+            cand = cfg.network.wan2_interface
+            if interface_exists(cand):
+                addrs = get_ip_addresses(cand)
+                ip = addrs[0].split("/")[0] if addrs else None
+                return cand, ip, is_wired_interface(cand)
+
+        wan = getattr(cfg.network, "wan_interface", "eth0")
+        if wan and interface_exists(wan):
+            addrs = get_ip_addresses(wan)
+            ip = addrs[0].split("/")[0] if addrs else None
+            return wan, ip, is_wired_interface(wan)
+
+    # 4. Fallback to default gateway interface
+    gw_iface = get_default_gateway_iface()
+    if gw_iface and interface_exists(gw_iface):
+        addrs = get_ip_addresses(gw_iface)
+        ip = addrs[0].split("/")[0] if addrs else None
+        return gw_iface, ip, is_wired_interface(gw_iface)
+
+    return "eth0", None, True
+
+
 def get_interface_stats(iface: str) -> Dict[str, int]:
     """Query interface bytes/packets stats from sysfs."""
     stats_dir = SYS_CLASS_NET / iface / "statistics"

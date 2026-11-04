@@ -26,7 +26,9 @@ def execute_rtr_speedtest(
     host: str = DEFAULT_RTR_CONTROL,
     duration_sec: int = 4,
     force_threads: int = 3,
-    use_ws: bool = True
+    use_ws: bool = True,
+    interface: Optional[str] = None,
+    bind_ip: Optional[str] = None,
 ) -> SpeedtestResult:
     """Execute complete RTR-NetTest (netztest.at / Open-RMBT) measurement cycle."""
     if not host.startswith("http://") and not host.startswith("https://"):
@@ -198,6 +200,8 @@ def execute_rtr_speedtest(
         bufferbloat_delta_ms=bb_delta,
         engine="rtr",
         colo="VIE",
+        bound_iface=interface,
+        bound_ip=bind_ip,
     )
     trim_process_memory()
     return res

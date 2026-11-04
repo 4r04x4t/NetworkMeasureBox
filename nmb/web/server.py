@@ -832,6 +832,46 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(get_kernel_network_status())
             return
 
+        # 22. Invasive Diagnostics & AI Developer Snapshot
+        if path == "/api/dev/invasive-log":
+            from nmb.report.invasive_logger import get_cached_invasive_snapshot
+            md, snap = get_cached_invasive_snapshot()
+            self._send_json(snap)
+            return
+
+        if path in ("/api/dev/invasive-log.md", "/download/invasive-log.md"):
+            from nmb.report.invasive_logger import read_latest_invasive_snapshot_file, get_cached_invasive_snapshot
+            cached_md = read_latest_invasive_snapshot_file()
+            if not cached_md:
+                cached_md, _ = get_cached_invasive_snapshot()
+            body_bytes = cached_md.encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/markdown; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="nmb_invasive_dev_snapshot_{int(time.time())}.md"')
+            self.send_header("Content-Length", str(len(body_bytes)))
+            self.end_headers()
+            self.wfile.write(body_bytes)
+            return
+
+        # 23. Ookla Anti-Ban & Server Quarantine Status
+        if path == "/api/speed/anti-ban":
+            from nmb.speed.anti_ban import get_quarantined_servers
+            self._send_json({"quarantined_servers": get_quarantined_servers()})
+            return
+
+        # 24. Preferred Measurement Interface & Physical Cable Detection
+        if path == "/api/network/preferred-interface":
+            from nmb.netd.interfaces import find_preferred_measurement_interface
+            cfg = self.server.cfg if hasattr(self, "server") and hasattr(self.server, "cfg") else load_config()
+            iface, ip, is_wired = find_preferred_measurement_interface(cfg)
+            self._send_json({
+                "interface": iface,
+                "bound_ip": ip,
+                "is_wired": is_wired,
+                "priority": "wired_cable_override" if is_wired else "wireless_or_fallback",
+            })
+            return
+
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def do_POST(self) -> None:
@@ -1963,6 +2003,25 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 }, status=500)
             return
 
+        # Invasive Diagnostics on-demand refresh
+        if path == "/api/dev/invasive-log/generate":
+            from nmb.report.invasive_logger import generate_invasive_snapshot
+            cfg = self.server.cfg if hasattr(self, "server") and hasattr(self.server, "cfg") else load_config()
+            md, snap = generate_invasive_snapshot(cfg, force_write=True)
+            self._send_json({
+                "status": "ok",
+                "snapshot": snap,
+                "markdown": md,
+            })
+            return
+
+        # Ookla Anti-Ban Quarantine manual clear
+        if path == "/api/speed/anti-ban/clear":
+            from nmb.speed.anti_ban import clear_quarantine
+            clear_quarantine()
+            self._send_json({"status": "ok", "message": "Ookla server quarantine cleared successfully"})
+            return
+
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def _handle_api_status(self) -> None:
@@ -2735,6 +2794,11 @@ class WebDaemon:
         self.running = False
         if self.scheduler:
             self.scheduler.stop()
+        try:
+            from nmb.report.invasive_logger import stop_invasive_background_logger
+            stop_invasive_background_logger()
+        except Exception:
+            pass
         if self.server:
             threading.Thread(target=self.server.shutdown).start()
 
@@ -2747,6 +2811,13 @@ class WebDaemon:
         self.scheduler = AutonomousScheduler(self.cfg)
         self.server.scheduler = self.scheduler
         self.scheduler.start()
+
+        # Continuous background invasive diagnostic logger (persists to /var/log/nmb and FAT32 boot drive)
+        try:
+            from nmb.report.invasive_logger import start_invasive_background_logger
+            start_invasive_background_logger(self.cfg)
+        except Exception as e:
+            log.warning("could not start invasive background logger: %s", e)
 
         # Synchronize background Guest Wi-Fi client station connection if enabled
         sync_guest_wifi_connection(self.cfg)
@@ -2802,6 +2873,11 @@ class WebDaemon:
             try:
                 from nmb.netd.proxy import stop_proxy_server
                 stop_proxy_server()
+            except Exception:
+                pass
+            try:
+                from nmb.report.invasive_logger import stop_invasive_background_logger
+                stop_invasive_background_logger()
             except Exception:
                 pass
             self.server.server_close()
