@@ -201,7 +201,7 @@ auto_reconnect = true
 [web]
 enabled = true
 host = 0.0.0.0
-port = 8080
+port = 80
 auth_enabled = true
 admin_password = admin
 
@@ -368,7 +368,7 @@ class TelegramConfig:
 class WebConfig:
     enabled: bool = True
     host: str = "0.0.0.0"
-    port: int = 8080
+    port: int = 80
     auth_enabled: bool = True
     admin_username: str = "admin"
     admin_password: str = "admin"
@@ -529,14 +529,25 @@ def load_config(path: Path | None = None) -> Config:
                 except Exception as e:
                     log.debug("drive mtime check exception: %s", e)
 
+    def _safe_exists(p: Optional[Path]) -> bool:
+        if not p:
+            return False
+        try:
+            return p.exists()
+        except (PermissionError, OSError):
+            return False
+
     target_path = path or (
-        DEFAULT_CONFIG_PATH if DEFAULT_CONFIG_PATH.exists() else
+        DEFAULT_CONFIG_PATH if _safe_exists(DEFAULT_CONFIG_PATH) else
         find_drive_config_path() if find_drive_config_path() else
-        FALLBACK_CONFIG_PATH if FALLBACK_CONFIG_PATH.exists() else None
+        FALLBACK_CONFIG_PATH if _safe_exists(FALLBACK_CONFIG_PATH) else None
     )
 
-    if target_path and target_path.exists():
-        parser.read(target_path)
+    if target_path and _safe_exists(target_path):
+        try:
+            parser.read(target_path)
+        except (PermissionError, OSError):
+            pass
 
     cfg = Config(raw_parser=parser)
 

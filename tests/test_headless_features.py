@@ -213,5 +213,29 @@ class TestHeadlessFeatures(unittest.TestCase):
                 )
 
 
+    def test_web_default_port_and_unprivileged_fallback(self):
+        from nmb.config import WebConfig
+        web_cfg = WebConfig()
+        self.assertEqual(web_cfg.port, 80, "Default router HTTP port should be 80")
+
+        # Test NMBServer unprivileged fallback logic
+        from nmb.web.server import NMBServer
+        from nmb.config import Config
+
+        cfg = Config()
+        cfg.web.port = 80
+        cfg.web.host = "127.0.0.1"
+
+        # Mock server_bind to raise PermissionError on first call (port 80), succeed on second call (port 8080)
+        with mock.patch("socketserver.TCPServer.server_bind") as mock_bind, \
+             mock.patch("socketserver.TCPServer.server_activate") as mock_act:
+            mock_bind.side_effect = [PermissionError(13, "Permission denied"), None]
+            server = NMBServer(cfg)
+            self.assertEqual(server.server_address, ("127.0.0.1", 8080))
+            self.assertEqual(cfg.web.port, 8080)
+            self.assertEqual(mock_bind.call_count, 2)
+            server.server_close()
+
+
 if __name__ == "__main__":
     unittest.main()

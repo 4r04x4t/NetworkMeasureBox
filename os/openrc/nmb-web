@@ -2,7 +2,7 @@
 description="NetworkMeasureBox Embedded Web UI & REST API"
 
 command="/usr/bin/python3"
-command_args="-m nmb.web.server --port 8080"
+command_args="-m nmb.web.server"
 command_background="yes"
 command_user="nmb:nmb"
 pidfile="/run/nmb/web.pid"

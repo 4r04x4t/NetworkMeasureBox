@@ -571,8 +571,14 @@ def generate_invasive_snapshot(cfg: Optional[Config] = None, force_write: bool =
     md_lines.append("")
 
     # Section 3: Configuration & Drive Sync Status
+    conf_exists = False
+    try:
+        conf_exists = DEFAULT_CONFIG_PATH.exists()
+    except (PermissionError, OSError):
+        conf_exists = False
+
     md_lines.append("## ⚙️ Configuration & Storage Sync Status")
-    md_lines.append(f"- **Internal Config Path**: `{DEFAULT_CONFIG_PATH}` (Exists: `{DEFAULT_CONFIG_PATH.exists()}`)")
+    md_lines.append(f"- **Internal Config Path**: `{DEFAULT_CONFIG_PATH}` (Exists: `{conf_exists}`)")
     md_lines.append(f"- **FAT32 Boot Drive Config**: `{drive_cfg_path or 'Not Detected'}` (Writable: `{writable_drive_target is not None}`)")
     md_lines.append(f"- **Drive Mirror Match**: `{'✅ Synced (Identical)' if drive_match else '⚠️ Diverged or Not Synced'}`")
     md_lines.append(f"- **Network Mode**: `{cfg.network.mode}`")

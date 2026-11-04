@@ -113,7 +113,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (pl. Raspberry 
 │                                                                                                                  │
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Telegram Távfelügyeleti Bot (nmb-telegram)   │          │ Beépített Kezelő WebGUI & REST API (nmb-web)     │  │
-│  │ • /status, /ping, /test, /report, /mode      │          │ • Reszponzív sötét felület a 8080-as porton      │  │
+│  │ • /status, /ping, /test, /report, /mode      │          │ • Szabványos router port 80 felület (dev 8080)   │  │
 │  │ • Azonnali push riasztások kimaradáskor      │          │ • 14+ alrendszer, 5 nyelvű fordítás, Logout     │  │
 │  └──────────────────────────────────────────────┘          └──────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -247,7 +247,7 @@ A legtöbb Raspberry Pi és beágyazott SBC a microSD kártya tönkremenetele mi
 
 ## 8. Beépített Webes Felület (WebGUI) és Többnyelvűség
 
-A beépített webes felület a **8080-as porton** érhető el, teljesen reszponzív, modern sötét dizájnnal és 14 dedikált kategóriával rendelkezik:
+A beépített webes felület a **szabványos 80-as HTTP router porton** érhető el (fejlesztői futtatás esetén automatikus 8080-as fallback-kel), teljesen reszponzív, modern sötét dizájnnal és 14 dedikált kategóriával rendelkezik:
 
 1. **Irányítópult (Dashboard)**: Legutóbbi mérések összefoglalása, SLA státusz, egykattintásos mérésindítás, interfész-választó és élő végrehajtási terminál.
 2. **Ping Telemetria (ICMP Ping)**: Valós idejű vektoros SVG késleltetési grafikon, csomagvesztés, p95/p99 statisztikák, CSV export.
@@ -332,7 +332,7 @@ A szoftver moduláris felépítésű, az egyes feladatokat különálló, jól t
 | `nmb-speed` | Sebességmérő és forgalomkorlátozás-ellenőrző | `nmb-speed --trigger manual`<br>`nmb-speed --interface eth0`<br>`nmb-speed --engine cloudflare` |
 | `nmb-report` | Riport generátor (HTML dosszié, CSV, JSON) | `nmb-report --window 24h --html dossier.html`<br>`nmb-report --json-summary` |
 | `nmb-telegram` | Telegram menedzsment és riasztási bot | `nmb-telegram` |
-| `nmb-web` | Beépített kezelőfelület és REST API | `nmb-web --port 8080` |
+| `nmb-web` | Beépített kezelőfelület és REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Emelt szintű hálózati és driver műveletek segédprogramja | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
 
 ### Rendszerszolgáltatások (`systemd`)
@@ -379,11 +379,11 @@ A telepítő szkript automatikusan elvégzi a következőket:
 5. Engedélyezi és elindítja a `systemd` háttérfolyamatokat (`nmb.target`).
 
 ### Első Lépések a Telepítés Után
-A telepítés befejeztével nyissa meg a böngészőjében a WebGUI-t:
+A telepítés befejeztével nyissa meg a böngészőjében a WebGUI-t közvetlenül (port megadása nélkül):
 ```
-http://<az-eszköz-ip-címe>:8080
+http://<az-eszköz-ip-címe>/
 ```
-* **Alapértelmezett bejelentkezési adatok**:
+* **Bejelentkezési adatok**: `admin` / a telepítéskor dinamikusan generált jelszó (automatikusan mentve a `/boot/firmware/nmb_credentials.txt` és `/var/lib/nmb/credentials.txt` fájlokba).
   * Felhasználónév: `admin`
   * Jelszó: `admin` (a Beállítások fülön azonnal megváltoztatható!)
 * Állítsa be az előfizetői szerződésében szereplő adatokat (névleges és garantált letöltés/feltöltés), válassza ki a hálózati kártyák szerepköreit, és az eszköz máris megkezdi a folyamatos mérést és adatgyűjtést!

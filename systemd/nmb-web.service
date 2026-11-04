@@ -8,13 +8,13 @@ Type=simple
 User=nmb
 Group=nmb
 Environment=PYTHONPATH=/opt/nmb MALLOC_ARENA_MAX=2 PYTHONUNBUFFERED=1
-ExecStart=/opt/nmb/bin/nmb-web --port 8080
+ExecStart=/opt/nmb/bin/nmb-web
 Restart=always
 RestartSec=5s
 
-# Security sandbox
-CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_SETUID CAP_SETGID
-AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+# Security sandbox (CAP_NET_BIND_SERVICE allows unprivileged user 'nmb' to bind port 80)
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true

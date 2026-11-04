@@ -191,7 +191,7 @@ cp -r "$SCRIPT_DIR/docs" "$INSTALL_DIR/" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/bin/"* "$INSTALL_DIR/os/"*.sh
 
 # Configuration file
-install -d -m 0770 -o root -g "$NMB_USER" "$CONFIG_DIR"
+install -d -m 0775 -o root -g "$NMB_USER" "$CONFIG_DIR"
 if [ ! -f "$CONFIG_FILE" ]; then
     if [ -f "$SCRIPT_DIR/config/nmb.conf.example" ]; then
         cp "$SCRIPT_DIR/config/nmb.conf.example" "$CONFIG_FILE"
@@ -200,10 +200,38 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # Generate strong random admin password on installation if default "admin"
+ADMIN_PASS="admin"
 if grep -q "admin_password = admin" "$CONFIG_FILE" 2>/dev/null; then
-    NEW_ADMIN_PASS=$(head -c 16 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 14)
-    sed -i "s/admin_password = admin/admin_password = $NEW_ADMIN_PASS/" "$CONFIG_FILE"
-    info "Generated secure random Web UI admin password: $NEW_ADMIN_PASS"
+    ADMIN_PASS=$(head -c 16 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 14)
+    sed -i "s/admin_password = admin/admin_password = $ADMIN_PASS/" "$CONFIG_FILE"
+    info "Generated secure random Web UI admin password: $ADMIN_PASS"
+else
+    ADMIN_PASS=$(grep -E '^\s*admin_password\s*=' "$CONFIG_FILE" 2>/dev/null | cut -d= -f2 | tr -d ' ' || echo "admin")
+fi
+
+# Write headless first-boot credentials file to /var/lib/nmb and /boot partition
+CRED_FILE="/var/lib/nmb/credentials.txt"
+install -d -m 2775 -o "$NMB_USER" -g "$NMB_USER" /var/lib/nmb 2>/dev/null || true
+cat > "$CRED_FILE" <<EOF
+================================================================================
+  NetworkMeasureBox — Device Management Credentials
+================================================================================
+  Web UI URL  : http://${HOST_IP:-localhost} (Default HTTP Port 80)
+  Username    : admin
+  Password    : ${ADMIN_PASS}
+  Config File : ${CONFIG_FILE}
+================================================================================
+EOF
+chmod 0600 "$CRED_FILE"
+chown "$NMB_USER:$NMB_USER" "$CRED_FILE" 2>/dev/null || true
+
+# Mirror to FAT32 boot partition if present (accessible via PC/Mac SD card reader)
+if [ -d /boot/firmware ]; then
+    cp "$CRED_FILE" /boot/firmware/nmb_credentials.txt 2>/dev/null || true
+    chmod 0644 /boot/firmware/nmb_credentials.txt 2>/dev/null || true
+elif [ -d /boot ]; then
+    cp "$CRED_FILE" /boot/nmb_credentials.txt 2>/dev/null || true
+    chmod 0644 /boot/nmb_credentials.txt 2>/dev/null || true
 fi
 
 # Detect low-memory embedded target (512MB RAM router / Pi Zero)
@@ -224,7 +252,12 @@ if [ "$TOTAL_RAM_KB" -le 800000 ]; then
 fi
 
 chown "$NMB_USER":"$NMB_USER" "$CONFIG_FILE"
-chmod 0600 "$CONFIG_FILE"
+chmod 0640 "$CONFIG_FILE"
+
+# Add the invoking sudo user to the nmb group so developers/admins can read NMB status
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    usermod -aG "$NMB_USER" "$SUDO_USER" 2>/dev/null || true
+fi
 
 # Symlink executables into /usr/local/bin
 for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper; do
@@ -253,11 +286,11 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
 
     info "Enabling and starting NetworkMeasureBox systemd target..."
     systemctl enable nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service
-    systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer
+    systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer
     systemctl enable nmb.target
 
     systemctl restart nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service
-    systemctl start nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer
+    systemctl start nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer
 
 elif [ "$INIT_SYSTEM" = "openrc" ]; then
     info "Installing OpenRC init scripts to /etc/init.d/..."
@@ -299,11 +332,14 @@ cat <<EOF
    NetworkMeasureBox (NMB) — Installation Complete Successfully!
 ================================================================================
 \033[0m
-  * Management Web UI  : \033[1;34mhttp://${HOST_IP}:8080\033[0m
+  * Management Web UI  : \033[1;34mhttp://${HOST_IP}\033[0m (Standard HTTP Port 80)
+  * Web UI Credentials : Username: \033[1;32madmin\033[0m | Password: \033[1;33m${ADMIN_PASS}\033[0m
+  * Credentials Saved  : /var/lib/nmb/credentials.txt (mirrored to /boot/firmware/)
   * Configuration File : \033[1;33m/etc/nmb/nmb.conf\033[0m
   * Live Database      : /var/lib/nmb/live/nmb.db (tmpfs RAM)
   * Persistent SD DB   : /var/lib/nmb/persist/nmb.db (15-min snapshots)
   * Reports Directory  : /var/lib/nmb/persist/reports/
+  * Developer Telemetry: /var/log/nmb/invasive_dev_snapshot.md (3-min timer)
 
   CLI Tools Installed:
     nmb-netd     - Network mode manager (--status, --switch auto|standalone|mode_a|mode_b)
@@ -311,11 +347,12 @@ cat <<EOF
     nmb-speed    - Speedtest & port throttling runner (--trigger manual)
     nmb-report   - HTML dossier generator & ISP fault dispatcher (--window 24h)
     nmb-telegram - Management Telegram bot daemon
-    nmb-web      - Embedded management web server
+    nmb-web      - Embedded management web server (Router Port 80 / dev 8080)
 
   Next Steps:
-    1. Open \033[1;34mhttp://${HOST_IP}:8080\033[0m in your browser to access the dashboard.
-    2. Edit \033[1;33m/etc/nmb/nmb.conf\033[0m to configure your ISP SLA plan, Telegram token, or Wi-Fi.
-    3. Check overall system status: \033[1;37msystemctl status nmb.target\033[0m
+    1. Open \033[1;34mhttp://${HOST_IP}\033[0m in your browser to access the dashboard.
+    2. Log in with user '\033[1;32madmin\033[0m' and password '\033[1;33m${ADMIN_PASS}\033[0m'.
+    3. Edit \033[1;33m/etc/nmb/nmb.conf\033[0m to configure your ISP SLA plan, Telegram token, or Wi-Fi.
+    4. Check overall system status: \033[1;37msystemctl status nmb.target\033[0m
 ================================================================================
 EOF

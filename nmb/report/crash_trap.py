@@ -383,8 +383,11 @@ def create_diagnostic_bundle() -> Path:
 
         # 3. Configurations
         for conf_p in (Path("/etc/nmb/nmb.conf"), Path("/boot/firmware/nmb.conf"), Path("/boot/nmb.conf")):
-            if conf_p.is_file():
-                tar.add(conf_p, arcname=f"config/{conf_p.name}")
+            try:
+                if conf_p.is_file():
+                    tar.add(conf_p, arcname=f"config/{conf_p.name}")
+            except (PermissionError, OSError):
+                pass
 
         # 4. Standard Logs
         log_dir = Path("/var/log/nmb")

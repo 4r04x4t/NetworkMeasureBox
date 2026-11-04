@@ -58,7 +58,7 @@ NMB eliminates this finger-pointing by placing an unbiased, carrier-grade measur
 │                                                                                                                  │
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Telegram Management Bot (nmb-telegram)       │          │ Embedded Web Management UI & API (nmb-web)       │  │
-│  │ • /status, /ping, /test, /report, /mode      │          │ • Port 8080 responsive dark-mode dashboard       │  │
+│  │ • /status, /ping, /test, /report, /mode      │          │ • Standard router Port 80 dashboard (dev 8080)   │  │
 │  │ • Proactive push alerts (outages & loss >5%) │          │ • 14+ subtabs, 5 languages (100% parity), Logout │  │
 │  └──────────────────────────────────────────────┘          └──────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -119,7 +119,7 @@ Specially engineered to run seamlessly on resource-constrained **512 MB RAM rout
 * **Filesystem Optimizations**: ext4 mounted with `noatime,commit=600`, swap disabled, journald set to `Storage=volatile`.
 
 ### 7. Responsive WebGUI & REST API
-* Modern dark-themed dashboard on **port 8080**.
+* Modern dark-themed router dashboard on **standard HTTP port 80** (with automatic unprivileged fallback to port 8080 for development).
 * Live inline SVG graphs, historical speed records, network device explorer (ARP sweep & MAC vendor lookup), real-time syslog inspector, and one-click diagnostic LLM bundle generation.
 * **100% Internationalization (i18n)**: Fully translated into 5 languages with complete key parity:
   * 🇬🇧 English (EN)
@@ -152,11 +152,11 @@ The installer will automatically:
 4. Deploy the application into `/opt/nmb` and install CLI wrappers into `/usr/local/bin/`.
 5. Enable and launch the systemd target (`nmb.target`).
 
-After installation, open the web dashboard in your browser:
+After installation, open the web dashboard directly in your browser without entering a port:
 ```
-http://<appliance-ip>:8080
+http://<appliance-ip>/
 ```
-* **Default credentials**: `admin` / `admin` (change immediately in the Settings tab).
+* **Default credentials**: `admin` / dynamically generated on setup (mirrored to `/boot/firmware/nmb_credentials.txt` and `/var/lib/nmb/credentials.txt`). Change immediately in the Settings tab.
 
 ---
 
@@ -169,7 +169,7 @@ http://<appliance-ip>:8080
 | `nmb-speed` | Speedtest & net-neutrality runner | `nmb-speed --trigger manual`<br>`nmb-speed --engine cloudflare`<br>`nmb-speed --interface eth0` |
 | `nmb-report` | HTML dossier & CSV generator | `nmb-report --window 24h --html dossier.html`<br>`nmb-report --json-summary`<br>`nmb-report --send-email` |
 | `nmb-telegram` | Management Telegram Bot daemon | `nmb-telegram` |
-| `nmb-web` | Embedded management web UI & REST API | `nmb-web --port 8080` |
+| `nmb-web` | Embedded management web UI & REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Privileged helper utility (drivers, routing) | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
 
 ---

@@ -1921,6 +1921,20 @@ def get_dashboard_html() -> str:
       <span id="measuring-text" data-i18n="measuring_wait">Please wait! Measurement in progress...</span>
     </div>
 
+    <!-- Default Password Security Warning Banner -->
+    <div id="default-pass-banner" style="display: none; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 20px;">⚠️</span>
+        <div>
+          <b style="color: #fbbf24;" data-i18n="default_pass_warn_title">Biztonsági Figyelmeztetés / Security Notice:</b>
+          <div style="color: #cbd5e1; font-size: 13px;" data-i18n="default_pass_warn_desc">Az alapértelmezett 'admin' jelszó aktív. Kérjük, módosítsa a Beállítások menüben! (Default administrator credentials active. Please update in Settings.)</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="switchTab('tab-config')" style="white-space: nowrap; font-size: 12px; padding: 6px 12px; border-color: #f59e0b; color: #fbbf24;" data-i18n="btn_change_password">
+        ⚙️ Jelszó Módosítása / Settings
+      </button>
+    </div>
+
     <!-- Engine Selector & Active Control Box -->
     <div class="engine-selector-box">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
@@ -6100,6 +6114,11 @@ def get_dashboard_html() -> str:
       const isMeas = data.is_measuring || false;
       document.getElementById('measuring-banner').style.display = isMeas ? 'flex' : 'none';
       document.getElementById('btn-home-measure').disabled = isMeas;
+
+      // Default password warning banner tracking
+      const isDefPass = data.default_password_active || false;
+      const defPassEl = document.getElementById('default-pass-banner');
+      if (defPassEl) defPassEl.style.display = isDefPass ? 'flex' : 'none';
 
       // Render Dashboard speedtest card based on selected engine
       renderHomeEngineCard(selectedEngine, data);

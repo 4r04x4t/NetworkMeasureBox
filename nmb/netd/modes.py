@@ -311,7 +311,7 @@ class ModeStandalone(NetworkMode):
             )
             # Route/NAT client traffic from wlan to active LAN/WAN interface if available
             if self.active_wan and self.active_wan != wlan:
-                firewall.enable_nat_mode_a(self.active_wan, [wlan])
+                firewall.enable_nat_simple(self.active_wan, [wlan])
             self.wlan_active = True
 
         return True

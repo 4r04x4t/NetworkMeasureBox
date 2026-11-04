@@ -6,6 +6,7 @@ Serves dashboard UI, live status JSON, speedtest triggers, and dossier downloads
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import logging
 import os
@@ -14,6 +15,7 @@ import re
 import secrets
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -163,6 +165,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         self.end_headers()
         self.wfile.write(body)
+
+    def do_HEAD(self) -> None:
+        if not self._check_auth():
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.end_headers()
 
     def do_GET(self) -> None:
         if not self._check_auth():
@@ -2245,6 +2256,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "latest_script": latest_script,
             "language": getattr(self.server.cfg.web, "language", "en"),
             "admin_username": getattr(self.server.cfg.web, "admin_username", "admin"),
+            "default_password_active": (getattr(self.server.cfg.web, "admin_password", "") == "admin"),
             "drive_config": {
                 "exists": find_drive_config_path() is not None,
                 "path": str(find_drive_config_path() or get_writable_drive_config_target() or ""),
@@ -2814,8 +2826,37 @@ class NMBServer(ThreadingHTTPServer):
         self._last_rx_bytes = 0
         self._last_tx_bytes = 0
         self._last_traffic_time = 0.0
-        addr = (cfg.web.host, cfg.web.port)
-        super().__init__(addr, WebRequestHandler)
+
+        target_host = cfg.web.host
+        target_port = cfg.web.port
+
+        super().__init__((target_host, target_port), WebRequestHandler, bind_and_activate=False)
+
+        try:
+            self.server_bind()
+            self.server_activate()
+        except (PermissionError, OSError) as e:
+            is_perm = isinstance(e, PermissionError) or getattr(e, "errno", None) in (13, errno.EACCES)
+            if target_port < 1024 and is_perm:
+                fallback_port = 8080
+                log.warning(
+                    "Standard router HTTP port %d requires root privileges or CAP_NET_BIND_SERVICE (%s). "
+                    "Automatically falling back to unprivileged port %d for sandbox/development.",
+                    target_port, e, fallback_port
+                )
+                try:
+                    self.socket.close()
+                except Exception:
+                    pass
+                self.socket = socket.socket(self.address_family, self.socket_type)
+                if self.allow_reuse_address:
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self.server_address = (target_host, fallback_port)
+                self.cfg.web.port = fallback_port
+                self.server_bind()
+                self.server_activate()
+            else:
+                raise
 
         # Optional TLS / HTTPS Encryption
         tls_cert = getattr(cfg.web, "tls_cert", "") or "/etc/nmb/server.crt"
@@ -2952,7 +2993,7 @@ class WebDaemon:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="nmb-web", description="NetworkMeasureBox Embedded Web Server")
     parser.add_argument("--config", "-c", help="Path to nmb.conf")
-    parser.add_argument("--port", "-p", type=int, help="Port to bind (default: 8080)")
+    parser.add_argument("--port", "-p", type=int, help="Port to bind (default: 80 from config)")
     parser.add_argument("--host", help="Host interface to bind (default: 0.0.0.0)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     args = parser.parse_args(argv)

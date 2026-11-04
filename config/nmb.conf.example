@@ -119,7 +119,7 @@ alert_latency_threshold_ms = 100.0
 enabled = true
 # Bind address (use 127.0.0.1 or LAN IP for restricted access, 0.0.0.0 with auth enabled)
 host = 0.0.0.0
-port = 8080
+port = 80
 auth_enabled = true
 admin_password = admin
 
