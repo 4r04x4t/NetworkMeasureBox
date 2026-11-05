@@ -5295,17 +5295,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <div class="form-group">
               <label class="form-label" data-i18n="wifi_band">Frequency Band:</label>
               <select id="cfg-wifi-band" class="form-input" onchange="onWifiBandChange()">
-                <option value="auto" selected>Auto (Optimal frequency band)</option>
-                <option value="2.4ghz">2.4 GHz (Long range & wall penetration)</option>
-                <option value="5ghz">5 GHz (High speed & clean spectrum)</option>
-                <option value="6ghz">6 GHz (Wi-Fi 6E & 7 Ultra-low latency)</option>
+                <option value="auto" data-i18n="wifi_band_auto" selected>Auto (Optimal frequency band)</option>
+                <option value="2.4ghz" data-i18n="wifi_band_24">2.4 GHz (Long range & wall penetration)</option>
+                <option value="5ghz" data-i18n="wifi_band_5">5 GHz (High speed & clean spectrum)</option>
+                <option value="6ghz" data-i18n="wifi_band_6">6 GHz (Wi-Fi 6E & 7 Ultra-low latency)</option>
               </select>
               <div class="form-hint" id="cfg-wifi-band-hint">Availability depends on attached Wi-Fi hardware controller.</div>
             </div>
             <div class="form-group">
               <label class="form-label" data-i18n="wifi_standard">Wireless Standard:</label>
               <select id="cfg-wifi-standard" class="form-input" onchange="onWifiStandardChange()">
-                <option value="auto" selected>Auto (Highest supported standard)</option>
+                <option value="auto" data-i18n="wifi_std_auto" selected>Auto (Highest supported standard)</option>
                 <option value="be">IEEE 802.11be (Wi-Fi 7 - EHT)</option>
                 <option value="ax">IEEE 802.11ax (Wi-Fi 6 & 6E - HE)</option>
                 <option value="ac">IEEE 802.11ac (Wi-Fi 5 - VHT)</option>
@@ -5319,8 +5319,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <div class="form-group">
               <label class="form-label" data-i18n="wifi_width">Channel Bandwidth:</label>
               <select id="cfg-wifi-channel-width" class="form-input">
-                <option value="auto" selected>Auto (Hardware-matched maximum width)</option>
-                <option value="20">20 MHz (Standard width, highest stability)</option>
+                <option value="auto" data-i18n="wifi_width_auto" selected>Auto (Hardware-matched maximum width)</option>
+                <option value="20" data-i18n="wifi_width_20">20 MHz (Standard width, highest stability)</option>
                 <option value="40">40 MHz (HT40 / VHT40)</option>
                 <option value="80">80 MHz (VHT80 / HE80 / EHT80)</option>
                 <option value="160">160 MHz (HE160 / EHT160 - High Throughput)</option>
@@ -5333,16 +5333,16 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <div class="form-group">
               <label class="form-label" data-i18n="wifi_channel">Wi-Fi Channel:</label>
               <select id="cfg-wifi-channel" class="form-input">
-                <option value="0" selected>Auto (Automatic clean channel selection / ACS)</option>
+                <option value="0" data-i18n="wifi_channel_auto" selected>Auto (Automatic clean channel selection / ACS)</option>
               </select>
               <div class="form-hint" id="cfg-wifi-channel-hint">Channel list adjusts dynamically based on selected band.</div>
             </div>
             <div class="form-group">
               <label class="form-label" data-i18n="wifi_security">Security Protocol:</label>
               <select id="cfg-wifi-security" class="form-input" onchange="onWifiSecurityChange()">
-                <option value="wpa2" selected>WPA2-Personal (AES) - Broad Compatibility</option>
-                <option value="wpa3">WPA3-Personal (SAE) - Modern & Secure</option>
-                <option value="mixed">WPA2/WPA3 Mixed (Transition Mode)</option>
+                <option value="wpa2" data-i18n="wifi_sec_wpa2" selected>WPA2-Personal (AES) - Broad Compatibility</option>
+                <option value="wpa3" data-i18n="wifi_sec_wpa3">WPA3-Personal (SAE) - Modern & Secure</option>
+                <option value="mixed" data-i18n="wifi_sec_mixed">WPA2/WPA3 Mixed (Transition Mode)</option>
               </select>
               <div class="form-hint" id="cfg-wifi-sec-hint">WPA3-SAE is mandatory for the 6 GHz band under IEEE 802.11ax/be.</div>
             </div>
@@ -7043,6 +7043,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
     if (typeof checkAntiBanAndInterfaceStatus === 'function') {
       checkAntiBanAndInterfaceStatus();
+    }
+    if (typeof updateWifiChannelOptions === 'function') {
+      const bSel = document.getElementById('cfg-wifi-band');
+      const cSel = document.getElementById('cfg-wifi-channel');
+      const curCh = cSel ? cSel.value : null;
+      updateWifiChannelOptions(bSel ? bSel.value : 'auto', curCh);
+    }
+    if (typeof renderWifiCapabilities === 'function' && window._wifiCaps) {
+      renderWifiCapabilities(window._wifiCaps, (window._wifiCaps && window._wifiCaps.current_status) || {});
     }
   }
 
@@ -10581,6 +10590,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       if (!res.ok) return;
       const data = await res.json();
       window._wifiCaps = data;
+      const bSel = document.getElementById('cfg-wifi-band');
+      const cSel = document.getElementById('cfg-wifi-channel');
+      const curCh = cSel ? cSel.value : null;
+      updateWifiChannelOptions(bSel ? bSel.value : 'auto', curCh);
       renderWifiCapabilities(data, data.current_status || {});
     } catch (e) {
       console.debug('Wi-Fi capabilities fetch error:', e);
@@ -10618,7 +10631,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           ? 'background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);'
           : 'background: rgba(148, 163, 184, 0.1); color: #64748b; border: 1px solid rgba(148, 163, 184, 0.2);';
         const prefix = supported ? '✓ ' : '✗ ';
-        const suffix = supported ? '' : ' (' + t('not_supported', 'Not Supported') + ')';
+        const suffix = supported ? '' : ' (' + t('not_supported', 'Nem támogatott') + ')';
         return `<span class="badge" style="${style}">${prefix}${b.label}${suffix}</span>`;
       }).join('');
     }
@@ -10668,7 +10681,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       const fEl = document.getElementById('wifi-live-freq');
       if (fEl) fEl.innerText = liveStatus.frequency_mhz ? `${liveStatus.frequency_mhz} MHz` : (liveStatus.channel ? `Ch ${liveStatus.channel}` : t('inactive', 'Inactive'));
       const cEl = document.getElementById('wifi-live-channel');
-      if (cEl) cEl.innerText = liveStatus.channel ? `Csatorna ${liveStatus.channel}` : '--';
+      if (cEl) cEl.innerText = liveStatus.channel ? `${t('wifi_channel_prefix', 'Csatorna')} ${liveStatus.channel}` : '--';
       const wEl = document.getElementById('wifi-live-width');
       if (wEl) wEl.innerText = liveStatus.channel_width_mhz ? `${liveStatus.channel_width_mhz} MHz` : '--';
       const txEl = document.getElementById('wifi-live-txpower');
@@ -10678,14 +10691,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
 
     // 6. Dynamic Form Dropdown Constraints based on Hardware Support
+    const stripNotSupported = (s) => (s || '').replace(/\\s*\\((?:Hardveresen nem támogatott|Hardver nem támogatja|Nem támogatott|Hardware not supported|Not supported|Nicht unterstützt|Non supporté|Не підтримується)\\)/gi, '').trim();
+    const notSupSuffix = ' (' + t('not_supported', 'Nem támogatott') + ')';
+
     const bandSel = document.getElementById('cfg-wifi-band');
     if (bandSel && caps.supported_bands) {
       for (let opt of bandSel.options) {
         if (opt.value === 'auto') continue;
         const sup = caps.supported_bands.includes(opt.value);
         opt.disabled = !sup;
-        const cleanText = opt.text.replace(' (Hardveresen nem támogatott)', '').replace(' (Nem támogatott)', '').replace(' (Hardware not supported)', '');
-        opt.text = sup ? cleanText : cleanText + ' (' + t('not_supported', 'Hardware not supported') + ')';
+        const cleanText = stripNotSupported(opt.text);
+        opt.text = sup ? cleanText : cleanText + notSupSuffix;
       }
     }
 
@@ -10695,8 +10711,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         if (opt.value === 'auto') continue;
         const sup = caps.supported_standards.includes(opt.value);
         opt.disabled = !sup;
-        const cleanText = opt.text.replace(' (Hardveresen nem támogatott)', '').replace(' (Nem támogatott)', '').replace(' (Hardware not supported)', '');
-        opt.text = sup ? cleanText : cleanText + ' (' + t('not_supported', 'Hardware not supported') + ')';
+        const cleanText = stripNotSupported(opt.text);
+        opt.text = sup ? cleanText : cleanText + notSupSuffix;
       }
     }
 
@@ -10707,8 +10723,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         const wVal = parseInt(opt.value);
         const sup = caps.supported_widths.includes(wVal) || caps.supported_widths.includes(String(wVal));
         opt.disabled = !sup;
-        const cleanText = opt.text.replace(' (Hardveresen nem támogatott)', '').replace(' (Nem támogatott)', '').replace(' (Hardware not supported)', '');
-        opt.text = sup ? cleanText : cleanText + ' (' + t('not_supported', 'Hardware not supported') + ')';
+        const cleanText = stripNotSupported(opt.text);
+        opt.text = sup ? cleanText : cleanText + notSupSuffix;
       }
     }
 
@@ -10716,11 +10732,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (secSel) {
       for (let opt of secSel.options) {
         if (opt.value === 'wpa3' || opt.value === 'mixed') {
-          if (!caps.wpa3_supported) {
-            opt.disabled = true;
-            const cleanText = opt.text.replace(' (Hardver nem támogatja)', '').replace(' (Hardware not supported)', '');
-            opt.text = cleanText + (caps.wpa3_supported ? '' : ' (' + t('not_supported', 'Hardware not supported') + ')');
-          }
+          const sup = !!caps.wpa3_supported;
+          opt.disabled = !sup;
+          const cleanText = stripNotSupported(opt.text);
+          opt.text = sup ? cleanText : cleanText + notSupSuffix;
         }
       }
     }
@@ -10731,9 +10746,16 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (!chSel) return;
     const currentVal = (selectedChannel !== undefined && selectedChannel !== null) ? parseInt(selectedChannel) : parseInt(chSel.value || 0);
 
-    let html = '<option value="0">Auto (Automatic Channel Selection / ACS)</option>';
+    const chPrefix = t('wifi_channel_prefix', 'Csatorna');
+    const autoLabel = t('wifi_channel_auto', 'Auto (Automatikus csatornaválasztás / ACS)');
+    const recTag = t('wifi_channel_non_overlapping', ' (Nem átfedő - Ajánlott)');
+    const notSupSuffix = ' (' + t('not_supported', 'Nem támogatott') + ')';
+    const caps = window._wifiCaps;
+
+    let html = `<option value="0">${autoLabel}</option>`;
 
     if (band === '5ghz') {
+      const sup5 = (caps && caps.channels && caps.channels['5ghz']) ? caps.channels['5ghz'] : null;
       const ch5 = [
         { ch: 36, mhz: 5180, desc: 'UNII-1 (Indoor)' },
         { ch: 40, mhz: 5200, desc: 'UNII-1' },
@@ -10760,9 +10782,13 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         { ch: 161, mhz: 5805, desc: 'UNII-3' },
       ];
       ch5.forEach(item => {
-        html += `<option value="${item.ch}">Csatorna ${item.ch} (${item.mhz} MHz) - ${item.desc}</option>`;
+        const isSup = !sup5 || sup5.includes(item.ch);
+        const dis = isSup ? '' : ' disabled';
+        const suff = isSup ? '' : notSupSuffix;
+        html += `<option value="${item.ch}"${dis}>${chPrefix} ${item.ch} (${item.mhz} MHz) - ${item.desc}${suff}</option>`;
       });
     } else if (band === '6ghz') {
+      const sup6 = (caps && caps.channels && caps.channels['6ghz']) ? caps.channels['6ghz'] : null;
       const ch6 = [
         1, 5, 9, 13, 17, 21, 33, 37, 41, 45, 49, 65, 69, 73, 77, 81,
         97, 101, 105, 109, 113, 129, 133, 137, 141, 145, 161, 165, 169, 173, 177,
@@ -10770,14 +10796,21 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       ];
       ch6.forEach(ch => {
         const freq = 5950 + ch * 5;
-        html += `<option value="${ch}">Csatorna ${ch} (${freq} MHz) [6 GHz PSC]</option>`;
+        const isSup = sup6 && sup6.includes(ch);
+        const dis = isSup ? '' : ' disabled';
+        const suff = isSup ? '' : notSupSuffix;
+        html += `<option value="${ch}"${dis}>${chPrefix} ${ch} (${freq} MHz) [6 GHz PSC]${suff}</option>`;
       });
     } else {
       // 2.4 GHz
+      const sup24 = (caps && caps.channels && caps.channels['2.4ghz']) ? caps.channels['2.4ghz'] : null;
       for (let ch = 1; ch <= 13; ch++) {
         const freq = 2407 + ch * 5;
-        const tag = (ch === 1 || ch === 6 || ch === 11) ? ' (Non-overlapping - Recommended)' : '';
-        html += `<option value="${ch}">Csatorna ${ch} (${freq} MHz)${tag}</option>`;
+        const tag = (ch === 1 || ch === 6 || ch === 11) ? recTag : '';
+        const isSup = !sup24 || sup24.includes(ch);
+        const dis = isSup ? '' : ' disabled';
+        const suff = isSup ? '' : notSupSuffix;
+        html += `<option value="${ch}"${dis}>${chPrefix} ${ch} (${freq} MHz)${tag}${suff}</option>`;
       }
     }
 
