@@ -26,17 +26,21 @@ _cfg_getter: Optional[Callable[[], Any]] = None
 _duckdns_state: Dict[str, Any] = {
     "enabled": False,
     "running": False,
+    "provider": "duckdns",
     "domain": "",
     "fqdn": "",
     "token_set": False,
     "update_interval_min": 10,
     "interval_min": 10,
     "custom_ip": "",
+    "custom_ipv6": "",
+    "ipv6_mode": "auto",
     "last_update_ts": 0.0,
     "last_status": "never_run",
     "last_ip": "",
     "detected_ip": "",
     "last_ipv6": "",
+    "detected_ipv6": "",
     "last_message": "",
     "next_update_ts": 0.0,
     "consecutive_failures": 0,
@@ -49,13 +53,58 @@ IP_DETECTORS_V4 = [
     "https://ifconfig.me/ip",
 ]
 
+IP_DETECTORS_V6 = [
+    "https://api64.ipify.org",
+    "https://v6.ident.me",
+    "https://ipv6.icanhazip.com",
+]
 
-def clean_domain(domain: str) -> str:
-    """Normalize DuckDNS domain (e.g. 'mybox.duckdns.org' -> 'mybox')."""
+
+def clean_domain(domain: str, provider: str = "duckdns") -> str:
+    """Normalize DynDNS domain / zone."""
     d = domain.strip().lower()
+    if provider == "dynv6":
+        d = d.rstrip("/")
+        if d.startswith("http://"):
+            d = d[7:]
+        elif d.startswith("https://"):
+            d = d[8:]
+        return d
+    # DuckDNS
     if d.endswith(".duckdns.org"):
         d = d[:-12]
     return d
+
+
+def has_ipv6_route() -> bool:
+    """Quick check if system has an outbound IPv6 route to avoid timeout delays."""
+    try:
+        s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        s.connect(("2606:4700:4700::1111", 53))
+        s.close()
+        return True
+    except Exception:
+        return False
+
+
+def detect_public_ipv6(timeout: float = 2.0) -> Optional[str]:
+    """Detect current public WAN IPv6 address."""
+    if not has_ipv6_route():
+        return None
+    for url in IP_DETECTORS_V6:
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "NetworkMeasureBox-DynDNS/1.0"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if resp.status == 200:
+                    ip = resp.read().decode("utf-8", errors="ignore").strip()
+                    if ip and ":" in ip and not ip.startswith(("fe80", "fd", "fc")):
+                        return ip
+        except Exception:
+            continue
+    return None
 
 
 def detect_public_ip(timeout: float = 4.0) -> Optional[str]:
@@ -84,14 +133,127 @@ def update_duckdns(
     ipv6: Optional[str] = None,
     clear: bool = False,
     timeout: float = 8.0,
+    provider: str = "duckdns",
+    ipv6_mode: str = "auto",
 ) -> Dict[str, Any]:
-    """Execute DuckDNS HTTP update query and update internal status."""
-    clean_dom = clean_domain(domain)
+    """Execute DynDNS HTTP update query (supporting DuckDNS.org and dynv6.com) and update internal status."""
+    prov = str(provider).strip().lower()
+    if prov not in ("duckdns", "dynv6"):
+        prov = "duckdns"
+
+    clean_dom = clean_domain(domain, provider=prov)
     clean_tok = token.strip()
 
     if not clean_dom or not clean_tok:
-        return {"status": "error", "message": "Domain and token are required."}
+        return {"status": "error", "message": "Domain/zone and token are required."}
 
+    ts = time.time()
+    fqdn = clean_dom if (prov == "dynv6" or "." in clean_dom) else f"{clean_dom}.duckdns.org"
+
+    if prov == "dynv6":
+        # dynv6.com Update API: https://dynv6.com/api/update?zone=...&token=...&ipv4=...&ipv6=...
+        params: Dict[str, str] = {
+            "zone": clean_dom,
+            "token": clean_tok,
+        }
+        if clear:
+            params["ipv4"] = "-"
+            params["ipv6"] = "-"
+        else:
+            if ip:
+                params["ipv4"] = ip.strip()
+            else:
+                params["ipv4"] = "auto"
+
+            if ipv6:
+                params["ipv6"] = ipv6.strip()
+            elif ipv6_mode == "none":
+                params["ipv6"] = "-"
+            else:
+                params["ipv6"] = "auto"
+
+        query_str = urllib.parse.urlencode(params)
+        url = f"https://dynv6.com/api/update?{query_str}"
+
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "NetworkMeasureBox-DynDNS/1.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read().decode("utf-8", errors="ignore").strip()
+                is_ok = ("addresses updated" in body.lower() or "addresses unchanged" in body.lower())
+                detected_ip = ip or detect_public_ip(timeout=2.0) or ""
+                detected_ipv6 = ipv6 or (detect_public_ipv6(timeout=2.0) if ipv6_mode != "none" else "") or ""
+                updated = "addresses updated" in body.lower()
+
+                status_str = "OK" if is_ok else "KO"
+                msg = f"dynv6 response: {body}" if is_ok else f"dynv6 update rejected: {body}"
+
+                with _duckdns_lock:
+                    _duckdns_state["last_update_ts"] = ts
+                    _duckdns_state["last_status"] = "OK" if is_ok else "KO"
+                    _duckdns_state["provider"] = "dynv6"
+                    _duckdns_state["last_ip"] = detected_ip
+                    _duckdns_state["detected_ip"] = detected_ip
+                    _duckdns_state["last_ipv6"] = detected_ipv6
+                    _duckdns_state["detected_ipv6"] = detected_ipv6
+                    _duckdns_state["last_message"] = msg
+                    _duckdns_state["domain"] = clean_dom
+                    _duckdns_state["fqdn"] = fqdn
+                    if is_ok:
+                        _duckdns_state["consecutive_failures"] = 0
+                    else:
+                        _duckdns_state["consecutive_failures"] += 1
+
+                log.info("dynv6 update for [%s]: %s (IPv4: %s, IPv6: %s)", clean_dom, status_str, detected_ip or "auto", detected_ipv6 or "auto")
+                return {
+                    "status": "ok" if is_ok else "error",
+                    "success": is_ok,
+                    "provider": "dynv6",
+                    "domain": clean_dom,
+                    "fqdn": fqdn,
+                    "ip": detected_ip,
+                    "ipv6": detected_ipv6,
+                    "updated": updated,
+                    "message": msg,
+                    "timestamp": ts,
+                }
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="ignore").strip() if hasattr(e, "read") else str(e)
+            msg = f"dynv6 error (HTTP {e.code}): {err_body}"
+            log.error("dynv6 request failed: %s", msg)
+            with _duckdns_lock:
+                _duckdns_state["last_update_ts"] = ts
+                _duckdns_state["last_status"] = "KO"
+                _duckdns_state["provider"] = "dynv6"
+                _duckdns_state["last_message"] = msg
+                _duckdns_state["consecutive_failures"] += 1
+            return {
+                "status": "error",
+                "success": False,
+                "provider": "dynv6",
+                "domain": clean_dom,
+                "fqdn": fqdn,
+                "message": msg,
+                "timestamp": ts,
+            }
+        except Exception as e:
+            log.error("dynv6 request failed: %s", e)
+            with _duckdns_lock:
+                _duckdns_state["last_update_ts"] = ts
+                _duckdns_state["last_status"] = "error"
+                _duckdns_state["provider"] = "dynv6"
+                _duckdns_state["last_message"] = f"Network error: {e}"
+                _duckdns_state["consecutive_failures"] += 1
+            return {
+                "status": "error",
+                "success": False,
+                "provider": "dynv6",
+                "domain": clean_dom,
+                "fqdn": fqdn,
+                "message": f"Connection error contacting dynv6: {e}",
+                "timestamp": ts,
+            }
+
+    # DuckDNS provider
     params: Dict[str, str] = {
         "domains": clean_dom,
         "token": clean_tok,
@@ -116,8 +278,17 @@ def update_duckdns(
             lines = [l.strip() for l in body.splitlines() if l.strip()]
 
             is_ok = len(lines) > 0 and lines[0].upper() == "OK"
-            detected_ip = lines[1] if len(lines) > 1 and lines[1] else (ip or "")
-            detected_ipv6 = lines[2] if len(lines) > 2 and lines[2] else (ipv6 or "")
+            detected_ip = ""
+            if len(lines) > 1 and lines[1] and lines[1].upper() != "NOCHANGE" and "." in lines[1]:
+                detected_ip = lines[1]
+            elif ip and "." in ip:
+                detected_ip = ip
+
+            detected_ipv6 = ""
+            if len(lines) > 2 and lines[2] and lines[2].upper() != "NOCHANGE" and ":" in lines[2]:
+                detected_ipv6 = lines[2]
+            elif ipv6 and ":" in ipv6:
+                detected_ipv6 = ipv6
             updated = len(lines) > 3 and lines[3].upper() == "UPDATED"
 
             status_str = "OK" if is_ok else "KO"
@@ -126,12 +297,14 @@ def update_duckdns(
             with _duckdns_lock:
                 _duckdns_state["last_update_ts"] = ts
                 _duckdns_state["last_status"] = "OK" if is_ok else "KO"
+                _duckdns_state["provider"] = "duckdns"
                 _duckdns_state["last_ip"] = detected_ip
                 _duckdns_state["detected_ip"] = detected_ip
                 _duckdns_state["last_ipv6"] = detected_ipv6
+                _duckdns_state["detected_ipv6"] = detected_ipv6
                 _duckdns_state["last_message"] = msg
                 _duckdns_state["domain"] = clean_dom
-                _duckdns_state["fqdn"] = f"{clean_dom}.duckdns.org"
+                _duckdns_state["fqdn"] = fqdn
                 if is_ok:
                     _duckdns_state["consecutive_failures"] = 0
                 else:
@@ -141,8 +314,9 @@ def update_duckdns(
             return {
                 "status": "ok" if is_ok else "error",
                 "success": is_ok,
+                "provider": "duckdns",
                 "domain": clean_dom,
-                "fqdn": f"{clean_dom}.duckdns.org",
+                "fqdn": fqdn,
                 "ip": detected_ip,
                 "ipv6": detected_ipv6,
                 "updated": updated,
@@ -155,17 +329,22 @@ def update_duckdns(
         with _duckdns_lock:
             _duckdns_state["last_update_ts"] = ts
             _duckdns_state["last_status"] = "error"
+            _duckdns_state["provider"] = "duckdns"
             _duckdns_state["last_message"] = f"Network error: {e}"
             _duckdns_state["consecutive_failures"] += 1
 
         return {
             "status": "error",
             "success": False,
+            "provider": "duckdns",
             "domain": clean_dom,
-            "fqdn": f"{clean_dom}.duckdns.org",
+            "fqdn": fqdn,
             "message": f"Connection error contacting DuckDNS: {e}",
             "timestamp": ts,
         }
+
+
+update_dyndns = update_duckdns
 
 
 def wake_duckdns_daemon() -> None:
@@ -195,10 +374,12 @@ def get_duckdns_status(cfg: Optional[Any] = None) -> Dict[str, Any]:
 
     if cfg is not None and getattr(cfg, "duckdns", None):
         d_cfg = cfg.duckdns
+        prov = getattr(d_cfg, "provider", "duckdns") or "duckdns"
+        state["provider"] = prov
         state["enabled"] = bool(d_cfg.enabled)
-        dom = clean_domain(d_cfg.domain) if d_cfg.domain else state.get("domain", "")
+        dom = clean_domain(d_cfg.domain, provider=prov) if d_cfg.domain else state.get("domain", "")
         state["domain"] = dom
-        state["fqdn"] = f"{dom}.duckdns.org" if dom else ""
+        state["fqdn"] = dom if (prov == "dynv6" or "." in dom) else (f"{dom}.duckdns.org" if dom else "")
         state["token_set"] = bool(d_cfg.token)
         try:
             interval = max(1, int(d_cfg.update_interval_min))
@@ -207,6 +388,8 @@ def get_duckdns_status(cfg: Optional[Any] = None) -> Dict[str, Any]:
         state["update_interval_min"] = interval
         state["interval_min"] = interval
         state["custom_ip"] = d_cfg.custom_ip or ""
+        state["custom_ipv6"] = getattr(d_cfg, "custom_ipv6", "") or ""
+        state["ipv6_mode"] = getattr(d_cfg, "ipv6_mode", "auto") or "auto"
 
     now = time.time()
     last_ts = state.get("last_update_ts", 0.0)
@@ -238,8 +421,8 @@ def get_duckdns_status(cfg: Optional[Any] = None) -> Dict[str, Any]:
 
 
 def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Event) -> None:
-    """Background loop to keep DuckDNS synchronized on strict schedule."""
-    log.info("DuckDNS updater background loop started")
+    """Background loop to keep DynDNS synchronized on strict schedule."""
+    log.info("DynDNS updater background loop started")
     while not stop_event.is_set():
         try:
             _duckdns_wake_event.clear()
@@ -261,7 +444,12 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
                 interval_min = 10
             interval_sec = interval_min * 60
 
-            clean_dom = clean_domain(duck_cfg.domain)
+            prov = getattr(duck_cfg, "provider", "duckdns") or "duckdns"
+            clean_dom = clean_domain(duck_cfg.domain, provider=prov)
+            fqdn = clean_dom if (prov == "dynv6" or "." in clean_dom) else (f"{clean_dom}.duckdns.org" if clean_dom else "")
+            custom_v6 = getattr(duck_cfg, "custom_ipv6", "") or ""
+            ipv6_mode = getattr(duck_cfg, "ipv6_mode", "auto") or "auto"
+
             now = time.time()
             last_ts = _duckdns_state.get("last_update_ts", 0.0)
             time_since_last = now - last_ts if last_ts > 0 else float("inf")
@@ -269,29 +457,39 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
             with _duckdns_lock:
                 _duckdns_state["enabled"] = True
                 _duckdns_state["running"] = True
+                _duckdns_state["provider"] = prov
                 _duckdns_state["domain"] = clean_dom
-                _duckdns_state["fqdn"] = f"{clean_dom}.duckdns.org" if clean_dom else ""
+                _duckdns_state["fqdn"] = fqdn
                 _duckdns_state["token_set"] = bool(duck_cfg.token)
                 _duckdns_state["update_interval_min"] = interval_min
                 _duckdns_state["interval_min"] = interval_min
                 _duckdns_state["custom_ip"] = duck_cfg.custom_ip or ""
+                _duckdns_state["custom_ipv6"] = custom_v6
+                _duckdns_state["ipv6_mode"] = ipv6_mode
 
             # Check if an update is due
             if time_since_last >= interval_sec:
                 detected_v6 = None
-                try:
-                    from nmb.netd.wireguard import get_device_addresses
-                    _, v6_addrs = get_device_addresses()
-                    if v6_addrs:
-                        detected_v6 = v6_addrs[0][1]
-                except Exception:
-                    pass
+                if custom_v6:
+                    detected_v6 = custom_v6.strip()
+                elif ipv6_mode != "none":
+                    detected_v6 = detect_public_ipv6(timeout=3.0)
+                    if not detected_v6:
+                        try:
+                            from nmb.netd.wireguard import get_device_addresses
+                            _, v6_addrs = get_device_addresses()
+                            if v6_addrs:
+                                detected_v6 = v6_addrs[0][1]
+                        except Exception:
+                            pass
 
                 update_duckdns(
                     domain=duck_cfg.domain,
                     token=duck_cfg.token,
                     ip=duck_cfg.custom_ip if duck_cfg.custom_ip else None,
                     ipv6=detected_v6,
+                    provider=prov,
+                    ipv6_mode=ipv6_mode,
                 )
                 now = time.time()
                 with _duckdns_lock:
@@ -315,7 +513,7 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
 
     with _duckdns_lock:
         _duckdns_state["running"] = False
-    log.info("DuckDNS updater background loop stopped")
+    log.info("DynDNS updater background loop stopped")
 
 
 def start_duckdns_service(cfg_getter: Callable[[], Any]) -> None:

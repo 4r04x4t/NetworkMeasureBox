@@ -216,10 +216,13 @@ log_requests = true
 
 [duckdns]
 enabled = false
+provider = duckdns
 domain = 
 token = 
 update_interval_min = 10
 custom_ip = 
+custom_ipv6 = 
+ipv6_mode = auto 
 
 [wireguard]
 enabled = false
@@ -443,10 +446,13 @@ class GuestWiFiConfig:
 @dataclass
 class DuckDNSConfig:
     enabled: bool = False
+    provider: str = "duckdns"  # "duckdns" or "dynv6"
     domain: str = ""
     token: str = ""
     update_interval_min: int = 10
     custom_ip: str = ""
+    custom_ipv6: str = ""
+    ipv6_mode: str = "auto"  # "auto", "custom", "none"
 
 
 @dataclass
@@ -758,10 +764,13 @@ def load_config(path: Path | None = None) -> Config:
     if parser.has_section("duckdns"):
         dd = parser["duckdns"]
         cfg.duckdns.enabled = dd.getboolean("enabled", fallback=cfg.duckdns.enabled)
+        cfg.duckdns.provider = dd.get("provider", getattr(cfg.duckdns, "provider", "duckdns")).strip().lower()
         cfg.duckdns.domain = dd.get("domain", cfg.duckdns.domain).strip()
         cfg.duckdns.token = dd.get("token", cfg.duckdns.token).strip()
         cfg.duckdns.update_interval_min = dd.getint("update_interval_min", fallback=cfg.duckdns.update_interval_min)
         cfg.duckdns.custom_ip = dd.get("custom_ip", cfg.duckdns.custom_ip).strip()
+        cfg.duckdns.custom_ipv6 = dd.get("custom_ipv6", getattr(cfg.duckdns, "custom_ipv6", "")).strip()
+        cfg.duckdns.ipv6_mode = dd.get("ipv6_mode", getattr(cfg.duckdns, "ipv6_mode", "auto")).strip().lower()
 
     if parser.has_section("wireguard"):
         wg = parser["wireguard"]
@@ -964,12 +973,15 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["logging"]["console_enabled"] = str(cfg.logging.console_enabled).lower()
     parser["logging"]["log_requests"] = str(getattr(cfg.logging, "log_requests", True)).lower()
 
-    # DuckDNS
+    # DuckDNS / DynDNS
     parser["duckdns"]["enabled"] = str(cfg.duckdns.enabled).lower()
+    parser["duckdns"]["provider"] = str(getattr(cfg.duckdns, "provider", "duckdns"))
     parser["duckdns"]["domain"] = str(cfg.duckdns.domain)
     parser["duckdns"]["token"] = str(cfg.duckdns.token)
     parser["duckdns"]["update_interval_min"] = str(cfg.duckdns.update_interval_min)
     parser["duckdns"]["custom_ip"] = str(cfg.duckdns.custom_ip)
+    parser["duckdns"]["custom_ipv6"] = str(getattr(cfg.duckdns, "custom_ipv6", ""))
+    parser["duckdns"]["ipv6_mode"] = str(getattr(cfg.duckdns, "ipv6_mode", "auto"))
 
     # WireGuard
     parser["wireguard"]["enabled"] = str(cfg.wireguard.enabled).lower()

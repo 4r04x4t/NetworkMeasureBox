@@ -681,8 +681,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json(dummy.get_status())
             return
 
-        # 17b. DuckDNS DynDNS Status
-        if path == "/api/duckdns/status":
+        # 17b. DuckDNS / dynv6 DynDNS Status
+        if path in ("/api/duckdns/status", "/api/dyndns/status"):
             from nmb.netd.duckdns import get_duckdns_status
             self._send_json(get_duckdns_status(self.server.cfg))
             return
@@ -2027,10 +2027,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(result)
             return
 
-        # 16. DuckDNS DynDNS Settings & Update
-        if path == "/api/duckdns/save":
-            from nmb.netd.duckdns import start_duckdns_service, stop_duckdns_service, update_duckdns, get_duckdns_status, wake_duckdns_daemon
+        # 16. DynDNS (DuckDNS / dynv6) Settings & Update
+        if path in ("/api/duckdns/save", "/api/dyndns/save"):
+            from nmb.netd.duckdns import start_duckdns_service, stop_duckdns_service, update_duckdns, get_duckdns_status, wake_duckdns_daemon, detect_public_ipv6
             enabled = bool(body_json.get("enabled", False))
+            provider = str(body_json.get("provider", getattr(self.server.cfg.duckdns, "provider", "duckdns"))).strip().lower()
+            if provider not in ("duckdns", "dynv6"):
+                provider = "duckdns"
             domain = str(body_json.get("domain", "")).strip()
             token = str(body_json.get("token", "")).strip()
             raw_interval = body_json.get("update_interval_min", body_json.get("interval_min", 10))
@@ -2039,33 +2042,52 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             except (ValueError, TypeError):
                 interval = 10
             custom_ip = str(body_json.get("custom_ip", "")).strip()
+            custom_ipv6 = str(body_json.get("custom_ipv6", getattr(self.server.cfg.duckdns, "custom_ipv6", ""))).strip()
+            ipv6_mode = str(body_json.get("ipv6_mode", getattr(self.server.cfg.duckdns, "ipv6_mode", "auto"))).strip().lower()
+            if ipv6_mode not in ("auto", "custom", "none"):
+                ipv6_mode = "auto"
 
             self.server.cfg.duckdns.enabled = enabled
+            self.server.cfg.duckdns.provider = provider
             self.server.cfg.duckdns.domain = domain
             if token:
                 self.server.cfg.duckdns.token = token
             self.server.cfg.duckdns.update_interval_min = interval
             self.server.cfg.duckdns.custom_ip = custom_ip
+            self.server.cfg.duckdns.custom_ipv6 = custom_ipv6
+            self.server.cfg.duckdns.ipv6_mode = ipv6_mode
             save_config(self.server.cfg)
 
             detail = None
             if enabled:
                 if self.server.cfg.duckdns.token and domain:
                     detected_v6 = None
-                    try:
-                        from nmb.netd.wireguard import get_device_addresses
-                        _, v6_addrs = get_device_addresses()
-                        if v6_addrs:
-                            detected_v6 = v6_addrs[0][1]
-                    except Exception:
-                        pass
-                    detail = update_duckdns(domain=domain, token=self.server.cfg.duckdns.token, ip=custom_ip or None, ipv6=detected_v6)
+                    if custom_ipv6:
+                        detected_v6 = custom_ipv6
+                    elif ipv6_mode != "none":
+                        detected_v6 = detect_public_ipv6(timeout=2.0)
+                        if not detected_v6:
+                            try:
+                                from nmb.netd.wireguard import get_device_addresses
+                                _, v6_addrs = get_device_addresses()
+                                if v6_addrs:
+                                    detected_v6 = v6_addrs[0][1]
+                            except Exception:
+                                pass
+                    detail = update_duckdns(
+                        domain=domain,
+                        token=self.server.cfg.duckdns.token,
+                        ip=custom_ip or None,
+                        ipv6=detected_v6,
+                        provider=provider,
+                        ipv6_mode=ipv6_mode,
+                    )
                 start_duckdns_service(lambda: self.server.cfg)
                 wake_duckdns_daemon()
-                msg = f"DuckDNS settings saved to /etc/nmb/nmb.conf. Interval set to {interval} minute(s)."
+                msg = f"{'dynv6' if provider == 'dynv6' else 'DuckDNS'} settings saved. Sync interval set to {interval} minute(s)."
             else:
                 stop_duckdns_service()
-                msg = "DuckDNS updater disabled and configuration saved."
+                msg = "DynDNS updater disabled and configuration saved."
 
             st = get_duckdns_status(self.server.cfg)
             self._send_json({
@@ -2073,10 +2095,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "message": msg,
                 "saved_config": {
                     "enabled": enabled,
+                    "provider": provider,
                     "domain": domain,
                     "update_interval_min": interval,
                     "interval_min": interval,
                     "custom_ip": custom_ip,
+                    "custom_ipv6": custom_ipv6,
+                    "ipv6_mode": ipv6_mode,
                     "token_set": bool(self.server.cfg.duckdns.token),
                 },
                 "status_data": st,
@@ -2084,21 +2109,36 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             })
             return
 
-        if path == "/api/duckdns/update":
-            from nmb.netd.duckdns import update_duckdns, get_duckdns_status, wake_duckdns_daemon
+        if path in ("/api/duckdns/update", "/api/dyndns/update"):
+            from nmb.netd.duckdns import update_duckdns, get_duckdns_status, wake_duckdns_daemon, detect_public_ipv6
             d_cfg = self.server.cfg.duckdns
             if not d_cfg.domain or not d_cfg.token:
-                self._send_json({"status": "error", "message": "DuckDNS domain and token are not configured."}, status=400)
+                self._send_json({"status": "error", "message": "DynDNS domain/zone and token are not configured."}, status=400)
                 return
+            prov = getattr(d_cfg, "provider", "duckdns") or "duckdns"
+            custom_v6 = getattr(d_cfg, "custom_ipv6", "") or ""
+            ipv6_mode = getattr(d_cfg, "ipv6_mode", "auto") or "auto"
             detected_v6 = None
-            try:
-                from nmb.netd.wireguard import get_device_addresses
-                _, v6_addrs = get_device_addresses()
-                if v6_addrs:
-                    detected_v6 = v6_addrs[0][1]
-            except Exception:
-                pass
-            res = update_duckdns(domain=d_cfg.domain, token=d_cfg.token, ip=d_cfg.custom_ip or None, ipv6=detected_v6)
+            if custom_v6:
+                detected_v6 = custom_v6
+            elif ipv6_mode != "none":
+                detected_v6 = detect_public_ipv6(timeout=2.0)
+                if not detected_v6:
+                    try:
+                        from nmb.netd.wireguard import get_device_addresses
+                        _, v6_addrs = get_device_addresses()
+                        if v6_addrs:
+                            detected_v6 = v6_addrs[0][1]
+                    except Exception:
+                        pass
+            res = update_duckdns(
+                domain=d_cfg.domain,
+                token=d_cfg.token,
+                ip=d_cfg.custom_ip or None,
+                ipv6=detected_v6,
+                provider=prov,
+                ipv6_mode=ipv6_mode,
+            )
             wake_duckdns_daemon()
             res["status_data"] = get_duckdns_status(self.server.cfg)
             self._send_json(res)

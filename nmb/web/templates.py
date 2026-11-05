@@ -2643,7 +2643,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     <div class="app-box">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
         <div class="section-subtitle" style="margin: 0;" data-i18n="ping_title">ICMP Ping Telemetry & Gateway Latency</div>
-        <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/csv'">📡 Ping CSV Export</button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-speed'); setSpeedChartMode('combined');">📊 Kombinált Sebesség & Ping Grafikon</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/csv'">📡 Ping CSV Export</button>
+        </div>
       </div>
       <div id="chart-latency" style="background: #070d18; border-radius: 6px; padding: 12px; margin-bottom: 20px;">
         <p style="text-align: center; color: var(--text-muted); padding: 40px;">Loading chart telemetry...</p>
@@ -2681,6 +2684,66 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div style="display: flex; gap: 8px;">
           <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="triggerSpeedtest()" data-i18n="btn_measure_now">▶️ Run Speedtest Now</button>
           <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests.csv'">📊 Speedtest CSV Export</button>
+        </div>
+      </div>
+
+      <!-- Interactive Speedtest & Unified Telemetry Chart -->
+      <div id="speed-chart-card" class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+              <span>📈</span>
+              <span data-i18n="speed_chart_title">Sebesség és Latency Idősoros Grafikon (Interaktív)</span>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;" data-i18n="speed_chart_subtitle">
+              Sávszélesség trendek, feltöltési/letöltési arányok és hálózati késleltetés (RTT) vizualizációja.
+            </div>
+          </div>
+          <!-- Chart Mode Switcher Buttons -->
+          <div style="display: flex; gap: 6px; background: rgba(15, 23, 42, 0.6); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color); flex-wrap: wrap;">
+            <button id="btn-speed-chart-mode-combined" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('combined')" data-i18n="speed_chart_mode_combined">
+              📊 Kombinált (Sebesség + Latency)
+            </button>
+            <button id="btn-speed-chart-mode-throughput" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('throughput')" data-i18n="speed_chart_mode_throughput">
+              🚀 Csak Sávszélesség (Mbps)
+            </button>
+            <button id="btn-speed-chart-mode-latency" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('latency')" data-i18n="speed_chart_mode_latency">
+              ⏱️ Csak Késleltetés (ms)
+            </button>
+          </div>
+        </div>
+
+        <!-- Legend and summary metrics -->
+        <div style="display: flex; gap: 16px; margin-bottom: 10px; font-size: 11.5px; flex-wrap: wrap; align-items: center;">
+          <div id="speed-legend-down" style="display: flex; align-items: center; gap: 5px;">
+            <span style="display:inline-block; width:12px; height:3px; background:#38bdf8; border-radius:2px;"></span>
+            <span style="color:#38bdf8; font-weight:600;">Letöltés (Down Mbps)</span>
+          </div>
+          <div id="speed-legend-up" style="display: flex; align-items: center; gap: 5px;">
+            <span style="display:inline-block; width:12px; height:3px; background:#34d399; border-radius:2px;"></span>
+            <span style="color:#34d399; font-weight:600;">Feltöltés (Up Mbps)</span>
+          </div>
+          <div id="speed-legend-lat" style="display: flex; align-items: center; gap: 5px;">
+            <span style="display:inline-block; width:12px; height:3px; background:#fbbf24; border-radius:2px;"></span>
+            <span style="color:#fbbf24; font-weight:600;">Ping RTT (ms)</span>
+          </div>
+          <div id="speed-legend-contract" style="display: none; align-items: center; gap: 5px;">
+            <span style="display:inline-block; width:12px; height:2px; background:#ec4899; border-top:1px dashed #ec4899;"></span>
+            <span style="color:#f472b6; font-size:11px;">Garantált / Szerződött sebesség</span>
+          </div>
+          <div style="margin-left: auto; color: var(--text-muted); font-size: 11px;">
+            💡 Vigye a kurzort vagy érintse meg a mérési pontokat a részletekért!
+          </div>
+        </div>
+
+        <!-- SVG Container with dynamic Tooltip -->
+        <div id="speed-chart-container" style="position: relative; width: 100%; min-height: 250px; background: rgba(10, 15, 29, 0.7); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+          <div id="speed-chart-svg-wrap" style="width: 100%; height: 100%; min-height: 250px;">
+            <p style="text-align: center; color: var(--text-muted); padding: 50px;">Mérési adatok betöltése...</p>
+          </div>
+          <!-- Floating interactive tooltip -->
+          <div id="speed-chart-tooltip" style="display: none; position: absolute; pointer-events: none; z-index: 100; background: rgba(15, 23, 42, 0.95); border: 1px solid #38bdf8; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #f8fafc; box-shadow: 0 8px 24px rgba(0,0,0,0.6); backdrop-filter: blur(8px); min-width: 220px; transform: translate(-50%, -105%); transition: opacity 0.15s ease;">
+          </div>
         </div>
       </div>
 
@@ -3881,88 +3944,140 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         </div>
       </div>
 
-      <!-- SUBTAB 1: DUCKDNS -->
+      <!-- SUBTAB 1: DUCKDNS / DYNV6 -->
       <div id="subtab-content-duckdns" class="remote-subtab" style="display: none;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <div style="font-weight: 700; font-size: 14px; color: #38bdf8;" data-i18n="duckdns_title">DuckDNS Dynamic DNS Synchronization</div>
+              <div style="font-weight: 700; font-size: 14px; color: #38bdf8;" data-i18n="duckdns_title">Dynamic DNS Synchronization (DuckDNS / dynv6)</div>
               <span id="duckdns-config-state-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);" data-i18n="duckdns_saved_active">Saved & Active</span>
             </div>
             <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;" data-i18n="duckdns_desc">
-              Automatically keeps your free DuckDNS hostname pointed at the device's public WAN IP address.
+              Automatikusan szinkronban tartja a dinamikus DNS hosztnevet a publikus WAN IPv4 és natív IPv6 (AAAA) címmel.
             </p>
 
             <div id="duckdns-unsaved-alert" style="display: none; margin-bottom: 14px; padding: 8px 12px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; font-size: 12px; color: #f59e0b;" data-i18n="duckdns_unsaved_warning">
-              ⚠️ Unsaved changes in form (Click 'Save DuckDNS Settings'!)
+              ⚠️ Nem mentett módosítások az űrlapon (Kattints a 'DynDNS Beállítások Mentése' gombra)!
+            </div>
+
+            <!-- Provider Selection -->
+            <div style="margin-bottom: 12px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="dyndns_provider">DynDNS Szolgáltató:</label>
+              <select id="duckdns-provider" class="form-input" style="width: 100%; font-size: 13px; padding: 7px 10px;" onchange="onDynDnsProviderChange(); checkDuckdnsUnsavedChanges();">
+                <option value="duckdns">🦆 DuckDNS (duckdns.org)</option>
+                <option value="dynv6">⚡ dynv6.com (Dual-Stack IPv4 + Natív IPv6)</option>
+              </select>
             </div>
 
             <div style="margin-bottom: 12px;">
               <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
-                <input type="checkbox" id="duckdns-enabled" onchange="checkDuckdnsUnsavedChanges()"> <span data-i18n="duckdns_enable">Enable DuckDNS Dynamic DNS Updater</span>
+                <input type="checkbox" id="duckdns-enabled" onchange="checkDuckdnsUnsavedChanges()"> <span data-i18n="duckdns_enable">Dinamikus DNS Frissítő Engedélyezése</span>
               </label>
             </div>
+
+            <!-- Domain / Zone Name -->
             <div style="margin-bottom: 12px;">
-              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_domain">DuckDNS Subdomain (.duckdns.org):</label>
+              <label id="duckdns-domain-label" style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_domain">DuckDNS Aldomain (.duckdns.org):</label>
               <div style="display: flex; align-items: center; gap: 6px;">
                 <input type="text" id="duckdns-domain" class="form-input" style="font-size: 13px; padding: 7px 10px; flex: 1;" placeholder="my-box" oninput="checkDuckdnsUnsavedChanges()">
-                <span style="font-size: 12px; color: var(--text-muted);">.duckdns.org</span>
+                <span id="duckdns-domain-suffix" style="font-size: 12px; color: var(--text-muted);">.duckdns.org</span>
+              </div>
+              <div id="duckdns-zone-hint" style="display: none; font-size: 11px; color: #94a3b8; margin-top: 4px;">
+                💡 <b>dynv6.com:</b> Adja meg a zóna teljes nevét (pl. <code>engyn.v6.army</code> vagy <code>sajatbox.dynv6.net</code>).
               </div>
             </div>
+
+            <!-- Token -->
             <div style="margin-bottom: 12px;">
-              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_token">DuckDNS Account Token:</label>
-              <input type="password" id="duckdns-token" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="00000000-0000-0000-0000-000000000000" oninput="checkDuckdnsUnsavedChanges()">
+              <label id="duckdns-token-label" style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_token">Fiók Token / API Key:</label>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="password" id="duckdns-token" class="form-input" style="font-size: 13px; padding: 7px 10px; flex: 1;" placeholder="Token" oninput="checkDuckdnsUnsavedChanges()">
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 7px 10px;" onclick="togglePasswordVisibility('duckdns-token')">👁️</button>
+              </div>
+              <div id="duckdns-token-hint" style="display: none; font-size: 11px; color: #94a3b8; margin-top: 4px;">
+                A dynv6.com zóna beállításaiban vagy profiljában található HTTP Token (pl. <code>yLNPbR...</code>).
+              </div>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+
+            <!-- Interval & IPv4 Override -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
               <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_interval">Update Interval (Minutes):</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_interval">Frissítési Időköz (Perc):</label>
                 <input type="number" id="duckdns-interval" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" min="1" max="1440" value="10" oninput="checkDuckdnsUnsavedChanges()">
               </div>
               <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_custom_ip">Override Public IP (optional):</label>
-                <input type="text" id="duckdns-custom-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto-detect" oninput="checkDuckdnsUnsavedChanges()">
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_custom_ip">Egyéni WAN IPv4 (opcionális):</label>
+                <input type="text" id="duckdns-custom-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Automatikus észlelés" oninput="checkDuckdnsUnsavedChanges()">
               </div>
             </div>
+
+            <!-- IPv6 Mode & Custom IPv6 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+              <div>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="dyndns_ipv6_mode">IPv6 (AAAA Rekord) Kezelés:</label>
+                <select id="duckdns-ipv6-mode" class="form-input" style="width: 100%; font-size: 13px; padding: 7px 10px;" onchange="onDynDnsIpv6ModeChange(); checkDuckdnsUnsavedChanges();">
+                  <option value="auto">🌐 Automatikus (WAN / SLAAC észlelés)</option>
+                  <option value="custom">✍️ Egyéni / Manuális IPv6 cím</option>
+                  <option value="none">🚫 Kikapcsolva (Csak IPv4 A rekord)</option>
+                </select>
+              </div>
+              <div id="duckdns-custom-ipv6-wrap" style="display: none;">
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="dyndns_custom_ipv6">Egyéni Globális IPv6 Cím:</label>
+                <input type="text" id="duckdns-custom-ipv6" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="2001:db8::..." oninput="checkDuckdnsUnsavedChanges()">
+              </div>
+            </div>
+
             <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-              <button id="btn-save-duckdns" class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveDuckdnsSettings()" data-i18n="duckdns_btn_save">Save DuckDNS Settings</button>
-              <button id="btn-update-duckdns" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="updateDuckdnsNow()" data-i18n="duckdns_btn_update">🔄 Force Update Now</button>
+              <button id="btn-save-duckdns" class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveDuckdnsSettings()" data-i18n="duckdns_btn_save">💾 DynDNS Beállítások Mentése</button>
+              <button id="btn-update-duckdns" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="updateDuckdnsNow()" data-i18n="duckdns_btn_update">🔄 Azonnali Frissítés Most</button>
             </div>
 
             <div id="duckdns-saved-card" style="padding: 12px; background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px;">
-              <div style="font-size: 12px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;" data-i18n="duckdns_saved_card_title">💾 Saved Configuration in /etc/nmb/nmb.conf</div>
+              <div style="font-size: 12px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;" data-i18n="duckdns_saved_card_title">💾 Mentett Konfiguráció (/etc/nmb/nmb.conf)</div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11.5px; color: var(--text-muted);">
-                <div>Active Hostname: <span id="duckdns-saved-fqdn" style="color: #38bdf8; font-weight: 600;">--</span></div>
-                <div>Update Interval: <span id="duckdns-saved-interval" style="color: #34d399; font-weight: 700;">--</span></div>
-                <div>Status: <span id="duckdns-saved-enabled" style="font-weight: 600; color: var(--text-main);">--</span></div>
-                <div>Account Token: <span id="duckdns-saved-token-state" style="color: var(--text-main);">--</span></div>
-                <div style="grid-column: span 2;">IP Override: <span id="duckdns-saved-custom-ip" style="color: var(--text-main);">Auto-detect</span></div>
+                <div>Szolgáltató: <span id="duckdns-saved-provider" style="color: #38bdf8; font-weight: 700;">DuckDNS</span></div>
+                <div>Aktív Hosztnév / Zóna: <span id="duckdns-saved-fqdn" style="color: #38bdf8; font-weight: 600;">--</span></div>
+                <div>Frissítési Időköz: <span id="duckdns-saved-interval" style="color: #34d399; font-weight: 700;">--</span></div>
+                <div>Állapot: <span id="duckdns-saved-enabled" style="font-weight: 600; color: var(--text-main);">--</span></div>
+                <div>Fiók Token: <span id="duckdns-saved-token-state" style="color: var(--text-main);">--</span></div>
+                <div>IPv6 Mód: <span id="duckdns-saved-ipv6-mode" style="color: #c084fc; font-weight: 600;">auto</span></div>
+                <div style="grid-column: span 2;">IPv4 Override: <span id="duckdns-saved-custom-ip" style="color: var(--text-main);">Automatikus észlelés</span></div>
               </div>
             </div>
           </div>
 
+          <!-- Live Status Card -->
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
-            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;">DuckDNS Live Status</div>
+            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;">🌐 DynDNS Élő Szinkronizációs Állapot</div>
             <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_status">Last Update Status:</span>
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_status">Legutóbbi Frissítés Állapota:</span>
               <span id="duckdns-status-badge" class="badge">Checking...</span>
             </div>
-            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_ip">Detected Public IP:</span>
-              <span id="duckdns-detected-ip" style="font-weight: 700; color: #38bdf8;">--</span>
+            <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: var(--text-muted);">Aktív FQDN Domain:</span>
+              <span id="duckdns-detected-fqdn" style="font-weight: 700; color: #38bdf8; font-family: monospace;">--</span>
             </div>
-            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);">Last Updated:</span>
+            <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_ip">Érzékelt Publikus IPv4 (A):</span>
+              <span id="duckdns-detected-ip" style="font-weight: 700; color: #34d399; font-family: monospace;">--</span>
+            </div>
+            <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: var(--text-muted);">Érzékelt Publikus IPv6 (AAAA):</span>
+              <span id="duckdns-detected-ipv6" style="font-weight: 700; color: #c084fc; font-family: monospace; font-size: 11px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</span>
+            </div>
+            <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: var(--text-muted);">Utoljára Frissítve:</span>
               <span id="duckdns-last-time" style="color: var(--text-main);">--</span>
             </div>
-            <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_next_sync">Next Scheduled Sync:</span>
+            <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_next_sync">Következő Tervezett Frissítés:</span>
               <span id="duckdns-next-time" style="color: var(--text-muted);">--</span>
             </div>
             <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_countdown_next">Countdown:</span>
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_countdown_next">Visszaszámlálás:</span>
               <span id="duckdns-countdown-badge" class="badge" style="background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); font-weight: 700;">--</span>
             </div>
-            <div id="duckdns-msg-box" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; color: #94a3b8; margin-top: 14px;">
+            <div id="duckdns-msg-box" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; color: #94a3b8; margin-top: 14px; word-break: break-all;">
               Ready.
             </div>
           </div>
@@ -9246,6 +9361,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         });
         document.getElementById('speed-table-body').innerHTML = sHtml;
 
+        cachedSpeedTests = data.speed_tests || [];
+        cachedSpeedContract = data.contract || null;
+        renderSpeedChart(cachedSpeedTests, currentSpeedChartMode, cachedSpeedContract);
+
         if (countOk > 0) {
           const avgD = totDown / countOk;
           const avgU = totUp / countOk;
@@ -9343,6 +9462,357 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       console.error('Error refreshing status:', e);
     }
   }
+
+  // ==========================================
+  // Interactive Speedtest & Unified Telemetry Chart
+  // ==========================================
+  let currentSpeedChartMode = 'combined'; // 'combined' | 'throughput' | 'latency'
+  let cachedSpeedTests = [];
+  let cachedSpeedContract = null;
+
+  function setSpeedChartMode(mode) {
+    currentSpeedChartMode = mode;
+    ['combined', 'throughput', 'latency'].forEach(m => {
+      const btn = document.getElementById('btn-speed-chart-mode-' + m);
+      if (btn) btn.className = (m === mode) ? 'btn-primary' : 'btn-secondary';
+    });
+
+    const legDown = document.getElementById('speed-legend-down');
+    const legUp = document.getElementById('speed-legend-up');
+    const legLat = document.getElementById('speed-legend-lat');
+    if (legDown) legDown.style.display = (mode === 'latency') ? 'none' : 'flex';
+    if (legUp) legUp.style.display = (mode === 'latency') ? 'none' : 'flex';
+    if (legLat) legLat.style.display = (mode === 'throughput') ? 'none' : 'flex';
+
+    renderSpeedChart(cachedSpeedTests, currentSpeedChartMode, cachedSpeedContract);
+  }
+
+  function renderSpeedChart(tests, mode, contract) {
+    const wrap = document.getElementById('speed-chart-svg-wrap');
+    if (!wrap) return;
+
+    if (!tests || tests.length === 0) {
+      wrap.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:240px; color:var(--text-muted); font-size:13px;">
+        ${t('speed_no_data', 'Még nincsenek sebességmérési eredmények')}
+      </div>`;
+      return;
+    }
+
+    // Sort chronologically (oldest to newest) and take recent tests (up to 30)
+    const list = [...tests]
+      .filter(t => t && (t.status === 'ok' || t.down_bps || t.up_bps))
+      .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
+      .slice(-30);
+
+    if (list.length === 0) {
+      wrap.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:240px; color:var(--text-muted); font-size:13px;">
+        ${t('speed_no_valid_data', 'Nincsenek érvényes mérési adatok')}
+      </div>`;
+      return;
+    }
+
+    const W = 900;
+    const H = 250;
+    const padL = 60;
+    const padR = (mode === 'combined') ? 60 : 25;
+    const padT = 25;
+    const padB = 40;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+
+    let maxMbps = 10;
+    const contractDown = (contract && contract.contract_down_mbps) ? parseFloat(contract.contract_down_mbps) : 0;
+    const contractUp = (contract && contract.contract_up_mbps) ? parseFloat(contract.contract_up_mbps) : 0;
+    if (contractDown > maxMbps) maxMbps = contractDown;
+    if (contractUp > maxMbps) maxMbps = contractUp;
+
+    let maxLat = 10;
+
+    list.forEach(item => {
+      const dM = (item.down_bps || 0) / 1000000.0;
+      const uM = (item.up_bps || 0) / 1000000.0;
+      const lat = (item.ping_us || 0) / 1000.0;
+      if (dM > maxMbps) maxMbps = dM;
+      if (uM > maxMbps) maxMbps = uM;
+      if (lat > maxLat) maxLat = lat;
+    });
+
+    function niceCeil(v) {
+      if (v <= 20) return Math.ceil(v / 5) * 5;
+      if (v <= 100) return Math.ceil(v / 10) * 10;
+      if (v <= 500) return Math.ceil(v / 50) * 50;
+      if (v <= 1000) return Math.ceil(v / 100) * 100;
+      return Math.ceil(v / 250) * 250;
+    }
+    maxMbps = niceCeil(maxMbps * 1.15);
+    maxLat = niceCeil(maxLat * 1.25);
+
+    const contractLeg = document.getElementById('speed-legend-contract');
+    if (contractLeg) {
+      contractLeg.style.display = (contractDown > 0 || contractUp > 0) ? 'flex' : 'none';
+    }
+
+    let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:100%; display:block; user-select:none;" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="speedDownGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.38"/>
+          <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.02"/>
+        </linearGradient>
+        <linearGradient id="speedUpGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#34d399" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#34d399" stop-opacity="0.01"/>
+        </linearGradient>
+      </defs>`;
+
+    const steps = 4;
+    for (let i = 0; i <= steps; i++) {
+      const y = padT + chartH - (i / steps) * chartH;
+      svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-dasharray="3,3" />`;
+      
+      if (mode !== 'latency') {
+        const valM = Math.round((maxMbps / steps) * i);
+        svg += `<text x="${padL - 8}" y="${y + 3.5}" fill="#38bdf8" font-size="10.5" text-anchor="end" font-family="monospace">${valM}M</text>`;
+      } else {
+        const valL = Math.round((maxLat / steps) * i);
+        svg += `<text x="${padL - 8}" y="${y + 3.5}" fill="#fbbf24" font-size="10.5" text-anchor="end" font-family="monospace">${valL}ms</text>`;
+      }
+
+      if (mode === 'combined') {
+        const valL = Math.round((maxLat / steps) * i);
+        svg += `<text x="${W - padR + 8}" y="${y + 3.5}" fill="#fbbf24" font-size="10.5" text-anchor="start" font-family="monospace">${valL}ms</text>`;
+      }
+    }
+
+    if (mode !== 'latency' && contractDown > 0 && contractDown <= maxMbps) {
+      const yContract = padT + chartH - (contractDown / maxMbps) * chartH;
+      svg += `<line x1="${padL}" y1="${yContract}" x2="${W - padR}" y2="${yContract}" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />`;
+      svg += `<text x="${W - padR - 6}" y="${yContract - 5}" fill="#ec4899" font-size="9.5" text-anchor="end" font-weight="600">SLA: ${contractDown}M</text>`;
+    }
+
+    const n = list.length;
+    const getX = (idx) => (n <= 1) ? (padL + chartW / 2) : (padL + (idx / (n - 1)) * chartW);
+    const getYDown = (mbps) => padT + chartH - Math.min(chartH, (mbps / maxMbps) * chartH);
+    const getYUp = (mbps) => padT + chartH - Math.min(chartH, (mbps / maxMbps) * chartH);
+    const getYLat = (lat) => padT + chartH - Math.min(chartH, (lat / maxLat) * chartH);
+
+    const ptsDown = [];
+    const ptsUp = [];
+    const ptsLat = [];
+
+    list.forEach((item, idx) => {
+      const x = getX(idx);
+      const dM = (item.down_bps || 0) / 1000000.0;
+      const uM = (item.up_bps || 0) / 1000000.0;
+      const lat = (item.ping_us || 0) / 1000.0;
+      ptsDown.push({ x, y: getYDown(dM), val: dM });
+      ptsUp.push({ x, y: getYUp(uM), val: uM });
+      ptsLat.push({ x, y: getYLat(lat), val: lat });
+    });
+
+    if (mode !== 'latency' && ptsDown.length > 0) {
+      let areaD = `M ${ptsDown[0].x},${padT + chartH} L ${ptsDown[0].x},${ptsDown[0].y}`;
+      let lineD = `M ${ptsDown[0].x},${ptsDown[0].y}`;
+      for (let i = 1; i < ptsDown.length; i++) {
+        areaD += ` L ${ptsDown[i].x},${ptsDown[i].y}`;
+        lineD += ` L ${ptsDown[i].x},${ptsDown[i].y}`;
+      }
+      areaD += ` L ${ptsDown[ptsDown.length - 1].x},${padT + chartH} Z`;
+      svg += `<path d="${areaD}" fill="url(#speedDownGrad)" />`;
+      svg += `<path d="${lineD}" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />`;
+    }
+
+    if (mode !== 'latency' && ptsUp.length > 0) {
+      let areaU = `M ${ptsUp[0].x},${padT + chartH} L ${ptsUp[0].x},${ptsUp[0].y}`;
+      let lineU = `M ${ptsUp[0].x},${ptsUp[0].y}`;
+      for (let i = 1; i < ptsUp.length; i++) {
+        areaU += ` L ${ptsUp[i].x},${ptsUp[i].y}`;
+        lineU += ` L ${ptsUp[i].x},${ptsUp[i].y}`;
+      }
+      areaU += ` L ${ptsUp[ptsUp.length - 1].x},${padT + chartH} Z`;
+      svg += `<path d="${areaU}" fill="url(#speedUpGrad)" />`;
+      svg += `<path d="${lineU}" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />`;
+    }
+
+    if (mode !== 'throughput' && ptsLat.length > 0) {
+      let lineL = `M ${ptsLat[0].x},${ptsLat[0].y}`;
+      for (let i = 1; i < ptsLat.length; i++) {
+        lineL += ` L ${ptsLat[i].x},${ptsLat[i].y}`;
+      }
+      const latStrokeDash = (mode === 'combined') ? 'stroke-dasharray="4,3"' : '';
+      svg += `<path d="${lineL}" fill="none" stroke="#fbbf24" stroke-width="2" ${latStrokeDash} stroke-linejoin="round" stroke-linecap="round" />`;
+    }
+
+    svg += `<line id="speed-chart-crosshair" x1="0" y1="${padT}" x2="0" y2="${padT + chartH}" stroke="#64748b" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" pointer-events="none" />`;
+
+    list.forEach((item, idx) => {
+      const x = getX(idx);
+      const d = new Date(item.ts);
+      const timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      const dateStr = String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+
+      const labelInterval = Math.max(1, Math.floor(n / 6));
+      if (idx % labelInterval === 0 || idx === n - 1) {
+        svg += `<text x="${x}" y="${H - 14}" fill="#94a3b8" font-size="10" text-anchor="middle" font-family="monospace">${timeStr}</text>`;
+        svg += `<text x="${x}" y="${H - 3}" fill="#64748b" font-size="8.5" text-anchor="middle" font-family="monospace">${dateStr}</text>`;
+      }
+
+      if (mode !== 'latency') {
+        svg += `<circle id="dot-down-${idx}" cx="${x}" cy="${ptsDown[idx].y}" r="3.5" fill="#38bdf8" stroke="#0a0f1d" stroke-width="1.5" pointer-events="none" />`;
+      }
+      if (mode !== 'latency') {
+        svg += `<circle id="dot-up-${idx}" cx="${x}" cy="${ptsUp[idx].y}" r="3.5" fill="#34d399" stroke="#0a0f1d" stroke-width="1.5" pointer-events="none" />`;
+      }
+      if (mode !== 'throughput') {
+        svg += `<circle id="dot-lat-${idx}" cx="${x}" cy="${ptsLat[idx].y}" r="3.5" fill="#fbbf24" stroke="#0a0f1d" stroke-width="1.5" pointer-events="none" />`;
+      }
+    });
+
+    const colStep = (n > 1) ? (chartW / (n - 1)) : chartW;
+    list.forEach((item, idx) => {
+      const x = getX(idx);
+      const hitX = (idx === 0) ? (x - padL) : (x - colStep / 2);
+      const hitW = (idx === 0 || idx === n - 1) ? (colStep / 2 + 10) : colStep;
+
+      svg += `<rect x="${hitX}" y="${padT}" width="${hitW}" height="${chartH}" fill="transparent" style="cursor:crosshair;"
+        onmousemove="onSpeedChartHover(event, ${idx})"
+        onmouseleave="onSpeedChartLeave()"
+        ontouchstart="onSpeedChartTouch(event, ${idx})"
+        ontouchmove="onSpeedChartTouch(event, ${idx})" />`;
+    });
+
+    svg += `</svg>`;
+    wrap.innerHTML = svg;
+    window._currentSpeedChartList = list;
+    window._currentSpeedChartMeta = { W, H, padL, padR, padT, padB, chartW, chartH, n, getX };
+  }
+
+  function onSpeedChartHover(event, idx) {
+    showSpeedChartTooltip(event, idx);
+  }
+
+  function onSpeedChartTouch(event, idx) {
+    if (event.touches && event.touches.length > 0) {
+      showSpeedChartTooltip(event.touches[0], idx);
+    }
+  }
+
+  function onSpeedChartLeave() {
+    hideSpeedChartTooltip();
+  }
+
+  function showSpeedChartTooltip(pointerEvent, idx) {
+    const list = window._currentSpeedChartList;
+    const meta = window._currentSpeedChartMeta;
+    if (!list || !meta || idx < 0 || idx >= list.length) return;
+
+    const item = list[idx];
+    const tooltip = document.getElementById('speed-chart-tooltip');
+    const container = document.getElementById('speed-chart-container');
+    const crosshair = document.getElementById('speed-chart-crosshair');
+    if (!tooltip || !container) return;
+
+    const rect = container.getBoundingClientRect();
+    const xPos = meta.getX(idx);
+
+    if (crosshair) {
+      crosshair.setAttribute('x1', xPos);
+      crosshair.setAttribute('x2', xPos);
+      crosshair.setAttribute('opacity', '0.75');
+    }
+
+    for (let i = 0; i < meta.n; i++) {
+      const dDot = document.getElementById('dot-down-' + i);
+      const uDot = document.getElementById('dot-up-' + i);
+      const lDot = document.getElementById('dot-lat-' + i);
+      const isAct = (i === idx);
+      if (dDot) dDot.setAttribute('r', isAct ? '6.5' : '3.5');
+      if (uDot) uDot.setAttribute('r', isAct ? '6.5' : '3.5');
+      if (lDot) lDot.setAttribute('r', isAct ? '6.5' : '3.5');
+    }
+
+    const d = new Date(item.ts);
+    const dtStr = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+    const dMbps = (item.down_bps || 0) / 1000000.0;
+    const uMbps = (item.up_bps || 0) / 1000000.0;
+    const lat = (item.ping_us || 0) / 1000.0;
+    const jitter = item.jitter_ms !== undefined ? `${item.jitter_ms.toFixed(1)} ms` : (item.jitter_us ? `${(item.jitter_us / 1000.0).toFixed(1)} ms` : null);
+
+    let engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;font-size:10px;">OOKLA</span>';
+    if (item.engine === 'cloudflare') {
+      engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;font-size:10px;">CLOUDFLARE ${item.colo ? '[' + item.colo + ']' : ''}</span>`;
+    } else if (item.engine === 'rtr' || item.engine === 'rtr-nettest') {
+      engineBadge = '<span class="badge" style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;font-size:10px;">RTR-NETTEST</span>';
+    } else if (item.engine === 'iperf3') {
+      engineBadge = '<span class="badge" style="background:rgba(168,85,247,0.2);color:#c084fc;border:1px solid #a855f7;font-size:10px;">IPERF3</span>';
+    }
+
+    const bb = item.bufferbloat_grade ? `<span class="badge badge-ok" style="font-size:10px;">${item.bufferbloat_grade} (+${item.bufferbloat_delta_ms || 0}ms)</span>` : '';
+
+    let content = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:4px; gap:8px;">
+        <span style="font-weight:700; color:#f8fafc; font-size:11.5px;">🕒 ${dtStr}</span>
+        ${engineBadge}
+      </div>
+      <div style="display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:12px; margin-bottom:6px;">
+        <span style="color:#38bdf8; font-weight:600;">⬇️ Letöltés:</span>
+        <span style="font-weight:700; color:#f8fafc; text-align:right;">${dMbps.toFixed(2)} Mbps</span>
+        <span style="color:#34d399; font-weight:600;">⬆️ Feltöltés:</span>
+        <span style="font-weight:700; color:#f8fafc; text-align:right;">${uMbps.toFixed(2)} Mbps</span>
+        <span style="color:#fbbf24; font-weight:600;">🏓 Ping RTT:</span>
+        <span style="font-weight:700; color:#f8fafc; text-align:right;">${lat.toFixed(2)} ms</span>
+        ${jitter ? `<span style="color:#cbd5e1;">〰️ Jitter:</span><span style="text-align:right; color:#cbd5e1;">${jitter}</span>` : ''}
+        ${bb ? `<span style="color:#cbd5e1;">📶 Bufferbloat:</span><span style="text-align:right;">${bb}</span>` : ''}
+      </div>
+    `;
+
+    const sName = item.server_name || item.server_host || '';
+    if (sName) {
+      content += `<div style="font-size:10.5px; color:#94a3b8; border-top:1px solid rgba(255,255,255,0.06); padding-top:4px;">📍 Szerver: <b>${escapeHtml(sName)}</b></div>`;
+    }
+    if (item.client_ip || item.client_ipv6) {
+      content += `<div style="font-size:10px; color:#64748b; font-family:monospace;">🌐 IP: ${escapeHtml(item.client_ip || '')} ${item.client_ipv6 ? '[' + escapeHtml(item.client_ipv6) + ']' : ''}</div>`;
+    }
+
+    tooltip.innerHTML = content;
+
+    const scaleX = rect.width / meta.W;
+    const clientX = xPos * scaleX;
+
+    if (clientX > rect.width * 0.65) {
+      tooltip.style.transform = 'translate(-102%, -60%)';
+    } else {
+      tooltip.style.transform = 'translate(6%, -60%)';
+    }
+
+    tooltip.style.left = `${clientX}px`;
+    tooltip.style.top = '100px';
+    tooltip.style.display = 'block';
+  }
+
+  function hideSpeedChartTooltip() {
+    const tooltip = document.getElementById('speed-chart-tooltip');
+    if (tooltip) tooltip.style.display = 'none';
+    const crosshair = document.getElementById('speed-chart-crosshair');
+    if (crosshair) crosshair.setAttribute('opacity', '0');
+
+    const meta = window._currentSpeedChartMeta;
+    if (meta) {
+      for (let i = 0; i < meta.n; i++) {
+        const dDot = document.getElementById('dot-down-' + i);
+        const uDot = document.getElementById('dot-up-' + i);
+        const lDot = document.getElementById('dot-lat-' + i);
+        if (dDot) dDot.setAttribute('r', '3.5');
+        if (uDot) uDot.setAttribute('r', '3.5');
+        if (lDot) lDot.setAttribute('r', '3.5');
+      }
+    }
+  }
+
+  window.addEventListener('resize', () => {
+    if (cachedSpeedTests && cachedSpeedTests.length > 0) {
+      renderSpeedChart(cachedSpeedTests, currentSpeedChartMode, cachedSpeedContract);
+    }
+  });
 
   function updateGaugeScale(val) {
     if (val === 'auto') {
@@ -13940,17 +14410,49 @@ ${pkgList}`;
     }
   }
 
-  // ---- DuckDNS ----
+  // ---- DynDNS (DuckDNS / dynv6) ----
   let savedDuckdnsConfig = {
     enabled: false,
+    provider: 'duckdns',
     domain: '',
     token_set: false,
     interval_min: 10,
     custom_ip: '',
+    custom_ipv6: '',
+    ipv6_mode: 'auto',
     fqdn: '',
   };
   let duckdnsCountdownTimer = null;
   let duckdnsNextTs = 0;
+
+  function onDynDnsProviderChange() {
+    const prov = document.getElementById('duckdns-provider')?.value || 'duckdns';
+    const domLabel = document.getElementById('duckdns-domain-label');
+    const domSuffix = document.getElementById('duckdns-domain-suffix');
+    const zoneHint = document.getElementById('duckdns-zone-hint');
+    const tokHint = document.getElementById('duckdns-token-hint');
+    const domInput = document.getElementById('duckdns-domain');
+
+    if (prov === 'dynv6') {
+      if (domLabel) domLabel.textContent = 'dynv6 Zónanév (pl. engyn.v6.army):';
+      if (domSuffix) domSuffix.style.display = 'none';
+      if (zoneHint) zoneHint.style.display = 'block';
+      if (tokHint) tokHint.style.display = 'block';
+      if (domInput && (!domInput.value || domInput.placeholder === 'my-box')) domInput.placeholder = 'engyn.v6.army';
+    } else {
+      if (domLabel) domLabel.textContent = t('duckdns_domain', 'DuckDNS Aldomain (.duckdns.org):');
+      if (domSuffix) domSuffix.style.display = 'inline';
+      if (zoneHint) zoneHint.style.display = 'none';
+      if (tokHint) tokHint.style.display = 'none';
+      if (domInput && domInput.placeholder === 'engyn.v6.army') domInput.placeholder = 'my-box';
+    }
+  }
+
+  function onDynDnsIpv6ModeChange() {
+    const mode = document.getElementById('duckdns-ipv6-mode')?.value || 'auto';
+    const wrap = document.getElementById('duckdns-custom-ipv6-wrap');
+    if (wrap) wrap.style.display = (mode === 'custom') ? 'block' : 'none';
+  }
 
   function updateDuckdnsCountdown() {
     const el = document.getElementById('duckdns-countdown-badge');
@@ -13975,16 +14477,22 @@ ${pkgList}`;
     if (!alertEl || !badgeEl) return;
 
     const enNow = !!document.getElementById('duckdns-enabled')?.checked;
+    const provNow = document.getElementById('duckdns-provider')?.value || 'duckdns';
     const domNow = (document.getElementById('duckdns-domain')?.value || '').trim();
     const intNow = parseInt(document.getElementById('duckdns-interval')?.value, 10) || 10;
     const custNow = (document.getElementById('duckdns-custom-ip')?.value || '').trim();
+    const custV6Now = (document.getElementById('duckdns-custom-ipv6')?.value || '').trim();
+    const v6ModeNow = document.getElementById('duckdns-ipv6-mode')?.value || 'auto';
     const tokNow = (document.getElementById('duckdns-token')?.value || '').trim();
 
     const isChanged = (
       enNow !== savedDuckdnsConfig.enabled ||
+      provNow !== (savedDuckdnsConfig.provider || 'duckdns') ||
       domNow !== savedDuckdnsConfig.domain ||
       intNow !== savedDuckdnsConfig.interval_min ||
       custNow !== savedDuckdnsConfig.custom_ip ||
+      custV6Now !== (savedDuckdnsConfig.custom_ipv6 || '') ||
+      v6ModeNow !== (savedDuckdnsConfig.ipv6_mode || 'auto') ||
       tokNow.length > 0
     );
 
@@ -13994,14 +14502,14 @@ ${pkgList}`;
       badgeEl.style.background = 'rgba(245, 158, 11, 0.15)';
       badgeEl.style.color = '#f59e0b';
       badgeEl.style.border = '1px solid rgba(245, 158, 11, 0.35)';
-      badgeEl.textContent = t('duckdns_unsaved_warning', '⚠️ Unsaved Changes');
+      badgeEl.textContent = t('duckdns_unsaved_warning', '⚠️ Nem mentett módosítások');
     } else {
       alertEl.style.display = 'none';
       badgeEl.className = 'badge';
       badgeEl.style.background = savedDuckdnsConfig.enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)';
       badgeEl.style.color = savedDuckdnsConfig.enabled ? '#10b981' : '#94a3b8';
       badgeEl.style.border = savedDuckdnsConfig.enabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #475569';
-      badgeEl.textContent = savedDuckdnsConfig.enabled ? t('duckdns_saved_active', 'Saved & Active') : t('duckdns_saved_inactive', 'Disabled');
+      badgeEl.textContent = savedDuckdnsConfig.enabled ? t('duckdns_saved_active', 'Mentve & Érvényben') : t('duckdns_saved_inactive', 'Kikapcsolva');
     }
   }
 
@@ -14011,14 +14519,18 @@ ${pkgList}`;
       if (!res.ok) return;
       const d = await res.json();
 
+      const prov = d.provider || 'duckdns';
       const effInterval = d.update_interval_min || d.interval_min || 10;
       savedDuckdnsConfig = {
         enabled: !!d.enabled,
+        provider: prov,
         domain: d.domain || '',
         token_set: !!d.token_set,
         interval_min: effInterval,
         custom_ip: d.custom_ip || '',
-        fqdn: d.fqdn || (d.domain ? d.domain + '.duckdns.org' : ''),
+        custom_ipv6: d.custom_ipv6 || '',
+        ipv6_mode: d.ipv6_mode || 'auto',
+        fqdn: d.fqdn || (d.domain ? (prov === 'dynv6' || d.domain.includes('.') ? d.domain : d.domain + '.duckdns.org') : ''),
       };
 
       duckdnsNextTs = d.next_update_ts || 0;
@@ -14027,36 +14539,54 @@ ${pkgList}`;
       }
       updateDuckdnsCountdown();
 
+      const provSelect = document.getElementById('duckdns-provider');
       const enChbox = document.getElementById('duckdns-enabled');
       const domInput = document.getElementById('duckdns-domain');
       const intInput = document.getElementById('duckdns-interval');
       const custInput = document.getElementById('duckdns-custom-ip');
+      const custV6Input = document.getElementById('duckdns-custom-ipv6');
+      const v6ModeSelect = document.getElementById('duckdns-ipv6-mode');
 
+      if (provSelect && !provSelect.dataset.focused) {
+        provSelect.value = prov;
+        onDynDnsProviderChange();
+      }
       if (enChbox && d.enabled !== undefined && !enChbox.dataset.focused) enChbox.checked = !!d.enabled;
       if (domInput && d.domain !== undefined && !domInput.dataset.focused) domInput.value = d.domain || '';
       if (intInput && !intInput.dataset.focused) intInput.value = effInterval;
       if (custInput && d.custom_ip !== undefined && !custInput.dataset.focused) custInput.value = d.custom_ip || '';
+      if (custV6Input && d.custom_ipv6 !== undefined && !custV6Input.dataset.focused) custV6Input.value = d.custom_ipv6 || '';
+      if (v6ModeSelect && !v6ModeSelect.dataset.focused) {
+        v6ModeSelect.value = d.ipv6_mode || 'auto';
+        onDynDnsIpv6ModeChange();
+      }
 
       // Update Saved Configuration Summary Box
+      const svProv = document.getElementById('duckdns-saved-provider');
+      if (svProv) svProv.textContent = (prov === 'dynv6') ? 'dynv6.com' : 'DuckDNS';
+
       const svFqdn = document.getElementById('duckdns-saved-fqdn');
-      if (svFqdn) svFqdn.textContent = savedDuckdnsConfig.fqdn || '(None)';
+      if (svFqdn) svFqdn.textContent = savedDuckdnsConfig.fqdn || '(Nincs megadva)';
 
       const svInt = document.getElementById('duckdns-saved-interval');
-      if (svInt) svInt.textContent = `${effInterval} ${t('duckdns_minutes_abbr', 'minutes')}`;
+      if (svInt) svInt.textContent = `${effInterval} ${t('duckdns_minutes_abbr', 'perc')}`;
 
       const svEn = document.getElementById('duckdns-saved-enabled');
       if (svEn) {
-        svEn.textContent = d.enabled ? ('🟢 ' + t('duckdns_saved_active', 'Enabled')) : ('⚪ ' + t('duckdns_saved_inactive', 'Disabled'));
+        svEn.textContent = d.enabled ? ('🟢 ' + t('duckdns_saved_active', 'Engedélyezve')) : ('⚪ ' + t('duckdns_saved_inactive', 'Kikapcsolva'));
       }
 
       const svTok = document.getElementById('duckdns-saved-token-state');
       if (svTok) {
-        svTok.textContent = d.token_set ? '•••••••••••• (Configured)' : 'Not configured';
+        svTok.textContent = d.token_set ? '•••••••••••• (Beállítva)' : 'Nincs megadva';
       }
+
+      const svV6Mode = document.getElementById('duckdns-saved-ipv6-mode');
+      if (svV6Mode) svV6Mode.textContent = d.ipv6_mode || 'auto';
 
       const svCust = document.getElementById('duckdns-saved-custom-ip');
       if (svCust) {
-        svCust.textContent = d.custom_ip ? d.custom_ip : 'Auto-detect WAN IPv4';
+        svCust.textContent = d.custom_ip ? d.custom_ip : 'Automatikus WAN IPv4';
       }
 
       // Update Live Status Card
@@ -14067,40 +14597,46 @@ ${pkgList}`;
           badge.style.background = 'rgba(148, 163, 184, 0.15)';
           badge.style.color = '#94a3b8';
           badge.style.border = '1px solid #475569';
-          badge.textContent = t('duckdns_saved_inactive', 'Disabled');
+          badge.textContent = t('duckdns_saved_inactive', 'Kikapcsolva');
         } else if (d.last_status === 'OK' || d.last_status === 'success') {
           badge.className = 'badge';
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#10b981';
           badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-          badge.textContent = '🟢 Synced (OK)';
+          badge.textContent = '🟢 Szinkronizálva (OK)';
         } else if (d.last_status === 'KO' || d.last_status === 'failed') {
           badge.className = 'badge';
           badge.style.background = 'rgba(239, 68, 68, 0.15)';
           badge.style.color = '#ef4444';
           badge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
-          badge.textContent = '🔴 Auth Error (KO)';
+          badge.textContent = '🔴 Hiba (KO)';
         } else {
           badge.className = 'badge';
           badge.style.background = 'rgba(56, 189, 248, 0.15)';
           badge.style.color = '#38bdf8';
           badge.style.border = '1px solid rgba(56, 189, 248, 0.3)';
-          badge.textContent = d.last_status || 'Waiting';
+          badge.textContent = d.last_status || 'Várakozás';
         }
       }
+
+      const fqdnEl = document.getElementById('duckdns-detected-fqdn');
+      if (fqdnEl) fqdnEl.textContent = savedDuckdnsConfig.fqdn || '--';
 
       const ipEl = document.getElementById('duckdns-detected-ip');
       if (ipEl) ipEl.textContent = d.detected_ip || d.last_ip || '--';
 
+      const ipV6El = document.getElementById('duckdns-detected-ipv6');
+      if (ipV6El) ipV6El.textContent = d.detected_ipv6 || d.last_ipv6 || d.custom_ipv6 || '(Nincs globális IPv6)';
+
       const timeEl = document.getElementById('duckdns-last-time');
-      if (timeEl) timeEl.textContent = d.last_update ? d.last_update.substring(0, 19).replace('T', ' ') : 'Never';
+      if (timeEl) timeEl.textContent = d.last_update ? d.last_update.substring(0, 19).replace('T', ' ') : 'Soha';
 
       const nextEl = document.getElementById('duckdns-next-time');
       if (nextEl) nextEl.textContent = d.next_update ? d.next_update.substring(0, 19).replace('T', ' ') : '--';
 
       const msgBox = document.getElementById('duckdns-msg-box');
       if (msgBox) {
-        msgBox.textContent = `FQDN: ${savedDuckdnsConfig.fqdn || '(none)'} • WAN IP: ${d.detected_ip || d.last_ip || '--'} • Response: ${d.last_message || d.last_status || 'Ready'}`;
+        msgBox.textContent = `[${prov.toUpperCase()}] FQDN: ${savedDuckdnsConfig.fqdn || '(nincs)'} • WAN IPv4: ${d.detected_ip || d.last_ip || '--'} • WAN IPv6: ${d.detected_ipv6 || d.last_ipv6 || '--'} • Válasz: ${d.last_message || d.last_status || 'Kész'}`;
       }
 
       checkDuckdnsUnsavedChanges();
@@ -14114,14 +14650,17 @@ ${pkgList}`;
     const oldText = btn ? btn.textContent : '';
     if (btn) {
       btn.disabled = true;
-      btn.textContent = '💾 ' + t('saving', 'Saving...');
+      btn.textContent = '💾 ' + t('saving', 'Mentés...');
     }
 
+    const provider = document.getElementById('duckdns-provider')?.value || 'duckdns';
     const enabled = !!document.getElementById('duckdns-enabled')?.checked;
     const domain = (document.getElementById('duckdns-domain')?.value || '').trim();
     const token = (document.getElementById('duckdns-token')?.value || '').trim();
     const interval_min = parseInt(document.getElementById('duckdns-interval')?.value, 10) || 10;
     const custom_ip = (document.getElementById('duckdns-custom-ip')?.value || '').trim();
+    const custom_ipv6 = (document.getElementById('duckdns-custom-ipv6')?.value || '').trim();
+    const ipv6_mode = document.getElementById('duckdns-ipv6-mode')?.value || 'auto';
 
     try {
       const res = await fetch('/api/duckdns/save', {
@@ -14129,18 +14668,21 @@ ${pkgList}`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enabled,
+          provider,
           domain,
           token,
           interval_min,
           update_interval_min: interval_min,
           custom_ip,
+          custom_ipv6,
+          ipv6_mode,
         }),
       });
       const d = await res.json();
       if (res.ok) {
         const tokInput = document.getElementById('duckdns-token');
         if (tokInput && token) tokInput.value = '';
-        showToast(`✅ ${t('duckdns_toast_saved', 'DuckDNS settings successfully saved! Interval:')} ${interval_min} ${t('duckdns_minutes_abbr', 'minutes')}`);
+        showToast(`✅ ${provider === 'dynv6' ? 'dynv6.com' : 'DuckDNS'} beállítások sikeresen mentve! Időköz: ${interval_min} perc`);
         await loadDuckdnsStatus();
 
         // Highlight card to visually confirm save
@@ -14155,10 +14697,10 @@ ${pkgList}`;
           }, 1500);
         }
       } else {
-        showToast('❌ DuckDNS save error: ' + (d.message || 'Failed'));
+        showToast('❌ DynDNS mentési hiba: ' + (d.message || 'Sikertelen'));
       }
     } catch (e) {
-      showToast('❌ Save DuckDNS error: ' + e);
+      showToast('❌ DynDNS mentési hiba: ' + e);
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -14172,20 +14714,21 @@ ${pkgList}`;
     const oldText = btn ? btn.textContent : '';
     if (btn) {
       btn.disabled = true;
-      btn.textContent = '🔄 ' + t('updating', 'Updating...');
+      btn.textContent = '🔄 ' + t('updating', 'Frissítés...');
     }
-    showToast('Triggering DuckDNS DynDNS synchronization...');
+    const prov = document.getElementById('duckdns-provider')?.value || 'duckdns';
+    showToast(`Dinamikus DNS szinkronizáció indítása (${prov === 'dynv6' ? 'dynv6.com' : 'DuckDNS'})...`);
     try {
       const res = await fetch('/api/duckdns/update', { method: 'POST' });
       const d = await res.json();
       if (res.ok && (d.success || d.status === 'ok')) {
-        showToast(`✅ DuckDNS updated! Public IP: ${d.ip || 'OK'}`);
+        showToast(`✅ DynDNS frissítve! IP: ${d.ip || 'OK'} ${d.ipv6 ? 'IPv6: ' + d.ipv6 : ''}`);
       } else {
-        showToast('DuckDNS update returned: ' + (d.status || d.message || 'Failed'));
+        showToast('DynDNS válasz: ' + (d.status || d.message || 'Sikertelen'));
       }
       setTimeout(loadDuckdnsStatus, 800);
     } catch (e) {
-      showToast('DuckDNS update error: ' + e);
+      showToast('DynDNS frissítési hiba: ' + e);
     } finally {
       if (btn) {
         btn.disabled = false;

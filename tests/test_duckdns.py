@@ -44,6 +44,31 @@ class TestDuckDNS(unittest.TestCase):
         self.assertEqual(dd.clean_domain("MYBOX.DUCKDNS.ORG "), "mybox")
         self.assertEqual(dd.clean_domain("mybox"), "mybox")
         self.assertEqual(dd.clean_domain("  custom-name  "), "custom-name")
+        # dynv6 domain/zone preservation
+        self.assertEqual(dd.clean_domain("myzone.v6.army", provider="dynv6"), "myzone.v6.army")
+        self.assertEqual(dd.clean_domain("https://test.dynv6.net/", provider="dynv6"), "test.dynv6.net")
+
+    @patch("urllib.request.urlopen")
+    def test_update_dynv6_success(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b"addresses updated"
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = dd.update_duckdns(
+            domain="sample.v6.army",
+            token="valid-dynv6-token",
+            ip="203.0.113.10",
+            ipv6="2001:db8::1",
+            provider="dynv6",
+        )
+        self.assertEqual(res["status"], "ok")
+        self.assertTrue(res["success"])
+        self.assertEqual(res["provider"], "dynv6")
+        self.assertEqual(res["fqdn"], "sample.v6.army")
+        self.assertEqual(res["ip"], "203.0.113.10")
+        self.assertEqual(res["ipv6"], "2001:db8::1")
 
     @patch("urllib.request.urlopen")
     def test_update_duckdns_success(self, mock_urlopen):

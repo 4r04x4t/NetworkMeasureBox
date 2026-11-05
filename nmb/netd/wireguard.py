@@ -110,8 +110,18 @@ def get_candidate_endpoints(
             })
             seen_hosts.add(ip)
 
-    # 2. Dynamic DNS (DuckDNS / Public Endpoint)
-    ddns_host = public_endpoint.split(":")[0].strip() or (duckdns_domain + ".duckdns.org" if duckdns_domain else "")
+    # 2. Dynamic DNS (DuckDNS / dynv6 / Public Endpoint)
+    if public_endpoint.strip():
+        ddns_host = public_endpoint.split(":")[0].strip("[]")
+    elif duckdns_domain.strip():
+        d_dom = duckdns_domain.strip()
+        if "." in d_dom:
+            ddns_host = d_dom
+        else:
+            ddns_host = f"{d_dom}.duckdns.org"
+    else:
+        ddns_host = ""
+
     if ddns_host and ddns_host not in seen_hosts:
         is_def = (len(candidates) == 0) or (req_host_clean == ddns_host) or (not is_req_private and bool(req_host_clean))
         candidates.append({
@@ -141,7 +151,7 @@ def get_candidate_endpoints(
             })
             seen_hosts.add(ip6)
 
-    # 4. Detected Public WAN IPv4
+    # 4. Detected Public WAN IPv4 & IPv6
     from nmb.netd.duckdns import get_duckdns_status
     duck_st = get_duckdns_status()
     wan_ip = duck_st.get("last_ip") or ""
@@ -157,6 +167,20 @@ def get_candidate_endpoints(
             "is_default": False,
         })
         seen_hosts.add(wan_ip)
+
+    wan_ipv6 = duck_st.get("last_ipv6") or duck_st.get("custom_ipv6") or ""
+    if wan_ipv6 and ":" in wan_ipv6 and wan_ipv6 not in seen_hosts:
+        candidates.append({
+            "id": "wan-ipv6",
+            "type": "ipv6",
+            "host": wan_ipv6,
+            "port": port,
+            "endpoint": f"[{wan_ipv6}]:{port}",
+            "label": f"⚡ Publikus WAN IPv6 ([{wan_ipv6}])",
+            "desc": "Közvetlen publikus IPv6 cím (megkerüli a CGNAT-ot és porttovábbítást)",
+            "is_default": False,
+        })
+        seen_hosts.add(wan_ipv6)
 
     # If still no candidates, fallback to localhost
     if not candidates:
