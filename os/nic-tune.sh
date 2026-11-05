@@ -13,6 +13,11 @@ tune_interface() {
     [ "$dev" = "lo" ] && return 0
     # Skip virtual bridges and tun/tap
     [ -d "/sys/class/net/$dev/bridge" ] && return 0
+    # Skip wireless interfaces (ethtool offload/coalescing resets brcmfmac/mac80211)
+    [ -d "/sys/class/net/$dev/wireless" ] && return 0
+    case "$dev" in
+        wl*|wlan*) return 0 ;;
+    esac
 
     log "tuning network interface $dev..."
 
@@ -35,9 +40,12 @@ tune_interface() {
 
         # 4. Disable Energy Efficient Ethernet (EEE) to prevent latency spikes during packet bursts
         ethtool --set-eee "$dev" eee off 2>/dev/null || true
+
+        # 5. Ensure full autonegotiation modes (10/100/1000M) are advertised to prevent switch handshake stalls
+        ethtool -s "$dev" advertise 0x02f autoneg on 2>/dev/null || true
     fi
 
-    # 5. Interface transmit queue length (txqueuelen)
+    # 6. Interface transmit queue length (txqueuelen)
     if command -v ip >/dev/null 2>&1; then
         TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo 1048576)
         TXQ=$([ "$TOTAL_RAM_KB" -le 800000 ] && echo 1000 || echo 10000)

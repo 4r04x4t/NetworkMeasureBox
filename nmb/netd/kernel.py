@@ -207,26 +207,42 @@ def apply_kernel_network_tuning() -> Dict[str, Any]:
                 results["rps_configured_interfaces"].append(iface)
 
             # 4. NIC Hardware Offloads & Coalescing (via ethtool)
-            ethtool_bin = shutil.which("ethtool")
-            if ethtool_bin:
-                try:
-                    # Enable key hardware offloads: TSO, GSO, GRO, RX/TX csum
-                    subprocess.run(
-                        [ethtool_bin, "-K", iface, "tso", "on", "gso", "on", "gro", "on", "rx", "on", "tx", "on"],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        check=False,
-                    )
-                    # Adaptive RX coalescing for high throughput and microsecond ping latency
-                    subprocess.run(
-                        [ethtool_bin, "-C", iface, "adaptive-rx", "on"],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        check=False,
-                    )
-                    results["offload_tuned_interfaces"].append(iface)
-                except Exception as e:
-                    log.debug("ethtool tuning for %s error: %s", iface, e)
+            # Skip wireless interfaces to prevent driver reset / firmware panic
+            is_wireless = (iface_path / "wireless").exists() or iface.startswith(("wl", "wlan"))
+            if not is_wireless:
+                ethtool_bin = shutil.which("ethtool")
+                if ethtool_bin:
+                    try:
+                        # Ensure full autonegotiation modes (10/100/1000M) and disable EEE
+                        subprocess.run(
+                            [ethtool_bin, "-s", iface, "advertise", "0x02f", "autoneg", "on"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            check=False,
+                        )
+                        subprocess.run(
+                            [ethtool_bin, "--set-eee", iface, "eee", "off"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            check=False,
+                        )
+                        # Enable key hardware offloads: TSO, GSO, GRO, RX/TX csum
+                        subprocess.run(
+                            [ethtool_bin, "-K", iface, "tso", "on", "gso", "on", "gro", "on", "rx", "on", "tx", "on"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            check=False,
+                        )
+                        # Adaptive RX coalescing for high throughput and microsecond ping latency
+                        subprocess.run(
+                            [ethtool_bin, "-C", iface, "adaptive-rx", "on"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            check=False,
+                        )
+                        results["offload_tuned_interfaces"].append(iface)
+                    except Exception as e:
+                        log.debug("ethtool tuning for %s error: %s", iface, e)
 
     log.info("Kernel network optimization completed: RPS on %s, Offloads on %s",
              results["rps_configured_interfaces"], results["offload_tuned_interfaces"])
