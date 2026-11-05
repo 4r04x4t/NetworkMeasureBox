@@ -33,6 +33,8 @@ from nmb.netd.drivers import get_full_driver_status, trigger_driver_install, get
 from nmb.netd.adblock import (
     get_full_adblock_status,
     set_adblock_enabled,
+    disable_adblock_temporarily,
+    enable_adblock,
     trigger_gravity_update,
     get_gravity_update_status,
     get_adblock_engine,
@@ -43,6 +45,17 @@ from nmb.netd.adblock import (
     get_blacklist_entries,
     add_blacklist_entry,
     remove_blacklist_entry,
+    get_adlists,
+    add_adlist,
+    remove_adlist,
+    toggle_adlist,
+    get_local_dns_records,
+    add_local_dns_record,
+    remove_local_dns_record,
+    get_regex_filters,
+    add_regex_filter,
+    remove_regex_filter,
+    get_charts_telemetry,
     get_router_dhcp_guide,
 )
 from nmb.netd.os_detector import detect_os_info, get_dynamic_interfaces, check_updates_available, trigger_system_upgrade, get_upgrade_status
@@ -466,6 +479,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(get_full_adblock_status())
             return
 
+        if path == "/api/adblock/charts":
+            self._send_json(get_charts_telemetry())
+            return
+
         if path == "/api/adblock/querylog":
             qs = parse_qs(parsed.query) if parsed.query else {}
             limit = int(qs.get("limit", ["50"])[0])
@@ -478,6 +495,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         if path == "/api/adblock/blacklist":
             self._send_json({"status": "ok", "blacklist": get_blacklist_entries()})
+            return
+
+        if path == "/api/adblock/adlists":
+            self._send_json({"status": "ok", "adlists": get_adlists()})
+            return
+
+        if path == "/api/adblock/localdns":
+            self._send_json({"status": "ok", "records": get_local_dns_records()})
+            return
+
+        if path == "/api/adblock/regex":
+            self._send_json({"status": "ok", "regex": get_regex_filters()})
             return
 
         if path == "/api/adblock/guide":
@@ -1819,6 +1848,17 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(res)
             return
 
+        if path == "/api/adblock/disable":
+            dur = int(body_json.get("duration", 0))
+            res = disable_adblock_temporarily(dur)
+            self._send_json(res)
+            return
+
+        if path == "/api/adblock/enable":
+            res = enable_adblock()
+            self._send_json(res)
+            return
+
         if path in ("/api/adblock/update", "/api/adblock/gravity/update"):
             res = trigger_gravity_update()
             self._send_json(res)
@@ -1846,6 +1886,54 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             dom = str(body_json.get("domain", "")).strip()
             ok = remove_blacklist_entry(dom)
             self._send_json({"status": "ok" if ok else "not_found", "domain": dom})
+            return
+
+        if path == "/api/adblock/adlists/add":
+            url = str(body_json.get("url", "")).strip()
+            name = str(body_json.get("name", "")).strip()
+            ok = add_adlist(url, name)
+            self._send_json({"status": "ok" if ok else "error", "url": url})
+            return
+
+        if path == "/api/adblock/adlists/remove":
+            url = str(body_json.get("url", "")).strip()
+            ok = remove_adlist(url)
+            self._send_json({"status": "ok" if ok else "not_found", "url": url})
+            return
+
+        if path == "/api/adblock/adlists/toggle":
+            url = str(body_json.get("url", "")).strip()
+            en = bool(body_json.get("enabled", True))
+            ok = toggle_adlist(url, en)
+            self._send_json({"status": "ok" if ok else "not_found", "url": url, "enabled": en})
+            return
+
+        if path == "/api/adblock/localdns/add":
+            dom = str(body_json.get("domain", "")).strip()
+            ip = str(body_json.get("ip", "")).strip()
+            ok = add_local_dns_record(dom, ip)
+            self._send_json({"status": "ok" if ok else "error", "domain": dom, "ip": ip})
+            return
+
+        if path == "/api/adblock/localdns/remove":
+            dom = str(body_json.get("domain", "")).strip()
+            ok = remove_local_dns_record(dom)
+            self._send_json({"status": "ok" if ok else "not_found", "domain": dom})
+            return
+
+        if path == "/api/adblock/regex/add":
+            pattern = str(body_json.get("pattern", "")).strip()
+            kind = str(body_json.get("kind", "black")).strip()
+            comment = str(body_json.get("comment", "")).strip()
+            ok = add_regex_filter(pattern, kind=kind, comment=comment)
+            self._send_json({"status": "ok" if ok else "error", "pattern": pattern, "kind": kind})
+            return
+
+        if path == "/api/adblock/regex/remove":
+            pattern = str(body_json.get("pattern", "")).strip()
+            kind = str(body_json.get("kind", "black")).strip()
+            ok = remove_regex_filter(pattern, kind=kind)
+            self._send_json({"status": "ok" if ok else "not_found", "pattern": pattern, "kind": kind})
             return
 
         # Interface Role Matrix Configuration

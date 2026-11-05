@@ -9,11 +9,17 @@ capable of running in any network mode:
 
 Features:
   - Gravity Manager: Fetches, normalizes, deduplicates StevenBlack, AdAway, Peter Lowe lists.
+  - Adlists Management: Custom blocklist URLs with individual enable/disable toggle.
   - Whitelist / Blacklist management with instant in-memory matching.
+  - RegEx & Wildcard domain matching for advanced pattern-based blocking/allowing.
+  - Local DNS Records (custom.list): Maps LAN hostnames directly to IPs with <0.1ms latency.
   - Fast RFC 1035 / RFC 7766 DNS sinkhole (A -> 0.0.0.0, AAAA -> ::, NODATA for others).
   - Upstream DNS forwarding (Cloudflare 1.1.1.1, Quad9 9.9.9.9, Google 8.8.8.8) with LRU caching.
+  - Temporary Disablement / Pause: Pauses blocking for 30s, 5m, 15m, or custom duration.
+  - 24-Hour Time-Series Activity Telemetry (10-minute buckets: total, blocked, cached).
+  - Query Types (A, AAAA, HTTPS, PTR, TXT, SRV) & Upstream Destination telemetry.
+  - Top Clients with Hostname Resolution, Top Blocked & Permitted Domains.
   - Live Query Log (circular ring buffer in RAM) with client IP, domain, QTYPE, and latency.
-  - Telemetry: Queries today, blocked count, % blocked, top domains, top clients.
   - Dynamic Router DHCP configuration instructions with the box's detected IP.
 """
 from __future__ import annotations
@@ -51,8 +57,12 @@ def _resolve_data_dir() -> Path:
 ADBLOCK_DIR = _resolve_data_dir()
 GRAVITY_FILE = ADBLOCK_DIR / "gravity.list"
 SOURCES_FILE = ADBLOCK_DIR / "sources.txt"
+ADLISTS_FILE = ADBLOCK_DIR / "adlists.json"
 WHITELIST_FILE = ADBLOCK_DIR / "whitelist.txt"
 BLACKLIST_FILE = ADBLOCK_DIR / "blacklist.txt"
+REGEX_BLACKLIST_FILE = ADBLOCK_DIR / "regex_blacklist.txt"
+REGEX_WHITELIST_FILE = ADBLOCK_DIR / "regex_whitelist.txt"
+CUSTOM_DNS_FILE = ADBLOCK_DIR / "custom.list"
 CONFIG_FILE = ADBLOCK_DIR / "config.json"
 STATS_FILE = ADBLOCK_DIR / "stats.json"
 DNSMASQ_CONF_FILE = ADBLOCK_DIR / "dnsmasq.adblock.conf"
@@ -63,6 +73,37 @@ DEFAULT_SOURCES = [
     "https://adaway.org/hosts.txt",
     "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext",
     "https://someonewhocares.org/hosts/zero/hosts",
+]
+
+DEFAULT_ADLISTS = [
+    {
+        "url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+        "name": "StevenBlack Unified Hosts (Adware + Malware)",
+        "enabled": True,
+        "count": 0,
+        "updated_at": None,
+    },
+    {
+        "url": "https://adaway.org/hosts.txt",
+        "name": "AdAway Official Mobile Adlist",
+        "enabled": True,
+        "count": 0,
+        "updated_at": None,
+    },
+    {
+        "url": "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext",
+        "name": "Peter Lowe's Ad & Tracking Server List",
+        "enabled": True,
+        "count": 0,
+        "updated_at": None,
+    },
+    {
+        "url": "https://someonewhocares.org/hosts/zero/hosts",
+        "name": "SomeoneWhoCares Zero Hosts",
+        "enabled": True,
+        "count": 0,
+        "updated_at": None,
+    },
 ]
 
 DEFAULT_UPSTREAMS = [
@@ -159,12 +200,13 @@ class AdblockConfig:
 
     def __init__(self):
         self.enabled: bool = True
+        self.disabled_until: Optional[float] = None
         self.upstreams: List[str] = list(DEFAULT_UPSTREAMS)
         self.dns_port: int = DNS_PORT
         self.cache_ttl_max: int = 300
         self.query_logging: bool = True
         self.max_query_log: int = 2000
-        self.blocking_mode: str = "null_ip" # "null_ip" (0.0.0.0/::) or "nxdomain"
+        self.blocking_mode: str = "null_ip"  # "null_ip" (0.0.0.0/::) or "nxdomain"
         self.load()
 
     def load(self) -> None:
@@ -174,6 +216,7 @@ class AdblockConfig:
         try:
             data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
             self.enabled = bool(data.get("enabled", True))
+            self.disabled_until = data.get("disabled_until")
             self.upstreams = data.get("upstreams", list(DEFAULT_UPSTREAMS))
             self.dns_port = int(data.get("dns_port", DNS_PORT))
             self.cache_ttl_max = int(data.get("cache_ttl_max", 300))
@@ -188,6 +231,7 @@ class AdblockConfig:
             ADBLOCK_DIR.mkdir(parents=True, exist_ok=True)
             data = {
                 "enabled": self.enabled,
+                "disabled_until": self.disabled_until,
                 "upstreams": self.upstreams,
                 "dns_port": self.dns_port,
                 "cache_ttl_max": self.cache_ttl_max,
@@ -288,6 +332,31 @@ def build_sinkhole_response(txid: int, qtype: int, question_slice: bytes, nxdoma
         return header + question_slice
 
 
+def build_dns_response_ip(txid: int, qtype: int, question_slice: bytes, ip_str: str, ttl: int = 300) -> bytes:
+    """Synthesize an RFC 1035 DNS response with a specific IPv4 or IPv6 address (Pi-hole custom.list)."""
+    ip_str = ip_str.strip()
+    if ":" in ip_str and qtype == QTYPE_AAAA:
+        try:
+            ip_bytes = socket.inet_pton(socket.AF_INET6, ip_str)
+            header = struct.pack("!HHHHHH", txid, 0x8180, 1, 1, 0, 0)
+            answer = b"\xc0\x0c" + struct.pack("!HHIH", QTYPE_AAAA, 1, ttl, 16) + ip_bytes
+            return header + question_slice + answer
+        except Exception:
+            pass
+    elif ":" not in ip_str and qtype == QTYPE_A:
+        try:
+            ip_bytes = socket.inet_aton(ip_str)
+            header = struct.pack("!HHHHHH", txid, 0x8180, 1, 1, 0, 0)
+            answer = b"\xc0\x0c" + struct.pack("!HHIH", QTYPE_A, 1, ttl, 4) + ip_bytes
+            return header + question_slice + answer
+        except Exception:
+            pass
+
+    # NODATA for unmatched query type (e.g. AAAA requested for IPv4-only local record)
+    header = struct.pack("!HHHHHH", txid, 0x8180, 1, 0, 0, 0)
+    return header + question_slice
+
+
 class AdblockEngine:
     """High-speed in-memory DNS filter, cache, and telemetry collector."""
 
@@ -298,6 +367,18 @@ class AdblockEngine:
         self.whitelist: Set[str] = set()
         self.blacklist: Set[str] = set()
 
+        # Temporary Disablement State
+        self.disabled_until: Optional[float] = self.config.disabled_until
+
+        # Pi-hole Style Extensions
+        self.adlists: List[Dict[str, Any]] = []
+        self.custom_dns: Dict[str, str] = {}  # domain -> IP
+        self.regex_blacklist: List[Dict[str, Any]] = []  # {"pattern": str, "regex": Pattern, "comment": str}
+        self.regex_whitelist: List[Dict[str, Any]] = []
+
+        # 24-Hour Time-Series Buckets (10-minute intervals: timestamp -> {total, blocked, cached, forwarded})
+        self.history_buckets: Dict[int, Dict[str, int]] = {}
+
         # Telemetry & Live Query Log (in RAM)
         self.query_log: deque = deque(maxlen=self.config.max_query_log)
         self.total_queries: int = 0
@@ -306,7 +387,11 @@ class AdblockEngine:
         self.top_blocked: Counter = Counter()
         self.top_queried: Counter = Counter()
         self.top_clients: Counter = Counter()
+        self.client_queries: Counter = Counter()
+        self.client_blocked: Counter = Counter()
         self.qtype_counts: Counter = Counter()
+        self.upstream_counts: Counter = Counter()
+        self.hostname_cache: Dict[str, str] = {}
         self.last_gravity_update: Optional[float] = None
         self.last_update_status: str = "never"
 
@@ -317,7 +402,7 @@ class AdblockEngine:
         self._load_local_data()
 
     def _load_local_data(self) -> None:
-        """Load whitelist, blacklist, and gravity list from disk."""
+        """Load whitelist, blacklist, regex rules, adlists, custom local DNS, and gravity list from disk."""
         with self.lock:
             # 1. Whitelist
             self.whitelist = set()
@@ -335,7 +420,73 @@ class AdblockEngine:
                     if line and not line.startswith("#"):
                         self.blacklist.add(line)
 
-            # 3. Gravity Blocklist
+            # 3. Adlists (Gravity Sources)
+            self.adlists = []
+            if ADLISTS_FILE.exists():
+                try:
+                    self.adlists = json.loads(ADLISTS_FILE.read_text(encoding="utf-8"))
+                except Exception as e:
+                    log.warning("error reading adlists.json: %s", e)
+            if not self.adlists:
+                # Migrate from sources.txt or load defaults
+                migrated = []
+                if SOURCES_FILE.exists():
+                    for line in SOURCES_FILE.read_text(encoding="utf-8", errors="replace").splitlines():
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            name = line.split("/")[-1] or "Custom Blocklist"
+                            migrated.append({"url": line, "name": name, "enabled": True, "count": 0, "updated_at": None})
+                if not migrated:
+                    migrated = list(DEFAULT_ADLISTS)
+                self.adlists = migrated
+                try:
+                    ADBLOCK_DIR.mkdir(parents=True, exist_ok=True)
+                    ADLISTS_FILE.write_text(json.dumps(self.adlists, indent=2), encoding="utf-8")
+                except Exception:
+                    pass
+
+            # 4. Custom Local DNS Records (custom.list)
+            self.custom_dns = {}
+            if CUSTOM_DNS_FILE.exists():
+                for line in CUSTOM_DNS_FILE.read_text(encoding="utf-8", errors="replace").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            ip = parts[0].strip()
+                            dom = parts[1].strip().lower().strip(".")
+                            self.custom_dns[dom] = ip
+
+            # 5. Regex Blacklist & Whitelist
+            self.regex_blacklist = []
+            if REGEX_BLACKLIST_FILE.exists():
+                for line in REGEX_BLACKLIST_FILE.read_text(encoding="utf-8", errors="replace").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        parts = line.split("#", 1)
+                        pat = parts[0].strip()
+                        comm = parts[1].strip() if len(parts) > 1 else ""
+                        try:
+                            rgx = re.compile(pat, re.IGNORECASE)
+                            self.regex_blacklist.append({"pattern": pat, "regex": rgx, "comment": comm})
+                        except re.error as e:
+                            log.warning("invalid regex in blacklist: %s (%s)", pat, e)
+
+            self.regex_whitelist = []
+            if REGEX_WHITELIST_FILE.exists():
+                for line in REGEX_WHITELIST_FILE.read_text(encoding="utf-8", errors="replace").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        parts = line.split("#", 1)
+                        pat = parts[0].strip()
+                        comm = parts[1].strip() if len(parts) > 1 else ""
+                        try:
+                            rgx = re.compile(pat, re.IGNORECASE)
+                            self.regex_whitelist.append({"pattern": pat, "regex": rgx, "comment": comm})
+                        except re.error as e:
+                            log.warning("invalid regex in whitelist: %s (%s)", pat, e)
+
+            # 6. Gravity Blocklist
             self.blocked_domains = set(SEED_BLOCKED_DOMAINS)
             if GRAVITY_FILE.exists():
                 try:
@@ -351,20 +502,70 @@ class AdblockEngine:
             # Merge custom blacklist and prune whitelist
             self.blocked_domains.update(self.blacklist)
             self.blocked_domains.difference_update(self.whitelist)
-            log.info("AdblockEngine loaded: %d blocked domains, %d whitelist, %d blacklist",
-                     len(self.blocked_domains), len(self.whitelist), len(self.blacklist))
+            log.info("AdblockEngine loaded: %d gravity domains, %d whitelist, %d blacklist, %d regex, %d local DNS",
+                     len(self.blocked_domains), len(self.whitelist), len(self.blacklist),
+                     len(self.regex_blacklist) + len(self.regex_whitelist), len(self.custom_dns))
+
+    def is_blocking_active(self) -> bool:
+        """Check whether DNS ad-blocking is currently active or temporarily paused."""
+        if not self.config.enabled:
+            return False
+        if self.disabled_until is not None:
+            if time.time() < self.disabled_until:
+                return False
+            else:
+                self.disabled_until = None
+                self.config.disabled_until = None
+                self.config.save()
+        return True
+
+    def disable_temporarily(self, duration_seconds: int = 0) -> Dict[str, Any]:
+        """Disable ad-blocking for a specified duration (0 = indefinite pause)."""
+        with self.lock:
+            if duration_seconds > 0:
+                self.disabled_until = time.time() + duration_seconds
+                self.config.disabled_until = self.disabled_until
+            else:
+                self.config.enabled = False
+                self.disabled_until = None
+                self.config.disabled_until = None
+            self.config.save()
+        return {
+            "status": "ok",
+            "enabled": self.is_blocking_active(),
+            "disabled_until": self.disabled_until,
+            "seconds_left": duration_seconds,
+        }
+
+    def enable_blocking(self) -> Dict[str, Any]:
+        """Re-enable ad-blocking immediately."""
+        with self.lock:
+            self.config.enabled = True
+            self.disabled_until = None
+            self.config.disabled_until = None
+            self.config.save()
+        return {
+            "status": "ok",
+            "enabled": True,
+            "disabled_until": None,
+            "seconds_left": 0,
+        }
 
     def is_domain_blocked(self, domain: str) -> Tuple[bool, str]:
-        """Check if domain should be sinkholed.
+        """Check if domain should be sinkholed according to Pi-hole rules.
 
-        Checks exact match and parent domain suffixes (e.g. sub.doubleclick.net matches doubleclick.net).
-        Returns: (is_blocked, reason)
+        Evaluation order:
+          1. Exact & Subdomain Whitelist
+          2. Regex Whitelist
+          3. Exact & Subdomain Blacklist
+          4. Regex Blacklist
+          5. Gravity Adlists
         """
         domain = domain.strip(".").lower()
         if not domain:
             return False, "empty"
 
-        # Whitelist override takes priority
+        # 1. Exact Whitelist & Parent Whitelist
         if domain in self.whitelist:
             return False, "whitelisted"
         parts = domain.split(".")
@@ -373,7 +574,13 @@ class AdblockEngine:
             if parent in self.whitelist:
                 return False, "whitelisted_parent"
 
-        # User Blacklist check
+        # 2. Regex Whitelist
+        for item in self.regex_whitelist:
+            rgx = item.get("regex")
+            if rgx and rgx.search(domain):
+                return False, "regex_whitelist"
+
+        # 3. Exact Blacklist & Parent Blacklist
         if domain in self.blacklist:
             return True, "blacklist"
         for i in range(1, len(parts)):
@@ -381,7 +588,13 @@ class AdblockEngine:
             if parent in self.blacklist:
                 return True, "blacklist_parent"
 
-        # Gravity Blocklist check
+        # 4. Regex Blacklist
+        for item in self.regex_blacklist:
+            rgx = item.get("regex")
+            if rgx and rgx.search(domain):
+                return True, "regex_blacklist"
+
+        # 5. Gravity Blocklist (exact & parent subdomains)
         if domain in self.blocked_domains:
             return True, "gravity"
         for i in range(1, len(parts)):
@@ -391,6 +604,47 @@ class AdblockEngine:
 
         return False, "permitted"
 
+    def resolve_hostname(self, ip: str) -> str:
+        """Resolve client hostname via reverse DNS, custom DNS, /etc/hosts, or DHCP leases."""
+        if not ip or ip == "127.0.0.1" or ip == "::1":
+            return "localhost"
+        if ip in self.hostname_cache:
+            return self.hostname_cache[ip]
+
+        # Check custom DNS reverse match
+        for dom, target_ip in self.custom_dns.items():
+            if target_ip == ip:
+                self.hostname_cache[ip] = dom
+                return dom
+
+        # Check /etc/hosts
+        try:
+            hosts_path = Path("/etc/hosts")
+            if hosts_path.exists():
+                for line in hosts_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        parts = line.split()
+                        if len(parts) >= 2 and parts[0] == ip:
+                            self.hostname_cache[ip] = parts[1]
+                            return parts[1]
+        except Exception:
+            pass
+
+        # Check dnsmasq.leases if present
+        for lease_path in (Path("/var/lib/misc/dnsmasq.leases"), Path("/tmp/dnsmasq.leases")):
+            try:
+                if lease_path.exists():
+                    for line in lease_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                        parts = line.split()
+                        if len(parts) >= 4 and parts[2] == ip and parts[3] != "*":
+                            self.hostname_cache[ip] = parts[3]
+                            return parts[3]
+            except Exception:
+                pass
+
+        return ip
+
     def record_query(
         self,
         client_ip: str,
@@ -399,8 +653,9 @@ class AdblockEngine:
         status: str,
         reason: str,
         latency_ms: float,
+        upstream: str = "",
     ) -> None:
-        """Record query telemetry into RAM buffer."""
+        """Record query telemetry into RAM buffer and 24h time-series buckets."""
         qtype_str = QTYPE_NAMES.get(qtype_num, str(qtype_num))
         now = time.time()
         time_str = datetime.datetime.fromtimestamp(now).strftime("%H:%M:%S")
@@ -410,10 +665,12 @@ class AdblockEngine:
             "timestamp": now,
             "time_str": time_str,
             "client_ip": client_ip,
+            "client_name": self.resolve_hostname(client_ip),
             "domain": domain,
             "type": qtype_str,
             "status": status,
             "reason": reason,
+            "upstream": upstream,
             "latency_ms": round(latency_ms, 2),
         }
 
@@ -422,12 +679,32 @@ class AdblockEngine:
             if status == "BLOCKED":
                 self.blocked_queries += 1
                 self.top_blocked[domain] += 1
+                self.client_blocked[client_ip] += 1
             elif status == "CACHED":
                 self.cached_queries += 1
 
             self.top_queried[domain] += 1
             self.top_clients[client_ip] += 1
+            self.client_queries[client_ip] += 1
             self.qtype_counts[qtype_str] += 1
+            if upstream:
+                self.upstream_counts[upstream] += 1
+
+            # 10-minute time bucket for 24h activity time-series chart
+            bucket = int(now // 600) * 600
+            b = self.history_buckets.setdefault(bucket, {"total": 0, "blocked": 0, "cached": 0, "forwarded": 0})
+            b["total"] += 1
+            if status == "BLOCKED":
+                b["blocked"] += 1
+            elif status == "CACHED":
+                b["cached"] += 1
+            else:
+                b["forwarded"] += 1
+
+            # Prune buckets older than 24 hours
+            cutoff = now - 86400
+            for old_b in [k for k in self.history_buckets if k < cutoff]:
+                del self.history_buckets[old_b]
 
             if self.config.query_logging:
                 self.query_log.append(entry)
@@ -449,13 +726,15 @@ class AdblockEngine:
         now = time.time()
         eff_ttl = max(10, min(ttl, self.config.cache_ttl_max))
         with self.cache_lock:
-            # Simple size cap
             if len(self.cache) > 5000:
                 self.cache.clear()
             self.cache[(domain, qtype)] = (resp_bytes, now + eff_ttl)
 
-    def forward_upstream(self, query_packet: bytes) -> Optional[bytes]:
-        """Forward DNS query to upstream DNS servers with failover."""
+    def forward_upstream(self, query_packet: bytes) -> Tuple[Optional[bytes], str]:
+        """Forward DNS query to upstream DNS servers with failover.
+
+        Returns: (response_bytes, answering_upstream_ip)
+        """
         for upstream in self.config.upstreams:
             s = None
             try:
@@ -464,73 +743,143 @@ class AdblockEngine:
                 s.sendto(query_packet, (upstream, DNS_PORT))
                 resp, _ = s.recvfrom(4096)
                 if resp:
-                    return resp
+                    return resp, upstream
             except Exception:
                 continue
             finally:
                 if s:
                     s.close()
-        return None
+        return None, ""
 
     def handle_dns_request(self, data: bytes, client_addr: Tuple[str, int]) -> bytes:
-        """Process an incoming DNS packet from a client."""
+        """Process an incoming DNS packet from a client with full Pi-hole pipeline."""
         start_t = time.perf_counter()
         client_ip = client_addr[0]
 
         parsed = parse_dns_query(data)
         if not parsed:
-            # Bad or unparseable query, drop or return refused
+            # Bad or unparseable query, drop
             return b""
 
         txid, domain, qtype, qclass, question_slice = parsed
 
-        # If adblock is globally disabled, forward immediately
-        if not self.config.enabled:
-            upstream_resp = self.forward_upstream(data)
+        # 1. Check Local DNS Records (custom.list) first
+        if domain in self.custom_dns:
+            target_ip = self.custom_dns[domain]
+            resp = build_dns_response_ip(txid, qtype, question_slice, target_ip)
             duration = (time.perf_counter() - start_t) * 1000.0
-            self.record_query(client_ip, domain, qtype, "ALLOWED", "disabled", duration)
+            self.record_query(client_ip, domain, qtype, "ALLOWED", "local_dns", duration, upstream="local_dns")
+            return resp
+
+        # 2. Check if ad-blocker is temporarily paused or globally disabled
+        blocking_active = self.is_blocking_active()
+        if not blocking_active:
+            upstream_resp, upstream_ip = self.forward_upstream(data)
+            duration = (time.perf_counter() - start_t) * 1000.0
+            reason = "temp_disabled" if (self.disabled_until and time.time() < self.disabled_until) else "disabled"
+            self.record_query(client_ip, domain, qtype, "ALLOWED", reason, duration, upstream=upstream_ip or "upstream")
             return upstream_resp or b""
 
-        # Check blocklist
+        # 3. Check Blocklists (Gravity, Blacklist, RegEx)
         is_blocked, reason = self.is_domain_blocked(domain)
         if is_blocked:
             resp = build_sinkhole_response(txid, qtype, question_slice, nxdomain=(self.config.blocking_mode == "nxdomain"))
             duration = (time.perf_counter() - start_t) * 1000.0
-            self.record_query(client_ip, domain, qtype, "BLOCKED", reason, duration)
+            self.record_query(client_ip, domain, qtype, "BLOCKED", reason, duration, upstream="blocked")
             return resp
 
-        # Check in-memory cache
+        # 4. Check in-memory DNS cache
         cached = self.get_cached_response(domain, qtype, txid)
         if cached:
             duration = (time.perf_counter() - start_t) * 1000.0
-            self.record_query(client_ip, domain, qtype, "CACHED", "cache", duration)
+            self.record_query(client_ip, domain, qtype, "CACHED", "cache", duration, upstream="cache")
             return cached
 
-        # Forward permitted query to upstream
-        upstream_resp = self.forward_upstream(data)
+        # 5. Forward permitted query to Upstream DNS
+        upstream_resp, upstream_ip = self.forward_upstream(data)
         duration = (time.perf_counter() - start_t) * 1000.0
 
         if upstream_resp:
             self.store_cache_response(domain, qtype, upstream_resp, ttl=120)
-            self.record_query(client_ip, domain, qtype, "ALLOWED", "upstream", duration)
+            self.record_query(client_ip, domain, qtype, "ALLOWED", "upstream", duration, upstream=upstream_ip or "upstream")
             return upstream_resp
         else:
-            self.record_query(client_ip, domain, qtype, "FAILED", "upstream_timeout", duration)
+            self.record_query(client_ip, domain, qtype, "FAILED", "upstream_timeout", duration, upstream="timeout")
             return b""
 
+    def get_timeline(self, hours: int = 24) -> List[Dict[str, Any]]:
+        """Return 10-minute interval activity data over the past 24 hours (144 data points)."""
+        now = time.time()
+        current_bucket = int(now // 600) * 600
+        total_slots = int(hours * 6)  # 144 slots for 24h
+        start_bucket = current_bucket - (total_slots - 1) * 600
+
+        timeline = []
+        with self.lock:
+            for i in range(total_slots):
+                ts = start_bucket + i * 600
+                b = self.history_buckets.get(ts, {"total": 0, "blocked": 0, "cached": 0, "forwarded": 0})
+                t_dt = datetime.datetime.fromtimestamp(ts)
+                timeline.append({
+                    "timestamp": ts,
+                    "time_str": t_dt.strftime("%H:%M"),
+                    "total": b["total"],
+                    "blocked": b["blocked"],
+                    "cached": b["cached"],
+                    "forwarded": b["forwarded"],
+                })
+        return timeline
+
+    def get_top_clients(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Compile top client devices with reverse hostname resolution and block statistics."""
+        with self.lock:
+            result = []
+            for ip, total in self.client_queries.most_common(limit):
+                blk = self.client_blocked.get(ip, 0)
+                pct = round((blk / total) * 100.0, 1) if total > 0 else 0.0
+                result.append({
+                    "ip": ip,
+                    "hostname": self.resolve_hostname(ip),
+                    "total": total,
+                    "blocked": blk,
+                    "blocked_pct": pct,
+                })
+            return result
+
     def get_stats(self) -> Dict[str, Any]:
-        """Compile dashboard telemetry statistics."""
+        """Compile Pi-hole style dashboard telemetry statistics."""
         with self.lock:
             pct = 0.0
             if self.total_queries > 0:
                 pct = round((self.blocked_queries / self.total_queries) * 100.0, 1)
 
+            now = time.time()
+            disabled_left = 0
+            if self.disabled_until and self.disabled_until > now:
+                disabled_left = int(self.disabled_until - now)
+
             top_blocked_list = [{"domain": d, "count": c} for d, c in self.top_blocked.most_common(10)]
             top_queried_list = [{"domain": d, "count": c} for d, c in self.top_queried.most_common(10)]
-            top_clients_list = [{"ip": ip, "count": c} for ip, c in self.top_clients.most_common(10)]
+            top_clients_list = self.get_top_clients(10)
+
+            # Ensure common query types exist in dictionary
+            qtypes = dict(self.qtype_counts)
+            for k in ("A", "AAAA", "HTTPS", "PTR", "TXT"):
+                if k not in qtypes:
+                    qtypes[k] = 0
+
+            # Ensure upstream distribution exists
+            up_counts = dict(self.upstream_counts)
+            if "cache" not in up_counts:
+                up_counts["cache"] = self.cached_queries
+            if "blocked" not in up_counts:
+                up_counts["blocked"] = self.blocked_queries
 
             return {
-                "enabled": self.config.enabled,
+                "enabled": self.is_blocking_active(),
+                "config_enabled": self.config.enabled,
+                "disabled_until": self.disabled_until,
+                "disabled_seconds_left": disabled_left,
                 "domains_in_blocklist": len(self.blocked_domains),
                 "total_queries": self.total_queries,
                 "blocked_queries": self.blocked_queries,
@@ -538,12 +887,18 @@ class AdblockEngine:
                 "blocked_percentage": pct,
                 "whitelist_count": len(self.whitelist),
                 "blacklist_count": len(self.blacklist),
+                "regex_blacklist_count": len(self.regex_blacklist),
+                "regex_whitelist_count": len(self.regex_whitelist),
+                "custom_dns_count": len(self.custom_dns),
+                "adlists_count": len(self.adlists),
                 "last_gravity_update": self.last_gravity_update,
                 "last_gravity_update_iso": datetime.datetime.fromtimestamp(self.last_gravity_update).isoformat() if self.last_gravity_update else None,
                 "last_update_status": self.last_update_status,
                 "top_blocked_domains": top_blocked_list,
                 "top_queried_domains": top_queried_list,
                 "top_clients": top_clients_list,
+                "query_types": qtypes,
+                "upstream_destinations": up_counts,
                 "upstreams": self.config.upstreams,
                 "blocking_mode": self.config.blocking_mode,
             }
@@ -590,26 +945,33 @@ def execute_gravity_update(custom_sources: Optional[List[str]] = None, timeout: 
     start_time = time.time()
     ADBLOCK_DIR.mkdir(parents=True, exist_ok=True)
 
-    sources = list(custom_sources or [])
-    if not sources:
-        if SOURCES_FILE.exists():
-            for line in SOURCES_FILE.read_text(encoding="utf-8", errors="replace").splitlines():
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    sources.append(line)
-        if not sources:
-            sources = list(DEFAULT_SOURCES)
-            SOURCES_FILE.write_text("\n".join(sources) + "\n", encoding="utf-8")
+    engine = get_adblock_engine()
+    active_sources: List[Dict[str, Any]] = []
+
+    if custom_sources:
+        for s in custom_sources:
+            active_sources.append({"url": s, "name": s.split("/")[-1] or "Source", "enabled": True})
+    else:
+        with engine.lock:
+            for item in engine.adlists:
+                if item.get("enabled", True):
+                    active_sources.append(item)
+
+    if not active_sources:
+        for url in DEFAULT_SOURCES:
+            active_sources.append({"url": url, "name": url.split("/")[-1], "enabled": True})
 
     collected_domains: Set[str] = set(SEED_BLOCKED_DOMAINS)
-    output_lines = [f"=== Updating Adblock Gravity ({len(sources)} sources) ==="]
+    output_lines = [f"=== Updating Adblock Gravity ({len(active_sources)} active sources) ==="]
     success_sources = 0
 
     domain_regex = re.compile(r"^(?:(?:0\.0\.0\.0|127\.0\.0\.1|::1)\s+)?([a-zA-Z0-9_\-\.]+)(?:\s+#.*)?$")
     headers = {"User-Agent": "Mozilla/5.0 (compatible; NetworkMeasureBox-AdBlock/2.0)"}
 
-    for url in sources:
-        output_lines.append(f"Downloading from: {url}")
+    for src in active_sources:
+        url = src.get("url", "")
+        name = src.get("name", url)
+        output_lines.append(f"Downloading [{name}] from: {url}")
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -626,14 +988,22 @@ def execute_gravity_update(custom_sources: Optional[List[str]] = None, timeout: 
                         if d not in ("localhost", "localhost.localdomain", "broadcasthost", "local", "0.0.0.0", "127.0.0.1", "::1") and "." in d:
                             collected_domains.add(d)
                             count += 1
-                output_lines.append(f"  -> Extracted {count} domains.")
+                src["count"] = count
+                src["updated_at"] = datetime.datetime.now().isoformat()
+                output_lines.append(f"  -> Extracted {count:,} domains.")
                 success_sources += 1
         except Exception as e:
             output_lines.append(f"  -> Failed to fetch source: {e}")
 
+    # Save updated counts back to adlists.json
+    try:
+        with engine.lock:
+            _save_adlists(engine.adlists)
+    except Exception:
+        pass
+
     # Remove whitelisted domains
     whitelist_count = 0
-    engine = get_adblock_engine()
     with engine.lock:
         whitelist = set(engine.whitelist)
         blacklist = set(engine.blacklist)
@@ -651,7 +1021,6 @@ def execute_gravity_update(custom_sources: Optional[List[str]] = None, timeout: 
     GRAVITY_FILE.write_text("\n".join(sorted_domains) + "\n", encoding="utf-8")
 
     # 2. Write dnsmasq.adblock.conf (format: address=/domain/0.0.0.0)
-    # This allows dnsmasq to directly use the blocklist if dnsmasq is handling DNS
     dnsmasq_lines = [f"address=/{d}/0.0.0.0" for d in sorted_domains]
     DNSMASQ_CONF_FILE.write_text("# NetworkMeasureBox Adblock Gravity for dnsmasq\n" + "\n".join(dnsmasq_lines) + "\n", encoding="utf-8")
 
@@ -668,7 +1037,7 @@ def execute_gravity_update(custom_sources: Optional[List[str]] = None, timeout: 
     return {
         "status": "ok",
         "total_domains": len(sorted_domains),
-        "sources_checked": len(sources),
+        "sources_checked": len(active_sources),
         "sources_succeeded": success_sources,
         "duration_sec": round(duration, 2),
         "output": "\n".join(output_lines),
@@ -722,7 +1091,7 @@ def query_adblock_ipc(cmd: str, **kwargs) -> Optional[Dict[str, Any]]:
     s = None
     try:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(0.6)
+        s.settimeout(0.8)
         s.connect(str(IPC_SOCKET_PATH))
         payload = {"cmd": cmd}
         payload.update(kwargs)
@@ -816,13 +1185,184 @@ def remove_blacklist_entry(domain: str) -> bool:
 
 
 # ------------------------------------------------------------------------------
+# Adlists (Gravity Sources) Management
+# ------------------------------------------------------------------------------
+def _save_adlists(adlists: List[Dict[str, Any]]) -> None:
+    try:
+        ADBLOCK_DIR.mkdir(parents=True, exist_ok=True)
+        ADLISTS_FILE.write_text(json.dumps(adlists, indent=2), encoding="utf-8")
+        enabled_urls = [it["url"] for it in adlists if it.get("enabled", True)]
+        SOURCES_FILE.write_text("\n".join(enabled_urls) + "\n", encoding="utf-8")
+    except Exception as e:
+        log.warning("failed to save adlists: %s", e)
+
+
+def get_adlists() -> List[Dict[str, Any]]:
+    engine = get_adblock_engine()
+    with engine.lock:
+        return list(engine.adlists)
+
+
+def add_adlist(url: str, name: str = "") -> bool:
+    url = url.strip()
+    if not url.startswith(("http://", "https://")):
+        return False
+    engine = get_adblock_engine()
+    with engine.lock:
+        for item in engine.adlists:
+            if item.get("url") == url:
+                return True
+        engine.adlists.append({
+            "url": url,
+            "name": name.strip() or url.split("/")[-1] or "Custom Blocklist",
+            "enabled": True,
+            "count": 0,
+            "updated_at": None,
+        })
+        _save_adlists(engine.adlists)
+    return True
+
+
+def remove_adlist(url: str) -> bool:
+    url = url.strip()
+    engine = get_adblock_engine()
+    with engine.lock:
+        orig_len = len(engine.adlists)
+        engine.adlists = [it for it in engine.adlists if it.get("url") != url]
+        if len(engine.adlists) != orig_len:
+            _save_adlists(engine.adlists)
+            return True
+    return False
+
+
+def toggle_adlist(url: str, enabled: bool) -> bool:
+    url = url.strip()
+    engine = get_adblock_engine()
+    with engine.lock:
+        for item in engine.adlists:
+            if item.get("url") == url:
+                item["enabled"] = enabled
+                _save_adlists(engine.adlists)
+                return True
+    return False
+
+
+# ------------------------------------------------------------------------------
+# Local DNS Records (Pi-hole custom.list)
+# ------------------------------------------------------------------------------
+def _save_custom_dns(records: Dict[str, str]) -> None:
+    try:
+        ADBLOCK_DIR.mkdir(parents=True, exist_ok=True)
+        lines = [f"{ip} {dom}" for dom, ip in sorted(records.items())]
+        CUSTOM_DNS_FILE.write_text("# NetworkMeasureBox Local DNS Records (Pi-hole custom.list)\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    except Exception as e:
+        log.warning("failed to save custom.list: %s", e)
+
+
+def get_local_dns_records() -> List[Dict[str, str]]:
+    engine = get_adblock_engine()
+    with engine.lock:
+        return [{"domain": d, "ip": ip} for d, ip in sorted(engine.custom_dns.items())]
+
+
+def add_local_dns_record(domain: str, ip: str) -> bool:
+    domain = domain.strip().lower().strip(".")
+    ip = ip.strip()
+    if not domain or not ip:
+        return False
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+
+    engine = get_adblock_engine()
+    with engine.lock:
+        engine.custom_dns[domain] = ip
+        _save_custom_dns(engine.custom_dns)
+    return True
+
+
+def remove_local_dns_record(domain: str) -> bool:
+    domain = domain.strip().lower().strip(".")
+    engine = get_adblock_engine()
+    with engine.lock:
+        if domain in engine.custom_dns:
+            del engine.custom_dns[domain]
+            _save_custom_dns(engine.custom_dns)
+            return True
+    return False
+
+
+# ------------------------------------------------------------------------------
+# RegEx & Wildcard Domain Filtering
+# ------------------------------------------------------------------------------
+def _save_regex_file(file_path: Path, items: List[Dict[str, Any]]) -> None:
+    try:
+        ADBLOCK_DIR.mkdir(parents=True, exist_ok=True)
+        lines = []
+        for it in items:
+            comm = f" # {it['comment']}" if it.get("comment") else ""
+            lines.append(f"{it['pattern']}{comm}")
+        file_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except Exception as e:
+        log.warning("failed to save regex file %s: %s", file_path, e)
+
+
+def get_regex_filters() -> Dict[str, List[Dict[str, Any]]]:
+    engine = get_adblock_engine()
+    with engine.lock:
+        return {
+            "blacklist": [{"pattern": it["pattern"], "comment": it.get("comment", "")} for it in engine.regex_blacklist],
+            "whitelist": [{"pattern": it["pattern"], "comment": it.get("comment", "")} for it in engine.regex_whitelist],
+        }
+
+
+def add_regex_filter(pattern: str, kind: str = "black", comment: str = "") -> bool:
+    pattern = pattern.strip()
+    if not pattern:
+        return False
+    try:
+        compiled = re.compile(pattern, re.IGNORECASE)
+    except re.error:
+        return False
+
+    engine = get_adblock_engine()
+    with engine.lock:
+        target_list = engine.regex_blacklist if kind == "black" else engine.regex_whitelist
+        target_file = REGEX_BLACKLIST_FILE if kind == "black" else REGEX_WHITELIST_FILE
+        for it in target_list:
+            if it["pattern"] == pattern:
+                return True
+        target_list.append({"pattern": pattern, "regex": compiled, "comment": comment})
+        _save_regex_file(target_file, target_list)
+    return True
+
+
+def remove_regex_filter(pattern: str, kind: str = "black") -> bool:
+    pattern = pattern.strip()
+    engine = get_adblock_engine()
+    with engine.lock:
+        target_list = engine.regex_blacklist if kind == "black" else engine.regex_whitelist
+        target_file = REGEX_BLACKLIST_FILE if kind == "black" else REGEX_WHITELIST_FILE
+        orig_len = len(target_list)
+        new_list = [it for it in target_list if it["pattern"] != pattern]
+        if len(new_list) != orig_len:
+            if kind == "black":
+                engine.regex_blacklist = new_list
+            else:
+                engine.regex_whitelist = new_list
+            _save_regex_file(target_file, new_list)
+            return True
+    return False
+
+
+# ------------------------------------------------------------------------------
 # Dynamic Router DHCP Configuration Instructions Generator
 # ------------------------------------------------------------------------------
 def get_router_dhcp_guide() -> Dict[str, Any]:
     """Generate dynamic instructions with the box's current LAN IPs for router DHCP setup."""
     from nmb.netd.interfaces import get_ip_addresses, get_default_gateway
 
-    # Detect current network IPs across physical interfaces
     primary_ipv4 = ""
     ipv6_addrs = []
     sys_net = Path("/sys/class/net")
@@ -840,7 +1380,6 @@ def get_router_dhcp_guide() -> Dict[str, Any]:
                 ipv6_addrs.append(ip.split("/")[0])
 
     if not primary_ipv4:
-        # Fallback to local hostname resolution
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("1.1.1.1", 80))
@@ -849,7 +1388,6 @@ def get_router_dhcp_guide() -> Dict[str, Any]:
         except Exception:
             primary_ipv4 = "192.168.1.100"
 
-    # Detect router gateway IP
     gateway_ip = "192.168.1.1"
     try:
         r = subprocess.run(["ip", "route", "show", "default"], stdout=subprocess.PIPE, text=True, timeout=2.0)
@@ -939,8 +1477,7 @@ class AdblockDNSServer:
             except OSError as e:
                 log.debug("failed binding to wildcard %s:%d: %s", addr, self.port, e)
 
-        # If wildcard binding failed (e.g. dnsmasq bound to specific interface),
-        # bind to all available physical interface IP addresses individually
+        # Fallback to individual interface IPs
         if not bound_any:
             log.info("Wildcard 0.0.0.0:53 in use; attempting individual IP socket binding...")
             from nmb.netd.interfaces import get_ip_addresses
@@ -952,7 +1489,7 @@ class AdblockDNSServer:
                 for ip in get_ip_addresses(iface):
                     clean_ip = ip.split("/")[0]
                     if ":" in clean_ip:
-                        continue # focus on IPv4 for individual fallback
+                        continue
                     try:
                         u_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                         u_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -1041,30 +1578,103 @@ class AdblockDNSServer:
 
     def _handle_ipc_conn(self, conn: socket.socket) -> None:
         try:
-            conn.settimeout(1.5)
-            line = conn.recv(4096).decode("utf-8", errors="replace").strip()
+            conn.settimeout(2.0)
+            line = conn.recv(8192).decode("utf-8", errors="replace").strip()
             if not line:
                 return
             req = json.loads(line)
             cmd = req.get("cmd")
+
             if cmd == "status":
                 resp = self.engine.get_stats()
                 resp["is_running"] = True
                 resp["guide"] = get_router_dhcp_guide()
                 resp["update_status"] = get_gravity_update_status()
+
+            elif cmd == "charts":
+                resp = {
+                    "status": "ok",
+                    "timeline": self.engine.get_timeline(),
+                    "query_types": dict(self.engine.qtype_counts),
+                    "upstreams": dict(self.engine.upstream_counts),
+                    "clients": self.engine.get_top_clients(10),
+                }
+
             elif cmd == "querylog":
                 limit = int(req.get("limit", 50))
                 resp = {"status": "ok", "queries": self.engine.get_recent_queries(limit)}
+
             elif cmd == "toggle":
                 en = bool(req.get("enabled", True))
-                self.engine.config.enabled = en
-                self.engine.config.save()
-                resp = {"status": "ok", "enabled": en, "is_running": True}
+                if en:
+                    resp = self.engine.enable_blocking()
+                else:
+                    resp = self.engine.disable_temporarily(0)
+
+            elif cmd == "disable_temp":
+                dur = int(req.get("duration", 0))
+                resp = self.engine.disable_temporarily(dur)
+
+            elif cmd == "enable":
+                resp = self.engine.enable_blocking()
+
+            elif cmd == "adlists":
+                resp = {"status": "ok", "adlists": get_adlists()}
+
+            elif cmd == "adlist_add":
+                url = req.get("url", "").strip()
+                name = req.get("name", "")
+                ok = add_adlist(url, name)
+                resp = {"status": "ok" if ok else "error"}
+
+            elif cmd == "adlist_remove":
+                url = req.get("url", "").strip()
+                ok = remove_adlist(url)
+                resp = {"status": "ok" if ok else "error"}
+
+            elif cmd == "adlist_toggle":
+                url = req.get("url", "").strip()
+                en = bool(req.get("enabled", True))
+                ok = toggle_adlist(url, en)
+                resp = {"status": "ok" if ok else "error"}
+
+            elif cmd == "localdns":
+                resp = {"status": "ok", "records": get_local_dns_records()}
+
+            elif cmd == "localdns_add":
+                dom = req.get("domain", "")
+                ip = req.get("ip", "")
+                ok = add_local_dns_record(dom, ip)
+                resp = {"status": "ok" if ok else "error"}
+
+            elif cmd == "localdns_remove":
+                dom = req.get("domain", "")
+                ok = remove_local_dns_record(dom)
+                resp = {"status": "ok" if ok else "error"}
+
+            elif cmd == "regex":
+                resp = {"status": "ok", "regex": get_regex_filters()}
+
+            elif cmd == "regex_add":
+                pattern = req.get("pattern", "")
+                kind = req.get("kind", "black")
+                comment = req.get("comment", "")
+                ok = add_regex_filter(pattern, kind, comment)
+                resp = {"status": "ok" if ok else "error"}
+
+            elif cmd == "regex_remove":
+                pattern = req.get("pattern", "")
+                kind = req.get("kind", "black")
+                ok = remove_regex_filter(pattern, kind)
+                resp = {"status": "ok" if ok else "error"}
+
             elif cmd == "reload":
                 self.engine._load_local_data()
                 resp = {"status": "ok", "domains": len(self.engine.blocked_domains)}
+
             else:
                 resp = {"status": "error", "message": "unknown command"}
+
             conn.sendall(json.dumps(resp).encode("utf-8") + b"\n")
         except Exception:
             pass
@@ -1083,7 +1693,6 @@ class AdblockDNSServer:
                 data, addr = sock.recvfrom(4096)
                 if not data:
                     continue
-                # Process DNS query
                 resp = self.engine.handle_dns_request(data, addr)
                 if resp:
                     sock.sendto(resp, addr)
@@ -1108,7 +1717,6 @@ class AdblockDNSServer:
 
     def _handle_tcp_client(self, client_sock: socket.socket, client_addr: Tuple[str, int]) -> None:
         try:
-            # Read 2-byte length prefix (RFC 7766)
             len_bytes = client_sock.recv(2)
             if len(len_bytes) < 2:
                 return
@@ -1144,13 +1752,11 @@ def get_adblock_server() -> AdblockDNSServer:
 
 
 def start_adblock_service() -> bool:
-    """Start the adblock DNS sinkhole daemon."""
     server = get_adblock_server()
     return server.start()
 
 
 def stop_adblock_service() -> None:
-    """Stop the adblock DNS sinkhole daemon."""
     server = get_adblock_server()
     server.stop()
 
@@ -1159,11 +1765,9 @@ def is_adblock_running() -> bool:
     server = get_adblock_server()
     if server.running:
         return True
-    # If called from CLI, check if port 53 is actively answering or systemd service is active
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.settimeout(0.15)
-            # DNS query for test
             s.sendto(b"\xaa\xbb\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x06google\x03com\x00\x00\x01\x00\x01", ("127.0.0.1", DNS_PORT))
             resp, _ = s.recvfrom(512)
             if resp:
@@ -1178,29 +1782,37 @@ def is_adblock_running() -> bool:
         return False
 
 
-def set_adblock_enabled(enabled: bool) -> Dict[str, Any]:
-    """Enable or disable adblocking."""
-    ipc_data = query_adblock_ipc("toggle", enabled=enabled)
+def set_adblock_enabled(enabled: bool, *args, **kwargs) -> Dict[str, Any]:
+    """Enable or disable adblocking (with backward-compatible signature)."""
+    if enabled:
+        return enable_adblock()
+    else:
+        return disable_adblock_temporarily(0)
+
+
+def disable_adblock_temporarily(duration: int = 0) -> Dict[str, Any]:
+    """Pause adblocking for duration seconds (0 = indefinite)."""
+    ipc_data = query_adblock_ipc("disable_temp", duration=duration)
     if ipc_data:
         return ipc_data
-
     engine = get_adblock_engine()
-    engine.config.enabled = enabled
-    engine.config.save()
+    return engine.disable_temporarily(duration)
 
-    if enabled:
-        if not is_adblock_running():
-            start_adblock_service()
 
-    return {
-        "status": "ok",
-        "enabled": engine.config.enabled,
-        "is_running": is_adblock_running(),
-    }
+def enable_adblock() -> Dict[str, Any]:
+    """Resume adblocking."""
+    ipc_data = query_adblock_ipc("enable")
+    if ipc_data:
+        return ipc_data
+    engine = get_adblock_engine()
+    res = engine.enable_blocking()
+    if not is_adblock_running():
+        start_adblock_service()
+    res["is_running"] = is_adblock_running()
+    return res
 
 
 def get_live_recent_queries(limit: int = 50) -> List[Dict[str, Any]]:
-    """Retrieve recent queries, querying live daemon via IPC if available."""
     ipc_data = query_adblock_ipc("querylog", limit=limit)
     if ipc_data and "queries" in ipc_data:
         return ipc_data["queries"]
@@ -1208,7 +1820,6 @@ def get_live_recent_queries(limit: int = 50) -> List[Dict[str, Any]]:
 
 
 def get_full_adblock_status() -> Dict[str, Any]:
-    """Compile comprehensive adblock status, metrics, and guide."""
     ipc_data = query_adblock_ipc("status")
     if ipc_data and "total_queries" in ipc_data:
         return ipc_data
@@ -1219,6 +1830,22 @@ def get_full_adblock_status() -> Dict[str, Any]:
     stats["guide"] = get_router_dhcp_guide()
     stats["update_status"] = get_gravity_update_status()
     return stats
+
+
+def get_charts_telemetry() -> Dict[str, Any]:
+    """Compile 24h timeline, query types, upstream destinations, and top clients."""
+    ipc_data = query_adblock_ipc("charts")
+    if ipc_data and "timeline" in ipc_data:
+        return ipc_data
+
+    engine = get_adblock_engine()
+    return {
+        "status": "ok",
+        "timeline": engine.get_timeline(),
+        "query_types": dict(engine.qtype_counts),
+        "upstreams": dict(engine.upstream_counts),
+        "clients": engine.get_top_clients(10),
+    }
 
 
 def run_daemon() -> int:

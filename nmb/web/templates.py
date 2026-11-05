@@ -2484,7 +2484,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
   <div id="tab-adblock" class="tab-content">
     <div class="app-box">
       <!-- Title & Actions Bar -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 14px;">
         <div>
           <div class="section-subtitle" style="margin: 0;" data-i18n="adblock_title">🛡️ DNS Ad-Blocker & Sinkhole (Pi-hole Engine)</div>
           <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;" data-i18n="adblock_desc">
@@ -2492,183 +2492,402 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-          <button id="btn-toggle-adblock" class="btn-primary" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="toggleAdblock()">
-            🛡️ Ad-Blocker: Active
-          </button>
+          <!-- Dropdown Toggle Menu for Pause / Disablement -->
+          <div style="position: relative; display: inline-block;">
+            <button id="btn-toggle-adblock" class="btn-primary" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); cursor: pointer;" onclick="toggleAdblockDisableMenu(event)">
+              🛡️ Ad-Blocker: Aktív ▾
+            </button>
+            <div id="adblock-disable-menu" style="display: none; position: absolute; top: calc(100% + 5px); right: 0; background: #0f172a; border: 1px solid #334155; border-radius: 8px; min-width: 220px; box-shadow: 0 10px 25px rgba(0,0,0,0.6); z-index: 100; overflow: hidden;">
+              <div style="padding: 8px 12px; font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #1e293b;">Szüneteltetés / Pause Blocking</div>
+              <a href="javascript:void(0)" onclick="pauseAdblock(30)" style="display: block; padding: 8px 14px; font-size: 12px; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">⏱️ 30 másodpercre (30s)</a>
+              <a href="javascript:void(0)" onclick="pauseAdblock(300)" style="display: block; padding: 8px 14px; font-size: 12px; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">⏱️ 5 percre (5 mins)</a>
+              <a href="javascript:void(0)" onclick="pauseAdblock(900)" style="display: block; padding: 8px 14px; font-size: 12px; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">⏱️ 15 percre (15 mins)</a>
+              <a href="javascript:void(0)" onclick="pauseAdblock(0)" style="display: block; padding: 8px 14px; font-size: 12px; color: #ef4444; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">🛑 Határozatlan időre (Indefinite)</a>
+              <a href="javascript:void(0)" onclick="resumeAdblock()" style="display: block; padding: 8px 14px; font-size: 12px; color: #34d399; text-decoration: none; font-weight: 700; background: rgba(16,185,129,0.08);">🟢 Bekapcsolás (Enable Now)</a>
+            </div>
+          </div>
+
+          <!-- Countdown timer badge when paused -->
+          <span id="adblock-pause-countdown" style="display: none; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 12px; padding: 5px 10px; border-radius: 6px; font-weight: 700; align-items: center; gap: 8px;">
+            <span>⏸️ Szüneteltetve: <b id="adblock-pause-timer-txt">00:00</b></span>
+            <button class="btn-primary" style="font-size: 10.5px; padding: 2px 8px; background: #10b981;" onclick="resumeAdblock()">Bekapcsolás</button>
+          </span>
+
           <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="updateGravity()" data-i18n="adblock_btn_update">
             🔄 Update Gravity
           </button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="toggleAdblockGuide()" data-i18n="adblock_btn_guide">
-            📖 Router DHCP Guide
-          </button>
         </div>
       </div>
 
-      <!-- Top Pi-hole Style Stat Metric Cards -->
-      <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px;">
-        <!-- Card 1: Blocked Today -->
-        <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #ef4444;">
-          <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_blocked">Blocked Today</div>
-          <div style="display: flex; align-items: baseline; gap: 10px; margin-top: 6px;">
-            <div id="adblock-stat-blocked" style="font-size: 26px; font-weight: 800; color: #f87171;">0</div>
-            <span id="adblock-stat-pct" class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 12px; padding: 2px 8px; border-radius: 4px; font-weight: 700;">0.0%</span>
+      <!-- Navigation Subtabs Bar -->
+      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+        <button id="btn-adblock-subtab-dash" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('dash')" data-i18n="adblock_subtab_dash">📊 Áttekintés & Statisztikák</button>
+        <button id="btn-adblock-subtab-log" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('log')" data-i18n="adblock_subtab_log">📋 Lekérdezési Napló</button>
+        <button id="btn-adblock-subtab-domains" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('domains')" data-i18n="adblock_subtab_domains">🛡️ Tartományok & RegEx</button>
+        <button id="btn-adblock-subtab-adlists" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('adlists')" data-i18n="adblock_subtab_adlists">🌐 Blokklisták (Gravity)</button>
+        <button id="btn-adblock-subtab-localdns" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('localdns')" data-i18n="adblock_subtab_localdns">🏠 Helyi DNS Rekordok</button>
+        <button id="btn-adblock-subtab-guide" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('guide')" data-i18n="adblock_subtab_guide">📖 Router Útmutató</button>
+      </div>
+
+      <!-- SUBTAB 1: OVERVIEW & TELEMETRY DASHBOARD -->
+      <div id="subtab-adblock-dash" class="adblock-subtab-pane">
+        <!-- Top Pi-hole Style Stat Metric Cards -->
+        <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px;">
+          <!-- Card 1: Blocked Today -->
+          <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #ef4444;">
+            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_blocked">Blocked Today</div>
+            <div style="display: flex; align-items: baseline; gap: 10px; margin-top: 6px;">
+              <div id="adblock-stat-blocked" style="font-size: 26px; font-weight: 800; color: #f87171;">0</div>
+              <span id="adblock-stat-pct" class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 12px; padding: 2px 8px; border-radius: 4px; font-weight: 700;">0.0%</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Total Queries -->
+          <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #38bdf8;">
+            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_queries">Queries Today</div>
+            <div id="adblock-stat-queries" style="font-size: 26px; font-weight: 800; color: #38bdf8; margin-top: 6px;">0</div>
+          </div>
+
+          <!-- Card 3: Domains on Blocklist (Gravity) -->
+          <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #10b981;">
+            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_gravity">Domains on Blocklist</div>
+            <div id="adblock-stat-gravity" style="font-size: 26px; font-weight: 800; color: #34d399; margin-top: 6px;">0</div>
+          </div>
+
+          <!-- Card 4: Upstream DNS -->
+          <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #a855f7;">
+            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_upstream">Upstream DNS</div>
+            <div id="adblock-stat-upstream" style="font-size: 15px; font-weight: 700; color: #c084fc; margin-top: 8px; word-break: break-all;">1.1.1.1, 9.9.9.9</div>
           </div>
         </div>
 
-        <!-- Card 2: Total Queries -->
-        <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #38bdf8;">
-          <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_queries">Queries Today</div>
-          <div id="adblock-stat-queries" style="font-size: 26px; font-weight: 800; color: #38bdf8; margin-top: 6px;">0</div>
+        <!-- 24-Hour Activity Time-Series SVG Chart -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 22px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-weight: 700; color: #f1f5f9; font-size: 13.5px;" data-i18n="adblock_chart_24h_title">24 Órás Lekérdezési Aktivitás (Összes vs. Blokkolt)</div>
+            <div style="display: flex; gap: 14px; font-size: 11.5px; align-items: center;">
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 12px; background: #10b981; border-radius: 2px;"></span> <span style="color: #cbd5e1;">Engedélyezett (Permitted)</span></span>
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 12px; background: #ef4444; border-radius: 2px;"></span> <span style="color: #cbd5e1;">Blokkolt (Blocked)</span></span>
+            </div>
+          </div>
+          <!-- SVG Timeline Box -->
+          <div id="adblock-timeline-chart-wrap" style="position: relative; width: 100%; height: 210px;">
+            <svg id="adblock-timeline-svg" style="width: 100%; height: 100%;" preserveAspectRatio="none" viewBox="0 0 800 200"></svg>
+            <div id="adblock-chart-tooltip" style="display: none; position: absolute; pointer-events: none; background: rgba(15, 23, 42, 0.95); border: 1px solid #38bdf8; border-radius: 6px; padding: 6px 10px; font-size: 11.5px; color: #fff; z-index: 50; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"></div>
+          </div>
         </div>
 
-        <!-- Card 3: Domains on Blocklist (Gravity) -->
-        <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #10b981;">
-          <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_gravity">Domains on Blocklist</div>
-          <div id="adblock-stat-gravity" style="font-size: 26px; font-weight: 800; color: #34d399; margin-top: 6px;">0</div>
+        <!-- Distribution Breakdown Row (2 Columns: Query Types & Upstream Destinations) -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-bottom: 22px;">
+          <!-- Query Types -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+            <div style="font-weight: 700; color: #38bdf8; font-size: 13px; margin-bottom: 12px;" data-i18n="adblock_qtypes_title">Lekérdezéstípusok Megoszlása</div>
+            <div id="adblock-qtypes-container" style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;">Lekérdezéstípusok betöltése...</div>
+            </div>
+          </div>
+
+          <!-- Upstream Destinations -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+            <div style="font-weight: 700; color: #a855f7; font-size: 13px; margin-bottom: 12px;" data-i18n="adblock_upstreams_title">Kiszolgálók Megoszlása</div>
+            <div id="adblock-upstreams-container" style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;">Kiszolgálók megoszlásának betöltése...</div>
+            </div>
+          </div>
         </div>
 
-        <!-- Card 4: Upstream DNS -->
-        <div class="metric-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #a855f7;">
-          <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="adblock_stat_upstream">Upstream DNS</div>
-          <div id="adblock-stat-upstream" style="font-size: 15px; font-weight: 700; color: #c084fc; margin-top: 8px; word-break: break-all;">1.1.1.1, 9.9.9.9</div>
+        <!-- Top Statistics Row (3 Columns: Top Blocked, Top Queried, Top Clients) -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin-bottom: 22px;">
+          <!-- Top Blocked Domains -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+            <div style="font-weight: 700; color: #f87171; font-size: 13px; margin-bottom: 10px;" data-i18n="adblock_top_blocked">Top Blocked Ad & Tracking Domains</div>
+            <div style="max-height: 220px; overflow-y: auto;">
+              <table class="data-table" style="margin: 0; width: 100%;">
+                <thead>
+                  <tr>
+                    <th style="font-size: 11px;">Tartomány</th>
+                    <th style="font-size: 11px; width: 55px; text-align: right;">Darab</th>
+                    <th style="font-size: 11px; width: 60px; text-align: center;">Művelet</th>
+                  </tr>
+                </thead>
+                <tbody id="adblock-top-blocked-tbody">
+                  <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek blokkolt kérések</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Top Queried Domains -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+            <div style="font-weight: 700; color: #38bdf8; font-size: 13px; margin-bottom: 10px;" data-i18n="adblock_top_queries">Top Permitted Domains</div>
+            <div style="max-height: 220px; overflow-y: auto;">
+              <table class="data-table" style="margin: 0; width: 100%;">
+                <thead>
+                  <tr>
+                    <th style="font-size: 11px;">Tartomány</th>
+                    <th style="font-size: 11px; width: 55px; text-align: right;">Darab</th>
+                    <th style="font-size: 11px; width: 60px; text-align: center;">Művelet</th>
+                  </tr>
+                </thead>
+                <tbody id="adblock-top-queried-tbody">
+                  <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek rögzített kérések</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Top Querying Clients -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+            <div style="font-weight: 700; color: #34d399; font-size: 13px; margin-bottom: 10px;" data-i18n="adblock_top_clients_title">Legaktívabb Helyi Kliensek</div>
+            <div style="max-height: 220px; overflow-y: auto;">
+              <table class="data-table" style="margin: 0; width: 100%;">
+                <thead>
+                  <tr>
+                    <th style="font-size: 11px;">Kliens</th>
+                    <th style="font-size: 11px; width: 55px; text-align: right;">Kérések</th>
+                    <th style="font-size: 11px; width: 50px; text-align: right;">Blokk%</th>
+                  </tr>
+                </thead>
+                <tbody id="adblock-top-clients-tbody">
+                  <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek kliensek rögzítve</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Dynamic Router DHCP Configuration Banner (Collapsible) -->
-      <div id="adblock-guide-box" style="display: none; background: rgba(2, 132, 199, 0.08); border: 1px solid #0284c7; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <div style="font-weight: 700; color: #38bdf8; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-            <span>📖</span> <span data-i18n="adblock_guide_title">Home Router DHCP DNS Configuration Guide</span>
-          </div>
-          <button class="btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="toggleAdblockGuide()">✕ Close</button>
-        </div>
-        <p style="font-size: 12.5px; color: #cbd5e1; margin-bottom: 12px;" data-i18n="adblock_guide_desc">
-          To block ads across all phones, PCs, tablets, and smart TVs on your home network, set your router's DHCP DNS server to this device's IP:
-        </p>
-        <div style="display: flex; align-items: center; gap: 10px; background: rgba(0, 0, 0, 0.3); padding: 10px 14px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 14px;">
-          <span style="font-size: 12px; color: var(--text-muted);">Primary DNS IP:</span>
-          <span id="adblock-guide-ip" style="font-size: 18px; font-weight: 800; color: #34d399; font-family: monospace;">192.168.1.100</span>
-          <button class="btn-secondary" style="font-size: 11px; padding: 3px 8px; margin-left: auto;" onclick="copyToClipboard(document.getElementById('adblock-guide-ip').innerText)" data-i18n="btn_copy">📋 Copy</button>
-        </div>
-        <div id="adblock-guide-steps" style="font-size: 12px; color: #94a3b8; line-height: 1.6;">
-          <div>1. Log into your home router's admin panel (e.g. http://192.168.1.1).</div>
-          <div>2. Navigate to LAN / DHCP Server / DNS settings.</div>
-          <div>3. Set Primary DNS Server to this box's IP address.</div>
-          <div>4. Save and reboot your router. All devices on your network will be protected automatically!</div>
-        </div>
-      </div>
-
-      <!-- Whitelist and Blacklist Management (2 Columns) -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-bottom: 22px;">
-        <!-- Whitelist Box -->
-        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-weight: 700; color: #34d399; font-size: 13.5px;" data-i18n="adblock_whitelist_title">✅ Whitelist (Always Allowed Domains)</div>
-            <span id="adblock-wl-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">0</span>
-          </div>
-          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <input type="text" id="adblock-wl-input" placeholder="e.g. example.com" style="flex: 1; padding: 6px 10px; font-size: 12.5px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockWhitelist()" data-i18n="adblock_btn_add">➕ Add</button>
-          </div>
-          <div style="max-height: 160px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
-            <table class="data-table" style="margin: 0; width: 100%;">
-              <tbody id="adblock-wl-tbody">
-                <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">No domains whitelisted</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Blacklist Box -->
-        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-weight: 700; color: #f87171; font-size: 13.5px;" data-i18n="adblock_blacklist_title">⛔ Blacklist (Custom Blocked Domains)</div>
-            <span id="adblock-bl-badge" class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">0</span>
-          </div>
-          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <input type="text" id="adblock-bl-input" placeholder="e.g. adserver.bad.com" style="flex: 1; padding: 6px 10px; font-size: 12.5px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockBlacklist()" data-i18n="adblock_btn_add">➕ Add</button>
-          </div>
-          <div style="max-height: 160px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
-            <table class="data-table" style="margin: 0; width: 100%;">
-              <tbody id="adblock-bl-tbody">
-                <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">No custom blacklisted domains</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Top Blocked & Top Queried Domains (2 Columns) -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-bottom: 22px;">
-        <!-- Top Blocked Domains -->
-        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
-          <div style="font-weight: 700; color: #f87171; font-size: 13px; margin-bottom: 10px;" data-i18n="adblock_top_blocked">Top Blocked Ad & Tracking Domains</div>
-          <div style="max-height: 190px; overflow-y: auto;">
-            <table class="data-table" style="margin: 0; width: 100%;">
-              <thead>
-                <tr>
-                  <th style="font-size: 11.5px;">Domain</th>
-                  <th style="font-size: 11.5px; width: 80px; text-align: right;">Count</th>
-                </tr>
-              </thead>
-              <tbody id="adblock-top-blocked-tbody">
-                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-size: 12px;">No blocked queries yet</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Top Queried Domains -->
-        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
-          <div style="font-weight: 700; color: #38bdf8; font-size: 13px; margin-bottom: 10px;" data-i18n="adblock_top_queries">Top Queried Domains</div>
-          <div style="max-height: 190px; overflow-y: auto;">
-            <table class="data-table" style="margin: 0; width: 100%;">
-              <thead>
-                <tr>
-                  <th style="font-size: 11.5px;">Domain</th>
-                  <th style="font-size: 11.5px; width: 80px; text-align: right;">Count</th>
-                </tr>
-              </thead>
-              <tbody id="adblock-top-queried-tbody">
-                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-size: 12px;">No queries recorded yet</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Live DNS Query Stream Table -->
-      <div style="margin-top: 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-          <div>
-            <div style="font-weight: 700; color: #fff; font-size: 13.5px;" data-i18n="adblock_querylog_title">Live DNS Query Stream</div>
-            <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;" data-i18n="adblock_querylog_desc">Real-time log of DNS queries processed from local devices.</p>
+      <!-- SUBTAB 2: LIVE QUERY LOG -->
+      <div id="subtab-adblock-log" class="adblock-subtab-pane" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <button id="btn-adblock-filter-all" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="setAdblockLogFilter('all')">Összes</button>
+            <button id="btn-adblock-filter-blocked" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #f87171;" onclick="setAdblockLogFilter('BLOCKED')">🛑 Blokkolt</button>
+            <button id="btn-adblock-filter-allowed" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #34d399;" onclick="setAdblockLogFilter('ALLOWED')">🟢 Engedélyezett</button>
+            <button id="btn-adblock-filter-cached" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #38bdf8;" onclick="setAdblockLogFilter('CACHED')">⚡ Gyorsítótár</button>
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="adblock-log-filter" placeholder="Filter domain or client..." onkeyup="filterAdblockLog()" style="padding: 5px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff; width: 190px;">
-            <button class="btn-secondary" style="font-size: 11px; padding: 5px 10px;" onclick="loadAdblockQueryLog()">🔄 Refresh</button>
+            <input type="text" id="adblock-log-filter" placeholder="Keresés: tartomány vagy IP..." onkeyup="filterAdblockLog()" style="padding: 6px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff; width: 220px;">
+            <button class="btn-secondary" style="font-size: 11.5px; padding: 6px 12px;" onclick="loadAdblockQueryLog()">🔄 Frissítés</button>
           </div>
         </div>
 
-        <div style="overflow-x: auto; max-height: 380px; border: 1px solid #1e293b; border-radius: 8px;">
+        <div style="overflow-x: auto; max-height: 520px; border: 1px solid #1e293b; border-radius: 8px;">
           <table class="data-table" style="margin: 0; width: 100%;">
             <thead>
               <tr>
-                <th style="font-size: 11.5px; width: 85px;" data-i18n="adblock_col_time">Time</th>
-                <th style="font-size: 11.5px; width: 130px;" data-i18n="adblock_col_client">Client IP</th>
-                <th style="font-size: 11.5px; width: 65px;" data-i18n="adblock_col_type">Type</th>
-                <th style="font-size: 11.5px; width: 110px;" data-i18n="adblock_col_status">Status</th>
-                <th style="font-size: 11.5px; width: 80px;" data-i18n="adblock_col_duration">Latency</th>
-                <th style="font-size: 11.5px;" data-i18n="adblock_col_domain">Domain</th>
+                <th style="font-size: 11.5px; width: 75px;" data-i18n="adblock_col_time">Idő</th>
+                <th style="font-size: 11.5px; width: 140px;" data-i18n="adblock_col_client">Kliens</th>
+                <th style="font-size: 11.5px; width: 60px;" data-i18n="adblock_col_type">Típus</th>
+                <th style="font-size: 11.5px; width: 120px;" data-i18n="adblock_col_status">Állapot</th>
+                <th style="font-size: 11.5px; width: 70px;" data-i18n="adblock_col_duration">Válaszidő</th>
+                <th style="font-size: 11.5px;" data-i18n="adblock_col_domain">Lekért Tartomány</th>
+                <th style="font-size: 11.5px; width: 130px; text-align: center;">Művelet</th>
               </tr>
             </thead>
             <tbody id="adblock-querylog-tbody">
-              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-size: 12px;">Loading recent DNS queries...</td></tr>
+              <tr><td colspan="7" style="text-align: center; color: var(--text-muted); font-size: 12px;">DNS lekérdezések betöltése...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
+
+      <!-- SUBTAB 3: DOMAINS & REGEX MANAGEMENT -->
+      <div id="subtab-adblock-domains" class="adblock-subtab-pane" style="display: none;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px;">
+          <!-- 1. Whitelist Box -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div style="font-weight: 700; color: #34d399; font-size: 13.5px;" data-i18n="adblock_whitelist_title">✅ Fehérlista (Mindig Engedélyezett Címek)</div>
+              <span id="adblock-wl-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">0</span>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+              <input type="text" id="adblock-wl-input" placeholder="pl. pelda.hu" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+              <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockWhitelist()">➕ Hozzáadás</button>
+            </div>
+            <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
+              <table class="data-table" style="margin: 0; width: 100%;">
+                <tbody id="adblock-wl-tbody">
+                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek fehérlistás címek</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 2. Blacklist Box -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div style="font-weight: 700; color: #f87171; font-size: 13.5px;" data-i18n="adblock_blacklist_title">⛔ Feketelista (Egyéni Blokkolt Címek)</div>
+              <span id="adblock-bl-badge" class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">0</span>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+              <input type="text" id="adblock-bl-input" placeholder="pl. tracker.rossz.hu" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+              <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockBlacklist()">➕ Hozzáadás</button>
+            </div>
+            <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
+              <table class="data-table" style="margin: 0; width: 100%;">
+                <tbody id="adblock-bl-tbody">
+                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek feketelistás címek</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 3. RegEx Whitelist Box -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div style="font-weight: 700; color: #34d399; font-size: 13.5px;">✅ RegEx Fehérlista (Engedélyezett Minták)</div>
+              <span id="adblock-regex-wl-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">0</span>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+              <input type="text" id="adblock-regex-wl-input" placeholder="pl. .*\\.biztonsagos\\.hu$" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+              <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockRegexFilter('white')">➕ RegEx</button>
+            </div>
+            <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
+              <table class="data-table" style="margin: 0; width: 100%;">
+                <tbody id="adblock-regex-wl-tbody">
+                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek RegEx fehérlista szabályok</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 4. RegEx Blacklist Box -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div style="font-weight: 700; color: #f87171; font-size: 13.5px;">⛔ RegEx Feketelista (Tiltott Minták)</div>
+              <span id="adblock-regex-bl-badge" class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">0</span>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+              <input type="text" id="adblock-regex-bl-input" placeholder="pl. ^telemetry\\..*" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+              <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockRegexFilter('black')">➕ RegEx</button>
+            </div>
+            <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
+              <table class="data-table" style="margin: 0; width: 100%;">
+                <tbody id="adblock-regex-bl-tbody">
+                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek RegEx feketelista szabályok</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 4: ADLISTS & GRAVITY SOURCES -->
+      <div id="subtab-adblock-adlists" class="adblock-subtab-pane" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="font-weight: 700; color: #38bdf8; font-size: 14px;" data-i18n="adblock_adlists_title">Blokklista Források Kezelése (Gravity)</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;" data-i18n="adblock_adlists_desc">
+              Kapcsolj be vagy adj hozzá új külső blokklistákat (StevenBlack, AdAway, Peter Lowe stb.).
+            </p>
+          </div>
+          <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #0284c7;" onclick="updateGravity()">
+            🔄 Gravity Blokklista Letöltése és Frissítése Most
+          </button>
+        </div>
+
+        <!-- Add Adlist Form -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
+          <div style="font-size: 12.5px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px;">➕ Új Blokklista Forrás Hozzáadása</div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="text" id="adblock-adlist-url-input" placeholder="https://example.com/hosts.txt" style="flex: 2; min-width: 250px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <input type="text" id="adblock-adlist-name-input" placeholder="Megnevezés (pl. OISD Full)" style="flex: 1; min-width: 150px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <button class="btn-primary" style="font-size: 12px; padding: 7px 16px;" onclick="addAdblockAdlistSource()">➕ Hozzáadás</button>
+          </div>
+        </div>
+
+        <!-- Adlists Table -->
+        <div style="overflow-x: auto; border: 1px solid #1e293b; border-radius: 8px; margin-bottom: 20px;">
+          <table class="data-table" style="margin: 0; width: 100%;">
+            <thead>
+              <tr>
+                <th style="font-size: 11.5px; width: 65px; text-align: center;">Aktív</th>
+                <th style="font-size: 11.5px;">Forrás Megnevezése & URL</th>
+                <th style="font-size: 11.5px; width: 110px; text-align: right;">Címek Száma</th>
+                <th style="font-size: 11.5px; width: 140px;">Utolsó Frissítés</th>
+                <th style="font-size: 11.5px; width: 70px; text-align: center;">Törlés</th>
+              </tr>
+            </thead>
+            <tbody id="adblock-adlists-tbody">
+              <tr><td colspan="5" style="text-align: center; color: var(--text-muted); font-size: 12px;">Blokklisták betöltése...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Gravity Sync Log Console -->
+        <div style="background: rgba(0,0,0,0.4); border: 1px solid #1e293b; border-radius: 8px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">📋 Gravity Letöltési & Fordítási Napló</span>
+            <span id="adblock-gravity-status-badge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 11px;">Kész</span>
+          </div>
+          <pre id="adblock-gravity-log" style="margin: 0; max-height: 140px; overflow-y: auto; font-family: monospace; font-size: 11.5px; color: #94a3b8; white-space: pre-wrap; line-height: 1.5;">Kattints a fenti "Gravity Frissítése" gombra a legfrissebb blokklisták letöltéséhez.</pre>
+        </div>
+      </div>
+
+      <!-- SUBTAB 5: LOCAL DNS RECORDS (PI-HOLE CUSTOM.LIST) -->
+      <div id="subtab-adblock-localdns" class="adblock-subtab-pane" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="font-weight: 700; color: #34d399; font-size: 14px;" data-i18n="adblock_localdns_title">Helyi DNS Rekordok (custom.list)</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;" data-i18n="adblock_localdns_desc">
+              Rendelj barátságos helyi tartományneveket (pl. box.lan, nas.local) a helyi IP címekhez külső DNS kérések nélkül.
+            </p>
+          </div>
+        </div>
+
+        <!-- Add Local DNS Form -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
+          <div style="font-size: 12.5px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px;">➕ Új Helyi DNS Rekord Mentése</div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="text" id="adblock-localdns-domain-input" placeholder="Helyi tartománynév (pl. box.lan vagy nas.otthon)" style="flex: 2; min-width: 220px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <input type="text" id="adblock-localdns-ip-input" placeholder="Helyi IP cím (pl. 192.168.1.100)" style="flex: 1.5; min-width: 180px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #059669;" onclick="addAdblockLocalDnsRecord()">➕ Rekord Mentése</button>
+          </div>
+        </div>
+
+        <!-- Local DNS Records Table -->
+        <div style="overflow-x: auto; border: 1px solid #1e293b; border-radius: 8px;">
+          <table class="data-table" style="margin: 0; width: 100%;">
+            <thead>
+              <tr>
+                <th style="font-size: 11.5px;">Helyi Tartománynév (LAN Hostname)</th>
+                <th style="font-size: 11.5px; width: 180px;">Cél IP Cím</th>
+                <th style="font-size: 11.5px; width: 80px; text-align: center;">Típus</th>
+                <th style="font-size: 11.5px; width: 70px; text-align: center;">Törlés</th>
+              </tr>
+            </thead>
+            <tbody id="adblock-localdns-tbody">
+              <tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-size: 12px;">Helyi DNS rekordok betöltése...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SUBTAB 6: ROUTER DHCP SETUP GUIDE -->
+      <div id="subtab-adblock-guide" class="adblock-subtab-pane" style="display: none;">
+        <div style="background: rgba(2, 132, 199, 0.08); border: 1px solid #0284c7; border-radius: 8px; padding: 18px 22px;">
+          <div style="font-weight: 700; color: #38bdf8; font-size: 14.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+            <span>📖</span> <span data-i18n="adblock_guide_title">Otthoni Router DHCP DNS Beállítása</span>
+          </div>
+          <p style="font-size: 12.5px; color: #cbd5e1; margin-bottom: 14px;" data-i18n="adblock_guide_desc">
+            A reklámok blokkolásához a teljes helyi hálózaton (mobilok, okostévék, PC-k) állítsd be a router DHCP DNS szerverét a mérőbox IP címére:
+          </p>
+          <div style="display: flex; align-items: center; gap: 10px; background: rgba(0, 0, 0, 0.3); padding: 12px 16px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
+            <span style="font-size: 12px; color: var(--text-muted);">Elsődleges DNS (Primary DNS IP):</span>
+            <span id="adblock-guide-ip" style="font-size: 20px; font-weight: 800; color: #34d399; font-family: monospace;">192.168.1.100</span>
+            <button class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px; margin-left: auto;" onclick="copyToClipboard(document.getElementById('adblock-guide-ip').innerText)" data-i18n="btn_copy">📋 Másolás</button>
+          </div>
+          <div id="adblock-guide-steps" style="font-size: 12.5px; color: #94a3b8; line-height: 1.7;">
+            <div>1. Lépj be a meglévő routered admin felületére (általában a böngészőben: http://192.168.1.1).</div>
+            <div>2. Keresd meg a LAN / DHCP Szerver / DNS beállítások menüpontot.</div>
+            <div>3. Az Elsődleges DNS szerver (Primary DNS) mezőben add meg a mérőbox fenti IP címét.</div>
+            <div>4. A Másodlagos DNS (Secondary DNS) mezőt hagyd üresen, hogy a hálózat mindig a mérőboxot használja.</div>
+            <div>5. Mentsd el a beállítást. A router ezután automatikusan kiküldi ezt az összes csatlakozó eszköznek!</div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -6372,6 +6591,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
     if (tabId === 'tab-adblock') {
       loadAdblockStatus();
+      loadAdblockCharts();
       loadAdblockQueryLog();
       startAdblockPolling();
     } else {
@@ -6719,8 +6939,98 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
   // DNS Ad-Blocker & Sinkhole (Pi-hole Engine)
   // =========================================================================
   let adblockPollTimer = null;
+  let adblockCountdownInterval = null;
   let cachedAdblockStatus = null;
+  let cachedAdblockCharts = null;
   let cachedAdblockLogs = [];
+  let currentAdblockSubtab = 'dash';
+  let activeAdblockLogStatusFilter = 'all';
+
+  function switchAdblockSubtab(subtabId) {
+    currentAdblockSubtab = subtabId;
+    const subtabs = ['dash', 'log', 'domains', 'adlists', 'localdns', 'guide'];
+    subtabs.forEach(id => {
+      const pane = document.getElementById('subtab-adblock-' + id);
+      const btn = document.getElementById('btn-adblock-subtab-' + id);
+      if (pane) pane.style.display = (id === subtabId) ? 'block' : 'none';
+      if (btn) {
+        if (id === subtabId) {
+          btn.className = 'btn-primary';
+        } else {
+          btn.className = 'btn-secondary';
+        }
+      }
+    });
+
+    if (subtabId === 'dash') {
+      loadAdblockStatus();
+      loadAdblockCharts();
+    } else if (subtabId === 'log') {
+      loadAdblockQueryLog();
+    } else if (subtabId === 'domains') {
+      loadAdblockDomains();
+    } else if (subtabId === 'adlists') {
+      loadAdblockAdlists();
+    } else if (subtabId === 'localdns') {
+      loadAdblockLocalDns();
+    }
+  }
+
+  function toggleAdblockDisableMenu(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('adblock-disable-menu');
+    if (!menu) return;
+    menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'block' : 'none';
+  }
+
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('adblock-disable-menu');
+    const btn = document.getElementById('btn-toggle-adblock');
+    if (menu && menu.style.display === 'block') {
+      if (btn && btn.contains(e.target)) return;
+      if (!menu.contains(e.target)) {
+        menu.style.display = 'none';
+      }
+    }
+  });
+
+  async function pauseAdblock(seconds) {
+    const menu = document.getElementById('adblock-disable-menu');
+    if (menu) menu.style.display = 'none';
+
+    try {
+      showToast(seconds > 0 ? `Adblock szüneteltetése ${seconds} másodpercre...` : 'Adblock kikapcsolása...');
+      const res = await fetch('/api/adblock/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: seconds })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(seconds > 0 ? `Adblock szüneteltetve (${seconds}s)` : 'Adblock szüneteltetve');
+        loadAdblockStatus();
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  async function resumeAdblock() {
+    const menu = document.getElementById('adblock-disable-menu');
+    if (menu) menu.style.display = 'none';
+
+    try {
+      showToast('Adblock bekapcsolása...');
+      const res = await fetch('/api/adblock/enable', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Adblock aktív! Reklámok szűrése működik.');
+        loadAdblockStatus();
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
 
   async function loadAdblockStatus() {
     try {
@@ -6737,19 +7047,54 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
   function renderAdblockStatus(data) {
     if (!data) return;
 
-    // Toggle button & status
+    // Toggle button & pause countdown
     const toggleBtn = document.getElementById('btn-toggle-adblock');
-    if (toggleBtn) {
-      if (data.enabled) {
-        toggleBtn.innerHTML = '🛡️ Ad-Blocker: Active';
+    const pauseBadge = document.getElementById('adblock-pause-countdown');
+    const timerTxt = document.getElementById('adblock-pause-timer-txt');
+
+    if (data.enabled) {
+      if (toggleBtn) {
+        toggleBtn.innerHTML = '🛡️ Ad-Blocker: Aktív ▾';
         toggleBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-      } else {
-        toggleBtn.innerHTML = '⏸️ Ad-Blocker: Paused';
+      }
+      if (pauseBadge) pauseBadge.style.display = 'none';
+      if (adblockCountdownInterval) {
+        clearInterval(adblockCountdownInterval);
+        adblockCountdownInterval = null;
+      }
+    } else {
+      if (toggleBtn) {
+        toggleBtn.innerHTML = '⏸️ Ad-Blocker: Szünetel ▾';
         toggleBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)';
+      }
+      if (data.disabled_seconds_left && data.disabled_seconds_left > 0) {
+        if (pauseBadge) pauseBadge.style.display = 'inline-flex';
+        let leftSec = data.disabled_seconds_left;
+        const fmtTimer = (s) => {
+          const m = Math.floor(s / 60);
+          const sec = s % 60;
+          return (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+        };
+        if (timerTxt) timerTxt.innerText = fmtTimer(leftSec);
+
+        if (!adblockCountdownInterval) {
+          adblockCountdownInterval = setInterval(() => {
+            leftSec--;
+            if (leftSec <= 0) {
+              clearInterval(adblockCountdownInterval);
+              adblockCountdownInterval = null;
+              loadAdblockStatus();
+            } else {
+              if (timerTxt) timerTxt.innerText = fmtTimer(leftSec);
+            }
+          }, 1000);
+        }
+      } else {
+        if (pauseBadge) pauseBadge.style.display = 'none';
       }
     }
 
-    // Stat Cards
+    // Metric cards
     const blkToday = document.getElementById('adblock-stat-blocked');
     const blkPct = document.getElementById('adblock-stat-pct');
     const totalQ = document.getElementById('adblock-stat-queries');
@@ -6762,61 +7107,449 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (gravCount) gravCount.innerText = (data.domains_in_blocklist || 0).toLocaleString();
     if (upstreams && data.upstreams) upstreams.innerText = data.upstreams.join(', ');
 
-    // Guide Box IP
+    // Guide box IP
     const guideIp = document.getElementById('adblock-guide-ip');
     if (guideIp && data.guide && data.guide.box_ip) {
       guideIp.innerText = data.guide.box_ip;
     }
 
-    // Whitelist count badge
+    // Whitelist and blacklist badges
     const wlBadge = document.getElementById('adblock-wl-badge');
     if (wlBadge) wlBadge.innerText = data.whitelist_count || 0;
-
-    // Blacklist count badge
     const blBadge = document.getElementById('adblock-bl-badge');
     if (blBadge) blBadge.innerText = data.blacklist_count || 0;
+    const rwlBadge = document.getElementById('adblock-regex-wl-badge');
+    if (rwlBadge) rwlBadge.innerText = data.regex_whitelist_count || 0;
+    const rblBadge = document.getElementById('adblock-regex-bl-badge');
+    if (rblBadge) rblBadge.innerText = data.regex_blacklist_count || 0;
 
     // Top Blocked Domains Table
     const topBlockedTbody = document.getElementById('adblock-top-blocked-tbody');
     if (topBlockedTbody) {
       const topB = data.top_blocked_domains || [];
       if (topB.length === 0) {
-        topBlockedTbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-size: 12px;">No blocked queries yet</td></tr>';
+        topBlockedTbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek blokkolt kérések</td></tr>';
       } else {
         topBlockedTbody.innerHTML = topB.map(item => `
           <tr>
-            <td style="font-size: 12px; font-weight: 600; color: #f87171; word-break: break-all;">${escapeHtml(item.domain)}</td>
-            <td style="font-size: 12px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
+            <td style="font-size: 11.5px; font-weight: 600; color: #f87171; word-break: break-all;">${escapeHtml(item.domain)}</td>
+            <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
+            <td style="text-align: center;">
+              <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #34d399;" title="Engedélyezés (Whitelist)" onclick="quickWhitelist('${escapeHtml(item.domain)}')">✅ Fehér</button>
+            </td>
           </tr>
         `).join('');
       }
     }
 
-    // Top Queried Domains Table
+    // Top Queried Permitted Domains Table
     const topQueriedTbody = document.getElementById('adblock-top-queried-tbody');
     if (topQueriedTbody) {
       const topQ = data.top_queried_domains || [];
       if (topQ.length === 0) {
-        topQueriedTbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-size: 12px;">No queries recorded yet</td></tr>';
+        topQueriedTbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek rögzített kérések</td></tr>';
       } else {
         topQueriedTbody.innerHTML = topQ.map(item => `
           <tr>
-            <td style="font-size: 12px; font-weight: 600; color: #38bdf8; word-break: break-all;">${escapeHtml(item.domain)}</td>
-            <td style="font-size: 12px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
+            <td style="font-size: 11.5px; font-weight: 600; color: #38bdf8; word-break: break-all;">${escapeHtml(item.domain)}</td>
+            <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
+            <td style="text-align: center;">
+              <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #f87171;" title="Tiltás (Blacklist)" onclick="quickBlacklist('${escapeHtml(item.domain)}')">⛔ Tilt</button>
+            </td>
           </tr>
         `).join('');
       }
     }
 
-    // Load whitelist & blacklist entries
-    loadAdblockLists();
+    // Top Clients Table
+    const topClientsTbody = document.getElementById('adblock-top-clients-tbody');
+    if (topClientsTbody) {
+      const topC = data.top_clients || [];
+      if (topC.length === 0) {
+        topClientsTbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek kliensek rögzítve</td></tr>';
+      } else {
+        topClientsTbody.innerHTML = topC.map(item => `
+          <tr>
+            <td style="font-size: 11px;">
+              <div style="font-weight: 700; color: #f1f5f9; cursor: pointer;" onclick="filterLogByClient('${escapeHtml(item.ip)}')">${escapeHtml(item.ip)}</div>
+              <div style="font-size: 10px; color: #94a3b8;">${escapeHtml(item.hostname || item.ip)}</div>
+            </td>
+            <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.total.toLocaleString()}</td>
+            <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: ${item.blocked > 0 ? '#f87171' : '#64748b'};">${item.blocked_pct}%</td>
+          </tr>
+        `).join('');
+      }
+    }
   }
 
-  async function loadAdblockLists() {
+  async function loadAdblockCharts() {
     try {
-      const [wlRes, blRes] = await Promise.all([
+      const res = await fetch('/api/adblock/charts');
+      if (!res.ok) return;
+      const data = await res.json();
+      cachedAdblockCharts = data;
+      renderAdblockTimeline(data.timeline || []);
+      renderQueryTypes(data.query_types || {});
+      renderUpstreamDestinations(data.upstreams || {});
+    } catch (e) {
+      console.error('Failed to load adblock charts:', e);
+    }
+  }
+
+  // Pure SVG Interactive 24-Hour Timeline Chart
+  function renderAdblockTimeline(timeline) {
+    const svg = document.getElementById('adblock-timeline-svg');
+    if (!svg) return;
+
+    if (!timeline || timeline.length === 0) {
+      svg.innerHTML = '<text x="400" y="100" fill="#64748b" text-anchor="middle" font-size="13">Nincsenek adatok a grafikonhoz</text>';
+      return;
+    }
+
+    // Aggregate into 48 intervals (30 mins each) for clean display
+    const aggregated = [];
+    const step = Math.max(1, Math.floor(timeline.length / 48));
+    for (let i = 0; i < timeline.length; i += step) {
+      const chunk = timeline.slice(i, i + step);
+      let tot = 0, blk = 0;
+      chunk.forEach(c => { tot += (c.total || 0); blk += (c.blocked || 0); });
+      aggregated.push({
+        time_str: chunk[chunk.length - 1].time_str,
+        total: tot,
+        blocked: blk,
+        allowed: Math.max(0, tot - blk)
+      });
+    }
+
+    let maxVal = 10;
+    aggregated.forEach(p => {
+      if (p.total > maxVal) maxVal = p.total;
+    });
+    // Add 15% headroom
+    maxVal = Math.ceil(maxVal * 1.15);
+
+    const W = 800;
+    const H = 200;
+    const padL = 40;
+    const padR = 20;
+    const padT = 15;
+    const padB = 30;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+
+    let svgHtml = '';
+
+    // Grid lines
+    const gridSteps = 4;
+    for (let g = 0; g <= gridSteps; g++) {
+      const yVal = Math.round((maxVal / gridSteps) * g);
+      const yPos = padT + chartH - (g / gridSteps) * chartH;
+      svgHtml += `<line x1="${padL}" y1="${yPos}" x2="${W - padR}" y2="${yPos}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" />`;
+      svgHtml += `<text x="${padL - 8}" y="${yPos + 4}" fill="#64748b" font-size="10" text-anchor="end" font-family="monospace">${yVal}</text>`;
+    }
+
+    const n = aggregated.length;
+    const colW = (chartW / n) * 0.75;
+    const gap = (chartW / n) * 0.25;
+
+    aggregated.forEach((p, idx) => {
+      const x = padL + idx * (colW + gap);
+      const totH = (p.total / maxVal) * chartH;
+      const blkH = (p.blocked / maxVal) * chartH;
+      const allowH = totH - blkH;
+
+      const yAllowed = padT + chartH - allowH;
+      const yBlocked = yAllowed - blkH;
+
+      // Base allowed bar (teal)
+      if (allowH > 0) {
+        svgHtml += `<rect x="${x}" y="${yAllowed}" width="${colW}" height="${allowH}" fill="#10b981" rx="1.5" />`;
+      }
+      // Stacked blocked bar (red)
+      if (blkH > 0) {
+        svgHtml += `<rect x="${x}" y="${yBlocked}" width="${colW}" height="${blkH}" fill="#ef4444" rx="1.5" />`;
+      }
+
+      // Transparent hit-target for hover tooltips
+      const pct = p.total > 0 ? ((p.blocked / p.total) * 100).toFixed(1) + '%' : '0.0%';
+      svgHtml += `<rect x="${x - gap/2}" y="${padT}" width="${colW + gap}" height="${chartH}" fill="transparent" style="cursor: pointer;"
+        onmousemove="showChartTooltip(event, '${escapeHtml(p.time_str)}', ${p.total}, ${p.blocked}, '${pct}')"
+        onmouseleave="hideChartTooltip()" />`;
+
+      // X-axis time labels every 8 bars (~4 hours)
+      if (idx % 8 === 0 || idx === n - 1) {
+        svgHtml += `<text x="${x + colW / 2}" y="${H - 10}" fill="#94a3b8" font-size="10" text-anchor="middle" font-family="monospace">${p.time_str}</text>`;
+      }
+    });
+
+    svg.innerHTML = svgHtml;
+  }
+
+  function showChartTooltip(event, timeStr, total, blocked, pct) {
+    const tooltip = document.getElementById('adblock-chart-tooltip');
+    const wrap = document.getElementById('adblock-timeline-chart-wrap');
+    if (!tooltip || !wrap) return;
+
+    const rect = wrap.getBoundingClientRect();
+    const x = event.clientX - rect.left + 15;
+    const y = event.clientY - rect.top - 20;
+
+    tooltip.style.left = Math.min(x, rect.width - 150) + 'px';
+    tooltip.style.top = Math.max(10, y) + 'px';
+    tooltip.innerHTML = `
+      <div style="font-weight: 700; color: #38bdf8; margin-bottom: 2px;">🕒 ${timeStr}</div>
+      <div>Összes kérés: <b>${total}</b></div>
+      <div style="color: #f87171;">Blokkolt: <b>${blocked}</b> (${pct})</div>
+    `;
+    tooltip.style.display = 'block';
+  }
+
+  function hideChartTooltip() {
+    const tooltip = document.getElementById('adblock-chart-tooltip');
+    if (tooltip) tooltip.style.display = 'none';
+  }
+
+  function renderQueryTypes(qtypes) {
+    const container = document.getElementById('adblock-qtypes-container');
+    if (!container) return;
+
+    let total = 0;
+    Object.values(qtypes).forEach(v => { total += v; });
+
+    const keys = ['A', 'AAAA', 'HTTPS', 'PTR', 'TXT', 'SRV'];
+    const colors = {
+      'A': '#38bdf8',
+      'AAAA': '#a855f7',
+      'HTTPS': '#10b981',
+      'PTR': '#f59e0b',
+      'TXT': '#64748b',
+      'SRV': '#ec4899'
+    };
+
+    let html = '';
+    keys.forEach(k => {
+      const cnt = qtypes[k] || 0;
+      const pct = total > 0 ? ((cnt / total) * 100).toFixed(1) : '0.0';
+      const col = colors[k] || '#94a3b8';
+
+      html += `
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 4px;">
+            <span style="font-weight: 700; color: ${col}; font-family: monospace;">${k}</span>
+            <span style="color: #cbd5e1; font-family: monospace;">${cnt.toLocaleString()} (${pct}%)</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.06); height: 6px; border-radius: 3px; overflow: hidden;">
+            <div style="background: ${col}; width: ${pct}%; height: 100%; border-radius: 3px; transition: width 0.3s ease;"></div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  }
+
+  function renderUpstreamDestinations(upstreams) {
+    const container = document.getElementById('adblock-upstreams-container');
+    if (!container) return;
+
+    let total = 0;
+    Object.values(upstreams).forEach(v => { total += v; });
+
+    const friendlyNames = {
+      'cache': '⚡ Helyi Gyorsítótár (Cache)',
+      'blocked': '🛑 Sinkhole (Blokkolva)',
+      'local_dns': '🏠 Helyi DNS (custom.list)',
+      '1.1.1.1': '🌐 Cloudflare (1.1.1.1)',
+      '1.0.0.1': '🌐 Cloudflare Sec (1.0.0.1)',
+      '9.9.9.9': '🛡️ Quad9 DNS (9.9.9.9)',
+      '149.112.112.112': '🛡️ Quad9 Sec',
+      '8.8.8.8': '🌐 Google DNS (8.8.8.8)'
+    };
+
+    const colors = {
+      'cache': '#38bdf8',
+      'blocked': '#ef4444',
+      'local_dns': '#34d399',
+      '1.1.1.1': '#f59e0b',
+      '1.0.0.1': '#fbbf24',
+      '9.9.9.9': '#a855f7',
+      '149.112.112.112': '#c084fc',
+      '8.8.8.8': '#60a5fa'
+    };
+
+    let html = '';
+    const sortedKeys = Object.keys(upstreams).sort((a, b) => upstreams[b] - upstreams[a]);
+    if (sortedKeys.length === 0) {
+      container.innerHTML = '<div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;">Nincsenek még kiszolgált kérések</div>';
+      return;
+    }
+
+    sortedKeys.forEach(k => {
+      const cnt = upstreams[k] || 0;
+      const pct = total > 0 ? ((cnt / total) * 100).toFixed(1) : '0.0';
+      const name = friendlyNames[k] || k;
+      const col = colors[k] || '#94a3b8';
+
+      html += `
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 4px;">
+            <span style="font-weight: 600; color: #f1f5f9;">${escapeHtml(name)}</span>
+            <span style="color: #cbd5e1; font-family: monospace;">${cnt.toLocaleString()} (${pct}%)</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.06); height: 6px; border-radius: 3px; overflow: hidden;">
+            <div style="background: ${col}; width: ${pct}%; height: 100%; border-radius: 3px; transition: width 0.3s ease;"></div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  }
+
+  function setAdblockLogFilter(status) {
+    activeAdblockLogStatusFilter = status;
+    const btns = {
+      'all': document.getElementById('btn-adblock-filter-all'),
+      'BLOCKED': document.getElementById('btn-adblock-filter-blocked'),
+      'ALLOWED': document.getElementById('btn-adblock-filter-allowed'),
+      'CACHED': document.getElementById('btn-adblock-filter-cached')
+    };
+    Object.keys(btns).forEach(k => {
+      if (btns[k]) {
+        btns[k].className = (k === status) ? 'btn-primary' : 'btn-secondary';
+      }
+    });
+    filterAdblockLog();
+  }
+
+  function filterLogByClient(ip) {
+    switchAdblockSubtab('log');
+    const input = document.getElementById('adblock-log-filter');
+    if (input) {
+      input.value = ip;
+      filterAdblockLog();
+    }
+  }
+
+  async function loadAdblockQueryLog() {
+    try {
+      const res = await fetch('/api/adblock/querylog?limit=100');
+      if (!res.ok) return;
+      const data = await res.json();
+      cachedAdblockLogs = data.queries || [];
+      renderAdblockQueryLog(cachedAdblockLogs);
+    } catch (e) {
+      console.error('Failed to load adblock query log:', e);
+    }
+  }
+
+  function renderAdblockQueryLog(queries) {
+    const tbody = document.getElementById('adblock-querylog-tbody');
+    if (!tbody) return;
+    if (!queries || queries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek naplózott DNS lekérdezések</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = queries.map(q => {
+      let stBadge = '';
+      if (q.status === 'BLOCKED') {
+        const reason = q.reason ? ` (${escapeHtml(q.reason)})` : '';
+        stBadge = `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🛑 BLOCKED${reason}</span>`;
+      } else if (q.status === 'CACHED') {
+        stBadge = `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">⚡ CACHED</span>`;
+      } else {
+        const upTxt = q.upstream ? ` (${escapeHtml(q.upstream)})` : '';
+        stBadge = `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🟢 ALLOWED${upTxt}</span>`;
+      }
+
+      const clientDisplay = q.client_name && q.client_name !== q.client_ip
+        ? `<div style="font-weight: 600; color: #f1f5f9;">${escapeHtml(q.client_name)}</div><div style="font-size: 10px; color: #94a3b8;">${escapeHtml(q.client_ip)}</div>`
+        : `<div style="font-family: monospace; color: #cbd5e1;">${escapeHtml(q.client_ip || '')}</div>`;
+
+      return `<tr>
+        <td style="font-size: 11.5px; color: #94a3b8; font-family: monospace;">${escapeHtml(q.time_str || '')}</td>
+        <td style="font-size: 11.5px;">${clientDisplay}</td>
+        <td><span class="badge" style="background: rgba(255,255,255,0.06); color: #cbd5e1; font-size: 10.5px; padding: 2px 5px; border-radius: 3px; font-family: monospace;">${escapeHtml(q.type || 'A')}</span></td>
+        <td>${stBadge}</td>
+        <td style="font-size: 11.5px; color: var(--text-muted); font-family: monospace;">${q.latency_ms ? q.latency_ms.toFixed(1) + 'ms' : '<0.1ms'}</td>
+        <td style="font-size: 11.5px; font-weight: 600; color: ${q.status === 'BLOCKED' ? '#f87171' : '#f1f5f9'}; word-break: break-all;">${escapeHtml(q.domain || '')}</td>
+        <td style="text-align: center; white-space: nowrap;">
+          <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #f87171; margin-right: 4px;" title="Feketelistára helyezés" onclick="quickBlacklist('${escapeHtml(q.domain)}')">⛔ Tilt</button>
+          <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #34d399;" title="Fehérlistára helyezés" onclick="quickWhitelist('${escapeHtml(q.domain)}')">✅ Fehér</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function filterAdblockLog() {
+    const filterInput = document.getElementById('adblock-log-filter');
+    const term = filterInput ? filterInput.value.toLowerCase().trim() : '';
+
+    let filtered = cachedAdblockLogs;
+    if (activeAdblockLogStatusFilter !== 'all') {
+      filtered = filtered.filter(q => q.status === activeAdblockLogStatusFilter);
+    }
+    if (term) {
+      filtered = filtered.filter(q =>
+        (q.domain && q.domain.toLowerCase().includes(term)) ||
+        (q.client_ip && q.client_ip.toLowerCase().includes(term)) ||
+        (q.client_name && q.client_name.toLowerCase().includes(term)) ||
+        (q.type && q.type.toLowerCase().includes(term))
+      );
+    }
+    renderAdblockQueryLog(filtered);
+  }
+
+  async function quickBlacklist(domain) {
+    if (!domain) return;
+    try {
+      const res = await fetch('/api/adblock/blacklist/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: domain })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`'${domain}' feketelistára adva (azonnal blokkolva)`);
+        loadAdblockStatus();
+        loadAdblockQueryLog();
+      } else {
+        showToast('Hiba a hozzáadás során');
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  async function quickWhitelist(domain) {
+    if (!domain) return;
+    try {
+      const res = await fetch('/api/adblock/whitelist/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: domain })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`'${domain}' fehérlistára adva (mindig engedélyezve)`);
+        loadAdblockStatus();
+        loadAdblockQueryLog();
+      } else {
+        showToast('Hiba a hozzáadás során');
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  // Subtab 3: Whitelist, Blacklist, RegEx Management
+  async function loadAdblockDomains() {
+    try {
+      const [wlRes, blRes, rgxRes] = await Promise.all([
         fetch('/api/adblock/whitelist'),
-        fetch('/api/adblock/blacklist')
+        fetch('/api/adblock/blacklist'),
+        fetch('/api/adblock/regex')
       ]);
 
       if (wlRes.ok) {
@@ -6825,12 +7558,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         if (wlTbody) {
           const list = wlData.whitelist || [];
           if (list.length === 0) {
-            wlTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">No domains whitelisted</td></tr>';
+            wlTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek fehérlistás címek</td></tr>';
           } else {
             wlTbody.innerHTML = list.map(d => `
               <tr>
                 <td style="font-size: 12px; font-weight: 600; color: #34d399;">${escapeHtml(d)}</td>
-                <td style="text-align: right; width: 60px;">
+                <td style="text-align: right; width: 40px;">
                   <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockWhitelist('${escapeHtml(d)}')">✕</button>
                 </td>
               </tr>
@@ -6845,12 +7578,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         if (blTbody) {
           const list = blData.blacklist || [];
           if (list.length === 0) {
-            blTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">No custom blacklisted domains</td></tr>';
+            blTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek feketelistás címek</td></tr>';
           } else {
             blTbody.innerHTML = list.map(d => `
               <tr>
                 <td style="font-size: 12px; font-weight: 600; color: #f87171;">${escapeHtml(d)}</td>
-                <td style="text-align: right; width: 60px;">
+                <td style="text-align: right; width: 40px;">
                   <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockBlacklist('${escapeHtml(d)}')">✕</button>
                 </td>
               </tr>
@@ -6858,49 +7591,48 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           }
         }
       }
-    } catch (e) {
-      console.error('Failed to load adblock lists:', e);
-    }
-  }
 
-  async function toggleAdblock() {
-    if (!cachedAdblockStatus) return;
-    const newEn = !cachedAdblockStatus.enabled;
-    try {
-      showToast(newEn ? 'Enabling DNS Ad-Blocker sinkhole...' : 'Pausing DNS Ad-Blocker...');
-      const res = await fetch('/api/adblock/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: newEn })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(newEn ? 'DNS Ad-Blocker Activated!' : 'DNS Ad-Blocker Paused');
-        loadAdblockStatus();
+      if (rgxRes.ok) {
+        const rgxData = await rgxRes.json();
+        const rgx = rgxData.regex || { blacklist: [], whitelist: [] };
+
+        const rwlTbody = document.getElementById('adblock-regex-wl-tbody');
+        if (rwlTbody) {
+          const list = rgx.whitelist || [];
+          if (list.length === 0) {
+            rwlTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek RegEx fehérlista szabályok</td></tr>';
+          } else {
+            rwlTbody.innerHTML = list.map(it => `
+              <tr>
+                <td style="font-size: 11.5px; font-weight: 600; color: #34d399; font-family: monospace;">${escapeHtml(it.pattern)}</td>
+                <td style="text-align: right; width: 40px;">
+                  <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter('${escapeHtml(it.pattern)}', 'white')">✕</button>
+                </td>
+              </tr>
+            `).join('');
+          }
+        }
+
+        const rblTbody = document.getElementById('adblock-regex-bl-tbody');
+        if (rblTbody) {
+          const list = rgx.blacklist || [];
+          if (list.length === 0) {
+            rblTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek RegEx feketelista szabályok</td></tr>';
+          } else {
+            rblTbody.innerHTML = list.map(it => `
+              <tr>
+                <td style="font-size: 11.5px; font-weight: 600; color: #f87171; font-family: monospace;">${escapeHtml(it.pattern)}</td>
+                <td style="text-align: right; width: 40px;">
+                  <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter('${escapeHtml(it.pattern)}', 'black')">✕</button>
+                </td>
+              </tr>
+            `).join('');
+          }
+        }
       }
     } catch (e) {
-      showToast('Error toggling adblock: ' + e);
+      console.error('Failed to load adblock domains:', e);
     }
-  }
-
-  async function updateGravity() {
-    try {
-      showToast('Updating Adblock Gravity (downloading latest blocklists)...');
-      const res = await fetch('/api/adblock/update', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        showToast('Gravity update started in background...');
-        setTimeout(loadAdblockStatus, 4000);
-      }
-    } catch (e) {
-      showToast('Error updating gravity: ' + e);
-    }
-  }
-
-  function toggleAdblockGuide() {
-    const box = document.getElementById('adblock-guide-box');
-    if (!box) return;
-    box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
   }
 
   async function addAdblockWhitelist() {
@@ -6915,14 +7647,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`Added '${dom}' to whitelist`);
+        showToast(`'${dom}' fehérlistára adva`);
         input.value = '';
+        loadAdblockDomains();
         loadAdblockStatus();
       } else {
-        showToast('Invalid domain');
+        showToast('Érvénytelen tartománynév');
       }
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast('Hiba: ' + e);
     }
   }
 
@@ -6935,11 +7668,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`Removed '${dom}' from whitelist`);
+        showToast(`'${dom}' törölve a fehérlistáról`);
+        loadAdblockDomains();
         loadAdblockStatus();
       }
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast('Hiba: ' + e);
     }
   }
 
@@ -6955,14 +7689,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`Added '${dom}' to blacklist`);
+        showToast(`'${dom}' feketelistára adva`);
         input.value = '';
+        loadAdblockDomains();
         loadAdblockStatus();
       } else {
-        showToast('Invalid domain');
+        showToast('Érvénytelen tartománynév');
       }
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast('Hiba: ' + e);
     }
   }
 
@@ -6975,76 +7710,286 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`Removed '${dom}' from blacklist`);
+        showToast(`'${dom}' törölve a feketelistáról`);
+        loadAdblockDomains();
         loadAdblockStatus();
       }
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast('Hiba: ' + e);
     }
   }
 
-  async function loadAdblockQueryLog() {
+  async function addAdblockRegexFilter(kind) {
+    const input = document.getElementById(kind === 'white' ? 'adblock-regex-wl-input' : 'adblock-regex-bl-input');
+    if (!input || !input.value.trim()) return;
+    const pat = input.value.trim();
     try {
-      const res = await fetch('/api/adblock/querylog?limit=80');
+      const res = await fetch('/api/adblock/regex/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pattern: pat, kind: kind })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`RegEx szabály hozzáadva (${kind})`);
+        input.value = '';
+        loadAdblockDomains();
+        loadAdblockStatus();
+      } else {
+        showToast('Érvénytelen reguláris kifejezés');
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  async function removeAdblockRegexFilter(pattern, kind) {
+    try {
+      const res = await fetch('/api/adblock/regex/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pattern: pattern, kind: kind })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast('RegEx szabály törölve');
+        loadAdblockDomains();
+        loadAdblockStatus();
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  // Subtab 4: Adlists / Gravity Sources
+  async function loadAdblockAdlists() {
+    try {
+      const res = await fetch('/api/adblock/adlists');
       if (!res.ok) return;
       const data = await res.json();
-      cachedAdblockLogs = data.queries || [];
-      renderAdblockQueryLog(cachedAdblockLogs);
-    } catch (e) {
-      console.error('Failed to load adblock query log:', e);
-    }
-  }
+      const tbody = document.getElementById('adblock-adlists-tbody');
+      if (!tbody) return;
 
-  function renderAdblockQueryLog(queries) {
-    const tbody = document.getElementById('adblock-querylog-tbody');
-    if (!tbody) return;
-    if (!queries || queries.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-size: 12px;">No queries logged yet. As devices query DNS, requests will stream in here.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = queries.map(q => {
-      let stBadge = '';
-      if (q.status === 'BLOCKED') {
-        stBadge = `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🛑 BLOCKED</span>`;
-      } else if (q.status === 'CACHED') {
-        stBadge = `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">⚡ CACHED</span>`;
-      } else {
-        stBadge = `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🟢 ALLOWED</span>`;
+      const lists = data.adlists || [];
+      if (lists.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek konfigurált blokklisták</td></tr>';
+        return;
       }
 
-      return `<tr>
-        <td style="font-size: 12px; color: #94a3b8; font-family: monospace;">${escapeHtml(q.time_str || '')}</td>
-        <td style="font-size: 12px; color: #cbd5e1; font-family: monospace;">${escapeHtml(q.client_ip || '')}</td>
-        <td><span class="badge" style="background: rgba(255,255,255,0.06); color: #cbd5e1; font-size: 10.5px; padding: 2px 5px; border-radius: 3px;">${escapeHtml(q.type || 'A')}</span></td>
-        <td>${stBadge}</td>
-        <td style="font-size: 12px; color: var(--text-muted); font-family: monospace;">${q.latency_ms ? q.latency_ms.toFixed(1) + 'ms' : '<0.1ms'}</td>
-        <td style="font-size: 12px; font-weight: 600; color: ${q.status === 'BLOCKED' ? '#f87171' : '#f1f5f9'}; word-break: break-all;">${escapeHtml(q.domain || '')}</td>
-      </tr>`;
-    }).join('');
+      tbody.innerHTML = lists.map(item => `
+        <tr>
+          <td style="text-align: center;">
+            <input type="checkbox" ${item.enabled ? 'checked' : ''} onchange="toggleAdblockAdlistSource('${escapeHtml(item.url)}', this.checked)" style="transform: scale(1.2); cursor: pointer;">
+          </td>
+          <td>
+            <div style="font-weight: 700; color: #f1f5f9; font-size: 12px;">${escapeHtml(item.name || 'Blocklist')}</div>
+            <div style="font-size: 11px; color: #38bdf8; word-break: break-all;">${escapeHtml(item.url)}</div>
+          </td>
+          <td style="text-align: right; font-weight: 700; color: #34d399; font-size: 12px; font-family: monospace;">
+            ${(item.count || 0).toLocaleString()}
+          </td>
+          <td style="font-size: 11px; color: #94a3b8;">
+            ${item.updated_at ? escapeHtml(item.updated_at.replace('T', ' ').slice(0, 19)) : 'Még nem frissült'}
+          </td>
+          <td style="text-align: center;">
+            <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockAdlistSource('${escapeHtml(item.url)}')">✕</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      console.error('Failed to load adlists:', e);
+    }
   }
 
-  function filterAdblockLog() {
-    const filterInput = document.getElementById('adblock-log-filter');
-    if (!filterInput) return;
-    const term = filterInput.value.toLowerCase().trim();
-    if (!term) {
-      renderAdblockQueryLog(cachedAdblockLogs);
+  async function addAdblockAdlistSource() {
+    const urlInput = document.getElementById('adblock-adlist-url-input');
+    const nameInput = document.getElementById('adblock-adlist-name-input');
+    if (!urlInput || !urlInput.value.trim()) return;
+
+    const url = urlInput.value.trim();
+    const name = nameInput ? nameInput.value.trim() : '';
+
+    try {
+      const res = await fetch('/api/adblock/adlists/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url, name: name })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast('Új blokklista forrás hozzáadva');
+        urlInput.value = '';
+        if (nameInput) nameInput.value = '';
+        loadAdblockAdlists();
+      } else {
+        showToast('Érvénytelen URL formátum');
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  async function toggleAdblockAdlistSource(url, enabled) {
+    try {
+      const res = await fetch('/api/adblock/adlists/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url, enabled: enabled })
+      });
+      if (res.ok) {
+        showToast(enabled ? 'Blokklista bekapcsolva' : 'Blokklista kikapcsolva');
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  async function removeAdblockAdlistSource(url) {
+    try {
+      const res = await fetch('/api/adblock/adlists/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast('Blokklista forrás törölve');
+        loadAdblockAdlists();
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  // Subtab 5: Local DNS Records
+  async function loadAdblockLocalDns() {
+    try {
+      const res = await fetch('/api/adblock/localdns');
+      if (!res.ok) return;
+      const data = await res.json();
+      const tbody = document.getElementById('adblock-localdns-tbody');
+      if (!tbody) return;
+
+      const records = data.records || [];
+      if (records.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek konfigurált helyi DNS rekordok</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = records.map(r => `
+        <tr>
+          <td style="font-weight: 700; color: #38bdf8; font-size: 12.5px; font-family: monospace;">${escapeHtml(r.domain)}</td>
+          <td style="font-weight: 700; color: #34d399; font-size: 12.5px; font-family: monospace;">${escapeHtml(r.ip)}</td>
+          <td style="text-align: center;">
+            <span class="badge" style="font-size: 10px; background: rgba(255,255,255,0.06); color: #cbd5e1;">${r.ip.includes(':') ? 'AAAA' : 'A'}</span>
+          </td>
+          <td style="text-align: center;">
+            <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockLocalDnsRecord('${escapeHtml(r.domain)}')">✕</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      console.error('Failed to load local DNS records:', e);
+    }
+  }
+
+  async function addAdblockLocalDnsRecord() {
+    const domInput = document.getElementById('adblock-localdns-domain-input');
+    const ipInput = document.getElementById('adblock-localdns-ip-input');
+    if (!domInput || !ipInput || !domInput.value.trim() || !ipInput.value.trim()) {
+      showToast('Kérlek add meg a tartományt és az IP címet is!');
       return;
     }
-    const filtered = cachedAdblockLogs.filter(q =>
-      (q.domain && q.domain.toLowerCase().includes(term)) ||
-      (q.client_ip && q.client_ip.toLowerCase().includes(term)) ||
-      (q.status && q.status.toLowerCase().includes(term))
-    );
-    renderAdblockQueryLog(filtered);
+    const dom = domInput.value.trim();
+    const ip = ipInput.value.trim();
+
+    try {
+      const res = await fetch('/api/adblock/localdns/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: dom, ip: ip })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`Helyi rekord mentve: ${dom} -> ${ip}`);
+        domInput.value = '';
+        ipInput.value = '';
+        loadAdblockLocalDns();
+      } else {
+        showToast('Érvénytelen IP cím vagy tartománynév formátum');
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  async function removeAdblockLocalDnsRecord(domain) {
+    try {
+      const res = await fetch('/api/adblock/localdns/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: domain })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`Helyi rekord törölve: ${domain}`);
+        loadAdblockLocalDns();
+      }
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
+  async function updateGravity() {
+    try {
+      showToast('Gravity frissítése (külső blokklisták letöltése folyamatban)...');
+      switchAdblockSubtab('adlists');
+
+      const logBox = document.getElementById('adblock-gravity-log');
+      const badge = document.getElementById('adblock-gravity-status-badge');
+      if (logBox) logBox.innerText = 'Gravity frissítés elindítva, külső listák letöltése...\n';
+      if (badge) {
+        badge.innerText = 'Folyamatban...';
+        badge.style.color = '#fbbf24';
+        badge.style.background = 'rgba(245, 158, 11, 0.15)';
+      }
+
+      const res = await fetch('/api/adblock/update', { method: 'POST' });
+      if (!res.ok) return;
+
+      const pollGravityTimer = setInterval(async () => {
+        try {
+          const stRes = await fetch('/api/adblock/update/status');
+          if (stRes.ok) {
+            const stData = await stRes.json();
+            if (logBox && stData.output) logBox.innerText = stData.output;
+            if (!stData.in_progress) {
+              clearInterval(pollGravityTimer);
+              if (badge) {
+                badge.innerText = stData.status === 'ok' ? 'Sikeres' : 'Befejezve';
+                badge.style.color = '#34d399';
+                badge.style.background = 'rgba(16, 185, 129, 0.15)';
+              }
+              showToast('Gravity sikeresen frissítve!');
+              loadAdblockStatus();
+              loadAdblockAdlists();
+            }
+          }
+        } catch (e) {}
+      }, 1500);
+    } catch (e) {
+      showToast('Hiba a gravity frissítésekor: ' + e);
+    }
   }
 
   function startAdblockPolling() {
     if (adblockPollTimer) clearInterval(adblockPollTimer);
     adblockPollTimer = setInterval(() => {
-      loadAdblockStatus();
-      loadAdblockQueryLog();
+      if (currentAdblockSubtab === 'dash') {
+        loadAdblockStatus();
+      } else if (currentAdblockSubtab === 'log') {
+        loadAdblockQueryLog();
+      }
     }, 4000);
   }
 
@@ -7052,6 +7997,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (adblockPollTimer) {
       clearInterval(adblockPollTimer);
       adblockPollTimer = null;
+    }
+    if (adblockCountdownInterval) {
+      clearInterval(adblockCountdownInterval);
+      adblockCountdownInterval = null;
     }
   }
 
