@@ -8598,7 +8598,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
       const logBox = document.getElementById('adblock-gravity-log');
       const badge = document.getElementById('adblock-gravity-status-badge');
-      if (logBox) logBox.innerText = 'Gravity frissítés elindítva, külső listák letöltése...\n';
+      if (logBox) logBox.innerText = 'Gravity frissítés elindítva, külső listák letöltése...';
       if (badge) {
         badge.innerText = 'Folyamatban...';
         badge.style.color = '#fbbf24';
