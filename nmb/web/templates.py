@@ -1040,8 +1040,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     /* ========================================================================= */
     /* THEME 5: AsusWRT-design (ASUS Router WebUI Style)                         */
     /* ========================================================================= */
-    [data-theme="asuswrt"] select, [data-theme="asuswrt"] .hdr-select { color-scheme: dark; }
-    [data-theme="asuswrt"] select option, [data-theme="asuswrt"] .hdr-select option { background-color: #21333e !important; color: #ffffff !important; }
+    [data-theme="asuswrt"] select, [data-theme="asuswrt"] .hdr-select, [data-theme="asuswrt"] .form-input { color-scheme: dark !important; }
+    [data-theme="asuswrt"] select option, [data-theme="asuswrt"] .hdr-select option { background-color: #1f2d35 !important; color: #ffffff !important; }
     [data-theme="asuswrt"] {
       --bg: #21333e;
       --card-bg: #2b373f;
@@ -1060,39 +1060,85 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       background-position: top center !important;
       color: #ffffff !important;
       font-family: Arial, Helvetica, sans-serif !important;
+      overflow-x: hidden !important;
+    }
+    [data-theme="asuswrt"] .container {
+      width: 100% !important;
+      max-width: 1440px !important;
+      box-sizing: border-box !important;
+      margin: 0 auto !important;
+      padding: 0 clamp(8px, 1.8vw, 18px) !important;
     }
     [data-theme="asuswrt"] .app-header {
       background: url('/static/themes/asus_title_bg.png') 0 0 no-repeat !important;
       background-size: cover !important;
       border-bottom: 2px solid #00FFFF !important;
-      padding: 14px 18px !important;
+      padding: clamp(10px, 2vw, 16px) clamp(12px, 2.5vw, 20px) !important;
       border-radius: 4px 4px 0 0 !important;
+      box-sizing: border-box !important;
+      width: 100% !important;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
     }
     [data-theme="asuswrt"] .app-title {
       color: #00FFFF !important;
-      letter-spacing: 2px !important;
+      letter-spacing: clamp(0.5px, 0.4vw, 2px) !important;
       text-transform: uppercase !important;
       font-family: Arial, sans-serif !important;
       font-weight: 900 !important;
+      font-size: clamp(16px, 3.5vw, 24px) !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
-      gap: 12px !important;
+      flex-wrap: wrap !important;
+      gap: clamp(6px, 1.5vw, 12px) !important;
+      min-width: 0 !important;
+      text-align: center !important;
+      text-shadow: 0 0 12px rgba(0, 255, 255, 0.4) !important;
     }
     [data-theme="asuswrt"] .app-title::before {
       content: "";
       display: inline-block;
-      width: 90px;
-      height: 24px;
+      width: clamp(55px, 11vw, 90px);
+      height: clamp(16px, 3vw, 24px);
       background: url('/static/themes/asus_title.png') no-repeat center;
       background-size: contain;
+      flex-shrink: 0;
     }
-    [data-theme="asuswrt"] .app-box,
-    [data-theme="asuswrt"] .router-section-card {
-      background: #2b373f !important;
-      border: 1px solid #1a2228 !important;
-      border-radius: 4px !important;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    [data-theme="asuswrt"] .app-subtitle {
+      color: #8AA6BE !important;
+      font-size: clamp(10.5px, 1.8vw, 12px) !important;
+      text-align: center !important;
+    }
+    [data-theme="asuswrt"] .meta-lbl {
+      color: #8AA6BE !important;
+      font-size: clamp(10.5px, 1.8vw, 12px) !important;
+    }
+    [data-theme="asuswrt"] .meta-val {
+      color: #00FFFF !important;
+      font-weight: 700 !important;
+      font-size: clamp(11px, 2vw, 13px) !important;
+    }
+    [data-theme="asuswrt"] .app-tabs,
+    [data-theme="asuswrt"] .router-subnav {
+      display: flex !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      scrollbar-width: thin !important;
+      flex-wrap: nowrap !important;
+      gap: 6px !important;
+      padding: 6px 2px 8px 2px !important;
+      margin-bottom: 16px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    [data-theme="asuswrt"] .app-tabs::-webkit-scrollbar,
+    [data-theme="asuswrt"] .router-subnav::-webkit-scrollbar {
+      height: 4px;
+    }
+    [data-theme="asuswrt"] .app-tabs::-webkit-scrollbar-thumb,
+    [data-theme="asuswrt"] .router-subnav::-webkit-scrollbar-thumb {
+      background: #00FFFF;
+      border-radius: 2px;
     }
     [data-theme="asuswrt"] .app-tab-btn,
     [data-theme="asuswrt"] .router-subtab-btn {
@@ -1101,6 +1147,22 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border: 1px solid #151e24 !important;
       border-radius: 4px !important;
       font-family: Arial, sans-serif !important;
+      font-size: clamp(11.5px, 2vw, 13px) !important;
+      padding: 8px clamp(10px, 2vw, 16px) !important;
+      white-space: nowrap !important;
+      flex-shrink: 0 !important;
+      min-height: 38px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      cursor: pointer !important;
+      transition: all 0.15s ease !important;
+    }
+    [data-theme="asuswrt"] .app-tab-btn:hover,
+    [data-theme="asuswrt"] .router-subtab-btn:hover {
+      background: #273944 !important;
+      color: #00FFFF !important;
+      border-color: #00FFFF !important;
     }
     [data-theme="asuswrt"] .app-tab-btn.active,
     [data-theme="asuswrt"] .router-subtab-btn.active {
@@ -1109,6 +1171,77 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border: 1px solid #00FFFF !important;
       box-shadow: 0 0 10px rgba(0, 255, 255, 0.35) !important;
       font-weight: bold !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+    }
+    [data-theme="asuswrt"] .app-box,
+    [data-theme="asuswrt"] .router-section-card,
+    [data-theme="asuswrt"] .engine-selector-box,
+    [data-theme="asuswrt"] .terminal-box {
+      background: #2b373f !important;
+      border: 1px solid #1a2228 !important;
+      border-radius: 4px !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+      padding: clamp(12px, 2.5vw, 20px) !important;
+      margin-bottom: 16px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      min-inline-size: 0 !important;
+      overflow: hidden !important;
+    }
+    [data-theme="asuswrt"] .section-subtitle,
+    [data-theme="asuswrt"] .router-section-card > div:first-child,
+    [data-theme="asuswrt"] .app-box > h2 {
+      background: linear-gradient(to right, #1f2d35, #2b373f) !important;
+      border-bottom: 2px solid #00FFFF !important;
+      color: #00FFFF !important;
+      font-size: clamp(13px, 2.2vw, 15px) !important;
+      font-weight: 700 !important;
+      padding: 10px clamp(10px, 2vw, 16px) !important;
+      margin: calc(clamp(12px, 2.5vw, 20px) * -1) calc(clamp(12px, 2.5vw, 20px) * -1) 14px calc(clamp(12px, 2.5vw, 20px) * -1) !important;
+      border-radius: 4px 4px 0 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+      min-width: 0 !important;
+    }
+    [data-theme="asuswrt"] .form-label {
+      color: #8AA6BE !important;
+      font-size: clamp(11.5px, 1.8vw, 13px) !important;
+    }
+    [data-theme="asuswrt"] .form-hint {
+      color: #6a88a0 !important;
+      font-size: 11px !important;
+    }
+    [data-theme="asuswrt"] .form-input,
+    [data-theme="asuswrt"] select,
+    [data-theme="asuswrt"] input[type="text"],
+    [data-theme="asuswrt"] input[type="password"],
+    [data-theme="asuswrt"] input[type="number"],
+    [data-theme="asuswrt"] textarea {
+      background: #1b2831 !important;
+      color: #ffffff !important;
+      border: 1px solid #334d5e !important;
+      border-radius: 4px !important;
+      padding: 8px 12px !important;
+      font-size: clamp(12.5px, 2vw, 13.5px) !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      min-height: 38px !important;
+      min-inline-size: 0 !important;
+      transition: border-color 0.15s, box-shadow 0.15s !important;
+    }
+    [data-theme="asuswrt"] .form-input:focus,
+    [data-theme="asuswrt"] select:focus,
+    [data-theme="asuswrt"] input[type="text"]:focus,
+    [data-theme="asuswrt"] input[type="password"]:focus,
+    [data-theme="asuswrt"] input[type="number"]:focus,
+    [data-theme="asuswrt"] textarea:focus {
+      border-color: #00FFFF !important;
+      box-shadow: 0 0 8px rgba(0, 255, 255, 0.4) !important;
+      outline: none !important;
     }
     [data-theme="asuswrt"] .btn-primary {
       background: linear-gradient(to bottom, #8AA6BE 0%, #466782 100%) !important;
@@ -1117,17 +1250,124 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       font-weight: bold !important;
       border-radius: 4px !important;
       text-shadow: 0 1px 1px #000;
+      min-height: 38px !important;
+      padding: 8px clamp(12px, 2.5vw, 18px) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: all 0.15s !important;
+      cursor: pointer !important;
+    }
+    [data-theme="asuswrt"] .btn-primary:hover {
+      background: linear-gradient(to bottom, #9dc0dc 0%, #567e9f 100%) !important;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.4) !important;
+    }
+    [data-theme="asuswrt"] .btn-secondary {
+      background: #1f2d35 !important;
+      color: #8AA6BE !important;
+      border: 1px solid #334d5e !important;
+      border-radius: 4px !important;
+      font-weight: 600 !important;
+      min-height: 38px !important;
+      padding: 8px clamp(10px, 2vw, 16px) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: all 0.15s !important;
+      cursor: pointer !important;
+    }
+    [data-theme="asuswrt"] .btn-secondary:hover {
+      background: #273944 !important;
+      color: #00FFFF !important;
+      border-color: #00FFFF !important;
+    }
+    [data-theme="asuswrt"] .btn-danger {
+      background: linear-gradient(to bottom, #991b1b, #7f1d1d) !important;
+      color: #fecaca !important;
+      border: 1px solid #dc2626 !important;
+      border-radius: 4px !important;
+      min-height: 38px !important;
+      padding: 8px 14px !important;
+    }
+    [data-theme="asuswrt"] .btn-logout {
+      background: #1f2d35 !important;
+      color: #00FFFF !important;
+      border: 1px solid #00FFFF !important;
+      border-radius: 4px !important;
+      transition: all 0.15s !important;
+    }
+    [data-theme="asuswrt"] .btn-logout:hover {
+      background: #00FFFF !important;
+      color: #1f2d35 !important;
+    }
+    [data-theme="asuswrt"] .stat-lbl {
+      color: #8AA6BE !important;
+      font-size: clamp(11.5px, 2vw, 13px) !important;
+    }
+    [data-theme="asuswrt"] .stat-val {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      font-size: clamp(12px, 2.2vw, 13.5px) !important;
+      word-break: break-word !important;
+    }
+    [data-theme="asuswrt"] .stat-speed {
+      color: #00FFFF !important;
+      text-shadow: 0 0 8px rgba(0, 255, 255, 0.35) !important;
+      font-size: clamp(16px, 3.5vw, 22px) !important;
+    }
+    [data-theme="asuswrt"] .engine-pill {
+      background: #1f2d35 !important;
+      border: 1px solid #334d5e !important;
+      color: #8AA6BE !important;
+      border-radius: 4px !important;
+    }
+    [data-theme="asuswrt"] .engine-pill.active {
+      background: linear-gradient(to bottom, #8AA6BE 0%, #466782 100%) !important;
+      color: #ffffff !important;
+      border-color: #00FFFF !important;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.35) !important;
+      font-weight: bold !important;
+    }
+    [data-theme="asuswrt"] .qos-gauge-box {
+      background: #1f2d35 !important;
+      border: 1px solid #1a2228 !important;
+      border-radius: 4px !important;
+    }
+    [data-theme="asuswrt"] table.data-table {
+      border-collapse: collapse !important;
+      width: 100% !important;
+      min-width: 0 !important;
     }
     [data-theme="asuswrt"] table.data-table thead th {
       background: #1f2d35 !important;
       color: #00FFFF !important;
       border: 1px solid #141d23 !important;
+      padding: clamp(6px, 1.5vw, 10px) clamp(8px, 1.8vw, 12px) !important;
+      font-size: clamp(11px, 1.8vw, 12.5px) !important;
+      font-weight: 700 !important;
+      white-space: nowrap !important;
+    }
+    [data-theme="asuswrt"] table.data-table tbody tr {
+      background: rgba(33, 51, 62, 0.4) !important;
+      border-bottom: 1px solid #1a2228 !important;
+    }
+    [data-theme="asuswrt"] table.data-table tbody tr:nth-child(even) {
+      background: rgba(43, 55, 63, 0.6) !important;
+    }
+    [data-theme="asuswrt"] table.data-table tbody tr:hover {
+      background: rgba(0, 255, 255, 0.08) !important;
+    }
+    [data-theme="asuswrt"] table.data-table td {
+      border: 1px solid #1a2228 !important;
+      color: #e2e8f0 !important;
+      padding: clamp(6px, 1.5vw, 9px) clamp(8px, 1.8vw, 12px) !important;
+      font-size: clamp(11px, 1.8vw, 12.5px) !important;
     }
 
     /* ========================================================================= */
     /* THEME 6: AsusCamouflage-design (ASUS TUF Gaming Camouflage WebUI)         */
     /* ========================================================================= */
-    [data-theme="asus_camo"] select, [data-theme="asus_camo"] .hdr-select { color-scheme: dark; }
+    [data-theme="asus_camo"] select, [data-theme="asus_camo"] .hdr-select, [data-theme="asus_camo"] .form-input { color-scheme: dark !important; }
     [data-theme="asus_camo"] select option, [data-theme="asus_camo"] .hdr-select option { background-color: #181512 !important; color: #f59e0b !important; }
     [data-theme="asus_camo"] {
       --bg: #000000;
@@ -1150,36 +1390,83 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       background-size: cover !important;
       color: #ffffff !important;
       font-family: Arial, sans-serif !important;
+      overflow-x: hidden !important;
+    }
+    [data-theme="asus_camo"] .container {
+      width: 100% !important;
+      max-width: 1440px !important;
+      box-sizing: border-box !important;
+      margin: 0 auto !important;
+      padding: 0 clamp(8px, 1.8vw, 18px) !important;
     }
     [data-theme="asus_camo"] .app-header {
       background: rgba(18, 16, 14, 0.90) url('/static/themes/tuf_title_bg.png') repeat-x !important;
       border-bottom: 2px solid #f59e0b !important;
       box-shadow: 0 0 15px rgba(245, 158, 11, 0.3) !important;
+      padding: clamp(10px, 2vw, 16px) clamp(12px, 2.5vw, 20px) !important;
+      border-radius: 2px 2px 0 0 !important;
+      box-sizing: border-box !important;
+      width: 100% !important;
     }
     [data-theme="asus_camo"] .app-title {
       color: #f59e0b !important;
       text-transform: uppercase !important;
-      letter-spacing: 2px !important;
+      letter-spacing: clamp(0.5px, 0.4vw, 2px) !important;
       font-weight: 900 !important;
+      font-size: clamp(16px, 3.5vw, 24px) !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
-      gap: 12px !important;
+      flex-wrap: wrap !important;
+      gap: clamp(6px, 1.5vw, 12px) !important;
+      min-width: 0 !important;
+      text-align: center !important;
+      text-shadow: 0 0 12px rgba(245, 158, 11, 0.45) !important;
     }
     [data-theme="asus_camo"] .app-title::before {
       content: "";
       display: inline-block;
-      width: 32px;
-      height: 32px;
+      width: clamp(22px, 5vw, 32px);
+      height: clamp(22px, 5vw, 32px);
       background: url('/static/themes/tuf_logo.png') no-repeat center;
       background-size: contain;
+      flex-shrink: 0;
     }
-    [data-theme="asus_camo"] .app-box,
-    [data-theme="asus_camo"] .router-section-card {
-      background: rgba(18, 16, 14, 0.92) !important;
-      border: 1px solid #d97706 !important;
-      border-radius: 2px !important;
-      box-shadow: 0 0 15px rgba(245, 158, 11, 0.15) !important;
+    [data-theme="asus_camo"] .app-subtitle {
+      color: #d4a373 !important;
+      font-size: clamp(10.5px, 1.8vw, 12px) !important;
+      text-align: center !important;
+    }
+    [data-theme="asus_camo"] .meta-lbl {
+      color: #d4a373 !important;
+      font-size: clamp(10.5px, 1.8vw, 12px) !important;
+    }
+    [data-theme="asus_camo"] .meta-val {
+      color: #fde68a !important;
+      font-weight: 700 !important;
+      font-size: clamp(11px, 2vw, 13px) !important;
+    }
+    [data-theme="asus_camo"] .app-tabs,
+    [data-theme="asus_camo"] .router-subnav {
+      display: flex !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      scrollbar-width: thin !important;
+      flex-wrap: nowrap !important;
+      gap: 6px !important;
+      padding: 6px 2px 8px 2px !important;
+      margin-bottom: 16px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    [data-theme="asus_camo"] .app-tabs::-webkit-scrollbar,
+    [data-theme="asus_camo"] .router-subnav::-webkit-scrollbar {
+      height: 4px;
+    }
+    [data-theme="asus_camo"] .app-tabs::-webkit-scrollbar-thumb,
+    [data-theme="asus_camo"] .router-subnav::-webkit-scrollbar-thumb {
+      background: #f59e0b;
+      border-radius: 2px;
     }
     [data-theme="asus_camo"] .app-tab-btn,
     [data-theme="asus_camo"] .router-subtab-btn {
@@ -1189,6 +1476,22 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       font-weight: 700 !important;
       text-transform: uppercase !important;
       border-radius: 2px !important;
+      font-size: clamp(11px, 1.8vw, 12.5px) !important;
+      padding: 8px clamp(10px, 2vw, 16px) !important;
+      white-space: nowrap !important;
+      flex-shrink: 0 !important;
+      min-height: 38px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      cursor: pointer !important;
+      transition: all 0.15s ease !important;
+    }
+    [data-theme="asus_camo"] .app-tab-btn:hover,
+    [data-theme="asus_camo"] .router-subtab-btn:hover {
+      background: #231c13 !important;
+      color: #f59e0b !important;
+      border-color: #f59e0b !important;
     }
     [data-theme="asus_camo"] .app-tab-btn.active,
     [data-theme="asus_camo"] .router-subtab-btn.active {
@@ -1197,6 +1500,79 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       font-weight: 800 !important;
       border-color: #fbbf24 !important;
       box-shadow: 0 0 12px rgba(245, 158, 11, 0.5) !important;
+      text-shadow: none !important;
+    }
+    [data-theme="asus_camo"] .app-box,
+    [data-theme="asus_camo"] .router-section-card,
+    [data-theme="asus_camo"] .engine-selector-box,
+    [data-theme="asus_camo"] .terminal-box {
+      background: rgba(18, 16, 14, 0.92) !important;
+      border: 1px solid #d97706 !important;
+      border-radius: 2px !important;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.15) !important;
+      padding: clamp(12px, 2.5vw, 20px) !important;
+      margin-bottom: 16px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      min-inline-size: 0 !important;
+      overflow: hidden !important;
+    }
+    [data-theme="asus_camo"] .section-subtitle,
+    [data-theme="asus_camo"] .router-section-card > div:first-child,
+    [data-theme="asus_camo"] .app-box > h2 {
+      background: linear-gradient(to right, #231c13, rgba(18, 16, 14, 0.95)) !important;
+      border-bottom: 2px solid #f59e0b !important;
+      color: #f59e0b !important;
+      font-size: clamp(13px, 2.2vw, 15px) !important;
+      font-weight: 800 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 1px !important;
+      padding: 10px clamp(10px, 2vw, 16px) !important;
+      margin: calc(clamp(12px, 2.5vw, 20px) * -1) calc(clamp(12px, 2.5vw, 20px) * -1) 14px calc(clamp(12px, 2.5vw, 20px) * -1) !important;
+      border-radius: 2px 2px 0 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+      min-width: 0 !important;
+    }
+    [data-theme="asus_camo"] .form-label {
+      color: #d4a373 !important;
+      font-size: clamp(11.5px, 1.8vw, 13px) !important;
+    }
+    [data-theme="asus_camo"] .form-hint {
+      color: #a1784d !important;
+      font-size: 11px !important;
+    }
+    [data-theme="asus_camo"] .form-input,
+    [data-theme="asus_camo"] select,
+    [data-theme="asus_camo"] input[type="text"],
+    [data-theme="asus_camo"] input[type="password"],
+    [data-theme="asus_camo"] input[type="number"],
+    [data-theme="asus_camo"] textarea {
+      background: #181512 !important;
+      color: #fde68a !important;
+      border: 1px solid #4a3b25 !important;
+      border-radius: 2px !important;
+      padding: 8px 12px !important;
+      font-size: clamp(12.5px, 2vw, 13.5px) !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      min-height: 38px !important;
+      min-inline-size: 0 !important;
+      transition: border-color 0.15s, box-shadow 0.15s !important;
+    }
+    [data-theme="asus_camo"] .form-input:focus,
+    [data-theme="asus_camo"] select:focus,
+    [data-theme="asus_camo"] input[type="text"]:focus,
+    [data-theme="asus_camo"] input[type="password"]:focus,
+    [data-theme="asus_camo"] input[type="number"]:focus,
+    [data-theme="asus_camo"] textarea:focus {
+      border-color: #f59e0b !important;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.45) !important;
+      outline: none !important;
     }
     [data-theme="asus_camo"] .btn-primary {
       background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important;
@@ -1206,11 +1582,121 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border-radius: 2px !important;
       border: 1px solid #fde68a !important;
       box-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
+      min-height: 38px !important;
+      padding: 8px clamp(12px, 2.5vw, 18px) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      cursor: pointer !important;
+      transition: all 0.15s !important;
+    }
+    [data-theme="asus_camo"] .btn-primary:hover {
+      background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%) !important;
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.6) !important;
+    }
+    [data-theme="asus_camo"] .btn-secondary {
+      background: #1e1913 !important;
+      color: #d4a373 !important;
+      border: 1px solid #4a3b25 !important;
+      border-radius: 2px !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      min-height: 38px !important;
+      padding: 8px clamp(10px, 2vw, 16px) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: all 0.15s !important;
+      cursor: pointer !important;
+    }
+    [data-theme="asus_camo"] .btn-secondary:hover {
+      background: #2a2219 !important;
+      color: #f59e0b !important;
+      border-color: #f59e0b !important;
+    }
+    [data-theme="asus_camo"] .btn-danger {
+      background: linear-gradient(135deg, #b91c1c, #7f1d1d) !important;
+      color: #fef2f2 !important;
+      border: 1px solid #ef4444 !important;
+      border-radius: 2px !important;
+      min-height: 38px !important;
+      padding: 8px 14px !important;
+    }
+    [data-theme="asus_camo"] .btn-logout {
+      background: #181512 !important;
+      color: #f59e0b !important;
+      border: 1px solid #f59e0b !important;
+      border-radius: 2px !important;
+      transition: all 0.15s !important;
+    }
+    [data-theme="asus_camo"] .btn-logout:hover {
+      background: #f59e0b !important;
+      color: #000000 !important;
+    }
+    [data-theme="asus_camo"] .stat-lbl {
+      color: #d4a373 !important;
+      font-size: clamp(11.5px, 2vw, 13px) !important;
+    }
+    [data-theme="asus_camo"] .stat-val {
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      font-size: clamp(12px, 2.2vw, 13.5px) !important;
+      word-break: break-word !important;
+    }
+    [data-theme="asus_camo"] .stat-speed {
+      color: #f59e0b !important;
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
+      font-size: clamp(16px, 3.5vw, 22px) !important;
+    }
+    [data-theme="asus_camo"] .engine-pill {
+      background: #181512 !important;
+      border: 1px solid #382d1c !important;
+      color: #d4a373 !important;
+      border-radius: 2px !important;
+      font-weight: 700 !important;
+    }
+    [data-theme="asus_camo"] .engine-pill.active {
+      background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important;
+      color: #000000 !important;
+      border-color: #fbbf24 !important;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
+      font-weight: 800 !important;
+    }
+    [data-theme="asus_camo"] .qos-gauge-box {
+      background: rgba(18, 16, 14, 0.95) !important;
+      border: 1px solid #d97706 !important;
+      border-radius: 2px !important;
+    }
+    [data-theme="asus_camo"] table.data-table {
+      border-collapse: collapse !important;
+      width: 100% !important;
+      min-width: 0 !important;
     }
     [data-theme="asus_camo"] table.data-table thead th {
       background: #231c13 !important;
       color: #f59e0b !important;
       border: 1px solid #382d1c !important;
+      padding: clamp(6px, 1.5vw, 10px) clamp(8px, 1.8vw, 12px) !important;
+      font-size: clamp(11px, 1.8vw, 12.5px) !important;
+      font-weight: 800 !important;
+      text-transform: uppercase !important;
+      white-space: nowrap !important;
+    }
+    [data-theme="asus_camo"] table.data-table tbody tr {
+      background: rgba(24, 21, 18, 0.6) !important;
+      border-bottom: 1px solid #382d1c !important;
+    }
+    [data-theme="asus_camo"] table.data-table tbody tr:nth-child(even) {
+      background: rgba(35, 28, 19, 0.6) !important;
+    }
+    [data-theme="asus_camo"] table.data-table tbody tr:hover {
+      background: rgba(245, 158, 11, 0.12) !important;
+    }
+    [data-theme="asus_camo"] table.data-table td {
+      border: 1px solid #382d1c !important;
+      color: #fde68a !important;
+      padding: clamp(6px, 1.5vw, 9px) clamp(8px, 1.8vw, 12px) !important;
+      font-size: clamp(11px, 1.8vw, 12.5px) !important;
     }
 
     /* ========================================================================= */
@@ -1757,6 +2243,16 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         text-align: left;
         width: 100%;
       }
+      .app-header-left, .app-header-right {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        align-items: center;
+      }
+      .app-header-right > div:first-child {
+        width: 100%;
+        justify-content: flex-start !important;
+      }
       .app-tabs {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
@@ -1806,12 +2302,23 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       .container {
         padding: 0;
       }
-      .app-box {
-        padding: 14px 12px;
-        border-radius: 6px;
+      .app-box, .router-section-card {
+        padding: 12px 10px !important;
+        border-radius: 4px;
       }
       .app-title {
-        font-size: 19px;
+        font-size: 18px !important;
+      }
+      [data-theme="asus_camo"] body {
+        background-attachment: scroll !important;
+      }
+      [data-theme="asuswrt"] .app-title::before {
+        width: 65px !important;
+        height: 18px !important;
+      }
+      [data-theme="asus_camo"] .app-title::before {
+        width: 26px !important;
+        height: 26px !important;
       }
       .stat-line {
         flex-direction: column;
@@ -1831,8 +2338,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         grid-template-columns: 1fr;
       }
       .action-buttons-row button {
-        flex: 1 1 100%;
-        width: 100%;
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-height: 40px !important;
       }
       .form-input, select, input[type="text"], input[type="password"] {
         width: 100% !important;
@@ -1865,6 +2373,34 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       .cli-quick-btns button {
         font-size: 10.5px;
         padding: 4px 8px;
+      }
+    }
+
+    /* Screen width <= 480px (Compact Mobile) */
+    @media (max-width: 480px) {
+      .app-title {
+        font-size: 16px !important;
+        letter-spacing: 0.5px !important;
+      }
+      [data-theme="asuswrt"] .app-title::before {
+        width: 52px !important;
+        height: 14px !important;
+      }
+      [data-theme="asus_camo"] .app-title::before {
+        width: 22px !important;
+        height: 22px !important;
+      }
+      .app-tab-btn, .router-subtab-btn {
+        padding: 7px 11px !important;
+        font-size: 11px !important;
+        min-height: 36px !important;
+      }
+      .app-box, .router-section-card {
+        padding: 10px 8px !important;
+      }
+      table.data-table th, table.data-table td {
+        font-size: 10.5px !important;
+        padding: 5px 6px !important;
       }
     }
 
