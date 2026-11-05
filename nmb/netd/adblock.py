@@ -1133,6 +1133,7 @@ def add_whitelist_entry(domain: str) -> bool:
         WHITELIST_FILE.write_text("\n".join(sorted(engine.whitelist)) + "\n", encoding="utf-8")
         if BLACKLIST_FILE.exists():
             BLACKLIST_FILE.write_text("\n".join(sorted(engine.blacklist)) + "\n", encoding="utf-8")
+    query_adblock_ipc("reload")
     return True
 
 
@@ -1145,6 +1146,7 @@ def remove_whitelist_entry(domain: str) -> bool:
             ADBLOCK_DIR.mkdir(parents=True, exist_ok=True)
             WHITELIST_FILE.write_text("\n".join(sorted(engine.whitelist)) + "\n", encoding="utf-8")
             engine._load_local_data()
+            query_adblock_ipc("reload")
             return True
     return False
 
@@ -1168,6 +1170,7 @@ def add_blacklist_entry(domain: str) -> bool:
         BLACKLIST_FILE.write_text("\n".join(sorted(engine.blacklist)) + "\n", encoding="utf-8")
         if WHITELIST_FILE.exists():
             WHITELIST_FILE.write_text("\n".join(sorted(engine.whitelist)) + "\n", encoding="utf-8")
+    query_adblock_ipc("reload")
     return True
 
 
@@ -1180,6 +1183,7 @@ def remove_blacklist_entry(domain: str) -> bool:
             ADBLOCK_DIR.mkdir(parents=True, exist_ok=True)
             BLACKLIST_FILE.write_text("\n".join(sorted(engine.blacklist)) + "\n", encoding="utf-8")
             engine._load_local_data()
+            query_adblock_ipc("reload")
             return True
     return False
 
@@ -1198,6 +1202,9 @@ def _save_adlists(adlists: List[Dict[str, Any]]) -> None:
 
 
 def get_adlists() -> List[Dict[str, Any]]:
+    ipc_res = query_adblock_ipc("adlists")
+    if ipc_res and "adlists" in ipc_res:
+        return ipc_res["adlists"]
     engine = get_adblock_engine()
     with engine.lock:
         return list(engine.adlists)
@@ -1220,6 +1227,7 @@ def add_adlist(url: str, name: str = "") -> bool:
             "updated_at": None,
         })
         _save_adlists(engine.adlists)
+    query_adblock_ipc("reload")
     return True
 
 
@@ -1231,6 +1239,7 @@ def remove_adlist(url: str) -> bool:
         engine.adlists = [it for it in engine.adlists if it.get("url") != url]
         if len(engine.adlists) != orig_len:
             _save_adlists(engine.adlists)
+            query_adblock_ipc("reload")
             return True
     return False
 
@@ -1243,6 +1252,7 @@ def toggle_adlist(url: str, enabled: bool) -> bool:
             if item.get("url") == url:
                 item["enabled"] = enabled
                 _save_adlists(engine.adlists)
+                query_adblock_ipc("reload")
                 return True
     return False
 
@@ -1260,6 +1270,9 @@ def _save_custom_dns(records: Dict[str, str]) -> None:
 
 
 def get_local_dns_records() -> List[Dict[str, str]]:
+    ipc_res = query_adblock_ipc("localdns")
+    if ipc_res and "records" in ipc_res:
+        return ipc_res["records"]
     engine = get_adblock_engine()
     with engine.lock:
         return [{"domain": d, "ip": ip} for d, ip in sorted(engine.custom_dns.items())]
@@ -1279,6 +1292,7 @@ def add_local_dns_record(domain: str, ip: str) -> bool:
     with engine.lock:
         engine.custom_dns[domain] = ip
         _save_custom_dns(engine.custom_dns)
+    query_adblock_ipc("reload")
     return True
 
 
@@ -1289,6 +1303,7 @@ def remove_local_dns_record(domain: str) -> bool:
         if domain in engine.custom_dns:
             del engine.custom_dns[domain]
             _save_custom_dns(engine.custom_dns)
+            query_adblock_ipc("reload")
             return True
     return False
 
@@ -1309,6 +1324,9 @@ def _save_regex_file(file_path: Path, items: List[Dict[str, Any]]) -> None:
 
 
 def get_regex_filters() -> Dict[str, List[Dict[str, Any]]]:
+    ipc_res = query_adblock_ipc("regex")
+    if ipc_res and "regex" in ipc_res:
+        return ipc_res["regex"]
     engine = get_adblock_engine()
     with engine.lock:
         return {
@@ -1335,6 +1353,7 @@ def add_regex_filter(pattern: str, kind: str = "black", comment: str = "") -> bo
                 return True
         target_list.append({"pattern": pattern, "regex": compiled, "comment": comment})
         _save_regex_file(target_file, target_list)
+    query_adblock_ipc("reload")
     return True
 
 
@@ -1352,6 +1371,7 @@ def remove_regex_filter(pattern: str, kind: str = "black") -> bool:
             else:
                 engine.regex_whitelist = new_list
             _save_regex_file(target_file, new_list)
+            query_adblock_ipc("reload")
             return True
     return False
 
