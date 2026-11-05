@@ -2482,6 +2482,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     <button class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminal</button>
     <button class="app-tab-btn" onclick="switchTab('tab-tasks')" data-i18n="tab_tasks">📊 Tasks & Load</button>
     <button class="app-tab-btn" onclick="switchTab('tab-info')" data-i18n="tab_router">🛠️ Router & System</button>
+    <button class="app-tab-btn" onclick="switchTab('tab-telegram')" data-i18n="tab_telegram">💬 Telegram Bot</button>
     <button class="app-tab-btn" onclick="switchTab('tab-llm')" data-i18n="tab_llm">🤖 AI Diagnostics (LLM)</button>
   </div>
 
@@ -3712,6 +3713,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <!-- Remote Subtabs -->
       <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap;">
         <button id="btn-subtab-vpnhub" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('vpnhub')" data-i18n="subtab_vpnhub">🛡️ PiVPN Hub</button>
+        <button id="btn-subtab-tailscale" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('tailscale')" data-i18n="subtab_tailscale">🦎 Tailscale (Mesh)</button>
         <button id="btn-subtab-guide" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('guide')" data-i18n="subtab_guide">🌐 Port Forwarding Guide</button>
         <button id="btn-subtab-wireguard" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('wireguard')" data-i18n="subtab_wireguard">🛡️ WireGuard Server</button>
         <button id="btn-subtab-openvpn" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('openvpn')" data-i18n="subtab_openvpn">🔒 OpenVPN Server</button>
@@ -3754,6 +3756,23 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <div style="margin-top: 12px; display: flex; gap: 8px;">
               <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('openvpn')">⚙️ Settings</button>
               <button id="pivpn-btn-ovpn-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleOpenvpnServer()">Start/Stop</button>
+            </div>
+          </div>
+
+          <!-- Tailscale Mesh Card -->
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="font-weight: 700; font-size: 14px; color: #10b981;">🦎 Tailscale (Mesh VPN)</div>
+              <span id="pivpn-ts-badge" class="badge">Checking...</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+              <div>Tailscale IP: <b id="pivpn-ts-ip" style="color:#10b981; font-family:monospace;">--</b></div>
+              <div>MagicDNS: <b id="pivpn-ts-dns" style="color:#38bdf8; font-family:monospace; font-size:11px; word-break:break-all;">--</b></div>
+              <div style="margin-top: 4px; font-size: 11px; color: #94a3b8;">Role: <b>Admin / WebUI only</b> (No WAN override)</div>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px;">
+              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('tailscale')">⚙️ Manage</button>
+              <button id="pivpn-btn-ts-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleTailscaleConnection()">Connect</button>
             </div>
           </div>
 
@@ -4329,6 +4348,135 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;" data-i18n="proxy_stat_uptime">Uptime:</div>
               <div id="proxy-stat-uptime" style="font-size: 13px; color: var(--text-muted);">--</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 5: TAILSCALE (MESH ACCESS) -->
+      <div id="subtab-content-tailscale" class="remote-subtab" style="display: none;">
+        <!-- Security & Architecture Banner -->
+        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; display: flex; align-items: flex-start; gap: 14px;">
+          <div style="font-size: 24px; line-height: 1;">🛡️</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 700; font-size: 13.5px; color: #34d399; margin-bottom: 4px;">Management-Plane Isolation (Kizárólag Kezelőfelület Hozzáférés)</div>
+            <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0;" data-i18n="tailscale_desc">
+              A Tailscale kizárólag a NetworkMeasureBox WebUI és SSH adminisztrációs felületének biztonságos, távoli elérésére szolgál (NAT és CGNAT mögül is, publikus portnyitás nélkül). Nem irányítja át a mért internet forgalmat (<code style="color:#38bdf8;">--accept-routes=false --advertise-exit-node=false --accept-dns=false</code>), így a sebesség- és késleltetésmérések mentesek maradnak a VPN interferenciától.
+            </p>
+          </div>
+        </div>
+
+        <!-- Needs Login / Auth URL Banner -->
+        <div id="tailscale-login-banner" style="display: none; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+          <div>
+            <div style="font-weight: 700; font-size: 14px; color: #f59e0b; margin-bottom: 4px;">🔑 Tailnet Bejelentkezés Szükséges</div>
+            <div style="font-size: 12px; color: var(--text-muted);">A készülék még nincs hitelesítve a Tailnet hálózatodon. Nyisd meg a linket egy böngészőben a gép csatlakoztatásához:</div>
+          </div>
+          <a id="tailscale-auth-url-btn" href="#" target="_blank" class="btn-primary" style="text-decoration: none; padding: 8px 18px; font-size: 13px; font-weight: 600;" data-i18n="tailscale_btn_login_web">
+            🔑 Bejelentkezés jóváhagyása a böngészőben ↗
+          </a>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <!-- Status & Direct Links Card -->
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <div style="font-weight: 700; font-size: 14px; color: #10b981;" data-i18n="tailscale_title">🦎 Tailscale Biztonságos Hálózati Hozzáférés (Mesh VPN)</div>
+              <span id="tailscale-status-badge" class="badge">Checking...</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12.5px;">
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
+                <span style="color: var(--text-muted);" data-i18n="tailscale_ip_v4">Tailscale IPv4 Cím:</span>
+                <span id="tailscale-ip-val" style="font-family: monospace; font-weight: 600; color: #34d399;">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
+                <span style="color: var(--text-muted);" data-i18n="tailscale_ip_v6">Tailscale IPv6 Cím:</span>
+                <span id="tailscale-ipv6-val" style="font-family: monospace; font-size: 11px; color: #c084fc; word-break: break-all;">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
+                <span style="color: var(--text-muted);" data-i18n="tailscale_magic_dns">MagicDNS Domain Név:</span>
+                <span id="tailscale-dns-val" style="font-family: monospace; font-size: 11px; color: #38bdf8; word-break: break-all;">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding-bottom: 4px;">
+                <span style="color: var(--text-muted);" data-i18n="tailscale_hostname">Tailscale Gépnév (Hostname):</span>
+                <span id="tailscale-hostname-val" style="font-family: monospace; color: var(--text-main);">--</span>
+              </div>
+            </div>
+
+            <!-- Direct One-Click Links -->
+            <div id="tailscale-direct-links" style="display: none; margin-top: 16px; padding: 12px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px;">
+              <div style="font-size: 11.5px; font-weight: 600; color: #38bdf8; margin-bottom: 8px;">🚀 Közvetlen Vezérlőpult Hivatkozások:</div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <a id="tailscale-link-ip" href="#" target="_blank" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; text-decoration: none; color: #34d399;">
+                  🌐 Megnyitás IP alapján (<span id="tailscale-link-ip-text">100.x.y.z</span>) ↗
+                </a>
+                <a id="tailscale-link-magic" href="#" target="_blank" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; text-decoration: none; color: #38bdf8;">
+                  ✨ Megnyitás MagicDNS-sel ↗
+                </a>
+              </div>
+            </div>
+
+            <!-- Controls -->
+            <div style="margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <button id="tailscale-btn-up" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="connectTailscale()" data-i18n="tailscale_btn_up">▶️ Csatlakozás (Tailscale Up)</button>
+              <button id="tailscale-btn-down" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="disconnectTailscale()" data-i18n="tailscale_btn_down">⏹️ Lekapcsolódás</button>
+              <button id="tailscale-btn-logout" class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" onclick="logoutTailscale()" data-i18n="tailscale_btn_logout">🚪 Kijelentkezés</button>
+              <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTailscaleStatus()" data-i18n="btn_refresh">🔄 Frissítés</button>
+            </div>
+          </div>
+
+          <!-- Configuration & Auth Key Card -->
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 12px;">⚙️ Tailscale Vezérlő & Biztonsági Beállítások</div>
+            
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label class="form-label" style="font-size: 12px;" data-i18n="tailscale_auth_key">Tailscale Auth Kulcs (tskey-auth-...):</label>
+              <input type="password" id="tailscale-auth-key-input" class="form-input" style="font-size: 13px; font-family: monospace;" placeholder="tskey-auth-k123456789...">
+              <div class="form-hint" style="font-size: 11px;">Opcionális. Megadása esetén böngészős jóváhagyás nélkül, automatikusan hitelesíti a készüléket.</div>
+            </div>
+
+            <div style="margin-bottom: 14px; background: rgba(0,0,0,0.15); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+              <div style="font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 8px;">Biztonsági Beállítások (Alapértelmezésben rögzítve):</div>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; cursor: pointer;">
+                <input type="checkbox" id="tailscale-cfg-ssh" checked> <span>Tailscale SSH engedélyezése (<code style="color:#38bdf8;">--ssh</code>)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; cursor: pointer;">
+                <input type="checkbox" id="tailscale-cfg-accept-routes"> <span>Alhálózati útvonalak elfogadása (<code style="color:#ef4444;">--accept-routes</code> - Alapértelmezett: Ki)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; cursor: pointer;">
+                <input type="checkbox" id="tailscale-cfg-accept-dns"> <span>Tailscale MagicDNS felülbírálás (<code style="color:#ef4444;">--accept-dns</code> - Alapértelmezett: Ki)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" id="tailscale-cfg-exit-node"> <span>Exit Node hirdetése (<code style="color:#ef4444;">--advertise-exit-node</code> - Alapértelmezett: Ki)</span>
+              </label>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+              <button class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveTailscaleConfig()">💾 Beállítások Mentése</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Peers List Table -->
+        <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8;" data-i18n="tailscale_peers">Csatlakoztatott Eszközök a Tailnetben:</div>
+            <span id="tailscale-peer-count" class="badge">0 eszköz</span>
+          </div>
+          <div class="table-container" style="max-height: 320px; overflow-y: auto;">
+            <table class="router-table" style="width: 100%; font-size: 12px;">
+              <thead>
+                <tr>
+                  <th>Eszköz / Hostname</th>
+                  <th>Tailscale IP</th>
+                  <th>Operációs Rendszer</th>
+                  <th>Állapot</th>
+                </tr>
+              </thead>
+              <tbody id="tailscale-peers-tbody">
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 18px;">Nincs adat vagy a Tailscale nincs csatlakozva.</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -4996,6 +5144,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <button class="router-subtab-btn" id="btn-rsub-system" onclick="switchRouterSubtab('rsub-system')" data-i18n="subtab_system">🛡️ Firewall & System</button>
         <button class="router-subtab-btn" id="btn-rsub-backup" onclick="switchRouterSubtab('rsub-backup')" data-i18n="subtab_backup">📦 Backup & Restore</button>
         <button class="router-subtab-btn" id="btn-rsub-heal" onclick="switchRouterSubtab('rsub-heal')" data-i18n="subtab_heal">🔄 Self-Healing & Updates</button>
+        <button class="router-subtab-btn" id="btn-rsub-telegram" onclick="switchRouterSubtab('rsub-telegram')" data-i18n="subtab_telegram">💬 Telegram Chatbot</button>
       </div>
 
       <!-- SUBTAB 1: WAN / INTERNET -->
@@ -6699,11 +6848,185 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         </div>
       </div>
 
+      <!-- SUBTAB 13: TELEGRAM CHATBOT -->
+      <div id="rsub-telegram" class="router-subtab-content">
+        <div class="router-section-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 14px; font-weight: 700; color: #ffffff;" data-i18n="telegram_title">💬 Telegram Chatbot & Intelligens Riasztások</div>
+            <button class="btn-secondary" style="font-size: 12px; padding: 5px 12px;" onclick="switchTab('tab-telegram')">💬 Megnyitás Teljes Képernyőn ↗</button>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;" data-i18n="telegram_desc">
+            Interaktív távoli felügyelet, diagnosztikai parancsok (/speed, /ping, /adblock, /status) és azonnali értesítések vonalszakadás vagy magas késleltetés esetén.
+          </p>
+          <div id="rsub-telegram-summary" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-weight: 600;">Chatbot Szolgáltatás Állapota:</span>
+              <span id="rsub-telegram-badge" class="badge">Checking...</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted);">
+              Aktív bot azonosító: <b id="rsub-telegram-botname" style="color: #38bdf8;">--</b>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchTab('tab-telegram')">⚙️ Chatbot és Riasztások Kezelése</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Bottom Sticky Save Bar -->
       <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
         <button class="btn-primary" style="padding: 10px 28px; font-size: 14px;" onclick="saveRouterSettings()">
           💾 Save All Router Settings
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: TELEGRAM CHATBOT -->
+  <div id="tab-telegram" class="tab-content">
+    <div class="app-box">
+      <!-- Title & Header -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <div class="section-subtitle" style="margin: 0;" data-i18n="telegram_title">💬 Telegram Chatbot & Intelligens Riasztások</div>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;" data-i18n="telegram_desc">
+            Interaktív távoli felügyelet, diagnosztikai parancsok (/speed, /ping, /adblock, /status) és azonnali értesítések vonalszakadás vagy magas késleltetés esetén.
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span id="telegram-main-badge" class="badge">Checking...</span>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTelegramStatus()" data-i18n="btn_refresh">🔄 Frissítés</button>
+        </div>
+      </div>
+
+      <!-- Quick 3-Step Setup Guide -->
+      <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;">
+        <div style="font-weight: 700; font-size: 13.5px; color: #38bdf8; margin-bottom: 8px;">🚀 Gyors Beállítási Útmutató (3 Lépés):</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; font-size: 12px; color: var(--text-muted);">
+          <div style="background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 6px;">
+            <b style="color: #cbd5e1;" data-i18n="telegram_step1">1. Bot Létrehozása:</b> Nyisd meg a Telegramot, keresd meg a <code style="color:#38bdf8;">@BotFather</code> felhasználót, küldd el a <code style="color:#38bdf8;">/newbot</code> parancsot, és másold be a kapott API Tokent.
+          </div>
+          <div style="background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 6px;">
+            <b style="color: #cbd5e1;" data-i18n="telegram_step2">2. Chat ID Lekérdezése:</b> Keresd meg a <code style="color:#38bdf8;">@userinfobot</code>-ot a Telegramon a saját numerikus Chat ID-d lekéréséhez, vagy add hozzá a csoportot.
+          </div>
+          <div style="background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 6px;">
+            <b style="color: #cbd5e1;" data-i18n="telegram_step3">3. Bot Elindítása:</b> Indíts egy privát beszélgetést a saját botoddal és nyomj a <code style="color:#38bdf8;">/start</code> gombra a tesztüzenet elküldése előtt!
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-bottom: 20px;">
+        <!-- Left: Configuration Form -->
+        <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+          <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 14px;">🔑 Bot Hitelesítés & Riasztási Beállítások</div>
+
+          <div style="margin-bottom: 14px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
+              <input type="checkbox" id="telegram-cfg-enabled"> <span data-i18n="telegram_enable">Telegram Chatbot engedélyezése (nmb-telegram)</span>
+            </label>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" style="font-size: 12px;" data-i18n="telegram_token">Telegram Bot API Token:</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="password" id="telegram-cfg-token" class="form-input" style="font-size: 13px; font-family: monospace; flex: 1;" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+              <button class="btn-secondary" style="font-size: 12px; padding: 6px 10px;" type="button" onclick="toggleTelegramTokenVisibility()">👁️</button>
+            </div>
+            <div class="form-hint" style="font-size: 11px;">A @BotFather által kiadott titkos hozzáférési token.</div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" style="font-size: 12px;" data-i18n="telegram_chats">Engedélyezett Chat ID-k (vesszővel elválasztva):</label>
+            <input type="text" id="telegram-cfg-chats" class="form-input" style="font-size: 13px; font-family: monospace;" placeholder="123456789, 987654321">
+            <div class="form-hint" style="font-size: 11px;">Csak az itt megadott Telegram felhasználók és csoportok küldhetnek parancsot a botnak és kapnak riasztást.</div>
+          </div>
+
+          <div style="background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px;">
+            <div style="font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 10px;">🚨 Automatikus Hálózati Riasztások:</div>
+            
+            <div style="margin-bottom: 10px;">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; margin-bottom: 4px;">
+                <input type="checkbox" id="telegram-cfg-alert-loss"> <span>Riasztás csomagvesztés esetén</span>
+              </label>
+              <div style="display: flex; align-items: center; gap: 8px; margin-left: 22px;">
+                <span style="font-size: 11.5px; color: var(--text-muted);" data-i18n="telegram_loss_thresh">Küszöb (%):</span>
+                <input type="number" id="telegram-cfg-loss-thresh" class="form-input" style="width: 80px; font-size: 12px; padding: 4px 8px;" min="1" max="100" value="5">
+              </div>
+            </div>
+
+            <div>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; margin-bottom: 4px;">
+                <input type="checkbox" id="telegram-cfg-alert-latency"> <span>Riasztás magas késleltetés (ping) esetén</span>
+              </label>
+              <div style="display: flex; align-items: center; gap: 8px; margin-left: 22px;">
+                <span style="font-size: 11.5px; color: var(--text-muted);" data-i18n="telegram_lat_thresh">Küszöb (ms):</span>
+                <input type="number" id="telegram-cfg-lat-thresh" class="form-input" style="width: 80px; font-size: 12px; padding: 4px 8px;" min="5" max="5000" value="100">
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn-primary" style="padding: 8px 18px; font-size: 13px;" onclick="saveTelegramConfig()" data-i18n="telegram_btn_save">💾 Beállítások mentése & Bot indítása</button>
+          </div>
+        </div>
+
+        <!-- Right: Status, Daemon Controls & Test Sender -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Live Service Card -->
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 12px;">🤖 Bot Állapot & Rendszerszolgáltatás</div>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
+                <span style="color: var(--text-muted);">Bot Felhasználónév:</span>
+                <span id="telegram-stat-username" style="font-weight: 600; color: #38bdf8;">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
+                <span style="color: var(--text-muted);">Bot Megjelenített Név:</span>
+                <span id="telegram-stat-first-name" style="color: var(--text-main);">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
+                <span style="color: var(--text-muted);">Telegram API Kapcsolat:</span>
+                <span id="telegram-stat-api" style="font-weight: 600;">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding-bottom: 4px;">
+                <span style="color: var(--text-muted);">Démon Folyamat (nmb-telegram):</span>
+                <span id="telegram-stat-service" class="badge">--</span>
+              </div>
+            </div>
+
+            <!-- Service Control Buttons -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+              <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('start')" data-i18n="telegram_btn_start">▶️ Indítás</button>
+              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('stop')" data-i18n="telegram_btn_stop">⏹️ Leállítás</button>
+              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('restart')" data-i18n="telegram_btn_restart">🔄 Újraindítás</button>
+            </div>
+
+            <!-- Test Notification Section -->
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px;">
+              <div style="font-size: 12px; font-weight: 600; color: #34d399; margin-bottom: 8px;">📨 Azonnali Tesztüzenet Küldése:</div>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="telegram-test-chat-id" class="form-input" style="font-size: 12px; padding: 6px 10px; flex: 1;" placeholder="Opcionális cél Chat ID (vagy üresen az első beállított)">
+                <button class="btn-primary" style="font-size: 12px; padding: 6px 14px; white-space: nowrap;" onclick="sendTelegramTestNotification()" data-i18n="telegram_btn_test">📨 Küldés</button>
+              </div>
+              <div id="telegram-test-result" style="display: none; font-size: 11.5px; margin-top: 8px; padding: 6px 10px; border-radius: 6px;"></div>
+            </div>
+          </div>
+
+          <!-- Bot Commands Cheatsheet Card -->
+          <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
+            <div style="font-weight: 700; font-size: 14px; color: #cbd5e1; margin-bottom: 10px;">📋 Elérhető Telegram Bot Parancsok</div>
+            <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 12px;">
+              <code style="color:#38bdf8;">/status</code><span>Rendszerállapot, Uptime, CPU, Hőmérséklet</span>
+              <code style="color:#38bdf8;">/ping</code><span>Azonnali ping késleltetés és csomagvesztés</span>
+              <code style="color:#38bdf8;">/speed</code><span>Legutóbbi sebességteszt eredmények / új mérés</span>
+              <code style="color:#38bdf8;">/wifi</code><span>Wi-Fi állapot és csatlakoztatott kliensek</span>
+              <code style="color:#38bdf8;">/adblock</code><span>DNS Reklámblokkoló statisztika</span>
+              <code style="color:#38bdf8;">/ip</code><span>Hálózati IP címek (WAN, LAN, Tailscale)</span>
+              <code style="color:#38bdf8;">/help</code><span>Összes elérhető parancs listája</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -7256,6 +7579,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       startAdblockPolling();
     } else {
       stopAdblockPolling();
+    }
+    if (tabId === 'tab-telegram') {
+      loadTelegramStatus();
     }
     if (tabId === 'tab-llm') {
       loadLlmBundle();
@@ -10568,6 +10894,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (subtabId === 'rsub-heal') {
       loadHealStatus();
       checkStableUpdates();
+    }
+    if (subtabId === 'rsub-telegram') {
+      loadTelegramStatus();
     }
   }
 
@@ -14187,7 +14516,7 @@ ${pkgList}`;
 
   function switchRemoteSubtab(tabName) {
     activeRemoteSubtab = tabName;
-    ['vpnhub', 'guide', 'wireguard', 'openvpn', 'duckdns', 'proxy'].forEach(t => {
+    ['vpnhub', 'tailscale', 'guide', 'wireguard', 'openvpn', 'duckdns', 'proxy'].forEach(t => {
       const btn = document.getElementById('btn-subtab-' + t);
       const pane = document.getElementById('subtab-content-' + t);
       if (btn) btn.className = (t === tabName) ? 'btn-primary' : 'btn-secondary';
@@ -14197,7 +14526,10 @@ ${pkgList}`;
     if (tabName === 'vpnhub') {
       loadWireguardStatus();
       loadOpenvpnStatus();
+      loadTailscaleStatus();
       loadPortGuideStatus();
+    } else if (tabName === 'tailscale') {
+      loadTailscaleStatus();
     } else if (tabName === 'guide') {
       loadPortGuideStatus();
     } else if (tabName === 'duckdns') {
@@ -14215,6 +14547,7 @@ ${pkgList}`;
     loadDuckdnsStatus();
     loadWireguardStatus();
     loadOpenvpnStatus();
+    loadTailscaleStatus();
     loadProxyStatus();
     loadPortGuideStatus();
   }
@@ -15479,8 +15812,459 @@ ${pkgList}`;
     }
   }
 
+  // ==========================================
+  // Tailscale Mesh Network Integration
+  // ==========================================
+  let lastTailscaleStatus = null;
+
+  async function loadTailscaleStatus() {
+    try {
+      const res = await fetch('/api/tailscale/status');
+      if (!res.ok) return;
+      const d = await res.json();
+      lastTailscaleStatus = d;
+
+      // Badges
+      const pBadge = document.getElementById('pivpn-ts-badge');
+      const tBadge = document.getElementById('tailscale-status-badge');
+      const pToggle = document.getElementById('pivpn-btn-ts-toggle');
+      const pIp = document.getElementById('pivpn-ts-ip');
+      const pDns = document.getElementById('pivpn-ts-dns');
+
+      let stateText = d.backend_state || 'Stopped';
+      let badgeBg = 'rgba(100, 116, 139, 0.2)';
+      let badgeColor = '#94a3b8';
+      let isRunning = false;
+
+      if (!d.installed) {
+        stateText = 'Not Installed';
+        badgeBg = 'rgba(239, 68, 68, 0.2)';
+        badgeColor = '#ef4444';
+      } else if (d.backend_state === 'Running') {
+        stateText = 'Connected';
+        badgeBg = 'rgba(16, 185, 129, 0.2)';
+        badgeColor = '#10b981';
+        isRunning = true;
+      } else if (d.backend_state === 'NeedsLogin') {
+        stateText = 'Needs Login';
+        badgeBg = 'rgba(245, 158, 11, 0.2)';
+        badgeColor = '#f59e0b';
+      } else if (d.backend_state === 'Starting') {
+        stateText = 'Starting...';
+        badgeBg = 'rgba(56, 189, 248, 0.2)';
+        badgeColor = '#38bdf8';
+      }
+
+      [pBadge, tBadge].forEach(b => {
+        if (!b) return;
+        b.textContent = stateText;
+        b.style.background = badgeBg;
+        b.style.color = badgeColor;
+        b.style.border = `1px solid ${badgeColor}40`;
+      });
+
+      if (pToggle) {
+        pToggle.textContent = isRunning ? 'Disconnect' : 'Connect';
+      }
+
+      // IPs and DNS
+      const ips = d.tailscale_ips || [];
+      const ipv4 = ips.find(ip => ip.includes('.')) || '--';
+      const ipv6 = ips.find(ip => ip.includes(':')) || '--';
+      const dnsName = d.dns_name ? d.dns_name.replace(/\\.$/, '') : '--';
+
+      if (pIp) pIp.textContent = ipv4;
+      if (pDns) pDns.textContent = dnsName !== '--' ? dnsName : '--';
+
+      const elIp = document.getElementById('tailscale-ip-val');
+      if (elIp) elIp.textContent = ipv4;
+      const elIpv6 = document.getElementById('tailscale-ipv6-val');
+      if (elIpv6) elIpv6.textContent = ipv6;
+      const elDns = document.getElementById('tailscale-dns-val');
+      if (elDns) elDns.textContent = dnsName;
+      const elHost = document.getElementById('tailscale-hostname-val');
+      if (elHost) elHost.textContent = (d.self && d.self.HostName) ? d.self.HostName : 'networkmeasurebox';
+
+      // Direct Links Banner
+      const directBox = document.getElementById('tailscale-direct-links');
+      const linkIp = document.getElementById('tailscale-link-ip');
+      const linkIpText = document.getElementById('tailscale-link-ip-text');
+      const linkMagic = document.getElementById('tailscale-link-magic');
+
+      if (isRunning && ipv4 !== '--') {
+        if (directBox) directBox.style.display = 'block';
+        if (linkIp) linkIp.href = 'http://' + ipv4 + '/';
+        if (linkIpText) linkIpText.textContent = ipv4;
+        if (linkMagic && dnsName !== '--') {
+          linkMagic.style.display = 'inline-block';
+          linkMagic.href = 'http://' + dnsName + '/';
+        } else if (linkMagic) {
+          linkMagic.style.display = 'none';
+        }
+      } else {
+        if (directBox) directBox.style.display = 'none';
+      }
+
+      // Login URL Banner
+      const loginBanner = document.getElementById('tailscale-login-banner');
+      const authBtn = document.getElementById('tailscale-auth-url-btn');
+      if (d.auth_url) {
+        if (loginBanner) loginBanner.style.display = 'flex';
+        if (authBtn) authBtn.href = d.auth_url;
+      } else {
+        if (loginBanner) loginBanner.style.display = 'none';
+      }
+
+      // Checkboxes from config
+      if (d.config) {
+        const cSsh = document.getElementById('tailscale-cfg-ssh');
+        if (cSsh && !cSsh.dataset.focused) cSsh.checked = d.config.ssh !== false;
+        const cRoutes = document.getElementById('tailscale-cfg-accept-routes');
+        if (cRoutes && !cRoutes.dataset.focused) cRoutes.checked = !!d.config.accept_routes;
+        const cDns = document.getElementById('tailscale-cfg-accept-dns');
+        if (cDns && !cDns.dataset.focused) cDns.checked = !!d.config.accept_dns;
+        const cExit = document.getElementById('tailscale-cfg-exit-node');
+        if (cExit && !cExit.dataset.focused) cExit.checked = !!d.config.exit_node;
+      }
+
+      // Peers table
+      const tbody = document.getElementById('tailscale-peers-tbody');
+      const countEl = document.getElementById('tailscale-peer-count');
+      if (tbody) {
+        const peers = d.peers || [];
+        if (countEl) countEl.textContent = peers.length + ' eszköz';
+        if (peers.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 18px;">${isRunning ? 'Nincs más aktív peer a hálózatban.' : 'Tailscale nincs csatlakozva.'}</td></tr>`;
+        } else {
+          tbody.innerHTML = peers.map(p => {
+            const pIp = (p.TailscaleIPs && p.TailscaleIPs.length > 0) ? p.TailscaleIPs[0] : '--';
+            const isOnline = p.Online;
+            const statusBadge = isOnline ? 
+              '<span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3);">Online</span>' : 
+              '<span class="badge" style="background:rgba(100,116,139,0.15); color:#94a3b8; border:1px solid rgba(100,116,139,0.3);">Offline</span>';
+            const name = p.HostName || p.DNSName || '--';
+            const os = p.OS || '--';
+            return `<tr>
+              <td style="font-weight:600; color:#e2e8f0;">${name}</td>
+              <td><code style="color:#38bdf8;">${pIp}</code></td>
+              <td>${os}</td>
+              <td>${statusBadge}</td>
+            </tr>`;
+          }).join('');
+        }
+      }
+    } catch (e) {
+      console.error('Tailscale status fetch error:', e);
+    }
+  }
+
+  async function connectTailscale() {
+    try {
+      const authKey = document.getElementById('tailscale-auth-key-input')?.value?.trim() || '';
+      const ssh = document.getElementById('tailscale-cfg-ssh')?.checked ?? true;
+      const acceptRoutes = document.getElementById('tailscale-cfg-accept-routes')?.checked ?? false;
+      const acceptDns = document.getElementById('tailscale-cfg-accept-dns')?.checked ?? false;
+      const exitNode = document.getElementById('tailscale-cfg-exit-node')?.checked ?? false;
+
+      showToast('Connecting to Tailscale...');
+      const res = await fetch('/api/tailscale/up', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          auth_key: authKey,
+          ssh: ssh,
+          accept_routes: acceptRoutes,
+          accept_dns: acceptDns,
+          exit_node: exitNode
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Tailscale command executed successfully!');
+        if (data.auth_url) {
+          window.open(data.auth_url, '_blank');
+        }
+      } else {
+        showToast('Tailscale: ' + (data.error || 'Failed to start'));
+      }
+      setTimeout(loadTailscaleStatus, 1500);
+    } catch (e) {
+      showToast('Tailscale error: ' + e);
+    }
+  }
+
+  async function disconnectTailscale() {
+    try {
+      showToast('Disconnecting Tailscale...');
+      const res = await fetch('/api/tailscale/down', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Tailscale disconnected.');
+      } else {
+        showToast('Tailscale: ' + (data.error || 'Failed'));
+      }
+      setTimeout(loadTailscaleStatus, 1000);
+    } catch (e) {
+      showToast('Tailscale error: ' + e);
+    }
+  }
+
+  async function logoutTailscale() {
+    if (!confirm('Biztosan ki szeretnél jelentkezni a Tailscale fiókból ezen az eszközön?')) return;
+    try {
+      showToast('Logging out from Tailscale...');
+      const res = await fetch('/api/tailscale/logout', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Tailscale logged out.');
+      } else {
+        showToast('Tailscale: ' + (data.error || 'Failed'));
+      }
+      setTimeout(loadTailscaleStatus, 1000);
+    } catch (e) {
+      showToast('Tailscale error: ' + e);
+    }
+  }
+
+  async function toggleTailscaleConnection() {
+    if (lastTailscaleStatus && lastTailscaleStatus.backend_state === 'Running') {
+      await disconnectTailscale();
+    } else {
+      await connectTailscale();
+    }
+  }
+
+  async function saveTailscaleConfig() {
+    try {
+      const authKey = document.getElementById('tailscale-auth-key-input')?.value?.trim() || '';
+      const ssh = document.getElementById('tailscale-cfg-ssh')?.checked ?? true;
+      const acceptRoutes = document.getElementById('tailscale-cfg-accept-routes')?.checked ?? false;
+      const acceptDns = document.getElementById('tailscale-cfg-accept-dns')?.checked ?? false;
+      const exitNode = document.getElementById('tailscale-cfg-exit-node')?.checked ?? false;
+
+      const res = await fetch('/api/tailscale/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          auth_key: authKey,
+          ssh: ssh,
+          accept_routes: acceptRoutes,
+          accept_dns: acceptDns,
+          exit_node: exitNode
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Tailscale beállítások sikeresen mentve!');
+      } else {
+        showToast('Hiba a mentés során: ' + (data.error || 'Failed'));
+      }
+    } catch (e) {
+      showToast('Hálózati hiba: ' + e);
+    }
+  }
+
+  // ==========================================
+  // Telegram Bot & Alerts Integration
+  // ==========================================
+  let lastTelegramStatus = null;
+
+  async function loadTelegramStatus() {
+    try {
+      const res = await fetch('/api/telegram/status');
+      if (!res.ok) return;
+      const d = await res.json();
+      lastTelegramStatus = d;
+
+      // Populate config fields
+      const elEnabled = document.getElementById('telegram-cfg-enabled');
+      if (elEnabled && !elEnabled.dataset.focused) elEnabled.checked = !!d.enabled;
+      const elToken = document.getElementById('telegram-cfg-token');
+      if (elToken && !elToken.dataset.focused && d.bot_token !== undefined) elToken.value = d.bot_token;
+      const elChats = document.getElementById('telegram-cfg-chats');
+      if (elChats && !elChats.dataset.focused) elChats.value = (d.chat_ids || []).join(', ');
+
+      const elLoss = document.getElementById('telegram-cfg-alert-loss');
+      if (elLoss && !elLoss.dataset.focused) elLoss.checked = d.alert_on_loss !== false;
+      const elLossThresh = document.getElementById('telegram-cfg-loss-thresh');
+      if (elLossThresh && !elLossThresh.dataset.focused && d.loss_threshold_pct !== undefined) elLossThresh.value = d.loss_threshold_pct;
+
+      const elLat = document.getElementById('telegram-cfg-alert-latency');
+      if (elLat && !elLat.dataset.focused) elLat.checked = d.alert_on_latency !== false;
+      const elLatThresh = document.getElementById('telegram-cfg-lat-thresh');
+      if (elLatThresh && !elLatThresh.dataset.focused && d.latency_threshold_ms !== undefined) elLatThresh.value = d.latency_threshold_ms;
+
+      // Badges
+      const mainBadge = document.getElementById('telegram-main-badge');
+      const rsubBadge = document.getElementById('rsub-telegram-badge');
+      const svcBadge = document.getElementById('telegram-stat-service');
+
+      let stateText = 'Inactive';
+      let badgeBg = 'rgba(100, 116, 139, 0.2)';
+      let badgeColor = '#94a3b8';
+
+      if (d.service_active) {
+        stateText = 'Running & Active';
+        badgeBg = 'rgba(16, 185, 129, 0.2)';
+        badgeColor = '#10b981';
+      } else if (d.enabled) {
+        stateText = 'Stopped / Offline';
+        badgeBg = 'rgba(245, 158, 11, 0.2)';
+        badgeColor = '#f59e0b';
+      } else {
+        stateText = 'Disabled';
+        badgeBg = 'rgba(100, 116, 139, 0.2)';
+        badgeColor = '#94a3b8';
+      }
+
+      [mainBadge, rsubBadge].forEach(b => {
+        if (!b) return;
+        b.textContent = stateText;
+        b.style.background = badgeBg;
+        b.style.color = badgeColor;
+        b.style.border = `1px solid ${badgeColor}40`;
+      });
+
+      if (svcBadge) {
+        svcBadge.textContent = d.service_active ? 'Active (Running)' : 'Inactive (Dead)';
+        svcBadge.style.background = d.service_active ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+        svcBadge.style.color = d.service_active ? '#10b981' : '#f87171';
+      }
+
+      // Bot details
+      const userEl = document.getElementById('telegram-stat-username');
+      const nameEl = document.getElementById('telegram-stat-first-name');
+      const apiEl = document.getElementById('telegram-stat-api');
+      const rsubBotName = document.getElementById('rsub-telegram-botname');
+
+      if (userEl) userEl.textContent = d.bot_username ? '@' + d.bot_username : '--';
+      if (rsubBotName) rsubBotName.textContent = d.bot_username ? '@' + d.bot_username : (d.enabled ? 'Nincs bejelentkezve' : 'Kikapcsolva');
+      if (nameEl) nameEl.textContent = d.bot_first_name || '--';
+      if (apiEl) {
+        if (d.can_connect) {
+          apiEl.textContent = '✅ Connected (Token Valid)';
+          apiEl.style.color = '#10b981';
+        } else if (d.bot_token) {
+          apiEl.textContent = '❌ Invalid Token / No Connection';
+          apiEl.style.color = '#ef4444';
+        } else {
+          apiEl.textContent = '⚪ Token nincs megadva';
+          apiEl.style.color = '#94a3b8';
+        }
+      }
+    } catch (e) {
+      console.error('Telegram status fetch error:', e);
+    }
+  }
+
+  function toggleTelegramTokenVisibility() {
+    const el = document.getElementById('telegram-cfg-token');
+    if (el) {
+      el.type = (el.type === 'password') ? 'text' : 'password';
+    }
+  }
+
+  async function saveTelegramConfig() {
+    try {
+      const enabled = document.getElementById('telegram-cfg-enabled')?.checked ?? false;
+      const botToken = document.getElementById('telegram-cfg-token')?.value?.trim() || '';
+      const chatsRaw = document.getElementById('telegram-cfg-chats')?.value?.trim() || '';
+      const chatIds = chatsRaw ? chatsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      const alertOnLoss = document.getElementById('telegram-cfg-alert-loss')?.checked ?? true;
+      const lossThreshold = parseFloat(document.getElementById('telegram-cfg-loss-thresh')?.value) || 5.0;
+      const alertOnLatency = document.getElementById('telegram-cfg-alert-latency')?.checked ?? true;
+      const latencyThreshold = parseFloat(document.getElementById('telegram-cfg-lat-thresh')?.value) || 100.0;
+
+      showToast('Telegram beállítások mentése...');
+      const res = await fetch('/api/telegram/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: enabled,
+          bot_token: botToken,
+          chat_ids: chatIds,
+          alert_on_loss: alertOnLoss,
+          loss_threshold_pct: lossThreshold,
+          alert_on_latency: alertOnLatency,
+          latency_threshold_ms: latencyThreshold
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Telegram beállítások sikeresen mentve!');
+        setTimeout(loadTelegramStatus, 1000);
+      } else {
+        showToast('Hiba: ' + (data.error || 'Failed to save'));
+      }
+    } catch (e) {
+      showToast('Hálózati hiba: ' + e);
+    }
+  }
+
+  async function sendTelegramTestNotification() {
+    const resBox = document.getElementById('telegram-test-result');
+    try {
+      const chatId = document.getElementById('telegram-test-chat-id')?.value?.trim() || '';
+      if (resBox) {
+        resBox.style.display = 'block';
+        resBox.style.background = 'rgba(56, 189, 248, 0.15)';
+        resBox.style.color = '#38bdf8';
+        resBox.textContent = 'Teszt üzenet küldése folyamatban...';
+      }
+
+      const res = await fetch('/api/telegram/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        if (resBox) {
+          resBox.style.background = 'rgba(16, 185, 129, 0.15)';
+          resBox.style.color = '#10b981';
+          resBox.textContent = '✅ Teszt üzenet sikeresen elküldve a Telegramra!';
+        }
+        showToast('Teszt üzenet elküldve!');
+      } else {
+        if (resBox) {
+          resBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          resBox.style.color = '#f87171';
+          resBox.textContent = '❌ Sikertelen küldés: ' + (data.error || 'Unknown error');
+        }
+        showToast('Teszt üzenet sikertelen!');
+      }
+    } catch (e) {
+      if (resBox) {
+        resBox.style.background = 'rgba(239, 68, 68, 0.15)';
+        resBox.style.color = '#f87171';
+        resBox.textContent = '❌ Hálózati hiba: ' + e;
+      }
+      showToast('Hálózati hiba: ' + e);
+    }
+  }
+
+  async function controlTelegramService(action) {
+    try {
+      showToast(`Telegram démon: ${action}...`);
+      const res = await fetch('/api/telegram/service', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(`Telegram démon sikeresen módosítva: ${action}`);
+      } else {
+        showToast('Hiba: ' + (data.error || 'Failed'));
+      }
+      setTimeout(loadTelegramStatus, 1500);
+    } catch (e) {
+      showToast('Hiba: ' + e);
+    }
+  }
+
   // Initialization
-  ['duckdns-domain', 'duckdns-token', 'duckdns-interval', 'duckdns-custom-ip', 'wg-port', 'wg-subnet', 'wg-subnet-ipv6', 'wg-dns', 'wg-endpoint', 'ovpn-port', 'ovpn-subnet', 'ovpn-subnet-ipv6', 'ovpn-dns', 'ovpn-endpoint', 'proxy-port', 'proxy-dns', 'proxy-username', 'proxy-password'].forEach(id => {
+  ['duckdns-domain', 'duckdns-token', 'duckdns-interval', 'duckdns-custom-ip', 'wg-port', 'wg-subnet', 'wg-subnet-ipv6', 'wg-dns', 'wg-endpoint', 'ovpn-port', 'ovpn-subnet', 'ovpn-subnet-ipv6', 'ovpn-dns', 'ovpn-endpoint', 'proxy-port', 'proxy-dns', 'proxy-username', 'proxy-password', 'tailscale-auth-key-input', 'telegram-cfg-token', 'telegram-cfg-chats', 'telegram-cfg-loss-thresh', 'telegram-cfg-lat-thresh'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('focus', () => el.dataset.focused = '1');
@@ -15494,6 +16278,9 @@ ${pkgList}`;
       if (activeRemoteSubtab === 'vpnhub') {
         if (wireguardIsActive) loadWireguardStatus();
         if (openvpnIsActive) loadOpenvpnStatus();
+        loadTailscaleStatus();
+      } else if (activeRemoteSubtab === 'tailscale') {
+        loadTailscaleStatus();
       } else if (activeRemoteSubtab === 'proxy' && proxyIsActive) {
         loadProxyStatus();
       } else if (activeRemoteSubtab === 'wireguard' && wireguardIsActive) {
@@ -15503,6 +16290,10 @@ ${pkgList}`;
       } else if (activeRemoteSubtab === 'duckdns') {
         loadDuckdnsStatus();
       }
+    }
+    const telegramTab = document.getElementById('tab-telegram');
+    if (telegramTab && telegramTab.classList.contains('active')) {
+      loadTelegramStatus();
     }
   }, 3000);
 

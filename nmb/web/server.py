@@ -816,6 +816,58 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(get_proxy_status())
             return
 
+        # 17g. Tailscale Mesh VPN Status
+        if path in ("/api/tailscale/status", "/api/network/tailscale/status"):
+            from nmb.netd.tailscale import get_tailscale_status
+            st = get_tailscale_status()
+            st["config_enabled"] = getattr(self.server.cfg.tailscale, "enabled", False)
+            st["config_hostname"] = getattr(self.server.cfg.tailscale, "hostname", "networkmeasurebox")
+            auth_key = getattr(self.server.cfg.tailscale, "auth_key", "")
+            st["auth_key_set"] = bool(auth_key)
+            st["auth_key_masked"] = (auth_key[:8] + "..." + auth_key[-4:]) if (auth_key and len(auth_key) > 12) else ("***" if auth_key else "")
+            self._send_json(st)
+            return
+
+        # 17h. Telegram Chatbot & Proactive Alert Status
+        if path == "/api/telegram/status":
+            from nmb.bot.client import TelegramClient
+            token = getattr(self.server.cfg.telegram, "token", "")
+            masked = (token[:6] + "..." + token[-4:]) if (token and len(token) > 10) else ("***" if token else "")
+            active = False
+            pid = 0
+            if shutil.which("systemctl"):
+                try:
+                    res = subprocess.run(["systemctl", "is-active", "nmb-telegram"], capture_output=True, text=True, timeout=3)
+                    active = res.stdout.strip() == "active"
+                except Exception:
+                    pass
+            pid_file = self.server.cfg.system.run_dir / "telegram.pid"
+            if pid_file.exists():
+                try:
+                    pid = int(pid_file.read_text().strip())
+                except Exception:
+                    pass
+            bot_info = None
+            if token:
+                try:
+                    client = TelegramClient(token)
+                    bot_info = client.get_me()
+                except Exception as e:
+                    log.debug("telegram get_me error: %s", e)
+            self._send_json({
+                "status": "ok",
+                "enabled": getattr(self.server.cfg.telegram, "enabled", False),
+                "token_set": bool(token),
+                "token_masked": masked,
+                "allowed_chat_ids": getattr(self.server.cfg.telegram, "allowed_chat_ids", []),
+                "alert_loss_threshold_pct": getattr(self.server.cfg.telegram, "alert_loss_threshold_pct", 5.0),
+                "alert_latency_threshold_ms": getattr(self.server.cfg.telegram, "alert_latency_threshold_ms", 100.0),
+                "service_active": active,
+                "pid": pid,
+                "bot_info": bot_info,
+            })
+            return
+
         # 17f. Backup & Disaster Recovery GET APIs
         if path == "/api/backup/list":
             from nmb.common.backup import list_backups
@@ -2322,6 +2374,149 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from nmb.netd.proxy import stop_proxy_server
             stop_proxy_server()
             self._send_json({"status": "ok", "message": "HTTPS Proxy Server stopped."})
+            return
+
+        # 18c. Tailscale Mesh Remote Access Management
+        if path in ("/api/tailscale/up", "/api/network/tailscale/up"):
+            from nmb.netd.tailscale import tailscale_up
+            auth_key = str(body_json.get("auth_key", "")).strip()
+            hostname = str(body_json.get("hostname", "")).strip() or getattr(self.server.cfg.tailscale, "hostname", "networkmeasurebox")
+            if auth_key and not auth_key.startswith("***") and "..." not in auth_key:
+                self.server.cfg.tailscale.auth_key = auth_key
+            if hostname:
+                self.server.cfg.tailscale.hostname = hostname
+            self.server.cfg.tailscale.enabled = True
+            save_config(self.server.cfg)
+            res = tailscale_up(
+                auth_key=getattr(self.server.cfg.tailscale, "auth_key", ""),
+                hostname=self.server.cfg.tailscale.hostname,
+                accept_routes=False,
+                advertise_exit_node=False,
+                accept_dns=False,
+            )
+            self._send_json(res)
+            return
+
+        if path in ("/api/tailscale/down", "/api/network/tailscale/down"):
+            from nmb.netd.tailscale import tailscale_down
+            self.server.cfg.tailscale.enabled = False
+            save_config(self.server.cfg)
+            res = tailscale_down()
+            self._send_json(res)
+            return
+
+        if path in ("/api/tailscale/logout", "/api/network/tailscale/logout"):
+            from nmb.netd.tailscale import tailscale_logout
+            self.server.cfg.tailscale.enabled = False
+            self.server.cfg.tailscale.auth_key = ""
+            save_config(self.server.cfg)
+            res = tailscale_logout()
+            self._send_json(res)
+            return
+
+        if path in ("/api/tailscale/save", "/api/network/tailscale/save"):
+            auth_key = str(body_json.get("auth_key", "")).strip()
+            hostname = str(body_json.get("hostname", "networkmeasurebox")).strip()
+            if auth_key and not auth_key.startswith("***") and "..." not in auth_key:
+                self.server.cfg.tailscale.auth_key = auth_key
+            if hostname:
+                self.server.cfg.tailscale.hostname = hostname
+            if "enabled" in body_json:
+                self.server.cfg.tailscale.enabled = bool(body_json.get("enabled"))
+            save_config(self.server.cfg)
+            self._send_json({"status": "ok", "message": "Tailscale configuration saved."})
+            return
+
+        # 18d. Telegram Chatbot & Alert Management
+        if path == "/api/telegram/save":
+            enabled = bool(body_json.get("enabled", False))
+            token_in = str(body_json.get("token", "")).strip()
+            if token_in and not token_in.startswith("***") and "..." not in token_in:
+                self.server.cfg.telegram.token = token_in
+            chat_ids_raw = body_json.get("allowed_chat_ids", [])
+            parsed_chats = []
+            if isinstance(chat_ids_raw, str):
+                for c in chat_ids_raw.replace(";", ",").split(","):
+                    c_str = c.strip()
+                    if c_str and (c_str.isdigit() or (c_str.startswith("-") and c_str[1:].isdigit())):
+                        parsed_chats.append(int(c_str))
+            elif isinstance(chat_ids_raw, list):
+                for c in chat_ids_raw:
+                    try:
+                        parsed_chats.append(int(c))
+                    except Exception:
+                        pass
+            self.server.cfg.telegram.allowed_chat_ids = parsed_chats
+            self.server.cfg.telegram.alert_loss_threshold_pct = float(body_json.get("alert_loss_threshold_pct", 5.0))
+            self.server.cfg.telegram.alert_latency_threshold_ms = float(body_json.get("alert_latency_threshold_ms", 100.0))
+            self.server.cfg.telegram.enabled = enabled
+            save_config(self.server.cfg)
+
+            if shutil.which("systemctl"):
+                try:
+                    if enabled and self.server.cfg.telegram.token:
+                        subprocess.run(["systemctl", "enable", "--now", "nmb-telegram"], check=False, timeout=8)
+                        subprocess.run(["systemctl", "restart", "nmb-telegram"], check=False, timeout=8)
+                    else:
+                        subprocess.run(["systemctl", "stop", "nmb-telegram"], check=False, timeout=8)
+                        subprocess.run(["systemctl", "disable", "nmb-telegram"], check=False, timeout=8)
+                except Exception as e:
+                    log.warning("error managing nmb-telegram service: %s", e)
+            self._send_json({"status": "ok", "message": "Telegram configuration saved."})
+            return
+
+        if path == "/api/telegram/test":
+            from nmb.bot.client import TelegramClient
+            token = getattr(self.server.cfg.telegram, "token", "")
+            chats = getattr(self.server.cfg.telegram, "allowed_chat_ids", [])
+            if not token:
+                self._send_json({"status": "error", "message": "Telegram Bot Token is not configured."}, status=400)
+                return
+            if not chats:
+                self._send_json({"status": "error", "message": "No authorized Chat IDs configured to receive test message."}, status=400)
+                return
+            client = TelegramClient(token)
+            me = client.get_me()
+            if not me:
+                self._send_json({"status": "error", "message": "Invalid Bot Token or Telegram API unreachable."}, status=400)
+                return
+            box_id = getattr(self.server.cfg.system, "box_id", "nmb-01")
+            import datetime
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            wan_ip = interfaces.get_interface_ip(self.server.cfg.network.wan_interface) or "N/A"
+            test_msg = (
+                f"🔔 <b>NetworkMeasureBox Test Notification</b>\n\n"
+                f"✅ <i>Telegram chatbot integration is fully operational!</i>\n"
+                f"📦 <b>Device ID:</b> <code>{box_id}</code>\n"
+                f"🌐 <b>WAN IP:</b> <code>{wan_ip}</code>\n"
+                f"⏱️ <b>Timestamp:</b> {now_str}\n\n"
+                f"Send <code>/help</code> or <code>/status</code> to interact with the bot."
+            )
+            success_cnt = 0
+            errors = []
+            for chat_id in chats:
+                ok = client.send_message(chat_id, test_msg)
+                if ok:
+                    success_cnt += 1
+                else:
+                    errors.append(str(chat_id))
+            if success_cnt > 0:
+                self._send_json({"status": "ok", "message": f"Test message delivered to {success_cnt}/{len(chats)} chat(s).", "delivered": success_cnt})
+            else:
+                self._send_json({"status": "error", "message": f"Failed to deliver message to chats ({', '.join(errors)}). Ensure you sent /start to your bot first!"}, status=400)
+            return
+
+        if path == "/api/telegram/service":
+            action = str(body_json.get("action", "restart")).strip().lower()
+            if action not in ("start", "stop", "restart"):
+                action = "restart"
+            if shutil.which("systemctl"):
+                try:
+                    subprocess.run(["systemctl", action, "nmb-telegram"], check=False, timeout=10)
+                except Exception as e:
+                    self._send_json({"status": "error", "message": str(e)}, status=500)
+                    return
+            self._send_json({"status": "ok", "message": f"Telegram service command '{action}' executed."})
             return
 
         # 19. Backup & Disaster Recovery POST APIs

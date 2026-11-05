@@ -250,6 +250,14 @@ password =
 tls_enabled = false
 listen_ipv6 = true
 dns = 1.1.1.1, 2606:4700:4700::1111
+
+[tailscale]
+enabled = false
+auth_key = 
+hostname = networkmeasurebox
+accept_routes = false
+advertise_exit_node = false
+accept_dns = false
 """
 
 
@@ -489,6 +497,16 @@ class ProxyConfig:
 
 
 @dataclass
+class TailscaleConfig:
+    enabled: bool = False
+    auth_key: str = ""
+    hostname: str = "networkmeasurebox"
+    accept_routes: bool = False
+    advertise_exit_node: bool = False
+    accept_dns: bool = False
+
+
+@dataclass
 class Config:
     system: SystemConfig = field(default_factory=SystemConfig)
     network: NetworkConfig = field(default_factory=NetworkConfig)
@@ -505,6 +523,7 @@ class Config:
     wireguard: WireGuardConfig = field(default_factory=WireGuardConfig)
     openvpn: OpenVPNConfig = field(default_factory=OpenVPNConfig)
     proxy: ProxyConfig = field(default_factory=ProxyConfig)
+    tailscale: TailscaleConfig = field(default_factory=TailscaleConfig)
     raw_parser: configparser.ConfigParser = field(default_factory=configparser.ConfigParser)
 
 
@@ -802,6 +821,15 @@ def load_config(path: Path | None = None) -> Config:
         cfg.proxy.listen_ipv6 = px.getboolean("listen_ipv6", fallback=cfg.proxy.listen_ipv6)
         cfg.proxy.dns = px.get("dns", cfg.proxy.dns).strip()
 
+    if parser.has_section("tailscale"):
+        ts = parser["tailscale"]
+        cfg.tailscale.enabled = ts.getboolean("enabled", fallback=cfg.tailscale.enabled)
+        cfg.tailscale.auth_key = ts.get("auth_key", cfg.tailscale.auth_key).strip()
+        cfg.tailscale.hostname = ts.get("hostname", cfg.tailscale.hostname).strip()
+        cfg.tailscale.accept_routes = ts.getboolean("accept_routes", fallback=cfg.tailscale.accept_routes)
+        cfg.tailscale.advertise_exit_node = ts.getboolean("advertise_exit_node", fallback=cfg.tailscale.advertise_exit_node)
+        cfg.tailscale.accept_dns = ts.getboolean("accept_dns", fallback=cfg.tailscale.accept_dns)
+
     return cfg
 
 
@@ -815,7 +843,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
         except Exception:
             pass
 
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "wireguard", "openvpn", "proxy", "traffic_gate"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -1009,6 +1037,14 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["proxy"]["tls_enabled"] = str(cfg.proxy.tls_enabled).lower()
     parser["proxy"]["listen_ipv6"] = str(cfg.proxy.listen_ipv6).lower()
     parser["proxy"]["dns"] = str(cfg.proxy.dns)
+
+    # Tailscale
+    parser["tailscale"]["enabled"] = str(cfg.tailscale.enabled).lower()
+    parser["tailscale"]["auth_key"] = str(cfg.tailscale.auth_key)
+    parser["tailscale"]["hostname"] = str(cfg.tailscale.hostname)
+    parser["tailscale"]["accept_routes"] = str(cfg.tailscale.accept_routes).lower()
+    parser["tailscale"]["advertise_exit_node"] = str(cfg.tailscale.advertise_exit_node).lower()
+    parser["tailscale"]["accept_dns"] = str(cfg.tailscale.accept_dns).lower()
 
     tmp_path = path.with_suffix(".tmp")
     try:

@@ -47,6 +47,10 @@ class TelegramClient:
             log.debug("telegram request %s failed: %s", method, e)
             return None
 
+    def get_me(self) -> Optional[Dict[str, Any]]:
+        res = self._request("getMe", timeout=8.0)
+        return res if isinstance(res, dict) else None
+
     def get_updates(self, offset: Optional[int] = None, timeout: int = 30) -> List[Dict[str, Any]]:
         payload = {"timeout": timeout}
         if offset is not None:
