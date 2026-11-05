@@ -349,6 +349,16 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
     systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
     systemctl enable nmb.target
 
+    # Preserve and auto-start WireGuard / OpenVPN servers if configured
+    if [ -f /etc/wireguard/wg0.conf ]; then
+        info "Preserving active WireGuard configuration (/etc/wireguard/wg0.conf)..."
+        systemctl enable --now wg-quick@wg0.service 2>/dev/null || true
+    fi
+    if [ -f /etc/openvpn/server.conf ] || [ -f /etc/openvpn/server/server.conf ]; then
+        info "Preserving active OpenVPN configuration..."
+        systemctl enable --now openvpn.service 2>/dev/null || true
+    fi
+
     systemctl restart nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service nmb-adblock.service
     systemctl start nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
 

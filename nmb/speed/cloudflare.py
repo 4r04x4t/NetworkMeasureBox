@@ -162,18 +162,27 @@ class CloudflareSpeedResult:
         )
 
 
+def _cf_headers() -> Dict[str, str]:
+    """Generate realistic browser headers including Origin/Referer to avoid Cloudflare WAF 429 rate-limiting."""
+    return {
+        "User-Agent": _current_ua(),
+        "Referer": "https://speed.cloudflare.com/",
+        "Origin": "https://speed.cloudflare.com",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+    }
+
+
 def _get_request(url: str, timeout: float = 10.0) -> Tuple[bytes, dict]:
-    req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
+    req = urllib.request.Request(url, headers=_cf_headers())
     with _open_url(req, timeout=timeout) as resp:
         return resp.read(), dict(resp.headers)
 
 
 def _post_request(url: str, data: bytes, timeout: float = 12.0) -> Tuple[bytes, dict]:
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={"User-Agent": _current_ua(), "Content-Type": "application/octet-stream"}
-    )
+    headers = _cf_headers()
+    headers["Content-Type"] = "application/octet-stream"
+    req = urllib.request.Request(url, data=data, headers=headers)
     with _open_url(req, timeout=timeout) as resp:
         return resp.read(), dict(resp.headers)
 
@@ -197,7 +206,7 @@ def fetch_cloudflare_metadata() -> CloudflareMeta:
     return meta
 
 
-def measure_idle_latency(count: int = 15) -> Tuple[Optional[float], Optional[float], List[float]]:
+def measure_idle_latency(count: int = 5) -> Tuple[Optional[float], Optional[float], List[float]]:
     """Measure idle round-trip latency and jitter in milliseconds against Cloudflare edge."""
     latencies: List[float] = []
     url = f"{BASE_URL}/__down?bytes=0"
@@ -205,43 +214,42 @@ def measure_idle_latency(count: int = 15) -> Tuple[Optional[float], Optional[flo
     for _ in range(count):
         try:
             t0 = time.monotonic()
-            req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
+            req = urllib.request.Request(url, headers=_cf_headers())
             with _open_url(req, timeout=4.0) as resp:
                 _ = resp.read()
             latencies.append((time.monotonic() - t0) * 1000.0)
         except Exception:
             pass
-        time.sleep(0.04)
+        time.sleep(0.08)
 
     if not latencies:
         return None, None, []
 
     median_lat = statistics.median(latencies)
-    # Jitter according to RFC 3550
     deltas = [abs(latencies[i] - latencies[i - 1]) for i in range(1, len(latencies))]
     jitter = statistics.mean(deltas) if deltas else 0.0
     return median_lat, jitter, latencies
 
 
 def _probe_loaded_latency(stop_event: threading.Event, output_list: List[float]):
-    """Concurrently probe latency to measure loaded bufferbloat latency."""
+    """Concurrently probe latency to measure loaded bufferbloat latency without triggering WAF rate-limits."""
     url = f"{BASE_URL}/__down?bytes=0"
     while not stop_event.is_set():
         try:
             t0 = time.monotonic()
-            req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
+            req = urllib.request.Request(url, headers=_cf_headers())
             with _open_url(req, timeout=3.0) as resp:
                 _ = resp.read()
             output_list.append((time.monotonic() - t0) * 1000.0)
         except Exception:
             pass
-        time.sleep(0.08)
+        time.sleep(0.20)
 
 
-def measure_download_tier(byte_count: int, stop_loaded_probe: Optional[threading.Event] = None) -> Tuple[int, float]:
-    """Download specific chunk tier in streamed blocks to measure sustained throughput."""
+def _download_single_stream(byte_count: int) -> Tuple[int, float]:
+    """Download single HTTP/HTTPS stream and return (bytes_read, duration_sec)."""
     url = f"{BASE_URL}/__down?bytes={byte_count}"
-    req = urllib.request.Request(url, headers={"User-Agent": _current_ua()})
+    req = urllib.request.Request(url, headers=_cf_headers())
     b_read = 0
     with _open_url(req, timeout=25.0) as resp:
         t0 = time.monotonic()
@@ -254,24 +262,70 @@ def measure_download_tier(byte_count: int, stop_loaded_probe: Optional[threading
     return b_read, dur
 
 
-def measure_upload_tier(byte_count: int) -> Tuple[int, float]:
-    """Upload byte chunk and return (bytes_written, duration_sec)."""
-    # Bound upload payload in memory (max 10MB) to protect 512MB RAM devices
+def measure_download_tier(byte_count: int, streams: int = 1) -> Tuple[int, float]:
+    """Download specific chunk tier in single or parallel streamed blocks to saturate gigabit links."""
+    if streams <= 1:
+        return _download_single_stream(byte_count)
+
+    from concurrent.futures import ThreadPoolExecutor
+    chunk_per_stream = byte_count // streams
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=streams) as ex:
+        results = list(ex.map(lambda _: _download_single_stream(chunk_per_stream), range(streams)))
+    dur = max(0.001, time.monotonic() - t0)
+    total_bytes = sum(r[0] for r in results)
+    return total_bytes, dur
+
+
+def _upload_single_stream(byte_count: int) -> Tuple[int, float]:
+    """Upload byte chunk using direct HTTP/HTTPS connection for accurate wire transmission timing."""
     from nmb.common.memory import is_low_memory_system
     max_payload = 10_000_000 if is_low_memory_system() else 25_000_000
     actual_count = min(byte_count, max_payload)
     payload = b"0" * actual_count
-    url = f"{BASE_URL}/__up"
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        headers={"User-Agent": _current_ua(), "Content-Type": "application/octet-stream"}
-    )
-    with _open_url(req, timeout=25.0) as resp:
+
+    source_addr = (_bound_source_ip, 0) if _bound_source_ip else None
+    conn = http.client.HTTPSConnection("speed.cloudflare.com", timeout=30.0, source_address=source_addr)
+    try:
+        conn.connect()
+        headers = _cf_headers()
+        headers["Content-Type"] = "application/octet-stream"
+        headers["Content-Length"] = str(actual_count)
+
         t0 = time.monotonic()
-        _ = resp.read(512)
-        dur = max(0.001, time.monotonic() - t0)
-    return actual_count, dur
+        conn.putrequest("POST", "/__up")
+        for k, v in headers.items():
+            conn.putheader(k, v)
+        conn.endheaders()
+
+        sent = 0
+        chunk_size = 65536
+        while sent < actual_count:
+            end = min(sent + chunk_size, actual_count)
+            conn.send(payload[sent:end])
+            sent = end
+
+        resp = conn.getresponse()
+        _ = resp.read()
+        dur = max(0.005, time.monotonic() - t0)
+        return actual_count, dur
+    finally:
+        conn.close()
+
+
+def measure_upload_tier(byte_count: int, streams: int = 1) -> Tuple[int, float]:
+    """Upload byte chunk in single or parallel streams with exact duration measurement."""
+    if streams <= 1:
+        return _upload_single_stream(byte_count)
+
+    from concurrent.futures import ThreadPoolExecutor
+    chunk_per_stream = byte_count // streams
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=streams) as ex:
+        results = list(ex.map(lambda _: _upload_single_stream(chunk_per_stream), range(streams)))
+    dur = max(0.005, time.monotonic() - t0)
+    total_bytes = sum(r[0] for r in results)
+    return total_bytes, dur
 
 
 def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
@@ -287,7 +341,7 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
              meta.colo, meta.city, meta.client_ip, meta.asn)
 
     # 2. Idle Latency & Jitter
-    idle_lat, jitter, _ = measure_idle_latency(count=12)
+    idle_lat, jitter, _ = measure_idle_latency(count=5)
     log.info("idle latency: %.2f ms, jitter: %.2f ms", idle_lat or 0.0, jitter or 0.0)
 
     # 3. Download Throughput & Loaded Download Latency
@@ -304,20 +358,21 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
     total_down_bytes = 0
     total_down_sec = 0.0
     download_tiers = [
-        ("1MB", 1_000_000),
-        ("10MB", 10_000_000),
-        ("25MB", 25_000_000),
+        ("1MB", 1_000_000, 1),
+        ("10MB", 10_000_000, 1),
+        ("50MB", 50_000_000, 4),
     ]
 
-    for label, b_count in download_tiers:
+    for label, b_count, streams in download_tiers:
         try:
-            b_read, dur = measure_download_tier(b_count)
+            b_read, dur = measure_download_tier(b_count, streams=streams)
             mbps = (b_read * 8) / (dur * 1_000_000.0)
             tier_downloads[label] = round(mbps, 2)
             total_down_bytes += b_read
             total_down_sec += dur
         except Exception as e:
             log.warning("error in download tier %s: %s", label, e)
+        time.sleep(0.1)
 
     stop_down_probe.set()
     down_probe_thread.join(timeout=1.0)
@@ -340,20 +395,21 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
     total_up_bytes = 0
     total_up_sec = 0.0
     upload_tiers = [
-        ("1MB", 1_000_000),
-        ("5MB", 5_000_000),
-        ("10MB", 10_000_000),
+        ("1MB", 1_000_000, 1),
+        ("5MB", 5_000_000, 1),
+        ("20MB", 20_000_000, 4),
     ]
 
-    for label, b_count in upload_tiers:
+    for label, b_count, streams in upload_tiers:
         try:
-            b_sent, dur = measure_upload_tier(b_count)
+            b_sent, dur = measure_upload_tier(b_count, streams=streams)
             mbps = (b_sent * 8) / (dur * 1_000_000.0)
             tier_uploads[label] = round(mbps, 2)
             total_up_bytes += b_sent
             total_up_sec += dur
         except Exception as e:
             log.warning("error in upload tier %s: %s", label, e)
+        time.sleep(0.1)
 
     stop_up_probe.set()
     up_probe_thread.join(timeout=1.0)
