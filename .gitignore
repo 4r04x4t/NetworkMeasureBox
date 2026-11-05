@@ -68,3 +68,16 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Secrets, private keys & runtime configurations
+credentials.txt
+nmb_credentials.txt
+*.pem
+*.key
+*.crt
+*.ovpn
+*.conf
+!config/nmb.conf.example
+!os/99-nmb-performance.conf
+/tmp/
+*.tar.gz

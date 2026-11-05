@@ -2547,7 +2547,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         </p>
         <div style="display: flex; align-items: center; gap: 10px; background: rgba(0, 0, 0, 0.3); padding: 10px 14px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 14px;">
           <span style="font-size: 12px; color: var(--text-muted);">Primary DNS IP:</span>
-          <span id="adblock-guide-ip" style="font-size: 18px; font-weight: 800; color: #34d399; font-family: monospace;">192.168.8.218</span>
+          <span id="adblock-guide-ip" style="font-size: 18px; font-weight: 800; color: #34d399; font-family: monospace;">192.168.1.100</span>
           <button class="btn-secondary" style="font-size: 11px; padding: 3px 8px; margin-left: auto;" onclick="copyToClipboard(document.getElementById('adblock-guide-ip').innerText)" data-i18n="btn_copy">📋 Copy</button>
         </div>
         <div id="adblock-guide-steps" style="font-size: 12px; color: #94a3b8; line-height: 1.6;">
@@ -3071,7 +3071,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                       <td style="font-weight: 700; color: #38bdf8;">WireGuard VPN</td>
                       <td><span class="badge" style="background:rgba(239,68,68,0.15);color:#f87171;font-weight:700;">UDP</span></td>
                       <td style="font-weight: 700; font-family: monospace;">51820</td>
-                      <td style="font-weight: 700; color: #38bdf8; font-family: monospace;"><span class="guide-box-lan">192.168.8.218</span></td>
+                      <td style="font-weight: 700; color: #38bdf8; font-family: monospace;"><span class="guide-box-lan">192.168.1.100</span></td>
                       <td style="font-weight: 700; font-family: monospace;">51820</td>
                       <td style="font-size: 12px; color: #cbd5e1;">Fastest & best for mobile. Must be <strong>UDP</strong>!</td>
                     </tr>
@@ -3079,7 +3079,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                       <td style="font-weight: 700; color: #fbbf24;">OpenVPN Server</td>
                       <td><span class="badge" style="background:rgba(239,68,68,0.15);color:#f87171;font-weight:700;">UDP</span></td>
                       <td style="font-weight: 700; font-family: monospace;">1194</td>
-                      <td style="font-weight: 700; color: #38bdf8; font-family: monospace;"><span class="guide-box-lan">192.168.8.218</span></td>
+                      <td style="font-weight: 700; color: #38bdf8; font-family: monospace;"><span class="guide-box-lan">192.168.1.100</span></td>
                       <td style="font-weight: 700; font-family: monospace;">1194</td>
                       <td style="font-size: 12px; color: #cbd5e1;">Universal SSL/TLS tunnel (.ovpn profile).</td>
                     </tr>
@@ -12374,7 +12374,7 @@ ${pkgList}`;
       if (res.ok) {
         const d = await res.json();
         const eps = d.endpoints || [];
-        let lanIp = '192.168.8.218';
+        let lanIp = window.location.hostname || '192.168.1.100';
         let pubIp = '--';
         let ipv6 = '--';
 

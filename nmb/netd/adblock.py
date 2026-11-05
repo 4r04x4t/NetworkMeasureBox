@@ -3,7 +3,7 @@
 Provides a lightweight, zero-dependency, ultra-fast DNS sinkhole and proxy daemon
 capable of running in any network mode:
   - Standalone Mode (Mode C): Listens on port 53 (all interfaces / LAN IP); the user
-    points their home router DHCP DNS setting to the box's IP (e.g. 192.168.8.218).
+    points their home router DHCP DNS setting to the box's IP (e.g. 192.168.1.100).
   - Router Mode (Mode A / Mode B): Directly serves DNS or integrates with dnsmasq
     so all LAN and Wi-Fi clients automatically have ads and trackers blocked.
 
@@ -847,7 +847,7 @@ def get_router_dhcp_guide() -> Dict[str, Any]:
             primary_ipv4 = s.getsockname()[0]
             s.close()
         except Exception:
-            primary_ipv4 = "192.168.8.218"
+            primary_ipv4 = "192.168.1.100"
 
     # Detect router gateway IP
     gateway_ip = "192.168.1.1"

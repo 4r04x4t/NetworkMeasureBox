@@ -948,7 +948,7 @@ To block ads across all smartphones, PCs, laptops, and smart TVs on your home Wi
 1. Log into your primary home router's admin page (e.g. <code>http://192.168.1.1</code>).
 2. Navigate to <b>LAN / DHCP Server / DNS Settings</b>.
 3. Set the <b>Primary DNS Server IP</b> to:
-   👉 <code>{html.escape(guide.get('primary_dns_ip', '192.168.8.218'))}</code>
+   👉 <code>{html.escape(guide.get('primary_dns_ip') or guide.get('box_ip') or '192.168.1.100')}</code>
 4. Save and reboot your router (or reconnect Wi-Fi on client devices).
 
 All network devices will now instantly have ads, trackers, and telemetry sinkholed!"""

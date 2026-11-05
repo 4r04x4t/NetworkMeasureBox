@@ -206,7 +206,7 @@ def cmd_remove(name: str, proto: str) -> int:
 def cmd_guide() -> int:
     """Print dynamic router port forwarding & setup guide."""
     v4, v6 = wireguard.get_device_addresses()
-    local_ip = v4[0][1] if v4 else "192.168.8.218"
+    local_ip = v4[0][1] if v4 else "192.168.1.100"
 
     print("=" * 72)
     print("  NetworkMeasureBox — VPN Setup & Port Forwarding Guide")

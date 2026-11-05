@@ -263,6 +263,9 @@ else
     info "Standard router Web UI admin credentials: admin / $ADMIN_PASS"
 fi
 
+# Detect primary IP address
+HOST_IP=$(ip -4 addr show scope global 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1 | head -n1 || echo "127.0.0.1")
+
 # Write headless first-boot credentials file to /var/lib/nmb and /boot partition
 CRED_FILE="/var/lib/nmb/credentials.txt"
 install -d -m 2775 -o "$NMB_USER" -g "$NMB_USER" /var/lib/nmb 2>/dev/null || true
