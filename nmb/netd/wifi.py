@@ -13,6 +13,8 @@ import os
 import re
 import shutil
 import subprocess
+import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -94,7 +96,12 @@ def _find_iw_binary() -> Optional[str]:
     return shutil.which("iw")
 
 
-def detect_wifi_capabilities(iface: str = "wlan0") -> Dict[str, Any]:
+_cached_wifi_caps: Dict[str, Dict[str, Any]] = {}
+_cached_wifi_caps_ts: Dict[str, float] = {}
+_wifi_caps_lock = threading.Lock()
+
+
+def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) -> Dict[str, Any]:
     """Detect comprehensive hardware capabilities of wireless interface using nl80211/iw.
 
     Identifies:
@@ -104,6 +111,14 @@ def detect_wifi_capabilities(iface: str = "wlan0") -> Dict[str, Any]:
     - Supported security modes: WPA2, WPA3-SAE, OWE
     - Phy info, driver name, regulatory country, available channels
     """
+    global _cached_wifi_caps, _cached_wifi_caps_ts
+    now = time.monotonic()
+    with _wifi_caps_lock:
+        if not force_refresh and iface in _cached_wifi_caps and (now - _cached_wifi_caps_ts.get(iface, 0.0) < 3600.0):
+            res = dict(_cached_wifi_caps[iface])
+            res["current_status"] = get_wifi_status(iface)
+            return res
+
     iw_bin = _find_iw_binary()
     out = ""
     phy_name = "phy0"
@@ -220,7 +235,7 @@ def detect_wifi_capabilities(iface: str = "wlan0") -> Dict[str, Any]:
     # 11. Current Interface Operating Info
     current_info = get_wifi_status(iface)
 
-    return {
+    res = {
         "interface": iface,
         "phy_name": phy_name,
         "driver": driver_name,
@@ -238,6 +253,10 @@ def detect_wifi_capabilities(iface: str = "wlan0") -> Dict[str, Any]:
         },
         "current_status": current_info,
     }
+    with _wifi_caps_lock:
+        _cached_wifi_caps[iface] = res
+        _cached_wifi_caps_ts[iface] = now
+    return res
 
 
 def get_wifi_status(iface: str = "wlan0") -> Dict[str, Any]:

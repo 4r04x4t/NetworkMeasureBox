@@ -473,27 +473,82 @@ def get_interface_stats(iface: str) -> Dict[str, int]:
 _cached_dual_stack_ips: Dict[str, Optional[str]] = {}
 _cached_dual_stack_ts: float = 0.0
 _dual_stack_lock = threading.Lock()
+_dual_stack_bg_thread: Optional[threading.Thread] = None
 
 
-def get_dual_stack_ips(iface: Optional[str] = None, force_refresh: bool = False) -> Dict[str, Optional[str]]:
-    """Dynamically determine both IPv4 and IPv6 public and local addresses.
-
-    Returns dict with keys:
-      - 'ipv4': best public/WAN IPv4 address
-      - 'ipv6': best public/global IPv6 address
-      - 'public_ipv4': externally resolved public IPv4
-      - 'public_ipv6': externally resolved or global IPv6
-      - 'local_ipv4': interface IPv4 (e.g. LAN/DHCP WAN)
-      - 'local_ipv6': interface global IPv6
-      - 'display': human-readable dual-stack string (e.g. 'IPv4: 203.0.113.195 | IPv6: 2001:db8::1')
-    """
+def _bg_resolve_external_ips(iface: Optional[str] = None) -> None:
+    """Resolve external public IPv4/IPv6 asynchronously without blocking HTTP requests."""
     global _cached_dual_stack_ips, _cached_dual_stack_ts
     import ipaddress
     import urllib.request
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _fetch_endpoint(urls: tuple[str, ...]) -> Optional[str]:
+        for u in urls:
+            try:
+                from nmb.common.user_agent import get_effective_user_agent
+                req = urllib.request.Request(u, headers={"User-Agent": get_effective_user_agent()})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    val = resp.read().decode("utf-8").strip()
+                    if val:
+                        ipaddress.ip_address(val)
+                        return val
+            except Exception:
+                continue
+        return None
+
+    v4_urls = ("https://api4.ipify.org", "https://ipv4.icanhazip.com", "https://v4.ident.me")
+    v6_urls = ("https://api6.ipify.org", "https://ipv6.icanhazip.com", "https://v6.ident.me")
+
+    pub_v4 = None
+    pub_v6 = None
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            fut_v4 = executor.submit(_fetch_endpoint, v4_urls)
+            fut_v6 = executor.submit(_fetch_endpoint, v6_urls)
+            pub_v4 = fut_v4.result(timeout=3.0)
+            pub_v6 = fut_v6.result(timeout=3.0)
+    except Exception as e:
+        log.debug("async dual-stack fetch exception: %s", e)
+
+    with _dual_stack_lock:
+        if _cached_dual_stack_ips:
+            res = dict(_cached_dual_stack_ips)
+            if pub_v4:
+                res["public_ipv4"] = pub_v4
+                res["ipv4"] = pub_v4
+            if pub_v6:
+                res["public_ipv6"] = pub_v6
+                res["ipv6"] = pub_v6
+            best_v4 = res.get("ipv4") or res.get("local_ipv4")
+            best_v6 = res.get("ipv6") or res.get("local_ipv6")
+            if best_v4 and best_v6:
+                res["display"] = f"IPv4: {best_v4} | IPv6: {best_v6}"
+            elif best_v4:
+                res["display"] = f"IPv4: {best_v4}"
+            elif best_v6:
+                res["display"] = f"IPv6: {best_v6}"
+            _cached_dual_stack_ips = res
+            _cached_dual_stack_ts = time.time()
+
+
+def get_dual_stack_ips(iface: Optional[str] = None, force_refresh: bool = False) -> Dict[str, Optional[str]]:
+    """Dynamically determine both IPv4 and IPv6 public and local addresses (non-blocking)."""
+    global _cached_dual_stack_ips, _cached_dual_stack_ts, _dual_stack_bg_thread
+    import ipaddress
 
     now = time.time()
     with _dual_stack_lock:
-        if not force_refresh and _cached_dual_stack_ips and (now - _cached_dual_stack_ts < 60.0):
+        if not force_refresh and _cached_dual_stack_ips:
+            if now - _cached_dual_stack_ts > 180.0:
+                if not (_dual_stack_bg_thread and _dual_stack_bg_thread.is_alive()):
+                    _dual_stack_bg_thread = threading.Thread(
+                        target=_bg_resolve_external_ips,
+                        args=(iface,),
+                        daemon=True,
+                        name="nmb-dual-stack-bg"
+                    )
+                    _dual_stack_bg_thread.start()
             return dict(_cached_dual_stack_ips)
 
     local_ipv4: Optional[str] = None
@@ -519,54 +574,8 @@ def get_dual_stack_ips(iface: Optional[str] = None, force_refresh: bool = False)
             except ValueError:
                 pass
 
-    def _fetch_endpoint(urls: tuple[str, ...]) -> Optional[str]:
-        for u in urls:
-            try:
-                from nmb.common.user_agent import get_effective_user_agent
-                req = urllib.request.Request(u, headers={"User-Agent": get_effective_user_agent()})
-                with urllib.request.urlopen(req, timeout=2.0) as resp:
-                    val = resp.read().decode("utf-8").strip()
-                    if val:
-                        ipaddress.ip_address(val)
-                        return val
-            except Exception:
-                continue
-        return None
-
-    public_ipv4: Optional[str] = None
-    public_ipv6: Optional[str] = None
-
-    v4_urls = ("https://api4.ipify.org", "https://ipv4.icanhazip.com", "https://v4.ident.me")
-    v6_urls = ("https://api6.ipify.org", "https://ipv6.icanhazip.com", "https://v6.ident.me")
-
-    try:
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            fut_v4 = executor.submit(_fetch_endpoint, v4_urls)
-            fut_v6 = executor.submit(_fetch_endpoint, v6_urls)
-            public_ipv4 = fut_v4.result(timeout=2.5)
-            public_ipv6 = fut_v6.result(timeout=2.5)
-    except Exception as e:
-        log.debug("dual-stack fetch exception: %s", e)
-
-    # Global IPv6 on an interface is public and globally routable
-    if not public_ipv6 and local_ipv6:
-        try:
-            if ipaddress.ip_address(local_ipv6).is_global:
-                public_ipv6 = local_ipv6
-        except Exception:
-            pass
-
-    # Public IPv4 fallback if interface has a direct global IP (e.g. PPPoE or static)
-    if not public_ipv4 and local_ipv4:
-        try:
-            if ipaddress.ip_address(local_ipv4).is_global and not ipaddress.ip_address(local_ipv4).is_private:
-                public_ipv4 = local_ipv4
-        except Exception:
-            pass
-
-    best_v4 = public_ipv4 or local_ipv4
-    best_v6 = public_ipv6 or local_ipv6
-
+    best_v4 = local_ipv4
+    best_v6 = local_ipv6
     if best_v4 and best_v6:
         display = f"IPv4: {best_v4} | IPv6: {best_v6}"
     elif best_v4:
@@ -579,12 +588,27 @@ def get_dual_stack_ips(iface: Optional[str] = None, force_refresh: bool = False)
     res = {
         "ipv4": best_v4,
         "ipv6": best_v6,
-        "public_ipv4": public_ipv4,
-        "public_ipv6": public_ipv6,
+        "public_ipv4": best_v4 if (best_v4 and not ipaddress.ip_address(best_v4).is_private) else None,
+        "public_ipv6": best_v6 if (best_v6 and ipaddress.ip_address(best_v6).is_global) else None,
         "local_ipv4": local_ipv4,
         "local_ipv6": local_ipv6,
         "display": display,
     }
+
+    with _dual_stack_lock:
+        _cached_dual_stack_ips = res
+        _cached_dual_stack_ts = now
+
+    if not (_dual_stack_bg_thread and _dual_stack_bg_thread.is_alive()):
+        _dual_stack_bg_thread = threading.Thread(
+            target=_bg_resolve_external_ips,
+            args=(iface,),
+            daemon=True,
+            name="nmb-dual-stack-bg"
+        )
+        _dual_stack_bg_thread.start()
+
+    return res
 
     with _dual_stack_lock:
         _cached_dual_stack_ips = dict(res)

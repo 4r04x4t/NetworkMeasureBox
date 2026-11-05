@@ -7,8 +7,12 @@ dual analog circular gauges, real-time packet sniffer & flow inspector, and dyna
 from __future__ import annotations
 
 
-def get_dashboard_html(initial_theme: str = "default") -> str:
-    """Return the complete single-page application HTML string."""
+def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en") -> str:
+    """Return the complete single-page application HTML string with pre-rendered theme & i18n."""
+    import json
+    from nmb.web.i18n import get_translations_for_lang
+    initial_translations = json.dumps(get_translations_for_lang(initial_lang))
+
     html = """<!DOCTYPE html>
 <html lang="en" data-theme="__NMB_INITIAL_THEME__">
 <head>
@@ -21,6 +25,8 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
         document.documentElement.setAttribute('data-theme', t);
       } catch (e) {}
     })();
+    window.__INITIAL_LANG__ = "__NMB_INITIAL_LANG__";
+    window.__INITIAL_TRANSLATIONS__ = __NMB_INITIAL_TRANSLATIONS__;
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NetworkMeasureBox - Universal Network Telemetry & Benchmark Probe</title>
@@ -6090,16 +6096,24 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
   let selectedEngine = 'ookla';
   let userManuallySelectedEngine = false;
   let searchDebounceTimer = null;
-  let currentTranslations = {};
-  let currentLang = 'en';
+  let currentTranslations = (typeof window !== 'undefined' && window.__INITIAL_TRANSLATIONS__) ? window.__INITIAL_TRANSLATIONS__ : {};
+  let currentLang = (typeof window !== 'undefined' && window.__INITIAL_LANG__) ? window.__INITIAL_LANG__ : 'en';
 
   async function loadTranslations(lang) {
+    const targetLang = lang || currentLang;
+    if (window.__INITIAL_LANG__ === targetLang && window.__INITIAL_TRANSLATIONS__ && Object.keys(currentTranslations).length > 0) {
+      currentLang = targetLang;
+      const sel = document.getElementById('lang-select');
+      if (sel) sel.value = currentLang;
+      applyTranslations();
+      return;
+    }
     try {
-      const res = await fetch('/api/i18n?lang=' + (lang || currentLang));
+      const res = await fetch('/api/i18n?lang=' + encodeURIComponent(targetLang));
       if (res.ok) {
         const d = await res.json();
         currentTranslations = d.translations || {};
-        currentLang = d.lang || 'en';
+        currentLang = d.lang || targetLang;
         const sel = document.getElementById('lang-select');
         if (sel) sel.value = currentLang;
         applyTranslations();
@@ -6347,6 +6361,14 @@ def get_dashboard_html(initial_theme: str = "default") -> str:
     }
     if (tabId === 'tab-explorer') {
       loadNetworkDevices();
+    }
+    if (tabId === 'tab-wifi') {
+      fetchWifiCapabilities();
+      loadGuestWifiStatus();
+      loadMacInfo();
+    }
+    if (tabId === 'tab-tuning') {
+      loadKernelStatus();
     }
     if (tabId === 'tab-adblock') {
       loadAdblockStatus();
@@ -13423,19 +13445,26 @@ ${pkgList}`;
     }
   }, 3000);
 
-  loadTranslations(localStorage.getItem('nmb_lang') || 'en');
+  const userLang = localStorage.getItem('nmb_lang') || window.__INITIAL_LANG__ || 'en';
+  loadTranslations(userLang);
   initTheme();
   updateServerSelectVisibility(selectedEngine);
   refreshStatus();
-  fetchWifiCapabilities();
-  loadMacInfo();
-  loadServers();
   loadConfig();
-  loadNetworkDevices();
-  loadIperfStatus();
-  loadGuestWifiStatus();
-  loadSystemInfo();
-  loadKernelStatus();
+
+  // Non-blocking staggered background warming for secondary tabs
+  setTimeout(() => {
+    fetchWifiCapabilities();
+    loadGuestWifiStatus();
+  }, 1200);
+
+  setTimeout(() => {
+    loadNetworkDevices();
+    loadIperfStatus();
+    loadSystemInfo();
+    loadKernelStatus();
+    loadMacInfo();
+  }, 2500);
   setInterval(refreshStatus, 3000);
   setInterval(pollSnifferStats, 2000);
   setInterval(() => {
@@ -13728,7 +13757,11 @@ ${pkgList}`;
 </script>
 </body>
 </html>"""
-    return html.replace("__NMB_INITIAL_THEME__", initial_theme)
+    return (
+        html.replace("__NMB_INITIAL_THEME__", initial_theme)
+        .replace("__NMB_INITIAL_LANG__", initial_lang)
+        .replace("__NMB_INITIAL_TRANSLATIONS__", initial_translations)
+    )
 
 
 def get_logout_html(initial_theme: str = "default") -> str:

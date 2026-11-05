@@ -103,6 +103,11 @@ def _record_auth_success(ip: str) -> None:
 class WebRequestHandler(BaseHTTPRequestHandler):
     server: NMBServer  # type hint
 
+    def address_string(self) -> str:
+        """Avoid blocking reverse DNS lookup (socket.getfqdn) on every incoming request."""
+        host, _ = self.client_address[:2]
+        return str(host)
+
     def log_message(self, format: str, *args) -> None:
         msg = format % args
         log.debug("[HTTP] %s %s - %s", self.address_string(), getattr(self, "command", ""), msg)
@@ -162,31 +167,51 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
     def _send_json(self, data: dict, status: int = 200) -> None:
         body = json.dumps(data).encode("utf-8")
+        accept_encoding = self.headers.get("Accept-Encoding", "")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
-        self.end_headers()
-        self.wfile.write(body)
+
+        if "gzip" in accept_encoding and len(body) > 1024:
+            import gzip
+            compressed = gzip.compress(body, compresslevel=5)
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(compressed)))
+            self.end_headers()
+            self.wfile.write(compressed)
+        else:
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
     def _send_html(self, html_text: str, status: int = 200) -> None:
         body = html_text.encode("utf-8")
+        accept_encoding = self.headers.get("Accept-Encoding", "")
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
-        self.end_headers()
-        self.wfile.write(body)
+
+        if "gzip" in accept_encoding and len(body) > 512:
+            import gzip
+            compressed = gzip.compress(body, compresslevel=5)
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(compressed)))
+            self.end_headers()
+            self.wfile.write(compressed)
+        else:
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
     def do_HEAD(self) -> None:
         if not self._check_auth():
@@ -245,18 +270,28 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             }
             ct = mime_map.get(ext, "application/octet-stream")
             content = fpath.read_bytes()
+            accept_encoding = self.headers.get("Accept-Encoding", "")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", ct)
-            self.send_header("Content-Length", str(len(content)))
             self.send_header("Cache-Control", "public, max-age=86400")
-            self.end_headers()
-            self.wfile.write(content)
+            if "gzip" in accept_encoding and len(content) > 512:
+                import gzip
+                compressed = gzip.compress(content, compresslevel=5)
+                self.send_header("Content-Encoding", "gzip")
+                self.send_header("Content-Length", str(len(compressed)))
+                self.end_headers()
+                self.wfile.write(compressed)
+            else:
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
             return
 
         # 1. Main Dashboard UI
         if path in ("/", "/index.html"):
             cur_theme = getattr(self.server.cfg.web, "theme", "default")
-            self._send_html(get_dashboard_html(initial_theme=cur_theme))
+            cur_lang = getattr(self.server.cfg.web, "language", "en")
+            self._send_html(get_dashboard_html(initial_theme=cur_theme, initial_lang=cur_lang))
             return
 
         # 2. Status API

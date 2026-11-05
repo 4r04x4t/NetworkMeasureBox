@@ -83,9 +83,34 @@ def calculate_bufferbloat(
 
 
 from nmb.common.user_agent import get_effective_user_agent
+import threading
 
-_cached_servers_map: dict[int, dict] = {}
+DEFAULT_PRESET_SERVERS: dict[int, dict] = {
+    31717: {"id": 31717, "name": "2Connect Kft.", "sponsor": "2Connect Kft.", "location": "Budapest", "country": "Hungary", "host": "speedtest.2connect.hu:8080"},
+    12492: {"id": 12492, "name": "Magyar Telekom Nyrt.", "sponsor": "Magyar Telekom Nyrt.", "location": "Budapest", "country": "Hungary", "host": "speedtest.telekom.hu:8080"},
+    2607: {"id": 2607, "name": "Vodafone Hungary", "sponsor": "Vodafone Hungary", "location": "Budapest", "country": "Hungary", "host": "speedtest.vodafone.hu:8080"},
+    3682: {"id": 3682, "name": "ServerAstra", "sponsor": "ServerAstra", "location": "Budapest", "country": "Hungary", "host": "speedtest.serverastra.com:8080"},
+    10390: {"id": 10390, "name": "Yettel Hungary", "sponsor": "Yettel Hungary", "location": "Budapest", "country": "Hungary", "host": "speedtest.yettel.hu:8080"},
+    13348: {"id": 13348, "name": "DIGI Telecommunication", "sponsor": "DIGI Telecommunication", "location": "Budapest", "country": "Hungary", "host": "speedtest.digi.hu:8080"},
+    3242: {"id": 3242, "name": "A1 Telekom Austria", "sponsor": "A1 Telekom Austria", "location": "Vienna", "country": "Austria", "host": "speedtest.a1.net:8080"},
+    21541: {"id": 21541, "name": "Drei Austria", "sponsor": "Drei Austria", "location": "Vienna", "country": "Austria", "host": "speedtest.drei.at:8080"},
+    43033: {"id": 43033, "name": "Cloudflare", "sponsor": "Cloudflare", "location": "Budapest", "country": "Hungary", "host": "budapest.speedtest.cloudflare.com:8080"},
+}
+
+_cached_servers_map: dict[int, dict] = dict(DEFAULT_PRESET_SERVERS)
 _cached_servers_ts: float = 0.0
+_servers_fetch_thread: Optional[threading.Thread] = None
+
+
+def _bg_update_server_list() -> None:
+    global _cached_servers_map, _cached_servers_ts
+    try:
+        new_map = _fetch_master_server_list()
+        if new_map:
+            _cached_servers_map.update(new_map)
+            _cached_servers_ts = time.monotonic()
+    except Exception as e:
+        log.debug("bg server list fetch error: %s", e)
 
 
 def _get_ookla_headers() -> dict[str, str]:
@@ -168,12 +193,17 @@ def _fetch_master_server_list() -> dict[int, dict]:
 
 
 def get_available_servers(search_query: str = "", limit: int = 100) -> list[dict]:
-    """Retrieve list of Ookla Speedtest servers with live online search and ID resolution."""
-    global _cached_servers_map, _cached_servers_ts
+    """Retrieve list of Ookla Speedtest servers with fast presets and non-blocking background discovery."""
+    global _cached_servers_map, _cached_servers_ts, _servers_fetch_thread
     now = time.monotonic()
-    if not _cached_servers_map or (now - _cached_servers_ts) > 600.0:
-        _cached_servers_map = _fetch_master_server_list()
-        _cached_servers_ts = now
+    if (now - _cached_servers_ts) > 600.0:
+        if not (_servers_fetch_thread and _servers_fetch_thread.is_alive()):
+            _servers_fetch_thread = threading.Thread(
+                target=_bg_update_server_list,
+                daemon=True,
+                name="nmb-servers-bg"
+            )
+            _servers_fetch_thread.start()
 
     q = (search_query or "").strip().lower()
     clean_id = q.lstrip("#")
