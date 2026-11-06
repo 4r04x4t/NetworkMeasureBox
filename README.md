@@ -3,11 +3,11 @@
 **Production-grade, autonomous network quality measurement, SLA verification, ISP fault escalation appliance, and high-performance intelligent Linux router.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%28Debian%20%7C%20Alpine%20%7C%20OpenWrt%20%7C%20Arch%29-green.svg)](https://kernel.org)
+[![Platform: Linux](https://img.shields.io/badge/Developed%20on-Raspberry%20Pi%204-green.svg)](https://kernel.org)
 [![Python: 3.9+](https://img.shields.io/badge/Python-3.9%2B%20%28Zero%20External%20Pip%20Deps%29-yellow.svg)](https://python.org)
 [![VPN: WireGuard & Tailscale](https://img.shields.io/badge/VPN-WireGuard%20%7C%20OpenVPN%20%7C%20Tailscale-blueviolet.svg)](#8-universal-remote-access-vpn-hub--tailscale-mesh)
 [![Hardware: 512MB+ RAM](https://img.shields.io/badge/RAM-512MB%20to%2064GB-purple.svg)](#embedded--low-memory-optimization-512-mb-ram-support)
-[![Native: Go & C11 Roadmap](https://img.shields.io/badge/Native%20Port-ASUS%20%7C%20TP--Link%20%28Go%20%26%20C11%29-teal.svg)](#15-100-de-pythonization-architecture--commercial-router-porting)
+[![Router ports: planned](https://img.shields.io/badge/Router%20Ports-Planned%2C%20not%20implemented-lightgrey.svg)](#15-100-de-pythonization-architecture--commercial-router-porting)
 [![Languages: EN HU DE UK FR](https://img.shields.io/badge/Languages-EN%20%7C%20HU%20%7C%20DE%20%7C%20UK%20%7C%20FR-orange.svg)](#responsive-webgui--rest-api)
 
 > 📖 **[Kattints ide a részletes magyar nyelvű leíráshoz / Read the comprehensive Hungarian Guide](README.hu.md)**
@@ -93,6 +93,10 @@ NMB eliminates this finger-pointing by placing an unbiased, carrier-grade measur
   * **LAN (br-lan Bridge)**: Any number of physical Ethernet ports automatically grouped into unified Linux network bridge `br-lan` (`192.168.100.1/24`).
   * **DMZ**: Isolated physical port.
   * **Guest Wi-Fi Client Probe**: Dedicated wireless card for client probe testing.
+* **LAN Passthrough & Link Aggregation** (standalone probe behind a router, WebGUI: Ports & Drivers):
+  * **Passthrough**: selected ports are bridged to the uplink at Layer 2, so devices behind the box stay on the router's subnet.
+  * **Link aggregation**: tick two or more wired ports or cards to combine them into `bond0` (802.3ad LACP, balance-rr, balance-xor, balance-tlb, balance-alb, active-backup). Works with or without passthrough.
+  * 802.3ad needs LACP on the router or switch; balance-rr and balance-xor need a static LAG there. Except with balance-rr, one TCP connection stays on one link, so the combined speed appears with multi-stream tests.
 * **Target Interface Benchmarking**: Speed tests can be pinned to specific network interfaces via CLI (`-i` / `--interface`) or WebGUI dropdown to compare WAN1 vs WAN2 throughput directly.
 
 ### 3. Automated Hardware Driver & Firmware Management
@@ -110,7 +114,7 @@ NMB eliminates this finger-pointing by placing an unbiased, carrier-grade measur
 7. **Traffic Gate**: Monitors `/proc/net/dev` and postpones scheduled tests if existing customer LAN traffic exceeds 500 kbps.
 
 ### 5. Embedded & Low-Memory Optimization (512 MB RAM Support)
-Specially engineered to run seamlessly on resource-constrained **512 MB RAM routers** (e.g., ASUS routers or SBCs running embedded Linux/OpenWrt):
+Memory-saving profiles for constrained Linux systems. These have only been run on the Raspberry Pi 4, not on routers:
 * **`embedded` profile**: Restricts hot SQLite RAM DB to 48 MB, trims SQLite cache to 2 MB, limits TCP buffers to 8 MB.
 * **Native Heap Reclaim**: Proactively invokes `libc.malloc_trim(0)` and Python garbage collection to immediately release unmapped heap memory back to the Linux kernel.
 * **`standard` (1-2GB) & `performance` (4GB+) profiles**: Scalable buffer tuning for multi-gigabit workloads.
@@ -212,8 +216,10 @@ Specially engineered to run seamlessly on resource-constrained **512 MB RAM rout
 * **Automated Safety Rollback**: If a software update fails integrity checks or breaks critical services, the watchdog automatically reverts to the previous snapshot.
 * Hardware Watchdog Timer support (`/dev/watchdog`) to prevent system lockups on remote unattended installations.
 
-### 15. 100% De-Pythonization Architecture & Commercial Router Porting
-To run NetworkMeasureBox directly on commercial embedded routers with as little as **4MB Flash and 32MB RAM**, a complete 100% de-pythonization roadmap and implementation specification has been engineered:
+### 15. Planned De-Pythonization & Router Porting
+> **Status: planned only.** NMB is developed and run on the Raspberry Pi 4. No router software or firmware exists yet; the figures below are design targets, not measurements.
+
+The plan for running NetworkMeasureBox on commercial routers with as little as **4MB Flash and 32MB RAM**:
 * **Unified Single Binary (`nmbd`)**: Written in **Go 1.23+** (Tier 1) and **C11 with Musl libc** (Tier 2 & 3), completely eliminating Python 3, pip, and all runtime packages.
 * **Target Hardware Porting Specifications & WikiDevi Profiles**:
   * **[ASUS RT-AXE7800](https://wikidevi.wi-cat.ru/ASUS_RT-AXE7800)**:
@@ -228,6 +234,10 @@ To run NetworkMeasureBox directly on commercial embedded routers with as little 
     * Qualcomm Atheros AR9331 MIPS 24Kc @ 400 MHz (`ath79/generic` / `ar71xx`), 32 MB DDR SDRAM, **4 MB SPI Flash**, Fast Ethernet (100 Mbps).
     * OS: Stripped OpenWrt `ath79/generic` (no LuCI, minimal kernel).
     * Native daemon: Micro-C11 with `-Os`, stripped, UPX-LZMA compressed (**178 KB binary**), 1.4 MB RAM RSS, 100% RAM-only circular ring-buffer (`tmpfs`) with zero flash writes.
+  * **[TP-Link TL-WR1043ND v1.x](https://wikidevi.wi-cat.ru/TP-LINK_TL-WR1043ND_v1.x)**:
+    * Atheros AR9132 @ 400 MHz, 32 MiB RAM, 8 MiB Flash, Realtek RTL8366RB, 1x 1GbE WAN + 4x 1GbE LAN.
+  * **[TP-Link Archer C6 v2.x](https://wikidevi.wi-cat.ru/TP-LINK_Archer_C6_v2.x)**:
+    * Qualcomm Atheros QCA9563 @ 775 MHz, 128 MiB RAM, 8 MiB Flash, QCA8337N, 1x 1GbE WAN + 4x 1GbE LAN, AC1200.
 * **Key Native Subsystems (Zero Python)**:
   * **Memory-Bounded DNS Sinkhole / AdBlock**: 512 KB Counting Bloom Filter (MurmurHash3, 0.1% FPR) and Trie running in <640 KB RAM on 32MB routers.
   * **Zero-Dependency Speedtest Socket Sinks**: In-process TCP/TLS client streaming directly to Ookla, Cloudflare Edge, and RTR-NetTest endpoints using `splice()`/`recv()` zero-copy buffers without external binaries.

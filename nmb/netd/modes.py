@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from nmb.config import NetworkConfig
-from nmb.netd import firewall, interfaces
+from nmb.netd import firewall, interfaces, lan_topology
 from nmb.netd.services import ServiceManager
 
 log = logging.getLogger("nmb.netd.modes")
@@ -177,8 +177,8 @@ class ModeA(NetworkMode):
 class ModeB(NetworkMode):
     """Mode B: Passive Inline Probe (Transparent Bridge)."""
 
-    def __init__(self, run_dir: Path, cfg: NetworkConfig):
-        super().__init__(run_dir, cfg)
+    def __init__(self, cfg: NetworkConfig, svc_mgr: ServiceManager):
+        super().__init__(cfg, svc_mgr)
         self.wlan_active = False
 
     def setup(self) -> bool:
@@ -275,11 +275,12 @@ class ModeB(NetworkMode):
 
 
 class ModeStandalone(NetworkMode):
-    """Mode Standalone: Endpoint Probe on existing LAN (does not alter physical interfaces)."""
+    """Endpoint probe on an existing LAN, with optional LAN passthrough and link aggregation."""
 
-    def __init__(self, run_dir: Path, cfg: NetworkConfig):
-        super().__init__(run_dir, cfg)
+    def __init__(self, cfg: NetworkConfig, svc_mgr: ServiceManager):
+        super().__init__(cfg, svc_mgr)
         self.wlan_active = False
+        self.topology: Optional[lan_topology.Topology] = None
 
     def setup(self) -> bool:
         log.info("initializing Standalone Mode (LAN endpoint probe)")
@@ -289,6 +290,13 @@ class ModeStandalone(NetworkMode):
         # Identify active interface from default gateway route or fallback to configured wan_interface
         default_iface = interfaces.get_default_gateway_iface()
         self.active_wan = default_iface if default_iface and interfaces.interface_exists(default_iface) else self.cfg.wan_interface
+
+        # LAN passthrough / link aggregation: the probe's IP moves to the bridge or bond
+        self.topology = lan_topology.apply_topology(self.cfg)
+        if self.topology:
+            self.active_wan = self.topology.ip_device
+            if not interfaces.get_ip_addresses(self.active_wan) and not interfaces.request_dhcp_lease(self.active_wan):
+                log.warning("no DHCP lease obtained on %s", self.active_wan)
         log.info("standalone mode active on interface: %s", self.active_wan)
 
         # 2. Configure Diagnostic Wi-Fi AP if enabled (crucial for wireless access in non-router mode)
@@ -318,6 +326,8 @@ class ModeStandalone(NetworkMode):
 
     def teardown(self) -> bool:
         log.info("tearing down Standalone Mode")
+        lan_topology.teardown_topology(self.topology)
+        self.topology = None
         if self.wlan_active:
             self.svc_mgr.stop_hostapd()
             self.svc_mgr.stop_dnsmasq()
@@ -337,6 +347,7 @@ class ModeStandalone(NetworkMode):
             "carrier": interfaces.get_carrier(iface),
             "addresses": interfaces.get_ip_addresses(iface),
             "operstate": interfaces.get_operstate(iface),
+            "lan_topology": lan_topology.get_runtime_status(self.cfg),
             "wifi_enabled": self.cfg.wifi_enabled,
             "wlan_interface": wlan,
             "wlan_carrier": interfaces.get_carrier(wlan) if interfaces.interface_exists(wlan) else False,

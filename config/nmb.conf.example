@@ -36,6 +36,19 @@ lan_interface = eth1
 lan_ports = eth1
 bridge_interface = br0
 
+# LAN Passthrough & Link Aggregation (probe connected behind a router, standalone mode)
+# Passthrough bridges the uplink to these ports, keeping their devices on the router's subnet.
+# lan_passthrough_enabled = false
+# passthrough_ports = eth1,eth2
+# Aggregation joins these ports into bond0 as the uplink towards the router.
+# 802.3ad needs LACP on the router/switch; balance-rr and balance-xor need a static LAG there;
+# balance-tlb, balance-alb and active-backup need no switch configuration.
+# lag_enabled = false
+# lag_ports = eth0,eth3
+# lag_mode = 802.3ad              ; 802.3ad | balance-rr | balance-xor | balance-tlb | balance-alb | active-backup
+# lag_hash_policy = layer3+4      ; layer2 | layer2+3 | layer3+4
+# lacp_rate = fast                ; slow | fast
+
 # Dedicated Diagnostic / Isolated DMZ Port (optional)
 # dmz_interface = eth3
 

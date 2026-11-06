@@ -782,18 +782,17 @@ def generate_html_dossier(report: ReportData, lang: str = "hu") -> str:
 
             # Benchmark Status Code Display
             nmhh_code = s.get("nmhh_code", 1)
-            nmhh_desc = s.get("nmhh_desc", "Valid")
             if nmhh_code == 1:
                 status_html = "<span class='badge-status-1' title='Valid'>1</span>"
             elif nmhh_code == 6:
                 status_label = "6 (SLA Alatt)" if lang_key == "hu" else "6 (Below SLA)"
-                status_html = f"<span class='badge-status-6' title='{nmhh_desc}'>{status_label}</span>"
+                status_html = f"<span class='badge-status-6' title='{status_label}'>{status_label}</span>"
             elif nmhh_code == 9:
                 status_html = "<span class='badge-status-warn' title='Traffic Quota Exceeded'>9</span>"
             elif nmhh_code in (14, 15):
                 status_html = f"<span class='badge-status-warn' title='WiFi Measurement'>{nmhh_code}</span>"
             else:
-                status_html = f"<span class='badge-status-err' title='{nmhh_desc}'>{nmhh_code}</span>"
+                status_html = f"<span class='badge-status-err' title='{nmhh_code}'>{nmhh_code}</span>"
 
             ping_ms_val = f"{(s['ping_us'] // 1000):.0f} ms" if s.get('ping_us') else "-"
             srv_desc = s.get('server_name') or 'Default Edge Server'

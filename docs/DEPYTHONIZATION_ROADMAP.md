@@ -547,6 +547,8 @@ By executing this De-Pythonization blueprint, NetworkMeasureBox will transform f
 For detailed hardware-specific porting guidelines, memory budgets, and binary size optimization on commercial router models (WikiDevi verified):
 - **ASUS RT-AXE7800** (Broadcom BCM6756 Quad-Core ARM @ 1.7 GHz, 512MB RAM, 256MB Flash, 1x 2.5GbE + 4x 1GbE, Tri-Band Wi-Fi 6E, Asuswrt / Asuswrt-Merlin GNUton)
 - **ASUS RT-N12+** (MediaTek MT7620N ver:2 eco:6 MIPS24KEc @ 580 MHz, 32MB RAM, 8MB Flash, Fast Ethernet, OpenWrt ramips/mt7620)
+- **TP-Link TL-WR1043ND v1.x** (Atheros AR9132 @ 400 MHz, 32 MiB RAM, 8 MiB Flash, 5x 1GbE)
+- **TP-Link Archer C6 v2.x** (QCA9563 @ 775 MHz, 128 MiB RAM, 8 MiB Flash, 5x 1GbE)
 - **TP-Link TL-WR740N v4.x / v4.23** (Atheros AR9331 MIPS 24Kc @ 400 MHz, 32MB RAM, 4MB Flash, Minimal Custom OpenWrt ath79/generic)
 
 Please consult the dedicated document:  

@@ -49,7 +49,11 @@ class NetworkDetector:
         if self.cfg.mode in ("mode_a", "mode_b", "standalone"):
             return self.cfg.mode, f"static configuration mode={self.cfg.mode}"
 
-        # 3. Dynamic Auto-detection
+        # 3. LAN passthrough / link aggregation only make sense behind a router
+        if getattr(self.cfg, "lan_passthrough_enabled", False) or getattr(self.cfg, "lag_enabled", False):
+            return "standalone", "LAN passthrough or link aggregation enabled"
+
+        # 4. Dynamic Auto-detection
         wan_carrier = interfaces.get_carrier(self.cfg.wan_interface)
         lan_carrier = interfaces.get_carrier(self.cfg.lan_interface)
 

@@ -524,7 +524,7 @@ def run_measurement_cycle(
                 (now_ms, engine)
             )
             conn.execute(
-                "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'info', 'speed', 'speedtest_skipped', 'Időzített mérés kihagyva: a sebességmérés manuális üzemmódra van állítva')",
+                "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'info', 'speed', 'speedtest_skipped', 'Scheduled test skipped: speed testing is set to manual mode')",
                 (now_ms,)
             )
         conn.close()
@@ -554,7 +554,8 @@ def run_measurement_cycle(
 
     from nmb.netd.interfaces import find_preferred_measurement_interface
     pref_gate_iface, _, _ = find_preferred_measurement_interface(cfg, target_iface=target_iface)
-    check_gate_iface = pref_gate_iface
+    from nmb.netd.lan_topology import traffic_monitor_device
+    check_gate_iface = traffic_monitor_device(cfg.network, pref_gate_iface)
     if not force:
         gate = TrafficGate(check_gate_iface)
         cap_mbps = gate.get_interface_capacity_mbps(check_gate_iface, contract_down_mbps=cfg.isp.contract_down_mbps)
@@ -574,9 +575,9 @@ def run_measurement_cycle(
                 f"({gate_res.threshold_kbps:.0f} kbps / {cap_mbps:.0f} Mbps capacity) to preserve test accuracy and protect active user traffic"
             )
             reason_hu = (
-                f"Időzített sebességmérés elhalasztva: a hálózati terhelés {gate_res.load_percent:.2f}% ({gate_res.rate_kbps:.0f} Kbps) "
-                f"meghaladta a megengedett < {thresh_pct:.1f}% küszöböt ({gate_res.threshold_kbps/1000.0:.1f} Mbps / {cap_mbps:.0f} Mbps kapacitás) "
-                f"a mérés pontosságának és az ügyfélforgalom zavartalanságának megőrzése érdekében."
+                f"Scheduled speed test deferred: network load {gate_res.load_percent:.2f}% ({gate_res.rate_kbps:.0f} Kbps) "
+                f"exceeded the allowed < {thresh_pct:.1f}% threshold ({gate_res.threshold_kbps/1000.0:.1f} Mbps / {cap_mbps:.0f} Mbps capacity) "
+                f"to preserve measurement accuracy and avoid disturbing client traffic."
             )
             log.warning("network busy: %s", reason)
             conn = db.connect()

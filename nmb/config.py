@@ -290,6 +290,15 @@ class NetworkConfig:
     wlan_interface: str = "wlan0"
     bridge_interface: str = "br0"
 
+    # LAN passthrough / link aggregation (standalone probe behind a router)
+    lan_passthrough_enabled: bool = False
+    passthrough_ports: List[str] = field(default_factory=list)
+    lag_enabled: bool = False
+    lag_ports: List[str] = field(default_factory=list)
+    lag_mode: str = "802.3ad"
+    lag_hash_policy: str = "layer3+4"
+    lacp_rate: str = "fast"
+
     # Mode A settings
     gateway_ip: str = "192.168.100.1"
     gateway_netmask: str = "255.255.255.0"
@@ -610,6 +619,13 @@ def load_config(path: Path | None = None) -> Config:
         cfg.network.measurement_interface = n.get("measurement_interface", getattr(cfg.network, "measurement_interface", "wan")).strip()
         cfg.network.wlan_interface = n.get("wlan_interface", cfg.network.wlan_interface).strip()
         cfg.network.bridge_interface = n.get("bridge_interface", cfg.network.bridge_interface).strip()
+        cfg.network.lan_passthrough_enabled = n.getboolean("lan_passthrough_enabled", fallback=False)
+        cfg.network.passthrough_ports = [p.strip() for p in n.get("passthrough_ports", "").split(",") if p.strip()]
+        cfg.network.lag_enabled = n.getboolean("lag_enabled", fallback=False)
+        cfg.network.lag_ports = [p.strip() for p in n.get("lag_ports", "").split(",") if p.strip()]
+        cfg.network.lag_mode = n.get("lag_mode", cfg.network.lag_mode).strip()
+        cfg.network.lag_hash_policy = n.get("lag_hash_policy", cfg.network.lag_hash_policy).strip()
+        cfg.network.lacp_rate = n.get("lacp_rate", cfg.network.lacp_rate).strip()
 
         cfg.network.gateway_ip = n.get("gateway_ip", cfg.network.gateway_ip).strip()
         cfg.network.gateway_netmask = n.get("gateway_netmask", cfg.network.gateway_netmask).strip()
@@ -875,6 +891,13 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["network"]["measurement_interface"] = str(getattr(cfg.network, "measurement_interface", "wan"))
     parser["network"]["wlan_interface"] = str(cfg.network.wlan_interface)
     parser["network"]["bridge_interface"] = str(cfg.network.bridge_interface)
+    parser["network"]["lan_passthrough_enabled"] = str(cfg.network.lan_passthrough_enabled).lower()
+    parser["network"]["passthrough_ports"] = ",".join(cfg.network.passthrough_ports)
+    parser["network"]["lag_enabled"] = str(cfg.network.lag_enabled).lower()
+    parser["network"]["lag_ports"] = ",".join(cfg.network.lag_ports)
+    parser["network"]["lag_mode"] = str(cfg.network.lag_mode)
+    parser["network"]["lag_hash_policy"] = str(cfg.network.lag_hash_policy)
+    parser["network"]["lacp_rate"] = str(cfg.network.lacp_rate)
     parser["network"]["gateway_ip"] = str(cfg.network.gateway_ip)
     parser["network"]["gateway_netmask"] = str(cfg.network.gateway_netmask)
     parser["network"]["dhcp_enabled"] = str(getattr(cfg.network, "dhcp_enabled", True)).lower()

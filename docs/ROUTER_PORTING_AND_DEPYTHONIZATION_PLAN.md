@@ -1,13 +1,15 @@
 # 🌐 NetworkMeasureBox (NMB) — Router Porting & 100% De-Pythonization Specification
-## Native Systems Engineering Plan for ASUS RT-AXE7800, ASUS RT-N12+ (MT7620N), and TP-Link TL-WR740N (v4.23)
+## Native Systems Engineering Plan for ASUS RT-AXE7800, ASUS RT-N12+ (MT7620N), TP-Link TL-WR740N (v4.23), TP-Link TL-WR1043ND v1, and TP-Link Archer C6 v2.0
+
+> **Status: PLANNED, NOT IMPLEMENTED.** NMB is currently developed and run only on the Raspberry Pi 4 (Python). No router software or firmware exists yet. All binary sizes, memory figures, CPU loads and throughput values in this document are design targets, not measurements.
 
 ---
 
 ## 1. Executive Summary & Hardware Target Matrix
 
-This document provides the definitive, production-grade architectural and implementation specification for porting **NetworkMeasureBox (NMB)** directly onto commercial router hardware with **100% de-pythonization** (zero Python runtime, zero external Python libraries, zero interpreted dependencies).
+This document is the architectural plan for porting **NetworkMeasureBox (NMB)** directly onto commercial router hardware with **100% de-pythonization** (zero Python runtime, zero external Python libraries, zero interpreted dependencies).
 
-The entire system is re-engineered as a **native, single-binary appliance (`nmbd`)** written in **Go (Tier 1)** and **C11 with Musl libc (Tier 2 & 3)**, targeting three distinct hardware tiers based on official WikiDevi / OpenWrt hardware profiles:
+The system is planned to be re-engineered as a **native, single-binary appliance (`nmbd`)** written in **Go (Tier 1)** and **C11 with Musl libc (Tier 2 & 3)**, targeting three distinct hardware tiers based on official WikiDevi / OpenWrt hardware profiles:
 
 ```mermaid
 graph TD
@@ -54,6 +56,25 @@ graph TD
 | **Executable Binary Size** | ~12 MB (Go) or ~1.5 MB (C11) | ~850 KB (C11) / ~320 KB (UPX) | **< 380 KB (C11) / ~178 KB (UPX)** |
 | **Active Memory Envelope** | 18 MB – 24 MB RSS | 2.5 MB – 3.8 MB RSS | **1.2 MB – 1.8 MB RSS** |
 | **Primary Data Storage** | SQLite WAL (RAM) + Flash Sync | In-Memory SQLite or Flat Ring Buffer | **Zero Flash Writes**: RAM-only Ring Buffer |
+
+---
+
+### 1.2 Additional Planned Targets
+
+| Metric / Parameter | TP-Link TL-WR1043ND v1.x | TP-Link Archer C6 v2.x (EU) |
+| :--- | :--- | :--- |
+| **WikiDevi Reference** | [TP-LINK TL-WR1043ND v1.x](https://wikidevi.wi-cat.ru/TP-LINK_TL-WR1043ND_v1.x) | [TP-LINK Archer C6 v2.x](https://wikidevi.wi-cat.ru/TP-LINK_Archer_C6_v2.x) |
+| **FCC ID** | `TE7WR1043NX` | `TE7A6` |
+| **SoC** | Atheros AR9132 @ 400 MHz | Qualcomm Atheros QCA9563 @ 775 MHz |
+| **RAM** | 32 MiB | 128 MiB DDR2 |
+| **Flash** | 8 MiB | 8 MiB SPI |
+| **Switch Chip** | Realtek RTL8366RB | Qualcomm Atheros QCA8337N |
+| **Wired Network** | 1x 1GbE WAN + 4x 1GbE LAN | 1x 1GbE WAN + 4x 1GbE LAN |
+| **Wi-Fi** | 802.11b/g/n, AR9132 + AR9103 (3x3:2) | 2.4 GHz b/g/n (QCA9563), 5 GHz a/n/ac (QCA9886), AC1200 |
+| **Firmware Basis** | OpenWrt (listed as supported; target to confirm) | OpenWrt `ath79` (EU v2 support listed) |
+| **Planned Implementation** | C11 / musl, same constraints as the 32 MiB Tier 2 target | C11 / musl; more RAM than Tier 2, but the same 8 MiB flash limit |
+
+Notes: Archer C6 v3.0 and v3.2 use MediaTek chips and are different hardware, so this target covers v2.x only. WikiDevi warns that multiple C6 revisions exist. The gigabit ports of both routers are not a promise of gigabit test throughput; the CPU limit must be measured on real hardware.
 
 ---
 
@@ -456,6 +477,32 @@ To run NetworkMeasureBox on the TP-Link TL-WR740N v4.23:
 
 ---
 
+## 7A. LAN Passthrough & Link Aggregation in Ports
+
+The Python reference implementation (`nmb/netd/lan_topology.py`, developed on the Raspberry Pi 4) defines the behaviour every port must reproduce. It applies when the probe is connected behind a router, with or without aggregation:
+
+```text
+router ==[uplink port, or bond of selected ports]== NMB --[passthrough ports]-- LAN devices
+```
+
+* **Passthrough**: Layer 2 bridge between the uplink and the selected ports. Devices stay on the router's subnet; the probe's IP moves to the bridge.
+* **Link aggregation**: user-selected ports form one bond (`802.3ad`, `balance-rr`, `balance-xor`, `balance-tlb`, `balance-alb`, `active-backup`).
+* **Cross-traffic measurement**: counters must come from the uplink device. A Linux bridge device does not count forwarded frames, so reading it would let speed tests start during client traffic.
+
+Open questions per target, all to be verified on real hardware:
+
+| Target | Passthrough | Link aggregation constraint to verify |
+| :--- | :--- | :--- |
+| ASUS RT-AXE7800 | Switch ports through the vendor or OpenWrt bridge | Whether LAG works across the 2.5GbE and 1GbE ports; Flow Cache interaction |
+| ASUS RT-N12+ | Switch VLAN or bridge configuration | 100 Mbps ports; whether the integrated switch can trunk and whether the CPU link caps throughput |
+| TP-Link TL-WR740N | Switch VLAN or bridge configuration | 100 Mbps ports; whether the 4 MiB image can include the bonding module at all |
+| TP-Link TL-WR1043ND v1.x | RTL8366RB VLAN or bridge configuration | Trunking support in the switch driver; CPU-to-switch link as the ceiling |
+| TP-Link Archer C6 v2.x | QCA8337N VLAN or bridge configuration | Trunking support in the switch driver; CPU-to-switch link as the ceiling |
+
+On routers whose ports all sit behind one CPU link, software bonding cannot raise the throughput seen by the probe itself; aggregation there may only help traffic forwarded inside the switch.
+
+---
+
 ## 8. Cross-Compilation Matrix & Toolchain Setup
 
 ### 8.1 Toolchains Required
@@ -488,7 +535,9 @@ upx --best --lzma dist/nmbd-micro-wr740n -o dist/nmbd-micro-wr740n.upx
 
 ---
 
-## 9. Performance & Resource Benchmarking Projections
+## 9. Performance & Resource Targets (Not Measured)
+
+The router columns are design targets. No router build exists to measure.
 
 | Operational Parameter | Current Python Suite (Raspberry Pi 4) | Tier 1: ASUS RT-AXE7800 (Go/C11) | Tier 2: ASUS RT-N12+ (C11) | Tier 3: TP-Link WR740N (Micro-C) |
 | :--- | :--- | :--- | :--- | :--- |
@@ -505,10 +554,11 @@ upx --best --lzma dist/nmbd-micro-wr740n -o dist/nmbd-micro-wr740n.upx
 
 ---
 
-## 10. Conclusion & Deployment Timeline
+## 10. Goals
 
-With this **100% De-Pythonization Specification**:
-1. **ASUS RT-AXE7800** becomes a multi-gigabit enterprise network probe capable of 2.5 Gbps line-rate testing, CAKE traffic shaping, and native Tailscale mesh management without slowing down gaming or Wi-Fi 6E performance.
-2. **ASUS RT-N12+** is transformed from an obsolete 8MB/32MB SOHO router into a rock-solid, zero-maintenance SLA probe with instant web reporting and telegram alerts.
-3. **TP-Link TL-WR740N (v4.23)** achieves the seemingly impossible: running the complete NetworkMeasureBox diagnostic suite within **178 KB of flash** and **1.4 MB of RAM**, proving that native systems programming can extend the useful life of millions of legacy network appliances worldwide.
+If this plan is implemented and the targets are met:
+1. **ASUS RT-AXE7800** would become a multi-gigabit network probe capable of 2.5 Gbps line-rate testing, CAKE traffic shaping, and native Tailscale mesh management without slowing down gaming or Wi-Fi 6E performance.
+2. **ASUS RT-N12+** would become an SLA probe with web reporting and Telegram alerts.
+3. **TP-Link TL-WR740N (v4.23)** would run a reduced diagnostic suite, aiming for **178 KB of flash** and **1.4 MB of RAM**.
+4. **TP-Link TL-WR1043ND v1.x** and **TP-Link Archer C6 v2.x** would add gigabit-port targets, with throughput limits to be measured on hardware.
 

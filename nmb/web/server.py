@@ -22,6 +22,7 @@ import sys
 import threading
 import time
 from http import HTTPStatus
+import functools
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
@@ -112,6 +113,20 @@ def _record_auth_failure(ip: str) -> None:
 def _record_auth_success(ip: str) -> None:
     with _AUTH_LOCK:
         _AUTH_FAILURES.pop(ip, None)
+
+
+def _json_on_error(handler):
+    """Answer with JSON 500 instead of dropping the connection on an unhandled error."""
+    @functools.wraps(handler)
+    def wrapper(self) -> None:
+        try:
+            handler(self)
+        except (BrokenPipeError, ConnectionResetError):
+            raise
+        except Exception as e:
+            log.exception("unhandled error serving %s", self.path)
+            self._send_json({"status": "error", "message": str(e)}, status=500)
+    return wrapper
 
 
 class WebRequestHandler(BaseHTTPRequestHandler):
@@ -236,6 +251,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.end_headers()
 
+    @_json_on_error
     def do_GET(self) -> None:
         if not self._check_auth():
             return
@@ -1116,6 +1132,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 24. Preferred Measurement Interface & Physical Cable Detection
+        if path == "/api/network/lan-topology":
+            self._send_json(self._lan_topology_payload())
+            return
+
         if path == "/api/network/preferred-interface":
             from nmb.netd.interfaces import find_preferred_measurement_interface
             cfg = self.server.cfg if hasattr(self, "server") and hasattr(self.server, "cfg") else load_config()
@@ -1167,6 +1187,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
+    @_json_on_error
     def do_POST(self) -> None:
         if not self._check_auth():
             return
@@ -2032,6 +2053,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok" if ok else "not_found", "pattern": pattern, "kind": kind})
             return
 
+        if path == "/api/network/lan-topology":
+            self._handle_lan_topology_post(body_json)
+            return
+
         # Interface Role Matrix Configuration
         if path in ("/api/system/interface_roles", "/api/system/ports"):
             cfg = self.server.cfg
@@ -2553,16 +2578,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 target_chats = []
 
             if not token:
-                self._send_json({"status": "error", "ok": False, "error": "A Telegram Bot Token nincs beállítva.", "message": "Telegram Bot Token is not configured."}, status=400)
+                self._send_json({"status": "error", "ok": False, "error": "Telegram Bot Token is not configured.", "message": "Telegram Bot Token is not configured."}, status=400)
                 return
             if not target_chats:
-                self._send_json({"status": "error", "ok": False, "error": "Nincs megadva engedélyezett Chat ID. Kérlek add meg a saját Chat ID-dat!", "message": "No Chat IDs configured to receive test message."}, status=400)
+                self._send_json({"status": "error", "ok": False, "error": "No allowed Chat ID configured. Please enter your Chat ID.", "message": "No Chat IDs configured to receive test message."}, status=400)
                 return
 
             client = TelegramClient(token)
             me = client.get_me()
             if not me:
-                self._send_json({"status": "error", "ok": False, "error": "Érvénytelen Bot Token vagy a Telegram API nem érhető el.", "message": "Invalid Bot Token or Telegram API unreachable."}, status=400)
+                self._send_json({"status": "error", "ok": False, "error": "Invalid Bot Token or Telegram API unreachable.", "message": "Invalid Bot Token or Telegram API unreachable."}, status=400)
                 return
 
             box_id = getattr(self.server.cfg.system, "box_id", "nmb-01")
@@ -2590,7 +2615,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             if success_cnt > 0:
                 self._send_json({"status": "ok", "ok": True, "message": f"Test message delivered to {success_cnt}/{len(target_chats)} chat(s).", "delivered": success_cnt})
             else:
-                self._send_json({"status": "error", "ok": False, "error": f"Nem sikerült elküldeni az üzenetet ({', '.join(errors)}). Kérlek indíts privát csevegést a botoddal és nyomj a /start-ra a Telegramon!", "message": f"Failed to deliver message to chats ({', '.join(errors)})."}, status=400)
+                self._send_json({"status": "error", "ok": False, "error": f"Failed to deliver the message ({', '.join(errors)}). Open a private chat with your bot and send /start in Telegram.", "message": f"Failed to deliver message to chats ({', '.join(errors)})."}, status=400)
             return
 
         if path == "/api/telegram/service":
@@ -2602,7 +2627,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({
                     "status": "error",
                     "ok": False,
-                    "error": "A Telegram Bot Token nincs beállítva. Kérlek add meg és mentsd el a tokent az indítás előtt!",
+                    "error": "Telegram Bot Token is not configured. Enter and save the token before starting.",
                     "message": "Telegram Bot Token is not configured."
                 }, status=400)
                 return
@@ -2621,7 +2646,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({
                     "status": "error",
                     "ok": False,
-                    "error": f"Nem sikerült {action} állapotba hozni: {err_msg}",
+                    "error": f"Could not {action} the service: {err_msg}",
                     "message": f"systemctl {action} failed: {err_msg}"
                 }, status=500)
                 return
@@ -2741,7 +2766,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 if not output:
                     output = "(Command completed with no output)"
                 if is_htop_alias:
-                    output += "\n\n💡 [Tipp] Az interaktív feladatkezelőhöz használd a WebUI '📊 Tasks & Load' (Feladatkezelő & Terhelés) fülét: valós idejű magonkénti CPU mérők, RAM/Swap diagram, kattintható rendezés, keresés és folyamatleállítás!"
+                    output += "\n\n💡 [Tip] For an interactive task manager, use the WebUI '📊 Tasks & Load' tab: live per-core CPU meters, RAM/swap chart, sortable columns, search and process termination."
                 self._send_json({
                     "status": "ok",
                     "command": cmd,
@@ -3498,6 +3523,85 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         log.info("updated configuration on disk and in runtime memory")
         self._notify_daemon_reload()
         self._send_json({"status": "ok", "message": "Network and measurement settings saved and applied successfully!"})
+
+    def _lan_topology_payload(self) -> dict:
+        from nmb.netd import lan_topology
+        from nmb.netd.drivers import detect_all_physical_interfaces
+        net = self.server.cfg.network
+        return {
+            "status": "ok",
+            "lan_passthrough_enabled": net.lan_passthrough_enabled,
+            "passthrough_ports": net.passthrough_ports,
+            "lag_enabled": net.lag_enabled,
+            "lag_ports": net.lag_ports,
+            "lag_mode": net.lag_mode,
+            "lag_hash_policy": net.lag_hash_policy,
+            "lacp_rate": net.lacp_rate,
+            "wan_interface": net.wan_interface,
+            "network_mode": net.mode,
+            "ports": [
+                {
+                    "name": i.get("name"),
+                    "carrier": bool(i.get("carrier")),
+                    "speed_mbps": i.get("speed_mbps"),
+                    "chipset": i.get("chipset"),
+                    "bus_type": i.get("bus_type"),
+                }
+                for i in detect_all_physical_interfaces() if not i.get("is_wireless")
+            ],
+            "runtime": lan_topology.get_runtime_status(net),
+        }
+
+    def _handle_lan_topology_post(self, body: dict) -> None:
+        from nmb.netd import lan_topology
+        from nmb.netd.drivers import detect_all_physical_interfaces
+        cfg = self.server.cfg
+        net = cfg.network
+
+        def ports(field: str) -> list:
+            value = body.get(field, [])
+            items = value if isinstance(value, list) else str(value).split(",")
+            return list(dict.fromkeys(str(x).strip() for x in items if str(x).strip()))
+
+        passthrough_enabled = bool(body.get("lan_passthrough_enabled"))
+        passthrough_ports = ports("passthrough_ports")
+        lag_enabled = bool(body.get("lag_enabled"))
+        lag_ports = ports("lag_ports")
+        lag_mode = str(body.get("lag_mode", net.lag_mode)).strip()
+        hash_policy = str(body.get("lag_hash_policy", net.lag_hash_policy)).strip()
+        lacp_rate = str(body.get("lacp_rate", net.lacp_rate)).strip()
+
+        wired = [i.get("name") for i in detect_all_physical_interfaces() if not i.get("is_wireless")]
+        errors = lan_topology.validate_settings(
+            lag_enabled, lag_ports, lag_mode, hash_policy, lacp_rate,
+            passthrough_enabled, passthrough_ports, net.wan_interface, wired,
+        )
+        if errors:
+            self._send_json({"status": "error", "message": " ".join(errors), "errors": errors}, status=400)
+            return
+
+        net.lan_passthrough_enabled = passthrough_enabled
+        net.passthrough_ports = passthrough_ports
+        net.lag_enabled = lag_enabled
+        net.lag_ports = lag_ports
+        net.lag_mode = lag_mode
+        net.lag_hash_policy = hash_policy
+        net.lacp_rate = lacp_rate
+
+        if passthrough_enabled or lag_enabled:
+            # The feature only exists in standalone mode, so select it and clear any manual override.
+            net.mode = "standalone"
+            conn = db.connect()
+            with db.tx(conn):
+                conn.execute(
+                    "INSERT OR REPLACE INTO kv (k, v, ts) VALUES ('override_mode', 'auto', ?)",
+                    (db.now_ms(),),
+                )
+            conn.close()
+
+        save_config(cfg)
+        self._notify_daemon_reload()
+        self._send_json(self._lan_topology_payload())
 
     def _notify_daemon_reload(self) -> None:
         """Send SIGHUP to nmb-netd and nmb-telegram if running."""

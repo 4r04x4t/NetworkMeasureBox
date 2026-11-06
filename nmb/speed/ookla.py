@@ -249,9 +249,9 @@ def get_available_servers(search_query: str = "", limit: int = 100) -> list[dict
         num_id = int(clean_id)
         filtered.insert(0, {
             "id": num_id,
-            "name": f"Egyedi Szerver #{num_id}",
-            "sponsor": f"Egyedi Szerver #{num_id}",
-            "location": "Kézi Célpont",
+            "name": f"Custom Server #{num_id}",
+            "sponsor": f"Custom Server #{num_id}",
+            "location": "Manual Target",
             "country": "Egyedi",
             "host": f"ID {num_id}",
         })

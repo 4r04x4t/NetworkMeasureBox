@@ -33,14 +33,38 @@ class NetworkDaemon:
         self.current_mode_name: Optional[str] = None
         self.current_mode_inst: Optional[NetworkMode] = None
         self.state_file = cfg.system.run_dir / "netd_state.json"
+        self.reload_requested = False
+        self._build_modes()
 
-        self.svc_mgr = ServiceManager(cfg.system.run_dir, cfg.network)
+    def _build_modes(self) -> None:
+        network = self.cfg.network
+        self.svc_mgr = ServiceManager(self.cfg.system.run_dir, network)
         self.modes = {
-            "mode_a": ModeA(cfg.network, self.svc_mgr),
-            "mode_b": ModeB(cfg.network, self.svc_mgr),
-            "standalone": ModeStandalone(cfg.network, self.svc_mgr),
+            "mode_a": ModeA(network, self.svc_mgr),
+            "mode_b": ModeB(network, self.svc_mgr),
+            "standalone": ModeStandalone(network, self.svc_mgr),
         }
-        self.detector = NetworkDetector(cfg.network)
+        self.detector = NetworkDetector(network)
+
+    def _apply_reload(self) -> None:
+        """Reload config; rebuild the network only when its settings actually changed."""
+        self.reload_requested = False
+        old_network = self.cfg.network
+        self.cfg = load_config()
+        if self.cfg.network == old_network:
+            return
+        log.info("network configuration changed; re-applying active mode")
+        active_mode = self.current_mode_name
+        if self.current_mode_inst:
+            try:
+                self.current_mode_inst.teardown()
+            except Exception as e:
+                log.error("error during %s teardown: %s", active_mode, e)
+        self.current_mode_name = None
+        self.current_mode_inst = None
+        self._build_modes()
+        target_mode, reason = self.detector.evaluate_target_mode(self._get_override_mode())
+        self.switch_mode(target_mode, f"configuration reload ({reason})")
 
     def _get_override_mode(self) -> Optional[str]:
         """Fetch manual override if set in DB kv table."""
@@ -125,8 +149,8 @@ class NetworkDaemon:
             log.info("received termination signal (%d), stopping netd...", signum)
             self.running = False
         elif signum == signal.SIGHUP:
-            log.info("received SIGHUP, reloading configuration")
-            self.cfg = load_config()
+            log.info("received SIGHUP, scheduling configuration reload")
+            self.reload_requested = True
 
     def run(self) -> None:
         self.running = True
@@ -154,6 +178,8 @@ class NetworkDaemon:
         while self.running:
             try:
                 time.sleep(self.cfg.network.check_interval_sec)
+                if self.reload_requested:
+                    self._apply_reload()
                 override = self._get_override_mode()
                 target_mode, reason, is_ready = self.detector.get_debounced_mode(override)
 

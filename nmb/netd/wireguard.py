@@ -89,8 +89,8 @@ def get_candidate_endpoints(
             "host": req_host_clean,
             "port": port,
             "endpoint": f"{req_host_clean}:{port}",
-            "label": f"🏠 Helyi LAN / WebUI cím ({req_host_clean})",
-            "desc": "Ajánlott otthoni Wi-Fi / helyi kapcsolathoz (0ms NAT késleltetés, nincs router loopback hiba)",
+            "label": f"🏠 Local LAN / WebUI address ({req_host_clean})",
+            "desc": "Recommended for home Wi-Fi / local connections (no NAT delay, no router loopback issues)",
             "is_default": True,
         })
         seen_hosts.add(req_host_clean)
@@ -104,8 +104,8 @@ def get_candidate_endpoints(
                 "host": ip,
                 "port": port,
                 "endpoint": f"{ip}:{port}",
-                "label": f"🏠 Helyi hálózat / Wi-Fi [{iface}] ({ip})",
-                "desc": "Közvetlen kapcsolat a mérőbox belső IP címével",
+                "label": f"🏠 Local network / Wi-Fi [{iface}] ({ip})",
+                "desc": "Direct connection to the internal IP of the probe",
                 "is_default": is_def,
             })
             seen_hosts.add(ip)
@@ -130,8 +130,8 @@ def get_candidate_endpoints(
             "host": ddns_host,
             "port": port,
             "endpoint": f"{ddns_host}:{port}",
-            "label": f"🌐 Dinamikus DNS ({ddns_host})",
-            "desc": "Távoli mobilnetes eléréshez (A fő routeren az 51820 UDP porttovábbítás szükséges!)",
+            "label": f"🌐 Dynamic DNS ({ddns_host})",
+            "desc": "For remote mobile access (requires UDP 51820 port forwarding on the main router)",
             "is_default": is_def,
         })
         seen_hosts.add(ddns_host)
@@ -145,8 +145,8 @@ def get_candidate_endpoints(
                 "host": ip6,
                 "port": port,
                 "endpoint": f"[{ip6}]:{port}",
-                "label": f"⚡ Közvetlen IPv6 [{iface}] ([{ip6}])",
-                "desc": "Közvetlen kapcsolat IPv6-on (megkerüli az IPv4 NAT-ot és router porttovábbítást)",
+                "label": f"⚡ Direct IPv6 [{iface}] ([{ip6}])",
+                "desc": "Direct IPv6 connection (bypasses IPv4 NAT and router port forwarding)",
                 "is_default": False,
             })
             seen_hosts.add(ip6)
@@ -162,8 +162,8 @@ def get_candidate_endpoints(
             "host": wan_ip,
             "port": port,
             "endpoint": f"{wan_ip}:{port}",
-            "label": f"🌍 Publikus WAN IPv4 ({wan_ip})",
-            "desc": "Közvetlen publikus IP (A fő routeren az 51820 UDP porttovábbítás szükséges!)",
+            "label": f"🌍 Public WAN IPv4 ({wan_ip})",
+            "desc": "Direct public IP (requires UDP 51820 port forwarding on the main router)",
             "is_default": False,
         })
         seen_hosts.add(wan_ip)
@@ -176,8 +176,8 @@ def get_candidate_endpoints(
             "host": wan_ipv6,
             "port": port,
             "endpoint": f"[{wan_ipv6}]:{port}",
-            "label": f"⚡ Publikus WAN IPv6 ([{wan_ipv6}])",
-            "desc": "Közvetlen publikus IPv6 cím (megkerüli a CGNAT-ot és porttovábbítást)",
+            "label": f"⚡ Public WAN IPv6 ([{wan_ipv6}])",
+            "desc": "Direct public IPv6 address (bypasses CGNAT and port forwarding)",
             "is_default": False,
         })
         seen_hosts.add(wan_ipv6)
@@ -279,9 +279,12 @@ def get_or_create_server_keys() -> Tuple[str, str]:
             return priv, pub
 
     priv, pub = gen_keypair()
-    SERVER_PRIV_KEY.write_text(priv)
-    SERVER_PUB_KEY.write_text(pub)
-    os.chmod(SERVER_PRIV_KEY, 0o600)
+    try:
+        SERVER_PRIV_KEY.write_text(priv)
+        SERVER_PUB_KEY.write_text(pub)
+        os.chmod(SERVER_PRIV_KEY, 0o600)
+    except OSError as e:
+        log.warning("could not persist WireGuard server keys: %s", e)
     return priv, pub
 
 

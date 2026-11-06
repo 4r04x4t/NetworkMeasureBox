@@ -313,6 +313,22 @@ def teardown_bridge(br_name: str, member_ifaces: List[str]) -> bool:
     return True
 
 
+def request_dhcp_lease(iface: str) -> bool:
+    """Request a DHCP lease on iface using whichever client is installed."""
+    for client, cmd in (
+        ("dhclient", ["dhclient", "-1", "-v", iface]),
+        ("udhcpc", ["udhcpc", "-i", iface, "-n", "-q"]),
+        ("dhcpcd", ["dhcpcd", "-1", "-t", "10", iface]),
+    ):
+        if shutil.which(client):
+            log.info("requesting DHCP lease on %s using %s", iface, client)
+            res = run_cmd(cmd, check=False)
+            if res.returncode == 0:
+                return True
+            log.debug("%s exited %d: %s", client, res.returncode, (res.stderr or "").strip())
+    return False
+
+
 def get_default_gateway_iface() -> Optional[str]:
     """Find the interface holding the default route."""
     ip_bin = shutil.which("ip")
@@ -332,6 +348,8 @@ def get_default_gateway_iface() -> Optional[str]:
 def is_wired_interface(iface: str) -> bool:
     """Return True if interface is a wired Ethernet controller."""
     name = iface.lower()
+    if name == "br-pass" or name.startswith("bond"):
+        return True
     return name.startswith(("eth", "en", "end", "eno", "ens", "enp")) and not name.startswith(("wl", "ww", "br", "lo", "docker", "tun", "wg"))
 
 

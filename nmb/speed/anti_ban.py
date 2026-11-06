@@ -71,7 +71,7 @@ def quarantine_server(server_id: int, duration_sec: int = 7200, reason: str = ""
         with db.tx(conn):
             conn.execute(
                 "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warn', 'speed', 'ookla_quarantine', ?)",
-                (db.now_ms(), f"Ookla szerver #{server_id} ideiglenesen karanténba helyezve ({duration_sec // 60} perc) a tiltás elkerülésére: {reason}")
+                (db.now_ms(), f"Ookla server #{server_id} temporarily quarantined ({duration_sec // 60} min) to avoid a ban: {reason}")
             )
         conn.close()
     except Exception as e:

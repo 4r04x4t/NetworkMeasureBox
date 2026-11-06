@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(summary_dict, indent=2))
 
     if args.html:
-        save_html_dossier(report, args.html)
+        save_html_dossier(report, args.html, lang=getattr(cfg.web, "language", "en"))
         print(f"HTML dossier saved: {args.html}")
 
     if args.csv_dir:
@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.html and not args.csv_dir and not args.json_summary and not args.send_email:
         default_dir = cfg.system.data_dir / "persist" / "reports"
         default_html = default_dir / f"dossier_{int(hours)}h.html"
-        save_html_dossier(report, default_html)
+        save_html_dossier(report, default_html, lang=getattr(cfg.web, "language", "en"))
         print(f"HTML dossier generated: {default_html}")
 
     if args.send_email:

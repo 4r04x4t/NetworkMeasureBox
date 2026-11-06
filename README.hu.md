@@ -3,11 +3,11 @@
 > **Ipari szintű, autonóm hálózati minőségmérő, SLA-hitelesítő, szolgáltatói hibabizonyító és intelligens router célszoftver.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%28Debian%20%7C%20Alpine%20%7C%20OpenWrt%20%7C%20Arch%29-green.svg)](https://kernel.org)
+[![Platform: Linux](https://img.shields.io/badge/Fejleszt%C3%A9si%20platform-Raspberry%20Pi%204-green.svg)](https://kernel.org)
 [![Python: 3.9+](https://img.shields.io/badge/Python-3.9%2B%20%28Zero%20External%20Pip%20Deps%29-yellow.svg)](https://python.org)
 [![VPN: WireGuard & Tailscale](https://img.shields.io/badge/VPN-WireGuard%20%7C%20OpenVPN%20%7C%20Tailscale-blueviolet.svg)](#10-univerzális-távoli-elérés-pivpn-hub-és-tailscale-mesh)
 [![Hardware: 512MB+ RAM](https://img.shields.io/badge/RAM-512MB%20to%2064GB-purple.svg)](#6-alacsony-memóriájú-és-beágyazott-architektúra-512-mb-ram-optimalizáció)
-[![Natív Port: Go & C11](https://img.shields.io/badge/Nat%C3%ADv%20Port-ASUS%20%7C%20TP--Link%20%28Go%20%26%20C11%29-teal.svg)](#17-100-os-de-pythonizáció-és-kereskedelmi-router-portolási-terv)
+[![Router portok: tervezett](https://img.shields.io/badge/Router%20portok-Tervezett%2C%20nincs%20k%C3%A9sz-lightgrey.svg)](#17-100-os-de-pythonizáció-és-kereskedelmi-router-portolási-terv)
 [![Languages: EN HU DE UK FR](https://img.shields.io/badge/Languages-EN%20%7C%20HU%20%7C%20DE%20%7C%20UK%20%7C%20FR-orange.svg)](#8-beépített-webes-felület-webgui-és-többnyelvűség)
 
 ---
@@ -48,7 +48,7 @@ Amikor egy internetkapcsolat akadozik, csomagokat veszít, késleltetési tüsk�
 Egyedi, manuálisan futtatott böngészős sebességtesztekkel a felhasználó tehetetlen: nincs folyamatos audit napló, nem látható a mikroszakadások időpontja, és nem bizonyítható a szolgáltató felé a szerződésszegés vagy a forgalomkorlátozás (net-neutrality throttling).
 
 ### A megoldás
-A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (pl. Raspberry Pi, x86 mini PC, Odroid vagy egy meglévő, akár 512 MB RAM-os Linux/OpenWrt routeren) a nap 24 órájában, az év 365 napján automatikusan felügyeli és dokumentálja az internetkapcsolatot:
+A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspberry Pi 4-en fejlesztve és futtatva) a nap 24 órájában, az év 365 napján automatikusan felügyeli és dokumentálja az internetkapcsolatot:
 1. **Objektív bizonyítékot gyűjt**: Rögzíti az összes késleltetést, mikroszakadást, jittert és sávszélesség-ingadozást.
 2. **Közvetlenül a vonalon mér**: Képes routerként (Mode A) vagy passzív, láthatatlan inline hídként (Mode B) üzemelni a modem és a router között, így kiküszöböli a belső hálózati zavaró tényezőket.
 3. **Nem zavarja a felhasználót**: A beépített intelligens forgalmi kapu (Traffic Gate) csak akkor indít nagy sávszélességű tesztet, ha a vonal éppen üres (< 500 kbps), így nem szakítja meg a videóhívást vagy az online játékot.
@@ -62,6 +62,10 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (pl. Raspberry 
 * **Kettős Működési Mód**:
   * **Mode A (Aktív Router / Gateway)**: Teljes értékű router PPPoE tárcsázással, VLAN tageléssel, NAT masquerade-del, DHCP kiszolgálóval (`dnsmasq`), CAKE / fq_codel QoS-szel és Wi-Fi 6/6E/7 hozzáférési ponttal (`hostapd`).
   * **Mode B (Passzív Transzparens Híd / Inline Bridge)**: Két fizikai interfész közötti transzparens híd (`br0`), zéró IP interferenciával, teljesen láthatatlanul a hálózat számára.
+* **LAN Passthrough és Link Aggregation** (routerhez csatlakoztatott, önálló mérőeszköz; WebGUI: Portok és Illesztőprogramok):
+  * **Passthrough**: a kiválasztott portok 2. rétegben az uplinkre hidalódnak, így a doboz mögötti eszközök a router alhálózatán maradnak.
+  * **Link aggregation**: két vagy több vezetékes port vagy kártya bejelölhető és `bond0`-ba vonható össze (802.3ad LACP, balance-rr, balance-xor, balance-tlb, balance-alb, active-backup), passthrough-val vagy anélkül.
+  * A 802.3ad-hez LACP kell a routeren vagy switchen; a balance-rr és a balance-xor statikus LAG-et igényel. A balance-rr kivételével egy TCP-kapcsolat egy linken marad, így az összesített sebesség többszálú méréssel jelenik meg.
 * **Több Hálózati Kártya és Port Kezelése (Multi-NIC Matrix)**:
   * Tetszőleges számú fizikai hálózati kártya (PCIe, USB, alaplapi) kezelése.
   * **Multi-WAN**: Elsődleges WAN és Másodlagos WAN (WAN2) támogatás failover (tartalék) vagy loadbalance (terheléselosztás) módban.
@@ -212,7 +216,7 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 
 ## 6. Alacsony Memóriájú és Beágyazott Architektúra (512 MB RAM Optimalizáció)
 
-A szoftver architektúrája kifejezetten úgy lett felépítve, hogy akár **512 MB RAM-mal rendelkező beágyazott routereken** (pl. ASUS vagy egyéb OpenWrt/Debian router célrendszer) is megbízhatóan, memóriaszivárgás nélkül működjön.
+Memóriatakarékos profilok korlátozott Linux-rendszerekhez. Ezek eddig csak Raspberry Pi 4-en futottak, routeren nem.
 
 ### Memóriaprofilok (`memory_profile`)
 
@@ -416,7 +420,9 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 
 ## 17. 100%-os De-Pythonizáció és Kereskedelmi Router Portolási Terv
 
-A NetworkMeasureBox beágyazott kereskedelmi routereken történő futtatásához (akár **4 MB Flash és 32 MB RAM** mellett) elkészült a teljes, 100%-ban Python-mentes portolási specifikáció:
+> **Állapot: csak terv.** Az NMB jelenleg Raspberry Pi 4-en készül és fut. Routerre még nincs sem szoftver, sem firmware; az alábbi számok tervezési célok, nem mérések.
+
+A NetworkMeasureBox kereskedelmi routereken való futtatásának terve (akár **4 MB Flash és 32 MB RAM** mellett):
 * **Egységes Statikus Bináris (`nmbd`)**: **Go 1.23+** (Tier 1) és **C11 musl-libc** (Tier 2 & 3) alapon, zéró külső csomagfüggőséggel.
 * **Célhardver Portolási Kézikönyvek & WikiDevi Hardver Profilok**:
   * **[ASUS RT-AXE7800](https://wikidevi.wi-cat.ru/ASUS_RT-AXE7800)**:
@@ -430,7 +436,11 @@ A NetworkMeasureBox beágyazott kereskedelmi routereken történő futtatásáho
   * **[TP-Link TL-WR740N v4.x / v4.23](https://wikidevi.wi-cat.ru/TP-LINK_TL-WR740N_v4.x)**:
     * Qualcomm Atheros AR9331 MIPS 24Kc @ 400 MHz (`ath79/generic` / `ar71xx`), 32 MB DDR SDRAM, **4 MB SPI Flash**, Fast Ethernet (100 Mbps).
     * Rendszer: Minimal Stripped OpenWrt `ath79/generic` (LuCI nélkül, minimalista kernellel).
-    * Natív démon: Micro-C11 `-Os` optimalizálással, stripelve, UPX-LZMA tömörítéssel (**178 KB bináris**), 1.4 MB RAM RSS, 100% memóriabeli körkörös puffer (`tmpfs`) a flash-kopás kizárására!
+    * Natív démon: Micro-C11 `-Os` optimalizálással, stripelve, UPX-LZMA tömörítéssel (**178 KB bináris**), 1.4 MB RAM RSS, 100% memóriabeli körkörös puffer (`tmpfs`) a flash-kopás kizárására.
+  * **[TP-Link TL-WR1043ND v1.x](https://wikidevi.wi-cat.ru/TP-LINK_TL-WR1043ND_v1.x)**:
+    * Atheros AR9132 @ 400 MHz, 32 MiB RAM, 8 MiB Flash, Realtek RTL8366RB, 1x 1GbE WAN + 4x 1GbE LAN.
+  * **[TP-Link Archer C6 v2.x](https://wikidevi.wi-cat.ru/TP-LINK_Archer_C6_v2.x)**:
+    * Qualcomm Atheros QCA9563 @ 775 MHz, 128 MiB RAM, 8 MiB Flash, QCA8337N, 1x 1GbE WAN + 4x 1GbE LAN, AC1200.
 * **Főbb Natív Alrendszerek (Zéró Python)**:
   * **Memória-optimalizált DNS Sinkhole / Reklámblokkoló**: 512 KB Counting Bloom Filter (MurmurHash3, 0.1% FPR) és Trie, amely kevesebb mint 640 KB RAM-ot fogyaszt 32 MB-os routereken.
   * **Külső Függőség Nélküli Sebességmérő Socket Sinks**: Saját folyamaton belüli TCP/TLS kliens, amely közvetlenül csatlakozik Ookla, Cloudflare Edge és RTR-NetTest szerverekhez `splice()` és `recv()` zéró-másolásos pufferekkel külső binárisok nélkül.

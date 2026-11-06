@@ -100,7 +100,7 @@ def send_isp_ticket_email(
 
     # 1. Plain text & HTML body
     plain_text = format_plain_text_summary(report)
-    html_content = generate_html_dossier(report)
+    html_content = generate_html_dossier(report, lang=getattr(cfg.web, "language", "en"))
 
     alt_part = MIMEMultipart("alternative")
     alt_part.attach(MIMEText(plain_text, "plain", "utf-8"))

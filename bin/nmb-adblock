@@ -484,10 +484,6 @@ def cmd_guide(args: argparse.Namespace) -> int:
     print(f"\n{_color('Target DNS Server IP for this Device:', '1;33')} {_color(box_ip, '1;32')}")
     print(f"Detected Router Gateway IP       : {gw_ip}")
 
-    print(f"\n{_color('Magyar Útmutató (Router DHCP Beállítás):', '1;36')}")
-    for step in guide.get("steps_hu", []):
-        print(f"  {step}")
-
     print(f"\n{_color('English Setup Instructions:', '1;36')}")
     for step in guide.get("steps_en", []):
         print(f"  {step}")

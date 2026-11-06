@@ -4,7 +4,7 @@ and Safe Stable Updates Engine with Automatic Rollback Protection.
 Provides:
 - Comprehensive health audit across binaries, symlinks, SQLite databases,
   system configs, filesystem permissions, systemd services, and network stack.
-- Multi-tier escalation state tracking ("sokadik alkalom után is") stored in
+- Multi-tier escalation state tracking stored in
   /var/lib/nmb/self_heal_state.json:
   - Tier 1: Permissions/dirs, symlinks, soft service reset, config mirror restore.
   - Tier 2: Component recompilation (Open-RMBT C engine), binary downloads (Ookla
@@ -551,7 +551,7 @@ def audit_system_health() -> Dict[str, Any]:
 
 
 # ------------------------------------------------------------------------------
-# MULTI-TIER SELF-HEALING ENGINE ("sokadik alkalom után is")
+# MULTI-TIER SELF-HEALING ENGINE
 # ------------------------------------------------------------------------------
 
 def _repair_symlinks() -> List[str]:
@@ -853,7 +853,7 @@ def _repair_missing_binary(bin_name: str, tier: int) -> List[str]:
 
 def auto_heal_all(force_tier: Optional[int] = None) -> Dict[str, Any]:
     """Execute automated self-healing across all detected issues with
-    multi-attempt escalation tracking ("sokadik alkalom után is").
+    multi-attempt escalation tracking.
 
     Args:
         force_tier: Optional override to force Tier 1, 2, or 3.

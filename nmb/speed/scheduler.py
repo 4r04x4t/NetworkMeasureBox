@@ -376,10 +376,10 @@ class AutonomousScheduler(threading.Thread):
                 self.last_run_timestamp = time.time()
                 if ok:
                     self.last_outcome = "completed"
-                    self.last_detail = f"Mérés sikeresen lefutott ({engine})"
+                    self.last_detail = f"Measurement completed ({engine})"
                 else:
                     self.last_outcome = "skipped_busy"
-                    self.last_detail = "Mérés elhalasztva: hálózati terhelés meghaladta a pontossági küszöböt (<2%)"
+                    self.last_detail = "Measurement deferred: network load exceeded the accuracy threshold (<2%)"
                 log.debug("AutonomousScheduler worker finished: outcome=%s, detail=%s", self.last_outcome, self.last_detail)
             except Exception as ex:
                 log.error("AutonomousScheduler worker error: %s", ex)
@@ -401,8 +401,11 @@ class AutonomousScheduler(threading.Thread):
         contract_down = getattr(self.cfg.isp, "contract_down_mbps", 1000.0)
 
         from nmb.probe.traffic_gate import TrafficGate
-        gate = TrafficGate(self.cfg.network.wan_interface)
-        cap_mbps = gate.get_interface_capacity_mbps(self.cfg.network.wan_interface, contract_down_mbps=contract_down)
+        from nmb.netd.lan_topology import resolve_topology
+        topology = resolve_topology(self.cfg.network)
+        gate_iface = topology.monitor_device if topology.active else self.cfg.network.wan_interface
+        gate = TrafficGate(gate_iface)
+        cap_mbps = gate.get_interface_capacity_mbps(gate_iface, contract_down_mbps=contract_down)
         eff_thresh_kbps = gate.get_effective_threshold_kbps(
             capacity_mbps=cap_mbps,
             threshold_percent=thresh_pct,
@@ -411,7 +414,7 @@ class AutonomousScheduler(threading.Thread):
         )
         gate_res = gate.is_idle(
             threshold_kbps=eff_thresh_kbps,
-            iface=self.cfg.network.wan_interface,
+            iface=gate_iface,
             capacity_mbps=cap_mbps,
             threshold_percent=thresh_pct,
             mode=thresh_mode,

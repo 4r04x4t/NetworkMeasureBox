@@ -3051,14 +3051,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
         <div class="section-subtitle" style="margin: 0;" data-i18n="ping_title">ICMP Ping Telemetry & Gateway Latency</div>
         <div style="display: flex; gap: 8px; align-items: center;">
-          <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-speed'); setSpeedChartMode('combined');" data-i18n="btn_combined_speed_ping_chart">📊 Kombinált Sebesség & Ping Grafikon</button>
+          <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-speed'); setSpeedChartMode('combined');" data-i18n="btn_combined_speed_ping_chart">📊 Combined Speed & Ping Chart</button>
           <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/csv'" data-i18n="btn_ping_export_csv">📡 Ping CSV Export</button>
         </div>
       </div>
       <div id="chart-latency-container" style="background: #070d18; border-radius: 6px; padding: 12px; margin-bottom: 20px; border: 1px solid var(--border-color);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span style="font-size: 12px; font-weight: 600; color: #38bdf8;" data-i18n="probe_telemetry_title">📈 24h Késleltetés és Szakadás Telemetria</span>
-          <span class="mobile-hint-swipe" style="display: none; font-size: 11px; color: var(--text-muted);" data-i18n="probe_swipe_hint">↔️ Húzza el vízszintesen a teljes naphoz</span>
+          <span style="font-size: 12px; font-weight: 600; color: #38bdf8;" data-i18n="probe_telemetry_title">📈 24h Latency & Outage Telemetry</span>
+          <span class="mobile-hint-swipe" style="display: none; font-size: 11px; color: var(--text-muted);" data-i18n="probe_swipe_hint">↔️ Swipe horizontally for the full day</span>
         </div>
         <div id="chart-latency" style="overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; width: 100%;">
           <p style="text-align: center; color: var(--text-muted); padding: 40px;">Loading chart telemetry...</p>
@@ -3153,7 +3153,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <!-- SVG Container with dynamic Tooltip -->
         <div id="speed-chart-container" style="position: relative; width: 100%; height: 320px; min-height: 280px; background: rgba(10, 15, 29, 0.7); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
           <div id="speed-chart-svg-wrap" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-            <p style="text-align: center; color: var(--text-muted); padding: 50px;" data-i18n="speed_loading_results">Mérési adatok betöltése...</p>
+            <p style="text-align: center; color: var(--text-muted); padding: 50px;" data-i18n="speed_loading_results">Loading measurement data...</p>
           </div>
           <!-- Floating interactive tooltip -->
           <div id="speed-chart-tooltip" style="display: none; position: absolute; pointer-events: none; z-index: 100; background: rgba(15, 23, 42, 0.95); border: 1px solid #38bdf8; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #f8fafc; box-shadow: 0 8px 24px rgba(0,0,0,0.6); backdrop-filter: blur(8px); min-width: 200px; max-width: 320px; transition: opacity 0.15s ease;">
@@ -3508,22 +3508,22 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <!-- Dropdown Toggle Menu for Pause / Disablement -->
           <div style="position: relative; display: inline-block;">
             <button id="btn-toggle-adblock" class="btn-primary" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); cursor: pointer;" onclick="toggleAdblockDisableMenu(event)">
-              🛡️ Ad-Blocker: Aktív ▾
+              <span data-i18n="adblock_active_btn">🛡️ Ad-Blocker: Active ▾</span>
             </button>
             <div id="adblock-disable-menu" style="display: none; position: absolute; top: calc(100% + 5px); right: 0; background: #0f172a; border: 1px solid #334155; border-radius: 8px; min-width: 220px; box-shadow: 0 10px 25px rgba(0,0,0,0.6); z-index: 100; overflow: hidden;">
-              <div style="padding: 8px 12px; font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #1e293b;">Szüneteltetés / Pause Blocking</div>
-              <a href="javascript:void(0)" onclick="pauseAdblock(30)" style="display: block; padding: 8px 14px; font-size: 12px; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">⏱️ 30 másodpercre (30s)</a>
-              <a href="javascript:void(0)" onclick="pauseAdblock(300)" style="display: block; padding: 8px 14px; font-size: 12px; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">⏱️ 5 percre (5 mins)</a>
-              <a href="javascript:void(0)" onclick="pauseAdblock(900)" style="display: block; padding: 8px 14px; font-size: 12px; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">⏱️ 15 percre (15 mins)</a>
-              <a href="javascript:void(0)" onclick="pauseAdblock(0)" style="display: block; padding: 8px 14px; font-size: 12px; color: #ef4444; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">🛑 Határozatlan időre (Indefinite)</a>
-              <a href="javascript:void(0)" onclick="resumeAdblock()" style="display: block; padding: 8px 14px; font-size: 12px; color: #34d399; text-decoration: none; font-weight: 700; background: rgba(16,185,129,0.08);">🟢 Bekapcsolás (Enable Now)</a>
+              <div style="padding: 8px 12px; font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #1e293b;" data-i18n="adblock_pause_header">Pause Blocking</div>
+              <a href="javascript:void(0)" onclick="pauseAdblock(30)" style="display: block; padding: 8px 14px; font-size: 12px; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);" data-i18n="adblock_pause_30s">⏱️ For 30 seconds</a>
+              <a href="javascript:void(0)" onclick="pauseAdblock(300)" style="display: block; padding: 8px 14px; font-size: 12px; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);" data-i18n="adblock_pause_5m">⏱️ For 5 minutes</a>
+              <a href="javascript:void(0)" onclick="pauseAdblock(900)" style="display: block; padding: 8px 14px; font-size: 12px; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);" data-i18n="adblock_pause_15m">⏱️ For 15 minutes</a>
+              <a href="javascript:void(0)" onclick="pauseAdblock(0)" style="display: block; padding: 8px 14px; font-size: 12px; color: #ef4444; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);" data-i18n="adblock_pause_indef">🛑 Indefinitely</a>
+              <a href="javascript:void(0)" onclick="resumeAdblock()" style="display: block; padding: 8px 14px; font-size: 12px; color: #34d399; text-decoration: none; font-weight: 700; background: rgba(16,185,129,0.08);" data-i18n="adblock_enable_now">🟢 Enable Now</a>
             </div>
           </div>
 
           <!-- Countdown timer badge when paused -->
           <span id="adblock-pause-countdown" style="display: none; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 12px; padding: 5px 10px; border-radius: 6px; font-weight: 700; align-items: center; gap: 8px;">
-            <span>⏸️ Szüneteltetve: <b id="adblock-pause-timer-txt">00:00</b></span>
-            <button class="btn-primary" style="font-size: 10.5px; padding: 2px 8px; background: #10b981;" onclick="resumeAdblock()">Bekapcsolás</button>
+            <span><span data-i18n="adblock_paused_label">⏸️ Paused:</span> <b id="adblock-pause-timer-txt">00:00</b></span>
+            <button class="btn-primary" style="font-size: 10.5px; padding: 2px 8px; background: #10b981;" onclick="resumeAdblock()" data-i18n="adblock_enable">Enable</button>
           </span>
 
           <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="updateGravity()" data-i18n="adblock_btn_update">
@@ -3534,12 +3534,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
       <!-- Navigation Subtabs Bar -->
       <div class="adblock-subnav">
-        <button id="btn-adblock-subtab-dash" class="adblock-subtab-btn active" onclick="switchAdblockSubtab('dash')" data-i18n="adblock_subtab_dash">📊 Áttekintés & Statisztikák</button>
-        <button id="btn-adblock-subtab-log" class="adblock-subtab-btn" onclick="switchAdblockSubtab('log')" data-i18n="adblock_subtab_log">📋 Lekérdezési Napló</button>
-        <button id="btn-adblock-subtab-domains" class="adblock-subtab-btn" onclick="switchAdblockSubtab('domains')" data-i18n="adblock_subtab_domains">🛡️ Tartományok & RegEx</button>
-        <button id="btn-adblock-subtab-adlists" class="adblock-subtab-btn" onclick="switchAdblockSubtab('adlists')" data-i18n="adblock_subtab_adlists">🌐 Blokklisták (Gravity)</button>
+        <button id="btn-adblock-subtab-dash" class="adblock-subtab-btn active" onclick="switchAdblockSubtab('dash')" data-i18n="adblock_subtab_dash">📊 Overview & Statistics</button>
+        <button id="btn-adblock-subtab-log" class="adblock-subtab-btn" onclick="switchAdblockSubtab('log')" data-i18n="adblock_subtab_log">📋 Query Log</button>
+        <button id="btn-adblock-subtab-domains" class="adblock-subtab-btn" onclick="switchAdblockSubtab('domains')" data-i18n="adblock_subtab_domains">🛡️ Domains & RegEx</button>
+        <button id="btn-adblock-subtab-adlists" class="adblock-subtab-btn" onclick="switchAdblockSubtab('adlists')" data-i18n="adblock_subtab_adlists">🌐 Blocklists (Gravity)</button>
         <button id="btn-adblock-subtab-localdns" class="adblock-subtab-btn" onclick="switchAdblockSubtab('localdns')" data-i18n="adblock_subtab_localdns">🏠 Helyi DNS Rekordok</button>
-        <button id="btn-adblock-subtab-guide" class="adblock-subtab-btn" onclick="switchAdblockSubtab('guide')" data-i18n="adblock_subtab_guide">📖 Router Útmutató</button>
+        <button id="btn-adblock-subtab-guide" class="adblock-subtab-btn" onclick="switchAdblockSubtab('guide')" data-i18n="adblock_subtab_guide">📖 Router Guide</button>
       </div>
 
       <!-- SUBTAB 1: OVERVIEW & TELEMETRY DASHBOARD -->
@@ -3577,10 +3577,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <!-- 24-Hour Activity Time-Series SVG Chart -->
         <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 22px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-            <div style="font-weight: 700; color: #f1f5f9; font-size: 13.5px;" data-i18n="adblock_chart_24h_title">24 Órás Lekérdezési Aktivitás (Összes vs. Blokkolt)</div>
+            <div style="font-weight: 700; color: #f1f5f9; font-size: 13.5px;" data-i18n="adblock_chart_24h_title">24-Hour Query Activity (Total vs. Blocked)</div>
             <div style="display: flex; gap: 14px; font-size: 11.5px; align-items: center;">
-              <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 12px; background: #10b981; border-radius: 2px;"></span> <span style="color: #cbd5e1;">Engedélyezett (Permitted)</span></span>
-              <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 12px; background: #ef4444; border-radius: 2px;"></span> <span style="color: #cbd5e1;">Blokkolt (Blocked)</span></span>
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 12px; background: #10b981; border-radius: 2px;"></span> <span style="color: #cbd5e1;" data-i18n="adblock_legend_permitted">Permitted</span></span>
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 12px; height: 12px; background: #ef4444; border-radius: 2px;"></span> <span style="color: #cbd5e1;" data-i18n="adblock_legend_blocked">Blocked</span></span>
             </div>
           </div>
           <!-- SVG Timeline Box -->
@@ -3594,17 +3594,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-bottom: 22px;">
           <!-- Query Types -->
           <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
-            <div style="font-weight: 700; color: #38bdf8; font-size: 13px; margin-bottom: 12px;" data-i18n="adblock_qtypes_title">Lekérdezéstípusok Megoszlása</div>
+            <div style="font-weight: 700; color: #38bdf8; font-size: 13px; margin-bottom: 12px;" data-i18n="adblock_qtypes_title">Query Type Distribution</div>
             <div id="adblock-qtypes-container" style="display: flex; flex-direction: column; gap: 10px;">
-              <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;">Lekérdezéstípusok betöltése...</div>
+              <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;" data-i18n="adblock_loading_qtypes">Loading query types...</div>
             </div>
           </div>
 
           <!-- Upstream Destinations -->
           <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
-            <div style="font-weight: 700; color: #a855f7; font-size: 13px; margin-bottom: 12px;" data-i18n="adblock_upstreams_title">Kiszolgálók Megoszlása</div>
+            <div style="font-weight: 700; color: #a855f7; font-size: 13px; margin-bottom: 12px;" data-i18n="adblock_upstreams_title">Upstream Distribution</div>
             <div id="adblock-upstreams-container" style="display: flex; flex-direction: column; gap: 10px;">
-              <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;">Kiszolgálók megoszlásának betöltése...</div>
+              <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;" data-i18n="adblock_loading_upstreams">Loading upstream distribution...</div>
             </div>
           </div>
         </div>
@@ -3618,13 +3618,13 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <table class="data-table" style="margin: 0; width: 100%;">
                 <thead>
                   <tr>
-                    <th style="font-size: 11px;">Tartomány</th>
-                    <th style="font-size: 11px; width: 55px; text-align: right;">Darab</th>
-                    <th style="font-size: 11px; width: 60px; text-align: center;">Művelet</th>
+                    <th style="font-size: 11px;" data-i18n="adblock_th_domain">Domain</th>
+                    <th style="font-size: 11px; width: 55px; text-align: right;" data-i18n="adblock_th_hits">Hits</th>
+                    <th style="font-size: 11px; width: 60px; text-align: center;" data-i18n="adblock_col_action">Action</th>
                   </tr>
                 </thead>
                 <tbody id="adblock-top-blocked-tbody">
-                  <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek blokkolt kérések</td></tr>
+                  <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;" data-i18n="adblock_empty_blocked">No blocked requests</td></tr>
                 </tbody>
               </table>
             </div>
@@ -3637,13 +3637,13 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <table class="data-table" style="margin: 0; width: 100%;">
                 <thead>
                   <tr>
-                    <th style="font-size: 11px;">Tartomány</th>
-                    <th style="font-size: 11px; width: 55px; text-align: right;">Darab</th>
-                    <th style="font-size: 11px; width: 60px; text-align: center;">Művelet</th>
+                    <th style="font-size: 11px;" data-i18n="adblock_th_domain">Domain</th>
+                    <th style="font-size: 11px; width: 55px; text-align: right;" data-i18n="adblock_th_hits">Hits</th>
+                    <th style="font-size: 11px; width: 60px; text-align: center;" data-i18n="adblock_col_action">Action</th>
                   </tr>
                 </thead>
                 <tbody id="adblock-top-queried-tbody">
-                  <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek rögzített kérések</td></tr>
+                  <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;" data-i18n="adblock_empty_queried">No recorded requests</td></tr>
                 </tbody>
               </table>
             </div>
@@ -3651,18 +3651,18 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
           <!-- Top Querying Clients -->
           <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
-            <div style="font-weight: 700; color: #34d399; font-size: 13px; margin-bottom: 10px;" data-i18n="adblock_top_clients_title">Legaktívabb Helyi Kliensek</div>
+            <div style="font-weight: 700; color: #34d399; font-size: 13px; margin-bottom: 10px;" data-i18n="adblock_top_clients_title">Most Active Local Clients</div>
             <div style="max-height: 220px; overflow-y: auto;">
               <table class="data-table" style="margin: 0; width: 100%;">
                 <thead>
                   <tr>
-                    <th style="font-size: 11px;">Kliens</th>
-                    <th style="font-size: 11px; width: 55px; text-align: right;">Kérések</th>
-                    <th style="font-size: 11px; width: 50px; text-align: right;">Blokk%</th>
+                    <th style="font-size: 11px;" data-i18n="adblock_th_client">Client</th>
+                    <th style="font-size: 11px; width: 55px; text-align: right;" data-i18n="adblock_th_requests">Requests</th>
+                    <th style="font-size: 11px; width: 50px; text-align: right;" data-i18n="adblock_th_block_pct">Block %</th>
                   </tr>
                 </thead>
                 <tbody id="adblock-top-clients-tbody">
-                  <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek kliensek rögzítve</td></tr>
+                  <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;" data-i18n="adblock_empty_clients">No clients recorded</td></tr>
                 </tbody>
               </table>
             </div>
@@ -6541,7 +6541,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                 <div style="font-weight: 700; color: #ffffff; font-size: 13px;">MountainHaGo</div>
                 <span class="theme-card-badge" data-i18n="theme_badge_active">✓ Active</span>
               </div>
-              <div style="font-size: 11px; color: #e2e8f0; margin-top: 4px;">Vereckei hágó panoramic background & opaque black boxes.</div>
+              <div style="font-size: 11px; color: #e2e8f0; margin-top: 4px;">Verecke Pass panoramic background & opaque black boxes.</div>
             </div>
 
             <div class="theme-card" data-theme-name="ndefault" onclick="switchTheme('ndefault')" style="background: #2b2b2b; border: 2px solid #de6e00; padding: 12px; border-radius: 6px;">
@@ -6780,6 +6780,66 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
       <!-- SUBTAB: MULTI-PORT & HARDWARE DRIVERS MATRIX -->
       <div id="rsub-ports" class="router-subtab-content">
+        <!-- LAN Passthrough & Link Aggregation -->
+        <div class="app-box" id="lan-topology-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+            <div style="flex: 1 1 280px;">
+              <div class="section-subtitle" style="margin: 0;" data-i18n="lanpt_title">🔗 LAN Passthrough & Link Aggregation</div>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n="lanpt_desc">For a probe connected behind a router: LAN devices can run through the box, and several ports or network cards can be combined to go beyond the limit of one Ethernet link.</p>
+            </div>
+            <span id="lanpt-state" class="badge-pill" style="font-size: 12px;">--</span>
+          </div>
+
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-bottom: 8px;">
+            <input type="checkbox" id="lanpt-lag-enabled" onchange="updateLanTopologyVisibility()">
+            <span data-i18n="lanpt_enable_lag">Enable link aggregation (uplink towards the router)</span>
+          </label>
+          <div id="lanpt-lag-section" style="padding-left: 24px; margin-bottom: 14px;">
+            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 6px;" data-i18n="lanpt_lag_ports">Ports and cards to aggregate (at least 2):</div>
+            <div id="lanpt-lag-ports" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;"></div>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
+              <label style="font-size: 12px; color: #94a3b8; flex: 1 1 260px; max-width: 100%;"><span data-i18n="lanpt_lag_mode">Aggregation mode:</span>
+                <select id="lanpt-lag-mode" class="form-input" style="width: 100%; padding: 6px 10px; font-size: 12px; margin-top: 4px;" onchange="updateLanTopologyVisibility()">
+                  <option value="802.3ad" data-i18n="lanpt_mode_lacp">802.3ad LACP (router/switch must support LACP)</option>
+                  <option value="balance-rr" data-i18n="lanpt_mode_rr">balance-rr (static LAG; one flow can exceed one link, packets may reorder)</option>
+                  <option value="balance-xor" data-i18n="lanpt_mode_xor">balance-xor (static LAG)</option>
+                  <option value="balance-tlb" data-i18n="lanpt_mode_tlb">balance-tlb (no switch configuration)</option>
+                  <option value="balance-alb" data-i18n="lanpt_mode_alb">balance-alb (no switch configuration)</option>
+                  <option value="active-backup" data-i18n="lanpt_mode_ab">active-backup (failover only, no extra speed)</option>
+                </select>
+              </label>
+              <label id="lanpt-hash-wrap" style="font-size: 12px; color: #94a3b8; flex: 0 1 140px;"><span data-i18n="lanpt_hash">Hash policy:</span>
+                <select id="lanpt-hash" class="form-input" style="width: 100%; padding: 6px 10px; font-size: 12px; margin-top: 4px;">
+                  <option value="layer3+4">layer3+4</option><option value="layer2+3">layer2+3</option><option value="layer2">layer2</option>
+                </select>
+              </label>
+              <label id="lanpt-lacp-wrap" style="font-size: 12px; color: #94a3b8; flex: 0 1 110px;"><span data-i18n="lanpt_lacp_rate">LACP rate:</span>
+                <select id="lanpt-lacp" class="form-input" style="width: 100%; padding: 6px 10px; font-size: 12px; margin-top: 4px;">
+                  <option value="fast">fast</option><option value="slow">slow</option>
+                </select>
+              </label>
+            </div>
+            <div style="font-size: 11.5px; color: #94a3b8;" data-i18n="lanpt_lag_note">Except with balance-rr, one TCP connection stays on one link. The combined speed appears with several parallel connections, so use multi-stream speed tests.</div>
+            <div id="lanpt-lag-runtime" style="font-size: 12px; color: #34d399; margin-top: 6px;"></div>
+          </div>
+
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-bottom: 8px;">
+            <input type="checkbox" id="lanpt-pt-enabled" onchange="updateLanTopologyVisibility()">
+            <span data-i18n="lanpt_enable_pt">Enable LAN passthrough (Layer 2 bridge to downstream devices)</span>
+          </label>
+          <div id="lanpt-pt-section" style="padding-left: 24px; margin-bottom: 14px;">
+            <div id="lanpt-uplink-row" style="font-size: 12px; color: #94a3b8; margin-bottom: 6px;"><span data-i18n="lanpt_uplink">Uplink port (when aggregation is off):</span> <code id="lanpt-uplink" style="color: #38bdf8;">--</code></div>
+            <div style="font-size: 12px; color: #94a3b8; margin-bottom: 6px;" data-i18n="lanpt_pt_ports">Downstream passthrough ports:</div>
+            <div id="lanpt-pt-ports" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;"></div>
+            <div style="font-size: 11.5px; color: #fbbf24;" data-i18n="lanpt_pt_note">Devices on these ports stay on the router's subnet and get their addresses from it. Do not connect these ports back to the router: spanning tree is off, so this creates a network loop.</div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 11.5px; color: #fbbf24; flex: 1 1 280px;" data-i18n="lanpt_warning">Saving reconfigures the network and may change the IP address of this box, so the connection to this page can drop. It also switches the box to standalone mode.</div>
+            <button class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveLanTopology()" data-i18n="lanpt_btn_save">💾 Save & Apply</button>
+          </div>
+        </div>
+
         <!-- 1. Port Role Assignment Matrix Card -->
         <div class="app-box">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
@@ -7182,7 +7242,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <span data-i18n="heal_card_state">Adaptive Escalation & Failure Tracking</span>
             </div>
             <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;">
-              Automatically escalates recovery aggressiveness when a component fails repeatedly ("sokadik alkalom után"):
+              Automatically escalates recovery aggressiveness when a component fails repeatedly:
               <span style="color: #cbd5e1;">Tier 1 (Soft fix)</span> ➔ <span style="color: #f59e0b;">Tier 2 (Reinstall / Recompile)</span> ➔ <span style="color: #ef4444;">Tier 3 (Aggressive Dpkg / Backup Restore)</span>.
             </p>
             <div id="heal-escalation-container" style="max-height: 240px; overflow-y: auto;">
@@ -8018,6 +8078,99 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
   let cachedPortsData = null;
   let driverInstallPollTimer = null;
 
+  async function loadLanTopology() {
+    try {
+      const res = await fetch('/api/network/lan-topology');
+      if (!res.ok) return;
+      renderLanTopology(await res.json());
+    } catch (e) {
+      console.error('Failed to load LAN topology:', e);
+    }
+  }
+
+  function renderLanPortCheckboxes(containerId, ports, selected) {
+    const box = document.getElementById(containerId);
+    if (!box) return;
+    if (!ports.length) {
+      box.innerHTML = '<span style="font-size: 12px; color: var(--text-muted);">' + t('lanpt_no_ports', 'No wired ports detected.') + '</span>';
+      return;
+    }
+    box.innerHTML = ports.map(p => {
+      const speed = p.carrier && p.speed_mbps ? p.speed_mbps + ' Mbps' : (p.carrier ? 'UP' : 'DOWN');
+      const name = escapeHtml(p.name);
+      return `<label style="display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px;">
+        <input type="checkbox" value="${name}" ${selected.includes(p.name) ? 'checked' : ''}>
+        <b>${name}</b> <span style="color: #94a3b8;">${escapeHtml(p.chipset || '')} · ${speed}</span>
+      </label>`;
+    }).join('');
+  }
+
+  function renderLanTopology(data) {
+    document.getElementById('lanpt-lag-enabled').checked = !!data.lag_enabled;
+    document.getElementById('lanpt-pt-enabled').checked = !!data.lan_passthrough_enabled;
+    document.getElementById('lanpt-lag-mode').value = data.lag_mode;
+    document.getElementById('lanpt-hash').value = data.lag_hash_policy;
+    document.getElementById('lanpt-lacp').value = data.lacp_rate;
+    document.getElementById('lanpt-uplink').textContent = data.wan_interface || '--';
+    renderLanPortCheckboxes('lanpt-lag-ports', data.ports || [], data.lag_ports || []);
+    renderLanPortCheckboxes('lanpt-pt-ports', data.ports || [], data.passthrough_ports || []);
+
+    const rt = data.runtime || {};
+    const state = document.getElementById('lanpt-state');
+    state.textContent = rt.applied ? t('lanpt_state_active', 'Active')
+      : (rt.requested ? t('lanpt_state_pending', 'Saved, not active yet') : t('lanpt_state_off', 'Off'));
+    state.style.color = rt.applied ? '#34d399' : (rt.requested ? '#fbbf24' : '#94a3b8');
+
+    let runtimeText = '';
+    if (rt.applied && data.lag_enabled) {
+      runtimeText = `${rt.lag_active_ports}/${(rt.lag_members || []).length} ${t('lanpt_links_up', 'links up')} · ${rt.lag_theoretical_mbps} Mbps`;
+      if (rt.lag_mixed_speeds && data.lag_mode === '802.3ad') {
+        runtimeText += ' · ' + t('lanpt_mixed_speeds', 'Ports run at different speeds; 802.3ad only combines ports of equal speed.');
+      }
+    }
+    document.getElementById('lanpt-lag-runtime').textContent = runtimeText;
+    updateLanTopologyVisibility();
+  }
+
+  function updateLanTopologyVisibility() {
+    const lagOn = document.getElementById('lanpt-lag-enabled').checked;
+    const mode = document.getElementById('lanpt-lag-mode').value;
+    document.getElementById('lanpt-lag-section').hidden = !lagOn;
+    document.getElementById('lanpt-pt-section').hidden = !document.getElementById('lanpt-pt-enabled').checked;
+    document.getElementById('lanpt-uplink-row').hidden = lagOn;
+    document.getElementById('lanpt-hash-wrap').hidden = !['802.3ad', 'balance-xor', 'balance-tlb'].includes(mode);
+    document.getElementById('lanpt-lacp-wrap').hidden = mode !== '802.3ad';
+  }
+
+  async function saveLanTopology() {
+    const checked = (id) => Array.from(document.querySelectorAll('#' + id + ' input:checked')).map(el => el.value);
+    const payload = {
+      lag_enabled: document.getElementById('lanpt-lag-enabled').checked,
+      lag_ports: checked('lanpt-lag-ports'),
+      lag_mode: document.getElementById('lanpt-lag-mode').value,
+      lag_hash_policy: document.getElementById('lanpt-hash').value,
+      lacp_rate: document.getElementById('lanpt-lacp').value,
+      lan_passthrough_enabled: document.getElementById('lanpt-pt-enabled').checked,
+      passthrough_ports: checked('lanpt-pt-ports'),
+    };
+    try {
+      const res = await fetch('/api/network/lan-topology', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(t('error_prefix', 'Error: ') + (data.message || res.status));
+        return;
+      }
+      renderLanTopology(data);
+      showToast(t('lanpt_saved', 'LAN topology saved. The network daemon applies it shortly.'));
+    } catch (e) {
+      showToast(t('error_prefix', 'Error: ') + e);
+    }
+  }
+
   async function loadInterfaceMatrix() {
     try {
       const res = await fetch('/api/system/ports');
@@ -8026,6 +8179,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       cachedPortsData = data;
       renderInterfaceMatrix(data);
       updateSpeedtestInterfaceDropdown(data.interfaces);
+      loadLanTopology();
     } catch (e) {
       console.error('Failed to load interface matrix:', e);
     }
@@ -8407,7 +8561,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (menu) menu.style.display = 'none';
 
     try {
-      showToast(seconds > 0 ? `Adblock szüneteltetése ${seconds} másodpercre...` : 'Adblock kikapcsolása...');
+      showToast(t('adblock_toast_pausing', 'Pausing Adblock...') + (seconds > 0 ? ` (${seconds}s)` : ''));
       const res = await fetch('/api/adblock/disable', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -8415,11 +8569,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(seconds > 0 ? `Adblock szüneteltetve (${seconds}s)` : 'Adblock szüneteltetve');
+        showToast(t('adblock_toast_paused', 'Adblock paused') + (seconds > 0 ? ` (${seconds}s)` : ''));
         loadAdblockStatus();
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -8428,15 +8582,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (menu) menu.style.display = 'none';
 
     try {
-      showToast('Adblock bekapcsolása...');
+      showToast(t('adblock_toast_enabling', 'Enabling Adblock...'));
       const res = await fetch('/api/adblock/enable', { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
-        showToast('Adblock aktív! Reklámok szűrése működik.');
+        showToast(t('adblock_toast_active', 'Adblock is active. Ad filtering is running.'));
         loadAdblockStatus();
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -8462,7 +8616,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
     if (data.enabled) {
       if (toggleBtn) {
-        toggleBtn.innerHTML = '🛡️ Ad-Blocker: Aktív ▾';
+        toggleBtn.innerHTML = t('adblock_active_btn', '🛡️ Ad-Blocker: Active ▾');
         toggleBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
       }
       if (pauseBadge) pauseBadge.style.display = 'none';
@@ -8472,7 +8626,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
     } else {
       if (toggleBtn) {
-        toggleBtn.innerHTML = '⏸️ Ad-Blocker: Szünetel ▾';
+        toggleBtn.innerHTML = t('adblock_paused_btn', '⏸️ Ad-Blocker: Paused ▾');
         toggleBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)';
       }
       if (data.disabled_seconds_left && data.disabled_seconds_left > 0) {
@@ -8536,14 +8690,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (topBlockedTbody) {
       const topB = data.top_blocked_domains || [];
       if (topB.length === 0) {
-        topBlockedTbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek blokkolt kérések</td></tr>';
+        topBlockedTbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">' + t('adblock_empty_blocked', 'No blocked requests') + '</td></tr>';
       } else {
         topBlockedTbody.innerHTML = topB.map(item => `
           <tr>
             <td style="font-size: 11.5px; font-weight: 600; color: #f87171; word-break: break-all;">${escapeHtml(item.domain)}</td>
             <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
             <td style="text-align: center;">
-              <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #34d399;" title="Engedélyezés (Whitelist)" onclick="quickWhitelist('${escapeHtml(item.domain)}')">✅ Fehér</button>
+              <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist('${escapeHtml(item.domain)}')">${t('adblock_btn_allow', '✅ Allow')}</button>
             </td>
           </tr>
         `).join('');
@@ -8555,14 +8709,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (topQueriedTbody) {
       const topQ = data.top_queried_domains || [];
       if (topQ.length === 0) {
-        topQueriedTbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek rögzített kérések</td></tr>';
+        topQueriedTbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">' + t('adblock_empty_queried', 'No recorded requests') + '</td></tr>';
       } else {
         topQueriedTbody.innerHTML = topQ.map(item => `
           <tr>
             <td style="font-size: 11.5px; font-weight: 600; color: #38bdf8; word-break: break-all;">${escapeHtml(item.domain)}</td>
             <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
             <td style="text-align: center;">
-              <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #f87171;" title="Tiltás (Blacklist)" onclick="quickBlacklist('${escapeHtml(item.domain)}')">⛔ Tilt</button>
+              <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #f87171;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist('${escapeHtml(item.domain)}')">${t('adblock_btn_block', '⛔ Block')}</button>
             </td>
           </tr>
         `).join('');
@@ -8574,7 +8728,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     if (topClientsTbody) {
       const topC = data.top_clients || [];
       if (topC.length === 0) {
-        topClientsTbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek kliensek rögzítve</td></tr>';
+        topClientsTbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-size: 12px;">' + t('adblock_empty_clients', 'No clients recorded') + '</td></tr>';
       } else {
         topClientsTbody.innerHTML = topC.map(item => `
           <tr>
@@ -8706,8 +8860,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     tooltip.style.top = Math.max(10, y) + 'px';
     tooltip.innerHTML = `
       <div style="font-weight: 700; color: #38bdf8; margin-bottom: 2px;">🕒 ${timeStr}</div>
-      <div>Összes kérés: <b>${total}</b></div>
-      <div style="color: #f87171;">Blokkolt: <b>${blocked}</b> (${pct})</div>
+      <div>${t('adblock_tooltip_total', 'Total requests:')} <b>${total}</b></div>
+      <div style="color: #f87171;">${t('adblock_tooltip_blocked', 'Blocked:')} <b>${blocked}</b> (${pct})</div>
     `;
     tooltip.style.display = 'block';
   }
@@ -8764,8 +8918,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     Object.values(upstreams).forEach(v => { total += v; });
 
     const friendlyNames = {
-      'cache': '⚡ Helyi Gyorsítótár (Cache)',
-      'blocked': '🛑 Sinkhole (Blokkolva)',
+      'cache': t('adblock_upstream_cache', '⚡ Local Cache'),
+      'blocked': t('adblock_upstream_blocked', '🛑 Sinkhole (Blocked)'),
       'local_dns': '🏠 Helyi DNS (custom.list)',
       '1.1.1.1': '🌐 Cloudflare (1.1.1.1)',
       '1.0.0.1': '🌐 Cloudflare Sec (1.0.0.1)',
@@ -8788,7 +8942,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     let html = '';
     const sortedKeys = Object.keys(upstreams).sort((a, b) => upstreams[b] - upstreams[a]);
     if (sortedKeys.length === 0) {
-      container.innerHTML = '<div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;">Nincsenek még kiszolgált kérések</div>';
+      container.innerHTML = '<div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;">' + t('adblock_empty_upstreams', 'No answered requests yet') + '</div>';
       return;
     }
 
@@ -8855,7 +9009,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     const tbody = document.getElementById('adblock-querylog-tbody');
     if (!tbody) return;
     if (!queries || queries.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek naplózott DNS lekérdezések</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); font-size: 12px;">' + t('adblock_empty_querylog', 'No DNS queries logged') + '</td></tr>';
       return;
     }
 
@@ -8883,8 +9037,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <td style="font-size: 11.5px; color: var(--text-muted); font-family: monospace;">${q.latency_ms ? q.latency_ms.toFixed(1) + 'ms' : '<0.1ms'}</td>
         <td style="font-size: 11.5px; font-weight: 600; color: ${q.status === 'BLOCKED' ? '#f87171' : '#f1f5f9'}; word-break: break-all;">${escapeHtml(q.domain || '')}</td>
         <td style="text-align: center; white-space: nowrap;">
-          <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #f87171; margin-right: 4px;" title="Feketelistára helyezés" onclick="quickBlacklist('${escapeHtml(q.domain)}')">⛔ Tilt</button>
-          <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #34d399;" title="Fehérlistára helyezés" onclick="quickWhitelist('${escapeHtml(q.domain)}')">✅ Fehér</button>
+          <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #f87171; margin-right: 4px;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist('${escapeHtml(q.domain)}')">${t('adblock_btn_block', '⛔ Block')}</button>
+          <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist('${escapeHtml(q.domain)}')">${t('adblock_btn_allow', '✅ Allow')}</button>
         </td>
       </tr>`;
     }).join('');
@@ -8947,7 +9101,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         showToast(t('adblock_toast_add_err', 'Error adding domain'));
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -8966,7 +9120,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         if (wlTbody) {
           const list = wlData.whitelist || [];
           if (list.length === 0) {
-            wlTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek fehérlistás címek</td></tr>';
+            wlTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">' + t('adblock_empty_wl', 'No allowlisted domains') + '</td></tr>';
           } else {
             wlTbody.innerHTML = list.map(d => `
               <tr>
@@ -8986,7 +9140,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         if (blTbody) {
           const list = blData.blacklist || [];
           if (list.length === 0) {
-            blTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek feketelistás címek</td></tr>';
+            blTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">' + t('adblock_bl_empty', 'No custom blocked domains') + '</td></tr>';
           } else {
             blTbody.innerHTML = list.map(d => `
               <tr>
@@ -9008,7 +9162,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         if (rwlTbody) {
           const list = rgx.whitelist || [];
           if (list.length === 0) {
-            rwlTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek RegEx fehérlista szabályok</td></tr>';
+            rwlTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">' + t('adblock_regex_wl_empty', 'No RegEx allow rules defined') + '</td></tr>';
           } else {
             rwlTbody.innerHTML = list.map(it => `
               <tr>
@@ -9025,7 +9179,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         if (rblTbody) {
           const list = rgx.blacklist || [];
           if (list.length === 0) {
-            rblTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek RegEx feketelista szabályok</td></tr>';
+            rblTbody.innerHTML = '<tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">' + t('adblock_regex_bl_empty', 'No RegEx block rules defined') + '</td></tr>';
           } else {
             rblTbody.innerHTML = list.map(it => `
               <tr>
@@ -9139,16 +9293,16 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`RegEx szabály hozzáadva (${kind})`);
+        showToast(t('adblock_regex_added', 'RegEx rule added') + ` (${kind})`);
         input.value = '';
         loadAdblockDomains();
         loadAdblockStatus();
       } else {
-        showToast('Érvén
+        showToast(data.message || data.error || t('adblock_invalid_regex', 'Invalid RegEx pattern'));
         loadAdblockStatus();
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -9163,7 +9317,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
       const lists = data.adlists || [];
       if (lists.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek konfigurált blokklisták</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); font-size: 12px;">' + t('adblock_empty_lists', 'No blocklists configured') + '</td></tr>';
         return;
       }
 
@@ -9180,7 +9334,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             ${(item.count || 0).toLocaleString()}
           </td>
           <td style="font-size: 11px; color: #94a3b8;">
-            ${item.updated_at ? escapeHtml(item.updated_at.replace('T', ' ').slice(0, 19)) : 'Még nem frissült'}
+            ${item.updated_at ? escapeHtml(item.updated_at.replace('T', ' ').slice(0, 19)) : t('adblock_list_not_updated', 'Not updated yet')}
           </td>
           <td style="text-align: center;">
             <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockAdlistSource('${escapeHtml(item.url)}')">✕</button>
@@ -9208,15 +9362,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast('Új blokklista forrás hozzáadva');
+        showToast(t('adblock_list_added', 'New blocklist source added'));
         urlInput.value = '';
         if (nameInput) nameInput.value = '';
         loadAdblockAdlists();
       } else {
-        showToast('Érvénytelen URL formátum');
+        showToast(t('adblock_invalid_url', 'Invalid URL format'));
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -9228,10 +9382,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         body: JSON.stringify({ url: url, enabled: enabled })
       });
       if (res.ok) {
-        showToast(enabled ? 'Blokklista bekapcsolva' : 'Blokklista kikapcsolva');
+        showToast(enabled ? t('adblock_list_on', 'Blocklist enabled') : t('adblock_list_off', 'Blocklist disabled'));
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -9784,7 +9938,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
       // Contract information (Tab 9 & header - safe null checks)
       if (data.contract) {
-        const ispName = data.contract.isp_name || (data.system_info && data.system_info.wan_ip ? 'Internet (' + data.system_info.wan_ip + ')' : 'Nincs megadva');
+        const ispName = data.contract.isp_name || (data.system_info && data.system_info.wan_ip ? 'Internet (' + data.system_info.wan_ip + ')' : t('not_specified', 'Not specified'));
         const circuit = data.contract.circuit_id ? ' / ' + data.contract.circuit_id : '';
         const elIsp = document.getElementById('contract-isp-display');
         if (elIsp) elIsp.innerText = ispName + circuit;
@@ -10236,7 +10390,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
     if (!tests || tests.length === 0) {
       wrap.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:240px; color:var(--text-muted); font-size:13px;">
-        ${t('speed_no_data', 'Még nincsenek sebességmérési eredmények')}
+        ${t('speed_no_data', 'No speed test results yet')}
       </div>`;
       return;
     }
@@ -10255,7 +10409,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
     if (list.length === 0) {
       wrap.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:240px; color:var(--text-muted); font-size:13px;">
-        ${t('speed_no_valid_data', 'Nincsenek érvényes mérési adatok')}
+        ${t('speed_no_valid_data', 'No valid measurement data')}
       </div>`;
       return;
     }
@@ -11405,7 +11559,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           ? 'background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);'
           : 'background: rgba(148, 163, 184, 0.1); color: #64748b; border: 1px solid rgba(148, 163, 184, 0.2);';
         const prefix = supported ? '✓ ' : '✗ ';
-        const suffix = supported ? '' : ' (' + t('not_supported', 'Nem támogatott') + ')';
+        const suffix = supported ? '' : ' (' + t('not_supported', 'Not supported') + ')';
         return `<span class="badge" style="${style}">${prefix}${b.label}${suffix}</span>`;
       }).join('');
     }
@@ -11521,8 +11675,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     const currentVal = (selectedChannel !== undefined && selectedChannel !== null) ? parseInt(selectedChannel) : parseInt(chSel.value || 0);
 
     const chPrefix = t('wifi_channel_prefix', 'Csatorna');
-    const autoLabel = t('wifi_channel_auto', 'Auto (Automatikus csatornaválasztás / ACS)');
-    const recTag = t('wifi_channel_non_overlapping', ' (Nem átfedő - Ajánlott)');
+    const autoLabel = t('wifi_channel_auto', 'Auto (automatic channel selection / ACS)');
+    const recTag = t('wifi_channel_non_overlapping', ' (Non-overlapping - Recommended)');
     const notSupSuffix = ' (' + t('not_supported', 'Not supported') + ')';
     const caps = window._wifiCaps;
 
@@ -15261,7 +15415,7 @@ ${pkgList}`;
     const domInput = document.getElementById('duckdns-domain');
 
     if (prov === 'dynv6') {
-      if (domLabel) domLabel.textContent = 'dynv6 Zónanév (pl. my-box.v6.army):';
+      if (domLabel) domLabel.textContent = t('ddns_zone_label', 'dynv6 zone name (e.g. my-box.v6.army):');
       if (domSuffix) domSuffix.style.display = 'none';
       if (zoneHint) zoneHint.style.display = 'block';
       if (tokHint) tokHint.style.display = 'block';
@@ -15329,14 +15483,14 @@ ${pkgList}`;
       badgeEl.style.background = 'rgba(245, 158, 11, 0.15)';
       badgeEl.style.color = '#f59e0b';
       badgeEl.style.border = '1px solid rgba(245, 158, 11, 0.35)';
-      badgeEl.textContent = t('duckdns_unsaved_warning', '⚠️ Nem mentett módosítások');
+      badgeEl.textContent = t('duckdns_unsaved_warning', '⚠️ Unsaved changes');
     } else {
       alertEl.style.display = 'none';
       badgeEl.className = 'badge';
       badgeEl.style.background = savedDuckdnsConfig.enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)';
       badgeEl.style.color = savedDuckdnsConfig.enabled ? '#10b981' : '#94a3b8';
       badgeEl.style.border = savedDuckdnsConfig.enabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #475569';
-      badgeEl.textContent = savedDuckdnsConfig.enabled ? t('duckdns_saved_active', 'Mentve & Érvényben') : t('duckdns_saved_inactive', 'Kikapcsolva');
+      badgeEl.textContent = savedDuckdnsConfig.enabled ? t('duckdns_saved_active', 'Saved & Active') : t('duckdns_saved_inactive', 'Disabled');
     }
   }
 
@@ -15393,19 +15547,19 @@ ${pkgList}`;
       if (svProv) svProv.textContent = (prov === 'dynv6') ? 'dynv6.com' : 'DuckDNS';
 
       const svFqdn = document.getElementById('duckdns-saved-fqdn');
-      if (svFqdn) svFqdn.textContent = savedDuckdnsConfig.fqdn || '(Nincs megadva)';
+      if (svFqdn) svFqdn.textContent = savedDuckdnsConfig.fqdn || '(' + t('not_specified', 'Not specified') + ')';
 
       const svInt = document.getElementById('duckdns-saved-interval');
-      if (svInt) svInt.textContent = `${effInterval} ${t('duckdns_minutes_abbr', 'perc')}`;
+      if (svInt) svInt.textContent = `${effInterval} ${t('duckdns_minutes_abbr', 'min')}`;
 
       const svEn = document.getElementById('duckdns-saved-enabled');
       if (svEn) {
-        svEn.textContent = d.enabled ? ('🟢 ' + t('duckdns_saved_active', 'Engedélyezve')) : ('⚪ ' + t('duckdns_saved_inactive', 'Kikapcsolva'));
+        svEn.textContent = d.enabled ? ('🟢 ' + t('duckdns_saved_active', 'Enabled')) : ('⚪ ' + t('duckdns_saved_inactive', 'Disabled'));
       }
 
       const svTok = document.getElementById('duckdns-saved-token-state');
       if (svTok) {
-        svTok.textContent = d.token_set ? '•••••••••••• (Beállítva)' : 'Nincs megadva';
+        svTok.textContent = d.token_set ? '•••••••••••• (' + t('token_set', 'Set') + ')' : t('not_specified', 'Not specified');
       }
 
       const svV6Mode = document.getElementById('duckdns-saved-ipv6-mode');
@@ -15424,25 +15578,25 @@ ${pkgList}`;
           badge.style.background = 'rgba(148, 163, 184, 0.15)';
           badge.style.color = '#94a3b8';
           badge.style.border = '1px solid #475569';
-          badge.textContent = t('duckdns_saved_inactive', 'Kikapcsolva');
+          badge.textContent = t('duckdns_saved_inactive', 'Disabled');
         } else if (d.last_status === 'OK' || d.last_status === 'success') {
           badge.className = 'badge';
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#10b981';
           badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-          badge.textContent = '🟢 Szinkronizálva (OK)';
+          badge.textContent = t('ddns_synced', '🟢 Synchronized (OK)');
         } else if (d.last_status === 'KO' || d.last_status === 'failed') {
           badge.className = 'badge';
           badge.style.background = 'rgba(239, 68, 68, 0.15)';
           badge.style.color = '#ef4444';
           badge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
-          badge.textContent = '🔴 Hiba (KO)';
+          badge.textContent = t('ddns_error', '🔴 Error (KO)');
         } else {
           badge.className = 'badge';
           badge.style.background = 'rgba(56, 189, 248, 0.15)';
           badge.style.color = '#38bdf8';
           badge.style.border = '1px solid rgba(56, 189, 248, 0.3)';
-          badge.textContent = d.last_status || 'Várakozás';
+          badge.textContent = d.last_status || t('ddns_waiting', 'Waiting');
         }
       }
 
@@ -15453,7 +15607,7 @@ ${pkgList}`;
       if (ipEl) ipEl.textContent = d.detected_ip || d.last_ip || '--';
 
       const ipV6El = document.getElementById('duckdns-detected-ipv6');
-      if (ipV6El) ipV6El.textContent = d.detected_ipv6 || d.last_ipv6 || d.custom_ipv6 || '(Nincs globális IPv6)';
+      if (ipV6El) ipV6El.textContent = d.detected_ipv6 || d.last_ipv6 || d.custom_ipv6 || t('ddns_no_ipv6', '(No global IPv6)');
 
       const timeEl = document.getElementById('duckdns-last-time');
       if (timeEl) timeEl.textContent = d.last_update ? d.last_update.substring(0, 19).replace('T', ' ') : 'Soha';
@@ -15463,7 +15617,7 @@ ${pkgList}`;
 
       const msgBox = document.getElementById('duckdns-msg-box');
       if (msgBox) {
-        msgBox.textContent = `[${prov.toUpperCase()}] FQDN: ${savedDuckdnsConfig.fqdn || '(nincs)'} • WAN IPv4: ${d.detected_ip || d.last_ip || '--'} • WAN IPv6: ${d.detected_ipv6 || d.last_ipv6 || '--'} • Válasz: ${d.last_message || d.last_status || 'Kész'}`;
+        msgBox.textContent = `[${prov.toUpperCase()}] FQDN: ${savedDuckdnsConfig.fqdn || '--'} • WAN IPv4: ${d.detected_ip || d.last_ip || '--'} • WAN IPv6: ${d.detected_ipv6 || d.last_ipv6 || '--'} • ${t('ddns_response', 'Response')}: ${d.last_message || d.last_status || t('ddns_done', 'Done')}`;
       }
 
       checkDuckdnsUnsavedChanges();
@@ -15477,7 +15631,7 @@ ${pkgList}`;
     const oldText = btn ? btn.textContent : '';
     if (btn) {
       btn.disabled = true;
-      btn.textContent = '💾 ' + t('saving', 'Mentés...');
+      btn.textContent = '💾 ' + t('saving', 'Saving...');
     }
 
     const provider = document.getElementById('duckdns-provider')?.value || 'duckdns';
@@ -16395,9 +16549,9 @@ ${pkgList}`;
       const countEl = document.getElementById('tailscale-peer-count');
       if (tbody) {
         const peers = d.peers || [];
-        if (countEl) countEl.textContent = peers.length + ' eszköz';
+        if (countEl) countEl.textContent = peers.length + ' ' + t('tailscale_devices', 'devices');
         if (peers.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 18px;">${isRunning ? 'Nincs más aktív peer a hálózatban.' : 'Tailscale nincs csatlakozva.'}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 18px;">${isRunning ? t('tailscale_no_peers', 'No other active peers on the network.') : t('tailscale_disconnected', 'Tailscale is not connected.')}</td></tr>`;
         } else {
           tbody.innerHTML = peers.map(p => {
             const pIp = (p.TailscaleIPs && p.TailscaleIPs.length > 0) ? p.TailscaleIPs[0] : '--';
@@ -16473,7 +16627,7 @@ ${pkgList}`;
   }
 
   async function logoutTailscale() {
-    if (!confirm('Biztosan ki szeretnél jelentkezni a Tailscale fiókból ezen az eszközön?')) return;
+    if (!confirm(t('tailscale_logout_confirm', 'Log out of the Tailscale account on this device?'))) return;
     try {
       showToast('Logging out from Tailscale...');
       const res = await fetch('/api/tailscale/logout', { method: 'POST' });
@@ -16605,7 +16759,7 @@ ${pkgList}`;
       }
       const tokInput = document.getElementById('telegram-cfg-token');
       if (tokInput && d.token_set && !tokInput.value) {
-        tokInput.placeholder = '•••••••••••• (Elmentve - írja át a cseréhez)';
+        tokInput.placeholder = t('telegram_token_saved_ph', '•••••••••••• (Saved - type to replace)');
       }
 
       // Badges
@@ -16652,7 +16806,7 @@ ${pkgList}`;
       const rsubBotName = document.getElementById('rsub-telegram-botname');
 
       if (userEl) userEl.textContent = d.bot_username ? '@' + d.bot_username : '--';
-      if (rsubBotName) rsubBotName.textContent = d.bot_username ? '@' + d.bot_username : (d.enabled ? 'Nincs bejelentkezve' : 'Kikapcsolva');
+      if (rsubBotName) rsubBotName.textContent = d.bot_username ? '@' + d.bot_username : (d.enabled ? t('telegram_not_logged_in', 'Not signed in') : t('status_disabled', 'Disabled'));
       if (nameEl) nameEl.textContent = d.bot_first_name || '--';
       if (apiEl) {
         if (d.can_connect) {
@@ -16690,7 +16844,7 @@ ${pkgList}`;
       const alertOnLatency = document.getElementById('telegram-cfg-alert-latency')?.checked ?? true;
       const latencyThreshold = parseFloat(document.getElementById('telegram-cfg-lat-thresh')?.value) || 100.0;
 
-      showToast('Telegram beállítások mentése...');
+      showToast(t('telegram_saving', 'Saving Telegram settings...'));
       const res = await fetch('/api/telegram/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -16779,7 +16933,7 @@ ${pkgList}`;
       }
       setTimeout(loadTelegramStatus, 1500);
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
