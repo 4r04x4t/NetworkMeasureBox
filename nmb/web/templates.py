@@ -2504,8 +2504,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       /* Responsive Charts on Mobile */
       #speed-chart-container {
-        height: 320px !important;
-        min-height: 320px !important;
+        height: 350px !important;
+        min-height: 350px !important;
         width: 100% !important;
       }
       #speed-chart-svg-wrap {
@@ -2527,7 +2527,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       #chart-latency svg, .nmb-svg {
         min-width: 540px !important;
-        height: 220px !important;
+        height: 280px !important;
         display: block !important;
       }
       #adblock-timeline-chart-wrap {
@@ -2538,7 +2538,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       #adblock-timeline-svg {
         min-width: 540px !important;
-        height: 200px !important;
+        height: 250px !important;
       }
       #subtab-content-vpnhub > div:first-child {
         grid-template-columns: 1fr !important;
@@ -2584,6 +2584,27 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       .devlog-toolbar-right button {
         flex: 1 1 auto !important;
+      }
+      .syslog-row {
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        padding: 4px 6px !important;
+      }
+      .syslog-host {
+        display: none !important;
+      }
+      .syslog-ts {
+        min-width: auto !important;
+        font-size: 10px !important;
+      }
+      .syslog-tag {
+        font-size: 10px !important;
+        padding: 1px 4px !important;
+      }
+      .syslog-msg {
+        width: 100% !important;
+        display: block !important;
+        word-break: break-word !important;
       }
       .app-tabs, .router-subnav, .remote-subnav, .adblock-subnav {
         display: flex !important;
@@ -9211,11 +9232,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             if (!stData.in_progress) {
               clearInterval(pollGravityTimer);
               if (badge) {
-                badge.innerText = stData.status === 'ok' ? 'Sikeres' : 'Befejezve';
+                badge.innerText = stData.status === 'ok' ? t('status_success', 'Success') : t('status_completed', 'Completed');
                 badge.style.color = '#34d399';
                 badge.style.background = 'rgba(16, 185, 129, 0.15)';
               }
-              showToast('Gravity sikeresen frissítve!');
+              showToast(t('adblock_gravity_updated', 'Gravity successfully updated!'));
               loadAdblockStatus();
               loadAdblockAdlists();
             }
@@ -9223,7 +9244,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         } catch (e) {}
       }, 1500);
     } catch (e) {
-      showToast('Hiba a gravity frissítésekor: ' + e);
+      showToast(t('adblock_gravity_err', 'Error updating gravity: ') + e);
     }
   }
 
@@ -10115,7 +10136,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
 
     const W = isMobile ? 480 : 900;
-    const H = isMobile ? 260 : 250;
+    const H = isMobile ? 290 : 250;
     const padL = isMobile ? (mode === 'latency' ? 46 : 44) : 60;
     const padR = (mode === 'combined') ? (isMobile ? 46 : 60) : (isMobile ? 16 : 25);
     const padT = isMobile ? 22 : 25;
@@ -14962,7 +14983,7 @@ ${pkgList}`;
       html += `<tr>
         <td style="white-space: nowrap;"><span class="badge-pill" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); font-size: 11px; font-weight: 700; white-space: nowrap;">🔒 OpenVPN</span></td>
         <td style="font-weight: 700; color: #f1f5f9; white-space: nowrap;">${escapeHtml(c.name)}</td>
-        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1; white-space: nowrap;">(Dinamikus PKI)</td>
+        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1; white-space: nowrap;">${t('vpn_dynamic_pki', '(Dynamic PKI)')}</td>
         <td style="white-space: nowrap;">${statusBadge}</td>
         <td style="font-size: 12px; color: var(--text-muted); white-space: nowrap;">${escapeHtml(c.real_address || '--')}</td>
         <td style="font-size: 12px; white-space: nowrap;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
@@ -16558,7 +16579,7 @@ ${pkgList}`;
         resBox.style.display = 'block';
         resBox.style.background = 'rgba(56, 189, 248, 0.15)';
         resBox.style.color = '#38bdf8';
-        resBox.textContent = 'Teszt üzenet küldése folyamatban...';
+        resBox.textContent = t('telegram_test_sending', 'Sending test notification to Telegram...');
       }
 
       const res = await fetch('/api/telegram/test', {
@@ -16571,22 +16592,22 @@ ${pkgList}`;
         if (resBox) {
           resBox.style.background = 'rgba(16, 185, 129, 0.15)';
           resBox.style.color = '#10b981';
-          resBox.textContent = '✅ Teszt üzenet sikeresen elküldve a Telegramra!';
+          resBox.textContent = t('telegram_test_success', '✅ Test notification sent successfully to Telegram!');
         }
-        showToast('Teszt üzenet elküldve!');
+        showToast(t('telegram_test_toast_success', 'Test message sent!'));
       } else {
         if (resBox) {
           resBox.style.background = 'rgba(239, 68, 68, 0.15)';
           resBox.style.color = '#f87171';
-          resBox.textContent = '❌ Sikertelen küldés: ' + (data.error || data.message || 'Unknown error');
+          resBox.textContent = t('telegram_test_fail', '❌ Sending failed: ') + (data.error || data.message || 'Unknown error');
         }
-        showToast('Teszt üzenet sikertelen!');
+        showToast(t('telegram_test_toast_fail', 'Test message failed!'));
       }
     } catch (e) {
       if (resBox) {
         resBox.style.background = 'rgba(239, 68, 68, 0.15)';
         resBox.style.color = '#f87171';
-        resBox.textContent = '❌ Hálózati hiba: ' + e;
+        resBox.textContent = t('telegram_test_network_err', '❌ Network error: ') + e;
       }
       showToast('Hálózati hiba: ' + e);
     }

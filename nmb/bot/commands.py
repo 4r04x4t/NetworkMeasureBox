@@ -44,18 +44,24 @@ import nmb.netd.tailscale as tailscale
 import nmb.netd.geoip as geoip
 import nmb.report.llm_bundle as llm_bundle
 
+from nmb.bot.i18n import (
+    DEFAULT_LANGUAGE,
+    LANG_INFO,
+    SUPPORTED_LANGUAGES,
+    get_chat_lang,
+    get_language_keyboard,
+    get_main_keyboard,
+    get_menu_aliases,
+    get_nmhh_status,
+    get_sla_verdict,
+    set_chat_lang,
+    t,
+)
+
 log = logging.getLogger("nmb.bot.commands")
 
-MAIN_KEYBOARD = {
-    "keyboard": [
-        [{"text": "📊 Gyors Sebességmérés"}, {"text": "📈 NMHH Riport Letöltése"}],
-        [{"text": "📡 Ping & Telemetria"}, {"text": "🛡️ Reklámblokkoló"}],
-        [{"text": "🦎 Tailscale & VPN"}, {"text": "📶 Wi-Fi Kliensszonda"}],
-        [{"text": "⚙️ Rendszerállapot"}, {"text": "ℹ️ Parancsok & Súgó"}]
-    ],
-    "resize_keyboard": True,
-    "persistent": True
-}
+# Backwards-compatible default keyboard
+MAIN_KEYBOARD = get_main_keyboard("hu")
 
 
 def format_bytes(num_bytes: int | float) -> str:
@@ -78,22 +84,9 @@ class CommandHandler:
         if not raw_text:
             return
 
-        # Friendly Hungarian menu button aliases
-        menu_aliases = {
-            "📊 gyors sebességmérés": "/test",
-            "📊 gyorsmérés": "/test",
-            "📈 nmhh riport letöltése": "/report",
-            "📈 nmhh riport": "/report",
-            "📡 ping & telemetria": "/ping",
-            "🛡️ reklámblokkoló": "/adblock",
-            "🦎 tailscale & vpn": "/vpn",
-            "📶 wi-fi kliensszonda": "/wifi",
-            "⚙️ rendszerállapot": "/status",
-            "ℹ️ parancsok & súgó": "/help",
-            "ℹ️ menü": "/help",
-            "menü": "/help",
-            "menu": "/help",
-        }
+        lang = get_chat_lang(chat_id, self.cfg)
+        menu_aliases = get_menu_aliases()
+
         if raw_text.lower() in menu_aliases:
             raw_text = menu_aliases[raw_text.lower()]
 
@@ -103,100 +96,93 @@ class CommandHandler:
 
         # Dispatch table
         if cmd in ("/start", "/help", "/menu"):
-            self._cmd_help(chat_id)
+            self._cmd_help(chat_id, lang)
+        elif cmd in ("/lang", "/language"):
+            self._cmd_lang(chat_id, args, lang)
         elif cmd == "/status":
-            self._cmd_status(chat_id)
+            self._cmd_status(chat_id, lang)
         elif cmd == "/ping":
-            self._cmd_ping(chat_id)
+            self._cmd_ping(chat_id, lang)
         elif cmd in ("/test", "/speedtest", "/speed"):
-            self._cmd_test(chat_id, args)
+            self._cmd_test(chat_id, args, lang)
         elif cmd in ("/report", "/nmhh", "/dossier"):
-            self._cmd_report(chat_id)
+            self._cmd_report(chat_id, lang)
         elif cmd in ("/tailscale", "/mesh"):
-            self._cmd_tailscale(chat_id)
+            self._cmd_tailscale(chat_id, lang)
         elif cmd in ("/ai", "/diag", "/llm"):
-            self._cmd_ai(chat_id)
+            self._cmd_ai(chat_id, lang)
         elif cmd == "/mode":
-            self._cmd_mode(chat_id, args)
+            self._cmd_mode(chat_id, args, lang)
         elif cmd in ("/vpn", "/wireguard", "/pivpn"):
-            self._cmd_vpn(chat_id, args)
+            self._cmd_vpn(chat_id, args, lang)
         elif cmd in ("/dyndns", "/duckdns"):
-            self._cmd_dyndns(chat_id, args)
+            self._cmd_dyndns(chat_id, args, lang)
         elif cmd in ("/adblock", "/pihole", "/sinkhole"):
-            self._cmd_adblock(chat_id, args)
+            self._cmd_adblock(chat_id, args, lang)
         elif cmd in ("/heal", "/repair", "/audit"):
-            self._cmd_heal(chat_id, args)
+            self._cmd_heal(chat_id, args, lang)
         elif cmd in ("/tasks", "/top", "/htop", "/ps"):
-            self._cmd_tasks(chat_id)
+            self._cmd_tasks(chat_id, lang)
         elif cmd == "/kill":
-            self._cmd_kill(chat_id, args)
+            self._cmd_kill(chat_id, args, lang)
         elif cmd in ("/wifi", "/wlan"):
-            self._cmd_wifi(chat_id, args)
+            self._cmd_wifi(chat_id, args, lang)
         elif cmd in ("/backup", "/backups"):
-            self._cmd_backup(chat_id, args)
+            self._cmd_backup(chat_id, args, lang)
         elif cmd in ("/drivers", "/driver"):
-            self._cmd_drivers(chat_id)
+            self._cmd_drivers(chat_id, lang)
         elif cmd == "/reboot":
-            self._cmd_reboot(chat_id, args)
+            self._cmd_reboot(chat_id, args, lang)
         else:
             self.client.send_message(
                 chat_id,
-                f"Ismeretlen parancs: <code>{html.escape(cmd)}</code>. Nyomd meg a menü gombok egyikét vagy írd be a /help parancsot.",
-                reply_markup=MAIN_KEYBOARD
+                t("unknown_cmd", lang, cmd=html.escape(cmd)),
+                reply_markup=get_main_keyboard(lang)
             )
 
     # =========================================================================
-    # 1. Help & Navigation
+    # 1. Help & Navigation & Language
     # =========================================================================
 
-    def _cmd_help(self, chat_id: int) -> None:
+    def _cmd_help(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         box_id = html.escape(str(self.cfg.system.box_id))
-        msg = f"""<b>NetworkMeasureBox Irányító Chatbot</b>
-<i>Eszközazonosító: {box_id}</i>
+        msg = t("help_message", lang, box_id=box_id)
+        self.client.send_message(chat_id, msg, reply_markup=get_main_keyboard(lang))
 
-<b>📡 Hálózati Mérések & Diagnosztika:</b>
-• /status - Rendszerállapot, Uptime, CPU és SLA megfelelőség
-• /ping - Valós idejű késleltetés és csomagvesztés referencia csomópontok felé
-• /test (vagy /speed) <code>[ookla|cloudflare|rtr]</code> - Sebességmérés futtatása
-• /report - 24 órás NMHH Szélessáv.net riport letöltése (.html fájl)
-• /ai - AI diagnosztikai naplócsomag letöltése LLM-ekhez (.md fájl)
-• /mode <code>[auto|standalone|mode_a|mode_b]</code> - Üzemmód váltás
+    def _cmd_lang(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
+        if not args:
+            curr_info = LANG_INFO.get(lang, LANG_INFO["hu"])
+            curr_label = f"{curr_info['flag']} {curr_info['name']}"
+            msg = f"{t('lang_title', lang)}\n\n{t('lang_desc', lang, curr_lang=curr_label)}"
+            self.client.send_message(chat_id, msg, reply_markup=get_language_keyboard())
+            return
 
-<b>🛡️ Biztonság, VPN & Tailscale:</b>
-• /tailscale - Tailscale mesh VPN állapot, WebGUI link & belépés
-• /vpn - WireGuard & OpenVPN állapot és kliensek
-• /vpn clients - Csatlakozott kliensek és adatforgalom
-• /vpn add <code>&lt;név&gt;</code> - Új WireGuard kliens + azonnali QR kód és .conf!
-• /vpn qr <code>&lt;név&gt;</code> - QR kód újraküldése mobil párosításhoz
-• /vpn conf <code>&lt;név&gt;</code> - Konfigurációs profil letöltése
+        new_lang = args[0].lower().strip()
+        if new_lang not in SUPPORTED_LANGUAGES:
+            valid_langs = ", ".join(f"<code>{c}</code>" for c in SUPPORTED_LANGUAGES)
+            self.client.send_message(
+                chat_id,
+                f"Unsupported language code <code>{html.escape(new_lang)}</code>. Valid codes: {valid_langs}",
+                reply_markup=get_language_keyboard()
+            )
+            return
 
-<b>🦆 Dinamikus DNS (DuckDNS / dynv6):</b>
-• /dyndns - DynDNS státusz, nyilvános IP és frissítési visszaszámláló
-• /dyndns update - Azonnali kézi szinkronizáció
-
-<b>🛡️ DNS Reklámblokkoló (Pi-hole Sinkhole):</b>
-• /adblock - Blokkolt hirdetések, Gravity adatbázis és arány
-• /adblock on | /adblock off - Reklámblokkolás ki/be kapcsolása
-• /adblock block <code>&lt;domain&gt;</code> - Domain tiltása
-• /adblock unblock <code>&lt;domain&gt;</code> - Domain engedélyezése
-• /adblock update - Gravitáció blokklisták letöltése és frissítése
-
-<b>📶 Wi-Fi & Vendég Wi-Fi Szonda:</b>
-• /wifi - Wi-Fi szonda telemetria, jelerősség és izolációs riasztás
-• /wifi scan - Környező 2.4/5 GHz-es Wi-Fi hálózatok keresése
-
-<b>⚙️ Rendszer & Erőforrások:</b>
-• /tasks (vagy /top) - CPU, RAM, Disk, Hőmérséklet és top folyamatok
-• /heal - Autonóm öngyógyító és hibajavító alrendszer
-• /reboot - Eszköz biztonságos újraindítása
-"""
-        self.client.send_message(chat_id, msg, reply_markup=MAIN_KEYBOARD)
+        set_chat_lang(chat_id, new_lang)
+        info = LANG_INFO[new_lang]
+        success_msg = t("lang_updated", new_lang, flag=info["flag"], name=info["name"])
+        self.client.send_message(chat_id, success_msg, reply_markup=get_main_keyboard(new_lang))
 
     # =========================================================================
     # 2. Status & Network Telemetry
     # =========================================================================
 
-    def _cmd_status(self, chat_id: int) -> None:
+    def _cmd_status(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         try:
             conn = db.connect(readonly=True)
             mode_row = conn.execute("SELECT v FROM kv WHERE k = 'active_mode'").fetchone()
@@ -245,36 +231,45 @@ class CommandHandler:
             st_down = f"{latest_st.get('down_mbps', 0):.1f} Mb/s" if latest_st.get("down_mbps") else "--"
             st_up = f"{latest_st.get('up_mbps', 0):.1f} Mb/s" if latest_st.get("up_mbps") else "--"
 
-            msg = f"""<b>📊 NetworkMeasureBox Rendszerállapot</b> [<code>{html.escape(self.cfg.system.box_id)}</code>]
+            outages_cnt = len(rep.outages)
+            outages_label = "kiesés" if lang == "hu" else ("Ausfälle" if lang == "de" else ("coupures" if lang == "fr" else ("перерв" if lang == "uk" else "outages")))
 
-🌐 <b>Nyilvános IP:</b> <code>{html.escape(client_ip)}</code>
-🏢 <b>Szolgáltató (ISP):</b> <b>{html.escape(isp_name)}</b>
-⚙️ <b>Üzemmód:</b> <code>{active_mode}</code> (WAN: <b>{wan_carrier}</b> | LAN: <b>{lan_carrier}</b>)
+            rtt_avg = rep.ping_summary.rtt_avg_ms or '-'
+            jitter_avg = rep.ping_summary.jitter_avg_ms or '-'
+            sla_verdict_str = get_sla_verdict(str(rep.sla_verdict), lang)
 
-📈 <b>24h Rendelkezésre állás:</b> <b>{rep.uptime_pct:.2f}%</b> ({len(rep.outages)} kiesés)
-⏱️ <b>Késleltetés (RTT):</b> {rep.ping_summary.rtt_avg_ms or '-'} ms (Jitter: {rep.ping_summary.jitter_avg_ms or '-'} ms)
-📉 <b>Csomagvesztés:</b> <b>{rep.ping_summary.loss_pct:.2f}%</b>
-⚖️ <b>SLA Hatósági Minősítés:</b> <b>{html.escape(str(rep.sla_verdict))}</b> (Megfelelőség: {rep.speed_summary.sla_compliance_pct:.0f}%)
-🚀 <b>Legutóbbi Sebesség:</b> ↓ <b>{st_down}</b> | ↑ <b>{st_up}</b>
+            msg = f"""<b>{t('status_title', lang)}</b> [<code>{html.escape(self.cfg.system.box_id)}</code>]
 
-🛡️ <b>Szolgáltatások & Biztonság:</b>
+🌐 <b>{t('public_ip', lang)}:</b> <code>{html.escape(client_ip)}</code>
+🏢 <b>{t('isp', lang)}:</b> <b>{html.escape(isp_name)}</b>
+⚙️ <b>{t('mode', lang)}:</b> <code>{active_mode}</code> (WAN: <b>{wan_carrier}</b> | LAN: <b>{lan_carrier}</b>)
+
+📈 <b>{t('uptime_24h', lang)}:</b> <b>{rep.uptime_pct:.2f}%</b> ({outages_cnt} {outages_label})
+⏱️ <b>{t('latency_rtt', lang)}:</b> {rtt_avg} ms (Jitter: {jitter_avg} ms)
+📉 <b>{t('packet_loss', lang)}:</b> <b>{rep.ping_summary.loss_pct:.2f}%</b>
+⚖️ <b>{t('sla_verdict', lang)}:</b> <b>{html.escape(sla_verdict_str)}</b> ({t('compliance', lang)}: {rep.speed_summary.sla_compliance_pct:.0f}%)
+🚀 <b>{t('latest_speed', lang)}:</b> ↓ <b>{st_down}</b> | ↑ <b>{st_up}</b>
+
+🛡️ <b>{t('services_security', lang)}:</b>
 • Tailscale Mesh VPN: <b>{ts_badge}</b>
 • WireGuard VPN: <b>{wg_badge}</b>
-• DNS Reklámblokkoló: <b>{ab_badge}</b>
+• DNS Sinkhole: <b>{ab_badge}</b>
 """
             inline_status = {
                 "inline_keyboard": [
-                    [{"text": "📊 Gyorsmérés", "callback_data": "/test"}, {"text": "📈 NMHH Riport", "callback_data": "/report"}],
-                    [{"text": "📡 Ping Részletek", "callback_data": "/ping"}, {"text": "⚙️ Erőforrások (Top)", "callback_data": "/tasks"}],
-                    [{"text": "🦎 Tailscale", "callback_data": "/tailscale"}, {"text": "🛡️ Reklámblokkoló", "callback_data": "/adblock"}]
+                    [{"text": t("btn_quick_test", lang), "callback_data": "/test"}, {"text": t("btn_nmhh_report", lang), "callback_data": "/report"}],
+                    [{"text": t("btn_ping_details", lang), "callback_data": "/ping"}, {"text": t("btn_top_resources", lang), "callback_data": "/tasks"}],
+                    [{"text": t("btn_tailscale", lang), "callback_data": "/tailscale"}, {"text": t("btn_adblock", lang), "callback_data": "/adblock"}]
                 ]
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_status)
         except Exception as e:
             log.error("error in /status: %s", e)
-            self.client.send_message(chat_id, f"Error generating status: {html.escape(str(e))}", reply_markup=MAIN_KEYBOARD)
+            self.client.send_message(chat_id, f"Error generating status: {html.escape(str(e))}", reply_markup=get_main_keyboard(lang))
 
-    def _cmd_ping(self, chat_id: int) -> None:
+    def _cmd_ping(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         try:
             conn = db.connect(readonly=True)
             now = db.now_ms()
@@ -289,30 +284,32 @@ class CommandHandler:
             ).fetchall()
             conn.close()
 
-            lines = ["<b>📡 Valós Idejű Válaszidő & Csomagvesztés (Elmúlt 60 mp):</b>\n"]
+            lines = [t("ping_header", lang)]
             for r in rows:
                 cnt = r["count"]
                 lost = r["lost"]
                 loss_pct = (lost / cnt * 100.0) if cnt > 0 else 0.0
-                avg_ms = f"{(r['avg_us'] / 1000.0):.1f} ms" if r["avg_us"] else "Nincs válasz"
-                loss_str = f"vesztés: {loss_pct:.0f}%"
+                avg_ms = f"{(r['avg_us'] / 1000.0):.1f} ms" if r["avg_us"] else t("ping_no_resp", lang)
+                loss_str = f"{t('ping_loss_label', lang)}: {loss_pct:.0f}%"
                 lines.append(f"• <b>{html.escape(r['label'])}</b> (<code>{html.escape(r['addr'])}</code>): <b>{avg_ms}</b> ({loss_str})")
 
             inline_ping = {
                 "inline_keyboard": [
-                    [{"text": "🔄 Frissítés (Ping)", "callback_data": "/ping"}, {"text": "🚀 Sebességmérés", "callback_data": "/test"}],
-                    [{"text": "📊 Rendszerállapot", "callback_data": "/status"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                    [{"text": t("btn_refresh", lang), "callback_data": "/ping"}, {"text": t("btn_speedtest", lang), "callback_data": "/test"}],
+                    [{"text": t("btn_status", lang), "callback_data": "/status"}, {"text": t("btn_main_menu", lang), "callback_data": "/menu"}]
                 ]
             }
             self.client.send_message(chat_id, "\n".join(lines), reply_markup=inline_ping)
         except Exception as e:
-            self.client.send_message(chat_id, f"Ping lekérdezési hiba: {html.escape(str(e))}")
+            self.client.send_message(chat_id, f"Ping error: {html.escape(str(e))}")
 
-    def _cmd_test(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_test(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         engine = args[0].lower() if args else None
-        engine_str = f" (Motor: <b>{html.escape(engine.upper())}</b>)" if engine else ""
+        engine_str = f" ({html.escape(engine.upper())})" if engine else ""
         self.client.send_chat_action(chat_id, "typing")
-        self.client.send_message(chat_id, f"<i>🚀 Sebességmérés indítása{engine_str}... Kérlek várj kb. 15-25 másodpercet!</i>")
+        self.client.send_message(chat_id, t("speed_starting", lang, engine_str=engine_str))
         try:
             ok = run_measurement_cycle(
                 self.cfg,
@@ -330,8 +327,8 @@ class CommandHandler:
             conn.close()
 
             if not row or row["status"] != "ok":
-                err = row["error"] if row and row["error"] else "Mérés meghiúsult vagy elhalasztva."
-                self.client.send_message(chat_id, f"⚠️ Sebességmérés hiba: {html.escape(str(err))}")
+                err = row["error"] if row and row["error"] else "Measurement cycle failed or deferred."
+                self.client.send_message(chat_id, t("speed_error", lang, error=html.escape(str(err))))
                 return
 
             down_mbps = (row["down_bps"] or 0) / 1_000_000.0
@@ -359,49 +356,46 @@ class CommandHandler:
             # NMHH Status Code calculation
             if down_mbps >= g_down and up_mbps >= g_up:
                 nmhh_code = 1
-                nmhh_text = "1: Sikeres mérés (Megfelel a garantált értékeknek)"
-                nmhh_badge = "🟢 MEGFELELŐ"
             elif down_mbps < g_down and up_mbps < g_up:
                 nmhh_code = 6
-                nmhh_text = "6: Letöltés és feltöltés elmaradás a garantált értéktől"
-                nmhh_badge = "🔴 NEM MEGFELELŐ"
             elif down_mbps < g_down:
                 nmhh_code = 14
-                nmhh_text = "14: Letöltés elmaradás a garantált értéktől"
-                nmhh_badge = "🟡 LETÖLTÉS HIBA"
             else:
                 nmhh_code = 15
-                nmhh_text = "15: Feltöltés elmaradás a garantált értéktől"
-                nmhh_badge = "🟡 FELTÖLTÉS HIBA"
 
+            nmhh_badge, nmhh_text = get_nmhh_status(nmhh_code, lang)
             active_engine = (row["engine"] if "engine" in row.keys() else engine) or "RTR-NetTest"
 
-            msg = f"""<b>📊 Sebességmérés Eredmény ({html.escape(str(active_engine)).upper()})</b>
+            title_str = t("speed_result_title", lang, engine=html.escape(str(active_engine)).upper())
 
-🌐 <b>Nyilvános IP:</b> <code>{html.escape(client_ip)}</code>
-🏢 <b>Szolgáltató (ISP):</b> <b>{html.escape(isp_name)}</b>
+            msg = f"""{title_str}
 
-📥 <b>Letöltés:</b> <b>{down_mbps:.1f} Mbps</b> ({down_compliance:.0f}% a szerződöttből | Min: {g_down:.0f} Mbps)
-📤 <b>Feltöltés:</b> <b>{up_mbps:.1f} Mbps</b> ({up_compliance:.0f}% a szerződöttből | Min: {g_up:.0f} Mbps)
-⏱️ <b>Késleltetés:</b> {ping_ms:.1f} ms (Jitter: {jitter_ms:.1f} ms)
-🖥️ <b>Mérőszerver:</b> {html.escape(str(row['server_name'] or 'Edge Server'))}
+🌐 <b>{t('public_ip', lang)}:</b> <code>{html.escape(client_ip)}</code>
+🏢 <b>{t('isp', lang)}:</b> <b>{html.escape(isp_name)}</b>
 
-⚖️ <b>NMHH Minősítés:</b> {nmhh_badge}
+📥 <b>{t('download', lang)}:</b> <b>{down_mbps:.1f} Mbps</b> ({down_compliance:.0f}% | Min: {g_down:.0f} Mbps)
+📤 <b>{t('upload', lang)}:</b> <b>{up_mbps:.1f} Mbps</b> ({up_compliance:.0f}% | Min: {g_up:.0f} Mbps)
+⏱️ <b>{t('latency_rtt', lang)}:</b> {ping_ms:.1f} ms (Jitter: {jitter_ms:.1f} ms)
+🖥️ <b>{t('server', lang)}:</b> {html.escape(str(row['server_name'] or 'Edge Server'))}
+
+⚖️ <b>{t('nmhh_verdict', lang)}:</b> {nmhh_badge}
 <i>{nmhh_text}</i>
 """
             inline_kb = {
                 "inline_keyboard": [
-                    [{"text": "🔄 RTR-NetTest", "callback_data": "/test rtr"}, {"text": "⚡ Ookla", "callback_data": "/test ookla"}, {"text": "☁️ Cloudflare", "callback_data": "/test cloudflare"}],
-                    [{"text": "📈 NMHH Riport (.html)", "callback_data": "/report"}, {"text": "📊 Rendszerállapot", "callback_data": "/status"}]
+                    [{"text": t("btn_rtr", lang), "callback_data": "/test rtr"}, {"text": t("btn_ookla", lang), "callback_data": "/test ookla"}, {"text": t("btn_cloudflare", lang), "callback_data": "/test cloudflare"}],
+                    [{"text": t("btn_nmhh_report", lang), "callback_data": "/report"}, {"text": t("btn_status", lang), "callback_data": "/status"}]
                 ]
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_kb)
         except Exception as e:
-            self.client.send_message(chat_id, f"Sebességmérés hiba: {html.escape(str(e))}")
+            self.client.send_message(chat_id, f"Speed test error: {html.escape(str(e))}")
 
-    def _cmd_report(self, chat_id: int) -> None:
+    def _cmd_report(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         self.client.send_chat_action(chat_id, "upload_document")
-        self.client.send_message(chat_id, "<i>📊 24 órás NMHH Szélessáv.net hitelesített vizsgálati jegyzőkönyv generálása...</i>")
+        self.client.send_message(chat_id, t("report_generating", lang))
         try:
             conn = db.connect()
             report = aggregate_report_data(conn, self.cfg, window_hours=24.0)
@@ -411,20 +405,25 @@ class CommandHandler:
             date_str = time.strftime('%Y%m%d_%H%M%S')
             filename = f"NMHH_Szelessav_Riport_{self.cfg.system.box_id}_{date_str}.html"
 
-            caption = (
-                f"<b>📋 NMHH Szélessáv.net Vizsgálati Jegyzőkönyv (24h)</b>\n"
-                f"Eszköz: <code>{html.escape(self.cfg.system.box_id)}</code> | Szolgáltató: <b>{html.escape(report.isp_name)}</b>\n"
-                f"Hatósági minősítés: <b>{html.escape(str(report.sla_verdict))}</b>\n"
-                f"SLA Megfelelőség: <b>{report.speed_summary.sla_compliance_pct:.0f}%</b> | Elérhetőség: <b>{report.uptime_pct:.2f}%</b>"
+            caption = t(
+                "report_caption",
+                lang,
+                box_id=html.escape(self.cfg.system.box_id),
+                isp=html.escape(report.isp_name),
+                verdict=html.escape(get_sla_verdict(str(report.sla_verdict), lang)),
+                sla=report.speed_summary.sla_compliance_pct,
+                uptime=report.uptime_pct
             )
 
             ok = self.client.send_document(chat_id, filename, html_doc.encode("utf-8"), caption=caption)
             if not ok:
-                self.client.send_message(chat_id, "A jegyzőkönyv elkészült, de a fájlküldés nem sikerült.")
+                self.client.send_message(chat_id, t("report_fail", lang))
         except Exception as e:
-            self.client.send_message(chat_id, f"Riport generálási hiba: {html.escape(str(e))}")
+            self.client.send_message(chat_id, f"Report error: {html.escape(str(e))}")
 
-    def _cmd_tailscale(self, chat_id: int) -> None:
+    def _cmd_tailscale(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         try:
             ts_stat = tailscale.get_tailscale_status()
             logged_in = ts_stat.get("logged_in", False)
@@ -434,35 +433,37 @@ class CommandHandler:
             backend_state = ts_stat.get("backend_state", "Unknown")
 
             if logged_in:
-                badge = "🟢 AKTÍV ÉS CSATLAKOZVA"
-                status_desc = f"A mérődoboz sikeresen csatlakozott a Tailscale hálózathoz. Bárhonnan biztonságosan elérheted a WebGUI-t ezen az IP-n:\n👉 <code>http://{ts_ip}:8080</code>"
+                badge = t("tailscale_active", lang)
+                status_desc = t("tailscale_desc_active", lang, ip=ts_ip)
             elif auth_url:
-                badge = "🟡 HITELESÍTÉS SZÜKSÉGES"
-                status_desc = f"Az eszköz vár a hitelesítésre. Nyisd meg a linket a jóváhagyáshoz:\n👉 <a href=\"{auth_url}\">{auth_url}</a>"
+                badge = t("tailscale_login_req", lang)
+                status_desc = t("tailscale_desc_login", lang, url=auth_url)
             else:
-                badge = f"⚫ INAKTÍV ({backend_state})"
-                status_desc = "A Tailscale jelenleg nincs csatlakoztatva vagy nincs bejelentkezve."
+                badge = t("tailscale_inactive", lang, backend_state=backend_state)
+                status_desc = t("tailscale_desc_inactive", lang)
 
-            msg = f"""<b>🦎 Tailscale Mesh VPN Állapot</b>
+            msg = f"""{t('tailscale_title', lang)}
 
-• Állapot: <b>{badge}</b>
+• Status: <b>{badge}</b>
 • Tailscale IP: <code>{html.escape(ts_ip)}</code>
-• MagicDNS Név: <code>{html.escape(magic_dns)}</code>
-• Szerepkör: Adminisztráció & WebGUI távoli elérés (nem NAT-ol vagy irányít át internet forgalmat)
+• MagicDNS: <code>{html.escape(magic_dns)}</code>
+• {t('tailscale_role', lang)}
 
 {status_desc}
 """
             buttons = []
             if auth_url:
-                buttons.append([{"text": "🔑 Hitelesítés Megnyitása", "url": auth_url}])
-            buttons.append([{"text": "🔄 Frissítés", "callback_data": "/tailscale"}, {"text": "📊 Rendszerállapot", "callback_data": "/status"}])
-            buttons.append([{"text": "🛡️ VPN Hub (WireGuard)", "callback_data": "/vpn"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}])
+                buttons.append([{"text": t("btn_auth_open", lang), "url": auth_url}])
+            buttons.append([{"text": t("btn_refresh", lang), "callback_data": "/tailscale"}, {"text": t("btn_status", lang), "callback_data": "/status"}])
+            buttons.append([{"text": t("btn_vpn_hub", lang), "callback_data": "/vpn"}, {"text": t("btn_main_menu", lang), "callback_data": "/menu"}])
 
             self.client.send_message(chat_id, msg, reply_markup={"inline_keyboard": buttons})
         except Exception as e:
-            self.client.send_message(chat_id, f"Tailscale lekérdezési hiba: {html.escape(str(e))}")
+            self.client.send_message(chat_id, f"Tailscale error: {html.escape(str(e))}")
 
-    def _cmd_ai(self, chat_id: int) -> None:
+    def _cmd_ai(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         self.client.send_message(chat_id, "<i>Generating AI LLM Diagnostic Markdown Bundle...</i>")
         try:
             conn = db.connect(readonly=True)
@@ -480,7 +481,9 @@ class CommandHandler:
         except Exception as e:
             self.client.send_message(chat_id, f"AI bundle error: {html.escape(str(e))}")
 
-    def _cmd_mode(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_mode(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         if not args:
             conn = db.connect(readonly=True)
             row = conn.execute("SELECT v FROM kv WHERE k = 'active_mode'").fetchone()
@@ -488,16 +491,39 @@ class CommandHandler:
             conn.close()
             cur_mode = row["v"] if row else "unknown"
             cur_ovr = ovr["v"] if ovr else "none"
-            self.client.send_message(
-                chat_id,
+            msg = (
+                f"Jelenlegi hálózati mód: <b>{html.escape(cur_mode)}</b> (felülbírálás: <code>{html.escape(cur_ovr)}</code>)\n"
+                f"Váltáshoz: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code>, vagy <code>/mode mode_b</code>."
+                if lang == "hu" else (
+                f"Aktueller Netzwerkmodus: <b>{html.escape(cur_mode)}</b> (Override: <code>{html.escape(cur_ovr)}</code>)\n"
+                f"Zum Umschalten: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> oder <code>/mode mode_b</code>."
+                if lang == "de" else (
+                f"Mode réseau actuel: <b>{html.escape(cur_mode)}</b> (priorité: <code>{html.escape(cur_ovr)}</code>)\n"
+                f"Pour basculer: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> ou <code>/mode mode_b</code>."
+                if lang == "fr" else (
+                f"Поточний режим мережі: <b>{html.escape(cur_mode)}</b> (перевизначення: <code>{html.escape(cur_ovr)}</code>)\n"
+                f"Для перемикання: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> або <code>/mode mode_b</code>."
+                if lang == "uk" else
                 f"Current mode: <b>{html.escape(cur_mode)}</b> (override: <code>{html.escape(cur_ovr)}</code>)\n"
                 f"To switch, use: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code>, or <code>/mode mode_b</code>."
-            )
+            ))))
+            self.client.send_message(chat_id, msg)
             return
 
         target_mode = args[0].lower()
         if target_mode not in ("auto", "standalone", "mode_a", "mode_b"):
-            self.client.send_message(chat_id, "Invalid mode. Choose: <code>auto</code>, <code>standalone</code>, <code>mode_a</code>, or <code>mode_b</code>.")
+            err_msg = (
+                "Érvénytelen mód. Válassz: <code>auto</code>, <code>standalone</code>, <code>mode_a</code>, vagy <code>mode_b</code>."
+                if lang == "hu" else (
+                "Ungültiger Modus. Wählen Sie: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> oder <code>mode_b</code>."
+                if lang == "de" else (
+                "Mode invalide. Choisissez: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> ou <code>mode_b</code>."
+                if lang == "fr" else (
+                "Недійсний режим. Оберіть: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> або <code>mode_b</code>."
+                if lang == "uk" else
+                "Invalid mode. Choose: <code>auto</code>, <code>standalone</code>, <code>mode_a</code>, or <code>mode_b</code>."
+            ))))
+            self.client.send_message(chat_id, err_msg)
             return
 
         conn = db.connect()
@@ -508,22 +534,32 @@ class CommandHandler:
             )
         conn.close()
 
-        self.client.send_message(
-            chat_id,
+        upd_msg = (
+            f"Felülbírálási mód frissítve: <b>{html.escape(target_mode)}</b>. A hálózati démon hamarosan átvált."
+            if lang == "hu" else (
+            f"Override-Modus aktualisiert auf <b>{html.escape(target_mode)}</b>. Der Netzwerk-Daemon wird in Kürze umschalten."
+            if lang == "de" else (
+            f"Mode mis à jour vers <b>{html.escape(target_mode)}</b>. Le démon réseau basculera sous peu."
+            if lang == "fr" else (
+            f"Режим перевизначення змінено на <b>{html.escape(target_mode)}</b>. Мережевий демон незабаром перемкнеться."
+            if lang == "uk" else
             f"Override mode updated to <b>{html.escape(target_mode)}</b>. The network daemon will transition shortly."
-        )
+        ))))
+        self.client.send_message(chat_id, upd_msg)
 
     # =========================================================================
     # 3. VPN Management (WireGuard & OpenVPN)
     # =========================================================================
 
-    def _cmd_vpn(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_vpn(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         subcmd = args[0].lower() if args else "status"
 
         if subcmd == "status":
-            self._vpn_status(chat_id)
+            self._vpn_status(chat_id, lang)
         elif subcmd in ("peers", "clients", "list"):
-            self._vpn_list_clients(chat_id)
+            self._vpn_list_clients(chat_id, lang)
         elif subcmd == "add":
             if len(args) < 2:
                 self.client.send_message(chat_id, "Usage: <code>/vpn add &lt;client_name&gt; [wg|ovpn]</code>")
@@ -560,7 +596,9 @@ class CommandHandler:
                 f"<code>/vpn qr &lt;name&gt;</code>, <code>/vpn conf &lt;name&gt;</code>, <code>/vpn start</code>, <code>/vpn stop</code>, <code>/vpn del &lt;name&gt;</code>"
             )
 
-    def _vpn_status(self, chat_id: int) -> None:
+    def _vpn_status(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         try:
             try:
                 wg_stat = wg.get_wireguard_status(
@@ -610,15 +648,15 @@ class CommandHandler:
 """
             inline_vpn = {
                 "inline_keyboard": [
-                    [{"text": "👥 Kliensek Listája", "callback_data": "/vpn clients"}, {"text": "🦎 Tailscale Állapot", "callback_data": "/tailscale"}],
-                    [{"text": "📊 Rendszerállapot", "callback_data": "/status"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                    [{"text": t("btn_vpn_clients", lang), "callback_data": "/vpn clients"}, {"text": t("btn_tailscale", lang), "callback_data": "/tailscale"}],
+                    [{"text": t("btn_status", lang), "callback_data": "/status"}, {"text": t("btn_main_menu", lang), "callback_data": "/menu"}]
                 ]
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_vpn)
         except Exception as e:
             self.client.send_message(chat_id, f"Error getting VPN status: {html.escape(str(e))}")
 
-    def _vpn_list_clients(self, chat_id: int) -> None:
+    def _vpn_list_clients(self, chat_id: int, lang: Optional[str] = None) -> None:
         try:
             try:
                 wg_stat = wg.get_wireguard_status(
@@ -877,7 +915,9 @@ class CommandHandler:
     # 3b. DuckDNS Dynamic DNS (DynDNS)
     # =========================================================================
 
-    def _cmd_dyndns(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_dyndns(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         import nmb.netd.duckdns as dd
         from nmb.config import save_config
 
@@ -1054,24 +1094,26 @@ class CommandHandler:
     # 4. DNS Ad-Blocker (Pi-hole Sinkhole)
     # =========================================================================
 
-    def _cmd_adblock(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_adblock(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         subcmd = args[0].lower() if args else "status"
 
         if subcmd == "status":
-            self._adblock_status(chat_id)
+            self._adblock_status(chat_id, lang)
         elif subcmd in ("on", "enable", "start"):
             ab.set_adblock_enabled(True, self.cfg)
-            self.client.send_message(chat_id, "🟢 <b>DNS Ad-Blocker & Sinkhole ENABLED</b>. Network ads and tracking are now actively blocked.")
+            self.client.send_message(chat_id, t("adblock_enabled", lang))
         elif subcmd in ("off", "disable", "stop"):
             ab.set_adblock_enabled(False, self.cfg)
-            self.client.send_message(chat_id, "🔴 <b>DNS Ad-Blocker & Sinkhole DISABLED</b>. DNS queries forwarded unfiltered.")
+            self.client.send_message(chat_id, t("adblock_disabled", lang))
         elif subcmd == "block":
             if len(args) < 2:
                 self.client.send_message(chat_id, "Usage: <code>/adblock block &lt;domain&gt;</code>")
                 return
             domain = args[1].strip()
             ab.add_blacklist_entry(domain)
-            self.client.send_message(chat_id, f"🚫 <b>Domain Blocked</b>: <code>{html.escape(domain)}</code> added to custom blacklist.")
+            self.client.send_message(chat_id, t("adblock_blocked_msg", lang, domain=html.escape(domain)))
         elif subcmd == "unblock":
             if len(args) < 2:
                 self.client.send_message(chat_id, "Usage: <code>/adblock unblock &lt;domain&gt;</code>")
@@ -1079,11 +1121,11 @@ class CommandHandler:
             domain = args[1].strip()
             ab.remove_blacklist_entry(domain)
             ab.add_whitelist_entry(domain)
-            self.client.send_message(chat_id, f"✅ <b>Domain Whitelisted</b>: <code>{html.escape(domain)}</code> removed from blacklist & allowed.")
+            self.client.send_message(chat_id, t("adblock_unblocked_msg", lang, domain=html.escape(domain)))
         elif subcmd == "update":
             self.client.send_message(chat_id, "<i>Updating Gravity domain blocklists in the background...</i>")
             ab.trigger_gravity_update()
-            self.client.send_message(chat_id, "🔄 Gravity blocklist download and compilation initiated.")
+            self.client.send_message(chat_id, t("adblock_update_msg", lang))
         elif subcmd == "guide":
             guide = ab.get_router_dhcp_guide()
             msg = f"""<b>📖 Home Router DHCP DNS Configuration Guide:</b>
@@ -1107,7 +1149,9 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
                 f"<code>/adblock update</code>, <code>/adblock guide</code>"
             )
 
-    def _adblock_status(self, chat_id: int) -> None:
+    def _adblock_status(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         try:
             stat = ab.get_full_adblock_status()
             is_enabled = stat.get("enabled", False)
@@ -1119,7 +1163,7 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
             gravity = stat.get("domains_on_blocklist", 0)
             upstreams = ", ".join(stat.get("upstream_dns_servers", [])) or "1.1.1.1, 8.8.8.8"
 
-            msg = f"""<b>🛡️ DNS Ad-Blocker & Sinkhole (Pi-hole Engine)</b>
+            msg = f"""{t('adblock_title', lang)}
 
 • Status: <b>{status_badge}</b>
 • Listen Port: <code>UDP/TCP 53</code>
@@ -1136,9 +1180,9 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
 """
             inline_ab = {
                 "inline_keyboard": [
-                    [{"text": "🟢 Bekapcsolás" if not is_enabled else "🔴 Kikapcsolás", "callback_data": "/adblock off" if is_enabled else "/adblock on"},
-                     {"text": "🔄 Blokklisták Frissítése", "callback_data": "/adblock update"}],
-                    [{"text": "📊 Rendszerállapot", "callback_data": "/status"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                    [{"text": t("btn_disable" if is_enabled else "btn_enable", lang), "callback_data": "/adblock off" if is_enabled else "/adblock on"},
+                     {"text": t("btn_update_gravity", lang), "callback_data": "/adblock update"}],
+                    [{"text": t("btn_status", lang), "callback_data": "/status"}, {"text": t("btn_main_menu", lang), "callback_data": "/menu"}]
                 ]
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_ab)
@@ -1149,18 +1193,20 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
     # 5. Self-Healing & System Audit
     # =========================================================================
 
-    def _cmd_heal(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_heal(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         subcmd = args[0].lower() if args else "audit"
 
         if subcmd in ("audit", "status"):
-            self._heal_audit(chat_id)
+            self._heal_audit(chat_id, lang)
         elif subcmd in ("fix", "repair"):
             tier = int(args[1]) if len(args) > 1 and args[1].isdigit() else None
-            self._heal_fix(chat_id, tier)
+            self._heal_fix(chat_id, tier, lang)
         elif subcmd in ("updates", "check"):
-            self._heal_check_updates(chat_id)
+            self._heal_check_updates(chat_id, lang)
         elif subcmd == "apply":
-            self._heal_apply_update(chat_id)
+            self._heal_apply_update(chat_id, lang)
         else:
             self.client.send_message(
                 chat_id,
@@ -1168,12 +1214,27 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
                 f"Supported: <code>/heal</code>, <code>/heal fix [tier]</code>, <code>/heal updates</code>, <code>/heal apply</code>"
             )
 
-    def _heal_audit(self, chat_id: int) -> None:
-        self.client.send_message(chat_id, "<i>Auditing system daemons, database, permissions, and routing...</i>")
+    def _heal_audit(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
+        audit_wait = (
+            "<i>Rendszerdémonok, adatbázis, jogosultságok és útválasztás vizsgálata...</i>" if lang == "hu" else (
+            "<i>Überprüfung von System-Daemons, Datenbank, Berechtigungen und Routing...</i>" if lang == "de" else (
+            "<i>Audit des démons système, base de données, permissions et routage...</i>" if lang == "fr" else (
+            "<i>Аудит системних демонів, бази даних, дозволів та маршрутизації...</i>" if lang == "uk" else
+            "<i>Auditing system daemons, database, permissions, and routing...</i>"
+        ))))
+        self.client.send_message(chat_id, audit_wait)
         try:
             res = heal.audit_system_health(self.cfg)
             issues = res.get("critical_issues", 0)
-            verdict = "🟢 ALL COMPONENTS HEALTHY" if issues == 0 else f"⚠️ {issues} ISSUES DETECTED"
+            verdict = (
+                ("🟢 MINDEN ÖSSZETEVŐ ÉP ÉS MŰKÖDŐKÉPES" if issues == 0 else f"⚠️ {issues} PROBLÉMA ÉSZLELVE") if lang == "hu" else (
+                ("🟢 ALLE KOMPONENTEN VOLLSTÄNDIG FUNKTIONSFÄHIG" if issues == 0 else f"⚠️ {issues} PROBLEME ERKANNT") if lang == "de" else (
+                ("🟢 TOUS LES COMPOSANTS SONT SAINS" if issues == 0 else f"⚠️ {issues} PROBLÈMES DÉTECTÉS") if lang == "fr" else (
+                ("🟢 УСІ КОМПОНЕНТИ СПРАВНІ" if issues == 0 else f"⚠️ {issues} ВИЯВЛЕНО ПРОБЛЕМ") if lang == "uk" else
+                ("🟢 ALL COMPONENTS HEALTHY" if issues == 0 else f"⚠️ {issues} ISSUES DETECTED")
+            ))))
 
             services = res.get("services", {})
             svc_lines = []
@@ -1185,10 +1246,26 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
             db_info = res.get("database", {})
             db_status = "🟢 Integrity OK" if db_info.get("integrity_ok") else "🔴 Corrupted"
 
-            msg = f"""<b>🩺 System Health & Self-Healing Audit</b>
+            title = (
+                "🩺 Rendszer-egészségügyi & Öngyógyítási Audit" if lang == "hu" else (
+                "🩺 Systemintegritäts- & Selbstheilungs-Audit" if lang == "de" else (
+                "🩺 Audit de Santé et d'Auto-Réparation Système" if lang == "fr" else (
+                "🩺 Аудит стану системи та самовідновлення" if lang == "uk" else
+                "🩺 System Health & Self-Healing Audit"
+            ))))
+
+            daemons_hdr = (
+                "Rendszerdémonok" if lang == "hu" else (
+                "System-Daemons" if lang == "de" else (
+                "Démons système" if lang == "fr" else (
+                "Си системні демони" if lang == "uk" else
+                "Core System Daemons"
+            ))))
+
+            msg = f"""<b>{title}</b>
 Verdict: <b>{verdict}</b>
 
-<b>Core System Daemons:</b>
+<b>{daemons_hdr}:</b>
 {chr(10).join(svc_lines)}
 
 <b>Database & Tables:</b> {db_status} (Tables: {db_info.get('table_count', 0)})
@@ -1201,7 +1278,9 @@ To trigger automated repairs, use: <code>/heal fix</code>
         except Exception as e:
             self.client.send_message(chat_id, f"Audit error: {html.escape(str(e))}")
 
-    def _heal_fix(self, chat_id: int, tier: Optional[int]) -> None:
+    def _heal_fix(self, chat_id: int, tier: Optional[int], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         tier_msg = f" (Escalation Tier {tier})" if tier else " (Adaptive)"
         self.client.send_message(chat_id, f"<i>Executing automated self-healing repairs{tier_msg}...</i>")
         try:
@@ -1224,7 +1303,9 @@ Remaining Issues: <b>{remaining}</b>"""
         except Exception as e:
             self.client.send_message(chat_id, f"Self-healing error: {html.escape(str(e))}")
 
-    def _heal_check_updates(self, chat_id: int) -> None:
+    def _heal_check_updates(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         self.client.send_message(chat_id, "<i>Checking for stable releases...</i>")
         try:
             res = heal.check_stable_updates()
@@ -1247,7 +1328,9 @@ To apply with automatic safety backup & rollback:
         except Exception as e:
             self.client.send_message(chat_id, f"Error checking updates: {html.escape(str(e))}")
 
-    def _heal_apply_update(self, chat_id: int) -> None:
+    def _heal_apply_update(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         self.client.send_message(chat_id, "<i>Creating safety checkpoint and applying verified update...</i>")
         try:
             res = heal.apply_stable_update()
@@ -1274,7 +1357,9 @@ System safely restored to checkpoint: <code>{html.escape(res.get('checkpoint', '
     # 6. Tasks, Process Manager & Load
     # =========================================================================
 
-    def _cmd_tasks(self, chat_id: int) -> None:
+    def _cmd_tasks(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         try:
             summary = tasks.get_system_summary()
             procs_data = tasks.get_processes_list(limit=8)
@@ -1315,15 +1400,15 @@ To kill a stuck process: <code>/kill &lt;pid&gt;</code>
 """
             inline_tasks = {
                 "inline_keyboard": [
-                    [{"text": "🔄 Frissítés", "callback_data": "/tasks"}, {"text": "📊 Rendszerállapot", "callback_data": "/status"}],
-                    [{"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                    [{"text": t("btn_refresh", lang), "callback_data": "/tasks"}, {"text": t("btn_status", lang), "callback_data": "/status"}],
+                    [{"text": t("btn_main_menu", lang), "callback_data": "/menu"}]
                 ]
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_tasks)
         except Exception as e:
             self.client.send_message(chat_id, f"Error getting tasks: {html.escape(str(e))}")
 
-    def _cmd_kill(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_kill(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
         if not args or not args[0].isdigit():
             self.client.send_message(chat_id, "Usage: <code>/kill &lt;pid&gt; [signal_num]</code> (default signal: 15 / SIGTERM)")
             return
@@ -1344,11 +1429,13 @@ To kill a stuck process: <code>/kill &lt;pid&gt;</code>
     # 7. Wi-Fi & Guest Wi-Fi Station
     # =========================================================================
 
-    def _cmd_wifi(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_wifi(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         subcmd = args[0].lower() if args else "status"
 
         if subcmd == "status":
-            self._wifi_status(chat_id)
+            self._wifi_status(chat_id, lang)
         elif subcmd == "scan":
             self._wifi_scan(chat_id)
         elif subcmd == "connect":
@@ -1367,7 +1454,9 @@ To kill a stuck process: <code>/kill &lt;pid&gt;</code>
                 f"Supported: <code>/wifi</code>, <code>/wifi scan</code>, <code>/wifi connect &lt;ssid&gt; [password]</code>, <code>/wifi saved</code>"
             )
 
-    def _wifi_status(self, chat_id: int) -> None:
+    def _wifi_status(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         try:
             stat = gw.get_guest_wifi_status(self.cfg)
             is_conn = stat.get("connected", False)
@@ -1399,8 +1488,8 @@ Status: <b>{badge}</b>
 """
             inline_wifi = {
                 "inline_keyboard": [
-                    [{"text": "🔍 Wi-Fi Keresés", "callback_data": "/wifi scan"}, {"text": "🔄 Szonda Frissítés", "callback_data": "/wifi"}],
-                    [{"text": "📊 Rendszerállapot", "callback_data": "/status"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                    [{"text": t("btn_wifi_scan", lang), "callback_data": "/wifi scan"}, {"text": t("btn_probe_refresh", lang), "callback_data": "/wifi"}],
+                    [{"text": t("btn_status", lang), "callback_data": "/status"}, {"text": t("btn_main_menu", lang), "callback_data": "/menu"}]
                 ]
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_wifi)
@@ -1467,19 +1556,21 @@ Status: <b>{badge}</b>
     # 8. Backups & Disaster Recovery
     # =========================================================================
 
-    def _cmd_backup(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_backup(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         subcmd = args[0].lower() if args else "list"
 
         if subcmd == "list":
-            self._backup_list(chat_id)
+            self._backup_list(chat_id, lang)
         elif subcmd == "create":
             label = args[1].strip() if len(args) > 1 else "telegram_snapshot"
-            self._backup_create(chat_id, label)
+            self._backup_create(chat_id, label, lang)
         elif subcmd == "send":
             if len(args) < 2:
                 self.client.send_message(chat_id, "Usage: <code>/backup send &lt;filename&gt;</code>")
                 return
-            self._backup_send(chat_id, args[1].strip())
+            self._backup_send(chat_id, args[1].strip(), lang)
         else:
             self.client.send_message(
                 chat_id,
@@ -1487,51 +1578,80 @@ Status: <b>{badge}</b>
                 f"Supported: <code>/backup list</code>, <code>/backup create [label]</code>, <code>/backup send &lt;filename&gt;</code>"
             )
 
-    def _backup_list(self, chat_id: int) -> None:
+    def _backup_list(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         try:
             backups = backup.list_backups()
             if not backups:
-                self.client.send_message(chat_id, "No local backups found in <code>/var/lib/nmb/backups/</code>.")
+                self.client.send_message(chat_id, t("backup_none", lang))
                 return
 
-            lines = ["<b>📦 Stored Device Backups:</b>\n"]
+            lines = [t("backup_title", lang)]
             for b in backups[:10]:
                 sz = format_bytes(b.get("size", 0))
                 dt = b.get("created_at", "")
                 fname = b.get("filename", "")
-                lines.append(f"• <code>{html.escape(fname)}</code>\n  {dt} | {sz} | Type: {b.get('type')}")
+                type_label = b.get("type", "full")
+                lines.append(f"• <code>{html.escape(fname)}</code>\n  {dt} | {sz} | Type: {type_label}")
 
-            lines.append("\nTo download a backup via Telegram: <code>/backup send &lt;filename&gt;</code>")
+            tip_label = (
+                "Letöltés mobilra" if lang == "hu" else (
+                "Herunterladen" if lang == "de" else (
+                "Télécharger sur mobile" if lang == "fr" else (
+                "Завантажити на телефон" if lang == "uk" else
+                "To download via Telegram"
+            ))))
+            lines.append(f"\n{tip_label}: <code>/backup send &lt;filename&gt;</code>")
             self.client.send_message(chat_id, "\n".join(lines))
         except Exception as e:
             self.client.send_message(chat_id, f"Error listing backups: {html.escape(str(e))}")
 
-    def _backup_create(self, chat_id: int, label: str) -> None:
-        self.client.send_message(chat_id, f"<i>Creating atomic full system backup ({html.escape(label)})...</i>")
+    def _backup_create(self, chat_id: int, label: str, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
+        wait_label = (
+            f"<i>Teljes rendszermentés készítése ({html.escape(label)})...</i>" if lang == "hu" else (
+            f"<i>Erstelle vollständige Systemsicherung ({html.escape(label)})...</i>" if lang == "de" else (
+            f"<i>Création de la sauvegarde système complète ({html.escape(label)})...</i>" if lang == "fr" else (
+            f"<i>Створення повної резервної копії системи ({html.escape(label)})...</i>" if lang == "uk" else
+            f"<i>Creating atomic full system backup ({html.escape(label)})...</i>"
+        ))))
+        self.client.send_message(chat_id, wait_label)
         try:
             res = backup.create_backup(self.cfg, backup_type="full", label=label)
             fname = res.get("filename", "")
             sz = format_bytes(res.get("size", 0))
 
-            msg = f"""✅ <b>System Backup Created!</b>
-
-Filename: <code>{html.escape(fname)}</code>
-Size: <b>{sz}</b>
-Includes: Config (/etc/nmb), Database history, WireGuard & OpenVPN cryptographic keys.
-
-To download to your phone: <code>/backup send {html.escape(fname)}</code>"""
+            msg = t("backup_created", lang, fname=html.escape(fname), size=sz)
             self.client.send_message(chat_id, msg)
         except Exception as e:
             self.client.send_message(chat_id, f"Backup error: {html.escape(str(e))}")
 
-    def _backup_send(self, chat_id: int, filename: str) -> None:
+    def _backup_send(self, chat_id: int, filename: str, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         clean_name = os.path.basename(filename)
         path = backup.BACKUP_DIR / clean_name
         if not path.is_file():
-            self.client.send_message(chat_id, f"Backup file <code>{html.escape(clean_name)}</code> not found.")
+            not_found = (
+                f"A <code>{html.escape(clean_name)}</code> mentési fájl nem található." if lang == "hu" else (
+                f"Sicherungsdatei <code>{html.escape(clean_name)}</code> nicht gefunden." if lang == "de" else (
+                f"Fichier de sauvegarde <code>{html.escape(clean_name)}</code> introuvable." if lang == "fr" else (
+                f"Файл резервної копії <code>{html.escape(clean_name)}</code> не знайдено." if lang == "uk" else
+                f"Backup file <code>{html.escape(clean_name)}</code> not found."
+            ))))
+            self.client.send_message(chat_id, not_found)
             return
 
-        self.client.send_message(chat_id, f"<i>Uploading {html.escape(clean_name)}...</i>")
+        up_label = (
+            f"<i>Feltöltés: {html.escape(clean_name)}...</i>" if lang == "hu" else (
+            f"<i>Lade hoch: {html.escape(clean_name)}...</i>" if lang == "de" else (
+            f"<i>Téléversement de {html.escape(clean_name)}...</i>" if lang == "fr" else (
+            f"<i>Завантаження {html.escape(clean_name)}...</i>" if lang == "uk" else
+            f"<i>Uploading {html.escape(clean_name)}...</i>"
+        ))))
+        self.client.send_message(chat_id, up_label)
         try:
             data = path.read_bytes()
             caption = f"📦 <b>NetworkMeasureBox Backup Archive</b>\nFilename: <code>{html.escape(clean_name)}</code> ({format_bytes(len(data))})"
@@ -1545,31 +1665,54 @@ To download to your phone: <code>/backup send {html.escape(fname)}</code>"""
     # 9. Hardware Drivers
     # =========================================================================
 
-    def _cmd_drivers(self, chat_id: int) -> None:
+    def _cmd_drivers(self, chat_id: int, lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         try:
             stat = drivers.get_full_driver_status()
             controllers = stat.get("controllers", [])
             missing_fw = stat.get("missing_firmware", [])
             recommended = stat.get("recommended_packages", [])
 
-            lines = ["<b>🔧 Hardware Network Controllers & Drivers:</b>\n"]
+            lines = [t("drivers_title", lang)]
             if not controllers:
-                lines.append("<i>No physical controllers cataloged.</i>")
+                no_ctrl = (
+                    "<i>Nincsenek fizikai vezérlők regisztrálva.</i>" if lang == "hu" else (
+                    "<i>Keine physischen Controller katalogisiert.</i>" if lang == "de" else (
+                    "<i>Aucun contrôleur physique répertorié.</i>" if lang == "fr" else (
+                    "<i>Фізичних контролерів не зареєстровано.</i>" if lang == "uk" else
+                    "<i>No physical controllers cataloged.</i>"
+                ))))
+                lines.append(no_ctrl)
             else:
                 for c in controllers:
-                    chip = c.get("chipset_name") or c.get("device_name") or "Network Controller"
+                    chip = c.get("chipset_name") or c.get("device_name") or ("Hálózati vezérlő" if lang == "hu" else "Network Controller")
                     iface = c.get("interface") or "N/A"
                     driver_name = c.get("driver") or "generic"
                     bus = c.get("bus_type", "pci").upper()
                     lines.append(f"• <b>{html.escape(chip)}</b>\n  Interface: <code>{html.escape(iface)}</code> | Driver: <code>{html.escape(driver_name)}</code> ({bus})")
 
             if missing_fw:
-                lines.append(f"\n⚠️ <b>Missing Firmware Detected:</b> {len(missing_fw)} blobs")
+                fw_label = (
+                    "Hiányzó firmware észlelve" if lang == "hu" else (
+                    "Fehlende Firmware erkannt" if lang == "de" else (
+                    "Firmware manquant détecté" if lang == "fr" else (
+                    "Виявлено відсутні мікропрограми" if lang == "uk" else
+                    "Missing Firmware Detected"
+                ))))
+                lines.append(f"\n⚠️ <b>{fw_label}:</b> {len(missing_fw)} blobs")
 
             if recommended:
                 pkg_names = [p.get("package", str(p)) if isinstance(p, dict) else str(p) for p in recommended]
                 pkgs = ", ".join(f"<code>{html.escape(p)}</code>" for p in pkg_names)
-                lines.append(f"\n💡 <b>Recommended Packages:</b> {pkgs}")
+                rec_label = (
+                    "Ajánlott csomagok" if lang == "hu" else (
+                    "Empfohlene Pakete" if lang == "de" else (
+                    "Paquets recommandés" if lang == "fr" else (
+                    "Рекомендовані пакети" if lang == "uk" else
+                    "Recommended Packages"
+                ))))
+                lines.append(f"\n💡 <b>{rec_label}:</b> {pkgs}")
 
             self.client.send_message(chat_id, "\n".join(lines))
         except Exception as e:
@@ -1579,17 +1722,14 @@ To download to your phone: <code>/backup send {html.escape(fname)}</code>"""
     # 10. System Reboot
     # =========================================================================
 
-    def _cmd_reboot(self, chat_id: int, args: list[str]) -> None:
+    def _cmd_reboot(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
         if not args or args[0].lower() != "now":
-            self.client.send_message(
-                chat_id,
-                "⚠️ <b>Reboot Confirmation Required</b>\n"
-                "To safely restart the NetworkMeasureBox host, send:\n"
-                "👉 <code>/reboot now</code>"
-            )
+            self.client.send_message(chat_id, t("reboot_confirm", lang))
             return
 
-        self.client.send_message(chat_id, "🔄 <b>Rebooting NetworkMeasureBox now...</b> Connectivity will resume in ~45 seconds.")
+        self.client.send_message(chat_id, t("reboot_starting", lang))
         try:
             subprocess.Popen(["sudo", "systemctl", "reboot"])
         except Exception as e:

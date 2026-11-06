@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from nmb.bot.client import TelegramClient
+from nmb.bot.i18n import ALERT_TEMPLATES, format_alert, get_chat_lang
 from nmb.config import Config
 from nmb.db import database as db
 import nmb.common.heal as heal
@@ -35,9 +36,14 @@ class AlertMonitor:
         self.client = client
         self.recipients = cfg.telegram.allowed_chat_ids
 
-    def _broadcast(self, msg: str) -> None:
+    def _broadcast(self, msg_or_key: str, **kwargs) -> None:
         for chat_id in self.recipients:
             try:
+                if kwargs or msg_or_key in ALERT_TEMPLATES.get("en", {}):
+                    lang = get_chat_lang(chat_id, self.cfg)
+                    msg = format_alert(msg_or_key, lang, **kwargs)
+                else:
+                    msg = msg_or_key
                 self.client.send_message(chat_id, msg)
             except Exception as e:
                 log.warning("failed to send alert to %d: %s", chat_id, e)
@@ -70,14 +76,8 @@ class AlertMonitor:
 
         if ongoing and cur_state != "firing":
             cause = ongoing["cause"] or "No probe targets reachable"
-            msg = (
-                f"🚨 <b>CRITICAL NETWORK OUTAGE DETECTED</b>\n\n"
-                f"All probe targets unreachable.\n"
-                f"Cause: <i>{cause}</i>\n"
-                f"Box ID: <code>{self.cfg.system.box_id}</code>"
-            )
-            self._broadcast(msg)
-            self._set_alert_state(conn, "outage", "firing", msg)
+            self._broadcast("outage_start", cause=cause, box_id=self.cfg.system.box_id)
+            self._set_alert_state(conn, "outage", "firing", f"Outage start: {cause}")
             log.warning("broadcast outage start alert")
 
         elif not ongoing and cur_state == "firing":
@@ -85,14 +85,8 @@ class AlertMonitor:
                 "SELECT start_ts, end_ts FROM outage ORDER BY end_ts DESC LIMIT 1"
             ).fetchone()
             dur_sec = int((last_out["end_ts"] - last_out["start_ts"]) / 1000) if last_out else 0
-            msg = (
-                f"✅ <b>NETWORK OUTAGE RESOLVED</b>\n\n"
-                f"Internet connectivity restored.\n"
-                f"Total downtime: <b>{dur_sec}s</b>\n"
-                f"Box ID: <code>{self.cfg.system.box_id}</code>"
-            )
-            self._broadcast(msg)
-            self._set_alert_state(conn, "outage", "resolved", msg)
+            self._broadcast("outage_resolved", dur=dur_sec, box_id=self.cfg.system.box_id)
+            self._set_alert_state(conn, "outage", "resolved", f"Outage resolved ({dur_sec}s)")
             log.info("broadcast outage resolved alert")
 
     # =========================================================================
@@ -120,19 +114,19 @@ class AlertMonitor:
         threshold = self.cfg.telegram.alert_loss_threshold_pct
 
         if loss_pct >= threshold and cur_state != "firing":
-            msg = (
-                f"⚠️ <b>HIGH PACKET LOSS ALERT</b>\n\n"
-                f"Rolling loss: <b>{loss_pct:.1f}%</b> (threshold: {threshold:.1f}%)\n"
-                f"Packets: {lost} lost / {sent} sent (past 5 min)\n"
-                f"Box ID: <code>{self.cfg.system.box_id}</code>"
+            self._broadcast(
+                "packet_loss_firing",
+                loss=loss_pct,
+                threshold=threshold,
+                lost=lost,
+                sent=sent,
+                box_id=self.cfg.system.box_id
             )
-            self._broadcast(msg)
-            self._set_alert_state(conn, "packet_loss", "firing", msg)
+            self._set_alert_state(conn, "packet_loss", "firing", f"Loss {loss_pct:.1f}%")
 
         elif loss_pct < (threshold * 0.5) and cur_state == "firing":
-            msg = f"✅ <b>PACKET LOSS RECOVERED</b>\n\nPacket loss normalized to <b>{loss_pct:.1f}%</b>."
-            self._broadcast(msg)
-            self._set_alert_state(conn, "packet_loss", "resolved", msg)
+            self._broadcast("packet_loss_resolved", loss=loss_pct)
+            self._set_alert_state(conn, "packet_loss", "resolved", f"Loss recovered {loss_pct:.1f}%")
 
     # =========================================================================
     # 3. Core Daemon Health & Self-Healing
@@ -159,13 +153,8 @@ class AlertMonitor:
 
         if failed and cur_state != "firing":
             svc_list = ", ".join(f"<code>{s}</code>" for s in failed)
-            msg = (
-                f"🚨 <b>SYSTEM SERVICE FAILURE DETECTED</b>\n\n"
-                f"Failed service(s): {svc_list}\n"
-                f"Triggering automated Self-Healing Tier 1 recovery..."
-            )
-            self._broadcast(msg)
-            self._set_alert_state(conn, "service_failure", "firing", msg)
+            self._broadcast("service_failure_firing", services=svc_list)
+            self._set_alert_state(conn, "service_failure", "firing", f"Failed: {svc_list}")
 
             # Trigger automated repair
             try:
@@ -174,9 +163,8 @@ class AlertMonitor:
                 log.warning("automated self-heal invocation error: %s", e)
 
         elif not failed and cur_state == "firing":
-            msg = "✅ <b>ALL SYSTEM SERVICES RESTORED</b>\n\nAll core daemons are active and operational."
-            self._broadcast(msg)
-            self._set_alert_state(conn, "service_failure", "resolved", msg)
+            self._broadcast("service_failure_resolved")
+            self._set_alert_state(conn, "service_failure", "resolved", "All services active")
 
     # =========================================================================
     # 4. Hardware Resources & Thermal Overheating
@@ -198,17 +186,11 @@ class AlertMonitor:
         cur_thermal_state = self._get_alert_state(conn, "hardware_overheat")
         if temp_c is not None:
             if temp_c >= 82.0 and cur_thermal_state != "firing":
-                msg = (
-                    f"🔥 <b>HARDWARE OVERHEATING WARNING</b>\n\n"
-                    f"SoC / CPU Temperature: <b>{temp_c:.1f}°C</b> (limit: 82°C)\n"
-                    f"Check ambient airflow or cooling."
-                )
-                self._broadcast(msg)
-                self._set_alert_state(conn, "hardware_overheat", "firing", msg)
+                self._broadcast("overheat_firing", temp=temp_c)
+                self._set_alert_state(conn, "hardware_overheat", "firing", f"Overheat {temp_c:.1f}C")
             elif temp_c < 72.0 and cur_thermal_state == "firing":
-                msg = f"✅ <b>TEMPERATURE NORMALIZED</b>\n\nCPU temperature returned to safe range: <b>{temp_c:.1f}°C</b>."
-                self._broadcast(msg)
-                self._set_alert_state(conn, "hardware_overheat", "resolved", msg)
+                self._broadcast("overheat_resolved", temp=temp_c)
+                self._set_alert_state(conn, "hardware_overheat", "resolved", f"Temp normalized {temp_c:.1f}C")
 
         # B. Low Disk Space (< 500 MB)
         try:
@@ -217,17 +199,11 @@ class AlertMonitor:
             cur_disk_state = self._get_alert_state(conn, "low_disk")
 
             if free_mb < 500 and cur_disk_state != "firing":
-                msg = (
-                    f"💾 <b>LOW DISK STORAGE WARNING</b>\n\n"
-                    f"Free space on root partition: <b>{free_mb:.0f} MB</b> (&lt; 500 MB)\n"
-                    f"Consider clearing old backups: <code>/backup list</code>"
-                )
-                self._broadcast(msg)
-                self._set_alert_state(conn, "low_disk", "firing", msg)
+                self._broadcast("low_disk_firing", free=free_mb)
+                self._set_alert_state(conn, "low_disk", "firing", f"Low disk: {free_mb:.0f} MB")
             elif free_mb >= 1000 and cur_disk_state == "firing":
-                msg = f"✅ <b>DISK STORAGE RECOVERED</b>\n\nFree disk space: <b>{free_mb:.0f} MB</b>."
-                self._broadcast(msg)
-                self._set_alert_state(conn, "low_disk", "resolved", msg)
+                self._broadcast("low_disk_resolved", free=free_mb)
+                self._set_alert_state(conn, "low_disk", "resolved", f"Disk recovered: {free_mb:.0f} MB")
         except Exception:
             pass
 
@@ -244,20 +220,11 @@ class AlertMonitor:
         cur_state = self._get_alert_state(conn, "wan_failover")
 
         if active_iface != primary_iface and cur_state != "firing":
-            msg = (
-                f"🔀 <b>WAN FAILOVER ENGAGED</b>\n\n"
-                f"Primary WAN (<code>{primary_iface}</code>) link failed.\n"
-                f"Switched to backup interface: <code>{active_iface}</code>."
-            )
-            self._broadcast(msg)
-            self._set_alert_state(conn, "wan_failover", "firing", msg)
+            self._broadcast("wan_failover_firing", primary=primary_iface, active=active_iface)
+            self._set_alert_state(conn, "wan_failover", "firing", f"Failover to {active_iface}")
         elif active_iface == primary_iface and cur_state == "firing":
-            msg = (
-                f"✅ <b>PRIMARY WAN LINK RESTORED</b>\n\n"
-                f"Traffic routed back to primary interface: <code>{primary_iface}</code>."
-            )
-            self._broadcast(msg)
-            self._set_alert_state(conn, "wan_failover", "resolved", msg)
+            self._broadcast("wan_failover_resolved", primary=primary_iface)
+            self._set_alert_state(conn, "wan_failover", "resolved", f"WAN restored {primary_iface}")
 
     # =========================================================================
     # Main Periodic Execution Loop
