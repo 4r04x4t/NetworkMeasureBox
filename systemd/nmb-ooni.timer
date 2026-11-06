@@ -1,8 +1,8 @@
 [Unit]
-Description=NetworkMeasureBox: Daily OONI Probe Censorship & Neutrality Audit Timer
+Description=NetworkMeasureBox: Weekly OONI Probe Censorship & Neutrality Audit Timer
 
 [Timer]
-OnCalendar=*-*-* 03:30:00
+OnCalendar=Sun *-*-* 03:30:00
 RandomizedDelaySec=1800
 Persistent=true
 

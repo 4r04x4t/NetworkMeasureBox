@@ -669,7 +669,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 16b. OONI Probe Censorship Status & Results
         if path == "/api/ooni/status":
             from nmb.probe.ooni import get_ooni_status
-            self._send_json(get_ooni_status())
+            status = get_ooni_status()
+            status["enabled"] = self.server.cfg.ooni.enabled
+            self._send_json(status)
             return
 
         if path == "/api/ooni/results":
@@ -1901,7 +1903,19 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 11b. OONI Probe Censorship Test Run
+        if path == "/api/ooni/toggle":
+            enabled = bool(body_json.get("enabled"))
+            self.server.cfg.ooni.enabled = enabled
+            save_config(self.server.cfg)
+            if not enabled and shutil.which("systemctl"):
+                subprocess.run(["systemctl", "stop", "nmb-ooni.service"], capture_output=True, timeout=30, check=False)
+            self._send_json({"status": "ok", "enabled": enabled})
+            return
+
         if path == "/api/ooni/run":
+            if not self.server.cfg.ooni.enabled:
+                self._send_json({"status": "error", "message": "OONI Probe is switched off."}, status=403)
+                return
             from nmb.probe.ooni import is_ooni_installed, is_ooni_running, run_ooni_test_async
             if not is_ooni_installed():
                 self._send_json({"status": "error", "message": "OONI Probe is not installed on this system."}, status=501)

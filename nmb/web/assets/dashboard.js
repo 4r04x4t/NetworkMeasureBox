@@ -6241,9 +6241,26 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
   // ==========================================
   let ooniPollingTimer = null;
 
+  async function toggleOoni(enabled) {
+    try {
+      const res = await fetch('/api/ooni/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enabled })
+      });
+      if (!res.ok) throw new Error(res.status);
+      if (!enabled) showToast(t('ooni_off_notice', 'OONI Probe is switched off. Turn it on to run tests.'));
+    } catch (e) {
+      showToast(t('error_prefix', 'Error: ') + e);
+    }
+    loadOoniStatus();
+  }
+
   async function loadOoniStatus() {
     try {
       const res = await fetch('/api/ooni/status');
+      const ooniToggle = document.getElementById('ooni-enabled-toggle');
+      if (ooniToggle && res.ok) ooniToggle.checked = !!(await res.clone().json()).enabled;
       if (!res.ok) return;
       const d = await res.json();
 

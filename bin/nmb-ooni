@@ -6,6 +6,7 @@ inspects local run history, anomaly breakdowns, and verifies probe onboarding.
 Usage:
   nmb-ooni run [websites|middlebox|im|circumvention|all] [--url URL]
   nmb-ooni status
+  nmb-ooni enabled
   nmb-ooni history [--limit 15]
   nmb-ooni onboard
   nmb-ooni inspect <run-id>
@@ -23,7 +24,13 @@ if str(root) not in sys.path:
 if "/opt/nmb" not in sys.path:
     sys.path.append("/opt/nmb")
 
+from nmb.config import load_config
 from nmb.probe import ooni
+
+
+def cmd_enabled() -> int:
+    """Exit 0 when the add-on is switched on; the service uses this to skip scheduled runs."""
+    return 0 if load_config().ooni.enabled else 1
 
 
 def cmd_status() -> int:
@@ -127,6 +134,7 @@ def main() -> int:
 
     # status
     sub.add_parser("status", help="Show OONI Probe installation and execution status")
+    sub.add_parser("enabled", help="Exit 0 when the OONI add-on is switched on")
 
     # onboard
     sub.add_parser("onboard", help="Run unattended onboarding initialization")
@@ -150,6 +158,8 @@ def main() -> int:
         return cmd_status()
 
     cmd = args.command
+    if cmd == "enabled":
+        return cmd_enabled()
     if cmd == "status":
         return cmd_status()
     elif cmd == "onboard":

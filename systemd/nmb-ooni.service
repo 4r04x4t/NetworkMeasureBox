@@ -7,9 +7,11 @@ Type=oneshot
 User=root
 Group=root
 Environment=PYTHONPATH=/opt/nmb
+# Skips the run cleanly while the add-on is switched off.
+ExecCondition=/opt/nmb/bin/nmb-ooni enabled
 ExecStart=/opt/nmb/bin/nmb-ooni run websites
 # A full website list takes far longer than a typical service start.
-TimeoutStartSec=3600
+TimeoutStartSec=14400
 # Public resolvers for this service only, so a LAN DNS filter does not appear as ISP blocking.
 BindReadOnlyPaths=/opt/nmb/os/ooni-resolv.conf:/etc/resolv.conf
 

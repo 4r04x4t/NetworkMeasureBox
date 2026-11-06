@@ -1112,6 +1112,10 @@
   <!-- TAB: OONI PROBE CENSORSHIP & INTERNET FREEDOM -->
   <div id="tab-ooni" class="tab-content">
     <div class="app-box">
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-bottom: 12px;">
+        <input type="checkbox" id="ooni-enabled-toggle" onchange="toggleOoni(this.checked)">
+        <span data-i18n="ooni_toggle">Enable OONI Probe (optional add-on, runs weekly)</span>
+      </label>
       <!-- Title & Status Header -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
         <div>

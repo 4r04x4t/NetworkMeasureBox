@@ -207,6 +207,10 @@ backup_count = 5
 console_enabled = true
 log_requests = true
 
+[ooni]
+# Optional add-on: runs weekly when enabled.
+enabled = false
+
 [duckdns]
 enabled = false
 provider = duckdns
@@ -252,6 +256,11 @@ accept_routes = false
 advertise_exit_node = false
 accept_dns = false
 """
+
+
+@dataclass
+class OoniConfig:
+    enabled: bool = False
 
 
 @dataclass
@@ -525,6 +534,7 @@ class Config:
     web: WebConfig = field(default_factory=WebConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     duckdns: DuckDNSConfig = field(default_factory=DuckDNSConfig)
+    ooni: OoniConfig = field(default_factory=OoniConfig)
     wireguard: WireGuardConfig = field(default_factory=WireGuardConfig)
     openvpn: OpenVPNConfig = field(default_factory=OpenVPNConfig)
     proxy: ProxyConfig = field(default_factory=ProxyConfig)
@@ -781,6 +791,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.web.admin_username = w.get("admin_username", getattr(cfg.web, "admin_username", "admin"))
         cfg.web.admin_password = w.get("admin_password", cfg.web.admin_password)
         cfg.web.terminal_enabled = w.getboolean("terminal_enabled", fallback=False)
+        cfg.ooni.enabled = parser.getboolean("ooni", "enabled", fallback=False)
         cfg.web.language = w.get("language", getattr(cfg.web, "language", "en"))
         cfg.web.theme = w.get("theme", getattr(cfg.web, "theme", "default")).strip().lower()
         cfg.web.tls_enabled = w.getboolean("tls_enabled", fallback=getattr(cfg.web, "tls_enabled", False))
@@ -1012,6 +1023,9 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["web"]["auth_enabled"] = str(cfg.web.auth_enabled).lower()
     parser["web"]["admin_username"] = str(getattr(cfg.web, "admin_username", "admin"))
     parser["web"]["admin_password"] = str(cfg.web.admin_password)
+    if "ooni" not in parser:
+        parser["ooni"] = {}
+    parser["ooni"]["enabled"] = str(cfg.ooni.enabled).lower()
     parser["web"]["terminal_enabled"] = str(cfg.web.terminal_enabled).lower()
     parser["web"]["language"] = str(getattr(cfg.web, "language", "en"))
     parser["web"]["theme"] = str(getattr(cfg.web, "theme", "default"))

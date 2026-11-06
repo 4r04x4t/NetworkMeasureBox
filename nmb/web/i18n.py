@@ -5693,6 +5693,8 @@ TRANSLATIONS = {
 
 # Strings extracted from hardcoded template text (key: en, hu, de, fr, uk).
 _EXTRA_TRANSLATIONS = {
+    'ooni_toggle': ('Enable OONI Probe (optional add-on, runs weekly)', 'OONI Probe bekapcsolása (opcionális kiegészítő, hetente fut)', 'OONI Probe aktivieren (optionales Add-on, läuft wöchentlich)', 'Activer OONI Probe (module optionnel, exécution hebdomadaire)', 'Увімкнути OONI Probe (додатковий модуль, запуск щотижня)'),
+    'ooni_off_notice': ('OONI Probe is switched off. Turn it on to run tests.', 'Az OONI Probe ki van kapcsolva. Tesztfuttatáshoz kapcsold be.', 'OONI Probe ist deaktiviert. Aktivieren Sie es, um Tests auszuführen.', 'OONI Probe est désactivé. Activez-le pour lancer des tests.', 'OONI Probe вимкнено. Увімкніть його, щоб запускати тести.'),
     'purge_title': ('🗑️ Delete Stored Data', '🗑️ Tárolt adatok törlése', '🗑️ Gespeicherte Daten löschen', '🗑️ Supprimer les données stockées', '🗑️ Видалення збережених даних'),
     'purge_desc': ('Settings, passwords and VPN keys are never deleted. Deletion cannot be undone.', 'A beállítások, jelszavak és VPN-kulcsok soha nem törlődnek. A törlés nem vonható vissza.', 'Einstellungen, Passwörter und VPN-Schlüssel werden nie gelöscht. Das Löschen kann nicht rückgängig gemacht werden.', 'Les paramètres, mots de passe et clés VPN ne sont jamais supprimés. La suppression est irréversible.', 'Налаштування, паролі та ключі VPN ніколи не видаляються. Видалення не можна скасувати.'),
     'purge_cat_measurements': ('Measurements', 'Mérések', 'Messungen', 'Mesures', 'Вимірювання'),
