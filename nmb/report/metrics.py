@@ -33,8 +33,10 @@ class PingSummary:
     loss_pct: float = 0.0
     rtt_min_ms: Optional[float] = None
     rtt_avg_ms: Optional[float] = None
+    rtt_median_ms: Optional[float] = None
     rtt_p95_ms: Optional[float] = None
     rtt_max_ms: Optional[float] = None
+    rtt_stddev_ms: Optional[float] = None
     jitter_avg_ms: Optional[float] = None
 
 
@@ -56,9 +58,15 @@ class SpeedtestSummary:
     successful_tests: int = 0
     skipped_busy: int = 0
     avg_down_mbps: Optional[float] = None
+    median_down_mbps: Optional[float] = None
+    stddev_down_mbps: Optional[float] = None
+    p95_down_mbps: Optional[float] = None
     max_down_mbps: Optional[float] = None
     min_down_mbps: Optional[float] = None
     avg_up_mbps: Optional[float] = None
+    median_up_mbps: Optional[float] = None
+    stddev_up_mbps: Optional[float] = None
+    p95_up_mbps: Optional[float] = None
     max_up_mbps: Optional[float] = None
     min_up_mbps: Optional[float] = None
     avg_down_pct_of_offered: Optional[float] = None
@@ -228,9 +236,17 @@ def aggregate_report_data(
         all_avg_rtts.sort()
         report.ping_summary.rtt_min_ms = round(all_avg_rtts[0], 2)
         report.ping_summary.rtt_avg_ms = round(sum(all_avg_rtts) / len(all_avg_rtts), 2)
+        mid = len(all_avg_rtts) // 2
+        report.ping_summary.rtt_median_ms = round(all_avg_rtts[mid], 2)
         p95_idx = min(len(all_avg_rtts) - 1, int(len(all_avg_rtts) * 0.95))
         report.ping_summary.rtt_p95_ms = round(all_avg_rtts[p95_idx], 2)
         report.ping_summary.rtt_max_ms = round(all_avg_rtts[-1], 2)
+        if len(all_avg_rtts) > 1:
+            mean = sum(all_avg_rtts) / len(all_avg_rtts)
+            variance = sum((x - mean) ** 2 for x in all_avg_rtts) / (len(all_avg_rtts) - 1)
+            report.ping_summary.rtt_stddev_ms = round(variance ** 0.5, 2)
+        else:
+            report.ping_summary.rtt_stddev_ms = 0.0
 
     if all_jitters:
         report.ping_summary.jitter_avg_ms = round(sum(all_jitters) / len(all_jitters), 2)
@@ -293,6 +309,14 @@ def aggregate_report_data(
     contract_down = float(cfg.isp.contract_down_mbps or 0.0)
     contract_up = float(cfg.isp.contract_up_mbps or 0.0)
 
+    # Cache dynamic dual-stack fallback once if needed
+    fallback_ips = {}
+    try:
+        from nmb.netd.interfaces import get_dual_stack_ips
+        fallback_ips = get_dual_stack_ips()
+    except Exception:
+        pass
+
     for s in speed_rows:
         d_dict = dict(s)
         d_mbps = (s["down_bps"] or 0) / 1_000_000.0 if s["down_bps"] else None
@@ -300,11 +324,64 @@ def aggregate_report_data(
         d_dict["down_mbps"] = round(d_mbps, 2) if d_mbps is not None else None
         d_dict["up_mbps"] = round(u_mbps, 2) if u_mbps is not None else None
 
+        # Fallback client IP and IPv6
+        if not d_dict.get("client_ip"):
+            d_dict["client_ip"] = fallback_ips.get("public_ipv4") or fallback_ips.get("ipv4")
+        if not d_dict.get("client_ipv6"):
+            d_dict["client_ipv6"] = fallback_ips.get("public_ipv6") or fallback_ips.get("ipv6")
+
+        # Resolved ISP Name (Per-measurement provider detection)
+        isp_name = getattr(cfg.isp, "name", None)
+        if not isp_name or isp_name in ("Generic ISP", "Unknown"):
+            try:
+                from nmb.netd.geoip import get_public_geoip
+                geo = get_public_geoip(d_dict.get("client_ip"))
+                if geo.get("isp") and geo["isp"] != "Unknown ISP":
+                    isp_name = geo["isp"]
+            except Exception:
+                pass
+        d_dict["isp_name"] = isp_name or "Unknown ISP"
+
         # Speed percentage achieved compared to contracted (offered) and guaranteed speeds
         d_dict["down_pct_of_offered"] = round((d_mbps / contract_down) * 100.0, 1) if (contract_down > 0 and d_mbps is not None) else None
         d_dict["up_pct_of_offered"] = round((u_mbps / contract_up) * 100.0, 1) if (contract_up > 0 and u_mbps is not None) else None
         d_dict["down_pct_of_guaranteed"] = round((d_mbps / guar_down) * 100.0, 1) if (guar_down > 0 and d_mbps is not None) else None
         d_dict["up_pct_of_guaranteed"] = round((u_mbps / guar_up) * 100.0, 1) if (guar_up > 0 and u_mbps is not None) else None
+
+        # Official NMHH Szélessáv.net Status Code Classification (1–15)
+        st_val = s["status"]
+        conn_tech = (d_dict.get("connection_type") or "").lower()
+        if st_val == "ok":
+            if conn_tech in ("wifi", "wlan", "guest_wifi"):
+                nmhh_code = 14
+                nmhh_desc = "WiFi mérés"
+            elif guar_down > 0 and (d_mbps or 0) < guar_down:
+                nmhh_code = 6
+                nmhh_desc = "hibás mérés (túl nagy az eltérés az elvárható sávszélességértéktől - garantált alatt)"
+            elif contract_down > 0 and (d_mbps or 0) < contract_down * 0.40:
+                nmhh_code = 6
+                nmhh_desc = "hibás mérés (túl nagy az eltérés az elvárható sávszélességértéktől)"
+            else:
+                nmhh_code = 1
+                nmhh_desc = "érvényes mérés"
+        elif st_val == "skipped_busy":
+            nmhh_code = 9
+            nmhh_desc = "forgalmi korlát túllépése (háttérforgalom)"
+        elif st_val == "error":
+            err_str = str(s.get("error") or "").lower()
+            if "timeout" in err_str or "timed out" in err_str:
+                nmhh_code = 7
+                nmhh_desc = "hibás mérés (időtúllépés)"
+            else:
+                nmhh_code = 12
+                nmhh_desc = "error"
+        else:
+            nmhh_code = 1
+            nmhh_desc = "érvényes mérés"
+
+        d_dict["nmhh_code"] = nmhh_code
+        d_dict["nmhh_desc"] = nmhh_desc
+
         report.speed_tests.append(d_dict)
 
         if s["status"] == "ok":
@@ -329,19 +406,42 @@ def aggregate_report_data(
             (compliant_tests / report.speed_summary.successful_tests) * 100.0, 1
         )
     if down_mbps_list:
+        down_mbps_list.sort()
         report.speed_summary.avg_down_mbps = round(sum(down_mbps_list) / len(down_mbps_list), 2)
-        report.speed_summary.min_down_mbps = round(min(down_mbps_list), 2)
-        report.speed_summary.max_down_mbps = round(max(down_mbps_list), 2)
+        mid_d = len(down_mbps_list) // 2
+        report.speed_summary.median_down_mbps = round(down_mbps_list[mid_d], 2)
+        p95_d_idx = min(len(down_mbps_list) - 1, int(len(down_mbps_list) * 0.95))
+        report.speed_summary.p95_down_mbps = round(down_mbps_list[p95_d_idx], 2)
+        report.speed_summary.min_down_mbps = round(down_mbps_list[0], 2)
+        report.speed_summary.max_down_mbps = round(down_mbps_list[-1], 2)
+        if len(down_mbps_list) > 1:
+            mean_d = sum(down_mbps_list) / len(down_mbps_list)
+            report.speed_summary.stddev_down_mbps = round((sum((x - mean_d) ** 2 for x in down_mbps_list) / (len(down_mbps_list) - 1)) ** 0.5, 2)
+        else:
+            report.speed_summary.stddev_down_mbps = 0.0
+
         if contract_down > 0:
             report.speed_summary.avg_down_pct_of_offered = round((report.speed_summary.avg_down_mbps / contract_down) * 100.0, 1)
             report.speed_summary.min_down_pct_of_offered = round((report.speed_summary.min_down_mbps / contract_down) * 100.0, 1)
             report.speed_summary.max_down_pct_of_offered = round((report.speed_summary.max_down_mbps / contract_down) * 100.0, 1)
         if guar_down > 0:
             report.speed_summary.avg_down_pct_of_guaranteed = round((report.speed_summary.avg_down_mbps / guar_down) * 100.0, 1)
+
     if up_mbps_list:
+        up_mbps_list.sort()
         report.speed_summary.avg_up_mbps = round(sum(up_mbps_list) / len(up_mbps_list), 2)
-        report.speed_summary.min_up_mbps = round(min(up_mbps_list), 2)
-        report.speed_summary.max_up_mbps = round(max(up_mbps_list), 2)
+        mid_u = len(up_mbps_list) // 2
+        report.speed_summary.median_up_mbps = round(up_mbps_list[mid_u], 2)
+        p95_u_idx = min(len(up_mbps_list) - 1, int(len(up_mbps_list) * 0.95))
+        report.speed_summary.p95_up_mbps = round(up_mbps_list[p95_u_idx], 2)
+        report.speed_summary.min_up_mbps = round(up_mbps_list[0], 2)
+        report.speed_summary.max_up_mbps = round(up_mbps_list[-1], 2)
+        if len(up_mbps_list) > 1:
+            mean_u = sum(up_mbps_list) / len(up_mbps_list)
+            report.speed_summary.stddev_up_mbps = round((sum((x - mean_u) ** 2 for x in up_mbps_list) / (len(up_mbps_list) - 1)) ** 0.5, 2)
+        else:
+            report.speed_summary.stddev_up_mbps = 0.0
+
         if contract_up > 0:
             report.speed_summary.avg_up_pct_of_offered = round((report.speed_summary.avg_up_mbps / contract_up) * 100.0, 1)
         if guar_up > 0:

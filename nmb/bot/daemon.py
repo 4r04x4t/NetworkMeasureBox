@@ -98,6 +98,26 @@ class TelegramDaemon:
                     if up_id is not None:
                         self.last_update_id = up_id + 1
 
+                    cb = u.get("callback_query")
+                    if cb:
+                        cb_id = cb.get("id")
+                        cb_user_id = cb.get("from", {}).get("id")
+                        cb_msg = cb.get("message", {})
+                        chat_id = cb_msg.get("chat", {}).get("id") or cb_user_id
+                        data = cb.get("data", "")
+                        if cb_id:
+                            self.client.answer_callback_query(cb_id)
+                        if chat_id not in self.cfg.telegram.allowed_chat_ids:
+                            log.warning("rejected unauthorized callback from chat_id %s", chat_id)
+                            self.client.send_message(
+                                chat_id,
+                                f"⛔ <b>Access Denied</b>: Chat ID <code>{chat_id}</code> is not authorized in /etc/nmb/nmb.conf."
+                            )
+                            continue
+                        if data:
+                            self.commands.handle_command(chat_id, data)
+                        continue
+
                     msg = u.get("message") or u.get("edited_message")
                     if not msg:
                         continue

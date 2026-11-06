@@ -6,6 +6,7 @@ Serves dashboard UI, live status JSON, speedtest triggers, and dossier downloads
 from __future__ import annotations
 
 import argparse
+import datetime
 import errno
 import json
 import logging
@@ -69,7 +70,7 @@ from nmb.common.heal import (
     apply_stable_update,
     load_heal_state,
 )
-from nmb.report.csv_export import export_ping_summary_csv, export_speedtests_csv
+from nmb.report.csv_export import export_ping_summary_csv, export_speedtests_csv, export_nmhh_speedtests_csv
 from nmb.report.dossier import generate_html_dossier
 from nmb.report.llm_bundle import generate_llm_diagnostic_bundle
 from nmb.report.metrics import aggregate_report_data
@@ -348,7 +349,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 7. Standalone Dossier Download
-        if path in ("/dossier", "/dossier.html"):
+        if path in ("/dossier", "/dossier.html", "/export/report.html", "/report.html", "/api/export/dossier"):
             conn = db.connect(readonly=True)
             report = aggregate_report_data(conn, self.server.cfg, window_hours=24.0)
             conn.close()
@@ -379,12 +380,35 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 conn, 0, now,
                 contract_down_mbps=self.server.cfg.isp.contract_down_mbps,
                 contract_up_mbps=self.server.cfg.isp.contract_up_mbps,
+                default_isp=getattr(self.server.cfg.isp, "name", "DIGI Kft."),
             )
             conn.close()
             body = csv_data.encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
             self.send_header("Content-Disposition", 'attachment; filename="speedtests_history.csv"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if path in ("/export/nmhh_speedtests.csv", "/export/speedtests_nmhh.csv", "/api/export/nmhh"):
+            conn = db.connect(readonly=True)
+            now = db.now_ms()
+            csv_data = export_nmhh_speedtests_csv(
+                conn, 0, now,
+                contract_down_mbps=float(self.server.cfg.isp.contract_down_mbps or 1000.0),
+                contract_up_mbps=float(self.server.cfg.isp.contract_up_mbps or 200.0),
+                guaranteed_down_mbps=float(getattr(self.server.cfg.isp, "guaranteed_down_mbps", 0.0) or 300.0),
+                guaranteed_up_mbps=float(getattr(self.server.cfg.isp, "guaranteed_up_mbps", 0.0) or 50.0),
+                default_isp=getattr(self.server.cfg.isp, "name", "DIGI Kft. - DIGINet1000 OPTIKA"),
+            )
+            conn.close()
+            body = csv_data.encode("utf-8")
+            today_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="Osszes_sebesseg_meresi_eredmeny_datum_{today_str}.csv"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)

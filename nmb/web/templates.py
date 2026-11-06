@@ -2167,6 +2167,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       overflow-wrap: break-word;
       word-break: break-word;
     }
+    /* Table & Badge Word-Break Protection: Never break text into 1-character vertical columns! */
+    table, table *, .data-table, .data-table *, .tasks-table, .tasks-table *, .router-table, .router-table *,
+    .badge, .badge-pill, .status-badge, .nav-item, .nav-link, button, .btn-primary, .btn-secondary, .btn-danger {
+      word-break: normal !important;
+      overflow-wrap: normal !important;
+    }
+    th, td, .data-table th, .data-table td, .tasks-table th, .tasks-table td, .router-table th, .router-table td {
+      white-space: nowrap !important;
+      word-break: normal !important;
+      overflow-wrap: normal !important;
+    }
     pre, code {
       word-break: break-all;
       white-space: pre-wrap;
@@ -2435,8 +2446,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         margin-right: 0 !important;
         box-sizing: border-box !important;
       }
-      table.data-table, table.router-table {
-        min-width: 580px !important;
+      table.data-table, table.router-table, table.tasks-table {
+        width: max-content !important;
+        min-width: 100% !important;
       }
       .tasks-table {
         min-width: 820px !important;
@@ -2450,10 +2462,29 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         align-items: center !important;
         word-break: normal !important;
       }
+      /* Guest Wi-Fi banner on mobile */
+      #explorer-guest-banner {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+      }
+      #explorer-guest-banner > div:first-child {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+        flex: none !important;
+        gap: 8px !important;
+      }
+      #explorer-guest-banner .badge-pill, #explorer-guest-status-text {
+        white-space: normal !important;
+        word-break: break-word !important;
+        display: inline-block !important;
+        max-width: 100% !important;
+      }
       /* Responsive Charts on Mobile */
       #speed-chart-container {
-        height: 280px !important;
-        min-height: 280px !important;
+        height: 260px !important;
+        min-height: 260px !important;
         width: 100% !important;
       }
       #speed-chart-svg-wrap {
@@ -2828,14 +2859,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
         <div class="section-subtitle" style="margin: 0;" data-i18n="ping_title">ICMP Ping Telemetry & Gateway Latency</div>
         <div style="display: flex; gap: 8px; align-items: center;">
-          <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-speed'); setSpeedChartMode('combined');">📊 Kombinált Sebesség & Ping Grafikon</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/csv'">📡 Ping CSV Export</button>
+          <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-speed'); setSpeedChartMode('combined');" data-i18n="btn_combined_speed_ping_chart">📊 Kombinált Sebesség & Ping Grafikon</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/csv'" data-i18n="btn_ping_export_csv">📡 Ping CSV Export</button>
         </div>
       </div>
       <div id="chart-latency-container" style="background: #070d18; border-radius: 6px; padding: 12px; margin-bottom: 20px; border: 1px solid var(--border-color);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span style="font-size: 12px; font-weight: 600; color: #38bdf8;">📈 24h Késleltetés és Szakadás Telemetria</span>
-          <span class="mobile-hint-swipe" style="display: none; font-size: 11px; color: var(--text-muted);">↔️ Húzza el vízszintesen a teljes naphoz</span>
+          <span style="font-size: 12px; font-weight: 600; color: #38bdf8;" data-i18n="probe_telemetry_title">📈 24h Késleltetés és Szakadás Telemetria</span>
+          <span class="mobile-hint-swipe" style="display: none; font-size: 11px; color: var(--text-muted);" data-i18n="probe_swipe_hint">↔️ Húzza el vízszintesen a teljes naphoz</span>
         </div>
         <div id="chart-latency" style="overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; width: 100%;">
           <p style="text-align: center; color: var(--text-muted); padding: 40px;">Loading chart telemetry...</p>
@@ -2871,9 +2902,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div class="section-subtitle" style="margin: 0;" data-i18n="speed_title">Historical Speedtest Measurement Log</div>
           <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" data-i18n="speed_desc">Complete audit trail of all speed tests with provider SLA tracking, latency, and bufferbloat metrics.</p>
         </div>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="triggerSpeedtest()" data-i18n="btn_measure_now">▶️ Run Speedtest Now</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests.csv'">📊 Speedtest CSV Export</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests.csv'" data-i18n="btn_speed_export_csv">📊 Speedtest CSV Export</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/nmhh_speedtests.csv'" data-i18n="btn_nmhh_export_csv">📋 Szélessáv.net / NMHH CSV</button>
         </div>
       </div>
 
@@ -2907,29 +2939,29 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div style="display: flex; gap: 16px; margin-bottom: 10px; font-size: 11.5px; flex-wrap: wrap; align-items: center;">
           <div id="speed-legend-down" style="display: flex; align-items: center; gap: 5px;">
             <span style="display:inline-block; width:12px; height:3px; background:#38bdf8; border-radius:2px;"></span>
-            <span style="color:#38bdf8; font-weight:600;">Letöltés (Down Mbps)</span>
+            <span style="color:#38bdf8; font-weight:600;" data-i18n="speed_legend_down">Letöltés (Down Mbps)</span>
           </div>
           <div id="speed-legend-up" style="display: flex; align-items: center; gap: 5px;">
             <span style="display:inline-block; width:12px; height:3px; background:#34d399; border-radius:2px;"></span>
-            <span style="color:#34d399; font-weight:600;">Feltöltés (Up Mbps)</span>
+            <span style="color:#34d399; font-weight:600;" data-i18n="speed_legend_up">Feltöltés (Up Mbps)</span>
           </div>
           <div id="speed-legend-lat" style="display: flex; align-items: center; gap: 5px;">
             <span style="display:inline-block; width:12px; height:3px; background:#fbbf24; border-radius:2px;"></span>
-            <span style="color:#fbbf24; font-weight:600;">Ping RTT (ms)</span>
+            <span style="color:#fbbf24; font-weight:600;" data-i18n="speed_legend_lat">Ping RTT (ms)</span>
           </div>
           <div id="speed-legend-contract" style="display: none; align-items: center; gap: 5px;">
             <span style="display:inline-block; width:12px; height:2px; background:#ec4899; border-top:1px dashed #ec4899;"></span>
-            <span style="color:#f472b6; font-size:11px;">Garantált / Szerződött sebesség</span>
+            <span style="color:#f472b6; font-size:11px;" data-i18n="speed_legend_contract">Garantált / Szerződött sebesség</span>
           </div>
           <div style="margin-left: auto; color: var(--text-muted); font-size: 11px;">
-            💡 Vigye a kurzort vagy érintse meg a mérési pontokat a részletekért!
+            <span data-i18n="speed_chart_touch_tip">💡 Vigye a kurzort vagy érintse meg a mérési pontokat a részletekért!</span>
           </div>
         </div>
 
         <!-- SVG Container with dynamic Tooltip -->
-        <div id="speed-chart-container" style="position: relative; width: 100%; height: 280px; min-height: 280px; background: rgba(10, 15, 29, 0.7); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+        <div id="speed-chart-container" style="position: relative; width: 100%; height: 260px; min-height: 240px; background: rgba(10, 15, 29, 0.7); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
           <div id="speed-chart-svg-wrap" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-            <p style="text-align: center; color: var(--text-muted); padding: 50px;">Mérési adatok betöltése...</p>
+            <p style="text-align: center; color: var(--text-muted); padding: 50px;" data-i18n="speed_loading_results">Mérési adatok betöltése...</p>
           </div>
           <!-- Floating interactive tooltip -->
           <div id="speed-chart-tooltip" style="display: none; position: absolute; pointer-events: none; z-index: 100; background: rgba(15, 23, 42, 0.95); border: 1px solid #38bdf8; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #f8fafc; box-shadow: 0 8px 24px rgba(0,0,0,0.6); backdrop-filter: blur(8px); min-width: 200px; max-width: 320px; transition: opacity 0.15s ease;">
@@ -2938,7 +2970,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <div class="data-table-wrap">
-        <table class="data-table" style="min-width: 680px;">
+        <table class="data-table" style="min-width: 720px;">
           <thead>
             <tr>
               <th data-i18n="speed_col_time" style="white-space: nowrap;">Timestamp</th>
@@ -2947,7 +2979,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <th data-i18n="speed_col_up" style="white-space: nowrap;">Upload</th>
               <th data-i18n="speed_col_lat" style="white-space: nowrap;">Latency</th>
               <th data-i18n="speed_col_bb" style="white-space: nowrap;">Bufferbloat</th>
-              <th data-i18n="speed_col_client_ip" style="white-space: nowrap;">Client IP</th>
+              <th data-i18n="speed_col_client_ip" style="white-space: nowrap;">Client IP & ISP</th>
               <th data-i18n="speed_col_server" style="white-space: nowrap;">Server / Report Link</th>
             </tr>
           </thead>
@@ -9865,14 +9897,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           let clientIpCell = '';
           const stV4 = escapeHtml(st.client_ip);
           const stV6 = escapeHtml(st.client_ipv6);
+          const ispName = escapeHtml(st.isp_name || (data.isp && data.isp.name) || 'ISP');
+          const ispBadge = `<span class="badge" style="background:rgba(56,189,248,0.12); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); font-size:10px; margin-top:2px; display:inline-block; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${ispName}">🏢 ${ispName}</span>`;
+
           if (stV4 && stV6) {
-            clientIpCell = `<div style="font-size:11px; line-height:1.3;"><span style="color:#38bdf8;" title="IPv4">${stV4}</span><br><span style="color:#a78bfa; font-size:10px;" title="IPv6">${stV6}</span></div>`;
+            clientIpCell = `<div style="font-size:11px; line-height:1.3;"><span style="color:#38bdf8;" title="IPv4">${stV4}</span><br><span style="color:#a78bfa; font-size:10px;" title="IPv6">${stV6}</span><br>${ispBadge}</div>`;
           } else if (stV4) {
-            clientIpCell = `<code style="color:#38bdf8;">${stV4}</code>`;
+            clientIpCell = `<div style="font-size:11px; line-height:1.3;"><code style="color:#38bdf8;">${stV4}</code><br>${ispBadge}</div>`;
           } else if (stV6) {
-            clientIpCell = `<code style="color:#a78bfa; font-size:10px;">${stV6}</code>`;
+            clientIpCell = `<div style="font-size:11px; line-height:1.3;"><code style="color:#a78bfa; font-size:10px;">${stV6}</code><br>${ispBadge}</div>`;
           } else {
-            clientIpCell = '<code>--</code>';
+            clientIpCell = `<div><code>--</code><br>${ispBadge}</div>`;
           }
 
           sHtml += `<tr>
@@ -10300,9 +10335,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         ${engineBadge}
       </div>
       <div style="display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:12px; margin-bottom:6px;">
-        <span style="color:#38bdf8; font-weight:600;">⬇️ Letöltés:</span>
+        <span style="color:#38bdf8; font-weight:600;">${t('speed_tip_down', '⬇️ Download:')}</span>
         <span style="font-weight:700; color:#f8fafc; text-align:right;">${dMbps.toFixed(2)} Mbps</span>
-        <span style="color:#34d399; font-weight:600;">⬆️ Feltöltés:</span>
+        <span style="color:#34d399; font-weight:600;">${t('speed_tip_up', '⬆️ Upload:')}</span>
         <span style="font-weight:700; color:#f8fafc; text-align:right;">${uMbps.toFixed(2)} Mbps</span>
         <span style="color:#fbbf24; font-weight:600;">🏓 Ping RTT:</span>
         <span style="font-weight:700; color:#f8fafc; text-align:right;">${lat.toFixed(2)} ms</span>
@@ -10313,7 +10348,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
     const sName = item.server_name || item.server_host || '';
     if (sName) {
-      content += `<div style="font-size:10.5px; color:#94a3b8; border-top:1px solid rgba(255,255,255,0.06); padding-top:4px;">📍 Szerver: <b>${escapeHtml(sName)}</b></div>`;
+      content += `<div style="font-size:10.5px; color:#94a3b8; border-top:1px solid rgba(255,255,255,0.06); padding-top:4px;">📍 ${t('server_prefix', 'Server')}: <b>${escapeHtml(sName)}</b></div>`;
     }
     if (item.client_ip || item.client_ipv6) {
       content += `<div style="font-size:10px; color:#64748b; font-family:monospace;">🌐 IP: ${escapeHtml(item.client_ip || '')} ${item.client_ipv6 ? '[' + escapeHtml(item.client_ipv6) + ']' : ''}</div>`;
@@ -11243,7 +11278,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
     // 6. Dynamic Form Dropdown Constraints based on Hardware Support
     const stripNotSupported = (s) => (s || '').replace(/\\s*\\((?:Hardveresen nem támogatott|Hardver nem támogatja|Nem támogatott|Hardware not supported|Not supported|Nicht unterstützt|Non supporté|Не підтримується)\\)/gi, '').trim();
-    const notSupSuffix = ' (' + t('not_supported', 'Nem támogatott') + ')';
+    const notSupSuffix = ' (' + t('not_supported', 'Not supported') + ')';
 
     const bandSel = document.getElementById('cfg-wifi-band');
     if (bandSel && caps.supported_bands) {
@@ -11300,7 +11335,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     const chPrefix = t('wifi_channel_prefix', 'Csatorna');
     const autoLabel = t('wifi_channel_auto', 'Auto (Automatikus csatornaválasztás / ACS)');
     const recTag = t('wifi_channel_non_overlapping', ' (Nem átfedő - Ajánlott)');
-    const notSupSuffix = ' (' + t('not_supported', 'Nem támogatott') + ')';
+    const notSupSuffix = ' (' + t('not_supported', 'Not supported') + ')';
     const caps = window._wifiCaps;
 
     let html = `<option value="0">${autoLabel}</option>`;

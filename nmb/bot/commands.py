@@ -40,9 +40,22 @@ import nmb.common.tasks as tasks
 import nmb.netd.guest_wifi as gw
 import nmb.common.backup as backup
 import nmb.netd.drivers as drivers
+import nmb.netd.tailscale as tailscale
+import nmb.netd.geoip as geoip
 import nmb.report.llm_bundle as llm_bundle
 
 log = logging.getLogger("nmb.bot.commands")
+
+MAIN_KEYBOARD = {
+    "keyboard": [
+        [{"text": "📊 Gyors Sebességmérés"}, {"text": "📈 NMHH Riport Letöltése"}],
+        [{"text": "📡 Ping & Telemetria"}, {"text": "🛡️ Reklámblokkoló"}],
+        [{"text": "🦎 Tailscale & VPN"}, {"text": "📶 Wi-Fi Kliensszonda"}],
+        [{"text": "⚙️ Rendszerállapot"}, {"text": "ℹ️ Parancsok & Súgó"}]
+    ],
+    "resize_keyboard": True,
+    "persistent": True
+}
 
 
 def format_bytes(num_bytes: int | float) -> str:
@@ -61,23 +74,46 @@ class CommandHandler:
         self.client = client
 
     def handle_command(self, chat_id: int, text: str) -> None:
-        parts = text.strip().split()
-        if not parts:
+        raw_text = text.strip()
+        if not raw_text:
             return
+
+        # Friendly Hungarian menu button aliases
+        menu_aliases = {
+            "📊 gyors sebességmérés": "/test",
+            "📊 gyorsmérés": "/test",
+            "📈 nmhh riport letöltése": "/report",
+            "📈 nmhh riport": "/report",
+            "📡 ping & telemetria": "/ping",
+            "🛡️ reklámblokkoló": "/adblock",
+            "🦎 tailscale & vpn": "/vpn",
+            "📶 wi-fi kliensszonda": "/wifi",
+            "⚙️ rendszerállapot": "/status",
+            "ℹ️ parancsok & súgó": "/help",
+            "ℹ️ menü": "/help",
+            "menü": "/help",
+            "menu": "/help",
+        }
+        if raw_text.lower() in menu_aliases:
+            raw_text = menu_aliases[raw_text.lower()]
+
+        parts = raw_text.split()
         cmd = parts[0].lower().split("@")[0]  # strip @bot_name if present
         args = parts[1:]
 
         # Dispatch table
-        if cmd in ("/start", "/help"):
+        if cmd in ("/start", "/help", "/menu"):
             self._cmd_help(chat_id)
         elif cmd == "/status":
             self._cmd_status(chat_id)
         elif cmd == "/ping":
             self._cmd_ping(chat_id)
-        elif cmd in ("/test", "/speedtest"):
+        elif cmd in ("/test", "/speedtest", "/speed"):
             self._cmd_test(chat_id, args)
-        elif cmd == "/report":
+        elif cmd in ("/report", "/nmhh", "/dossier"):
             self._cmd_report(chat_id)
+        elif cmd in ("/tailscale", "/mesh"):
+            self._cmd_tailscale(chat_id)
         elif cmd in ("/ai", "/diag", "/llm"):
             self._cmd_ai(chat_id)
         elif cmd == "/mode":
@@ -105,7 +141,8 @@ class CommandHandler:
         else:
             self.client.send_message(
                 chat_id,
-                f"Unknown command: <code>{html.escape(cmd)}</code>. Type /help to see all available commands."
+                f"Ismeretlen parancs: <code>{html.escape(cmd)}</code>. Nyomd meg a menü gombok egyikét vagy írd be a /help parancsot.",
+                reply_markup=MAIN_KEYBOARD
             )
 
     # =========================================================================
@@ -114,68 +151,46 @@ class CommandHandler:
 
     def _cmd_help(self, chat_id: int) -> None:
         box_id = html.escape(str(self.cfg.system.box_id))
-        msg = f"""<b>NetworkMeasureBox Management Bot</b>
-<i>Unit ID: {box_id}</i>
+        msg = f"""<b>NetworkMeasureBox Irányító Chatbot</b>
+<i>Eszközazonosító: {box_id}</i>
 
-<b>📡 Diagnostics & Network:</b>
-• /status - Mode, carrier link & 24h SLA summary
-• /ping - Real-time latency and packet loss across targets
-• /test <code>[ookla|cloudflare|rtr|iperf]</code> - Run bandwidth test
-• /report - Compile & receive 24h HTML telemetry dossier
-• /ai - Receive full AI LLM Diagnostic Bundle (.md)
-• /mode <code>[auto|standalone|mode_a|mode_b]</code> - View/switch mode
+<b>📡 Hálózati Mérések & Diagnosztika:</b>
+• /status - Rendszerállapot, Uptime, CPU és SLA megfelelőség
+• /ping - Valós idejű késleltetés és csomagvesztés referencia csomópontok felé
+• /test (vagy /speed) <code>[ookla|cloudflare|rtr]</code> - Sebességmérés futtatása
+• /report - 24 órás NMHH Szélessáv.net riport letöltése (.html fájl)
+• /ai - AI diagnosztikai naplócsomag letöltése LLM-ekhez (.md fájl)
+• /mode <code>[auto|standalone|mode_a|mode_b]</code> - Üzemmód váltás
 
-<b>🛡️ VPN Server (WireGuard & OpenVPN):</b>
-• /vpn - WireGuard & OpenVPN status & client count
-• /vpn clients - List connected clients, handshake & transfer
-• /vpn add <code>&lt;name&gt;</code> - Create WireGuard client + send QR & .conf!
-• /vpn conf <code>&lt;name&gt;</code> - Download .conf or .ovpn profile file
-• /vpn qr <code>&lt;name&gt;</code> - Receive QR code image for mobile pairing
-• /vpn start <code>[wg|ovpn]</code> / /vpn stop <code>[wg|ovpn]</code> - Toggle servers
-• /vpn del <code>&lt;name&gt;</code> - Delete/revoke client peer
+<b>🛡️ Biztonság, VPN & Tailscale:</b>
+• /tailscale - Tailscale mesh VPN állapot, WebGUI link & belépés
+• /vpn - WireGuard & OpenVPN állapot és kliensek
+• /vpn clients - Csatlakozott kliensek és adatforgalom
+• /vpn add <code>&lt;név&gt;</code> - Új WireGuard kliens + azonnali QR kód és .conf!
+• /vpn qr <code>&lt;név&gt;</code> - QR kód újraküldése mobil párosításhoz
+• /vpn conf <code>&lt;név&gt;</code> - Konfigurációs profil letöltése
 
-<b>🦆 Dynamic DNS (DuckDNS):</b>
-• /dyndns (or /duckdns) - Status, public IP & sync countdown
-• /dyndns update - Force immediate DynDNS synchronization
-• /dyndns interval <code>&lt;minutes&gt;</code> - Change update interval (e.g. 5)
-• /dyndns on | /dyndns off - Toggle background updater
-• /dyndns domain <code>&lt;subdomain&gt;</code> - Set DuckDNS subdomain
-• /dyndns token <code>&lt;token&gt;</code> - Set DuckDNS account token
+<b>🦆 Dinamikus DNS (DuckDNS / dynv6):</b>
+• /dyndns - DynDNS státusz, nyilvános IP és frissítési visszaszámláló
+• /dyndns update - Azonnali kézi szinkronizáció
 
-<b>🛡️ DNS Ad-Blocker (Pi-hole Sinkhole):</b>
-• /adblock - Sinkhole status, blocked queries today, gravity size
-• /adblock on / /adblock off - Enable or disable ad blocking
-• /adblock block <code>&lt;domain&gt;</code> - Add domain to custom blacklist
-• /adblock unblock <code>&lt;domain&gt;</code> - Remove from blacklist / whitelist
-• /adblock update - Trigger Gravity blocklist update
-• /adblock guide - View router DHCP DNS setup instructions
+<b>🛡️ DNS Reklámblokkoló (Pi-hole Sinkhole):</b>
+• /adblock - Blokkolt hirdetések, Gravity adatbázis és arány
+• /adblock on | /adblock off - Reklámblokkolás ki/be kapcsolása
+• /adblock block <code>&lt;domain&gt;</code> - Domain tiltása
+• /adblock unblock <code>&lt;domain&gt;</code> - Domain engedélyezése
+• /adblock update - Gravitáció blokklisták letöltése és frissítése
 
-<b>🩺 Self-Healing & System Health:</b>
-• /heal - Audit daemons, database, services, and disk
-• /heal fix <code>[tier]</code> - Trigger automated self-healing repair
-• /heal updates - Check for verified stable system updates
-• /heal apply - Apply stable update with safety rollback
+<b>📶 Wi-Fi & Vendég Wi-Fi Szonda:</b>
+• /wifi - Wi-Fi szonda telemetria, jelerősség és izolációs riasztás
+• /wifi scan - Környező 2.4/5 GHz-es Wi-Fi hálózatok keresése
 
-<b>📊 System Tasks & Resource Load:</b>
-• /tasks (or /top) - CPU, RAM, Disk, Temp, and top processes
-• /kill <code>&lt;pid&gt; [signal]</code> - Terminate rogue process
-
-<b>📶 Wi-Fi & Guest Wi-Fi Station:</b>
-• /wifi - AP status & guest Wi-Fi probe telemetry
-• /wifi scan - Scan nearby wireless networks
-• /wifi connect <code>&lt;ssid&gt; [password]</code> - Connect guest probe
-• /wifi saved - View saved Wi-Fi profiles
-
-<b>📦 Backups & Recovery:</b>
-• /backup - List locally stored system backup archives
-• /backup create <code>[label]</code> - Create atomic checkpoint backup
-• /backup send <code>&lt;filename&gt;</code> - Download .tar.gz archive via Telegram
-
-<b>🔧 Hardware & Power:</b>
-• /drivers - Detected network controllers and driver status
-• /reboot <code>now</code> - Safely reboot NetworkMeasureBox
+<b>⚙️ Rendszer & Erőforrások:</b>
+• /tasks (vagy /top) - CPU, RAM, Disk, Hőmérséklet és top folyamatok
+• /heal - Autonóm öngyógyító és hibajavító alrendszer
+• /reboot - Eszköz biztonságos újraindítása
 """
-        self.client.send_message(chat_id, msg)
+        self.client.send_message(chat_id, msg, reply_markup=MAIN_KEYBOARD)
 
     # =========================================================================
     # 2. Status & Network Telemetry
@@ -196,7 +211,14 @@ class CommandHandler:
             wan_carrier = "UP" if interfaces.get_carrier(self.cfg.network.wan_interface) else "DOWN"
             lan_carrier = "UP" if interfaces.get_carrier(self.cfg.network.lan_interface) else "DOWN"
 
-            # Check VPN & Adblock quick states safely
+            # Check Tailscale status
+            try:
+                ts_stat = tailscale.get_tailscale_status()
+                ts_badge = f"🟢 UP ({ts_stat.get('tailscale_ip', '--')})" if ts_stat.get("logged_in") else ("🟡 LOGIN REQ" if ts_stat.get("auth_url") else "⚫ STOPPED")
+            except Exception:
+                ts_badge = "⚫ N/A"
+
+            # Check WireGuard & Adblock quick states safely
             try:
                 wg_stat = wg.get_wireguard_status(port=self.cfg.wireguard.port, subnet=self.cfg.wireguard.subnet)
             except Exception:
@@ -210,25 +232,47 @@ class CommandHandler:
             wg_badge = "🟢 UP" if wg_stat.get("active") else "⚫ STOPPED"
             ab_badge = f"🟢 ON ({ab_stat.get('domains_on_blocklist', 0):,} domains)" if ab_stat.get("enabled") else "🔴 OFF"
 
-            msg = f"""<b>System Status & Health</b> [<code>{html.escape(self.cfg.system.box_id)}</code>]
+            # Determine client IP and ISP
+            client_ip = "--"
+            try:
+                dual = interfaces.get_dual_stack_ips()
+                client_ip = dual.get("public_ipv4") or dual.get("ipv4") or "--"
+            except Exception:
+                pass
+            isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
 
-<b>Operational Mode:</b> <code>{active_mode}</code>
-<b>Physical Links:</b> WAN ({html.escape(self.cfg.network.wan_interface)}): <b>{wan_carrier}</b> | LAN ({html.escape(self.cfg.network.lan_interface)}): <b>{lan_carrier}</b>
-<b>Active Gateway IF:</b> <code>{html.escape(wan_iface)}</code>
+            latest_st = rep.speed_tests[0] if rep.speed_tests else {}
+            st_down = f"{latest_st.get('down_mbps', 0):.1f} Mb/s" if latest_st.get("down_mbps") else "--"
+            st_up = f"{latest_st.get('up_mbps', 0):.1f} Mb/s" if latest_st.get("up_mbps") else "--"
 
-<b>24h Availability:</b> <b>{rep.uptime_pct:.2f}%</b> ({len(rep.outages)} outages)
-<b>Packet Loss:</b> <b>{rep.ping_summary.loss_pct:.2f}%</b>
-<b>Mean Latency:</b> {rep.ping_summary.rtt_avg_ms or '-'} ms (P95: {rep.ping_summary.rtt_p95_ms or '-'} ms)
-<b>SLA Verdict:</b> <b>{html.escape(str(rep.sla_verdict))}</b>
+            msg = f"""<b>📊 NetworkMeasureBox Rendszerállapot</b> [<code>{html.escape(self.cfg.system.box_id)}</code>]
 
-<b>Security & Services:</b>
+🌐 <b>Nyilvános IP:</b> <code>{html.escape(client_ip)}</code>
+🏢 <b>Szolgáltató (ISP):</b> <b>{html.escape(isp_name)}</b>
+⚙️ <b>Üzemmód:</b> <code>{active_mode}</code> (WAN: <b>{wan_carrier}</b> | LAN: <b>{lan_carrier}</b>)
+
+📈 <b>24h Rendelkezésre állás:</b> <b>{rep.uptime_pct:.2f}%</b> ({len(rep.outages)} kiesés)
+⏱️ <b>Késleltetés (RTT):</b> {rep.ping_summary.rtt_avg_ms or '-'} ms (Jitter: {rep.ping_summary.jitter_avg_ms or '-'} ms)
+📉 <b>Csomagvesztés:</b> <b>{rep.ping_summary.loss_pct:.2f}%</b>
+⚖️ <b>SLA Hatósági Minősítés:</b> <b>{html.escape(str(rep.sla_verdict))}</b> (Megfelelőség: {rep.speed_summary.sla_compliance_pct:.0f}%)
+🚀 <b>Legutóbbi Sebesség:</b> ↓ <b>{st_down}</b> | ↑ <b>{st_up}</b>
+
+🛡️ <b>Szolgáltatások & Biztonság:</b>
+• Tailscale Mesh VPN: <b>{ts_badge}</b>
 • WireGuard VPN: <b>{wg_badge}</b>
-• DNS Ad-Blocker: <b>{ab_badge}</b>
+• DNS Reklámblokkoló: <b>{ab_badge}</b>
 """
-            self.client.send_message(chat_id, msg)
+            inline_status = {
+                "inline_keyboard": [
+                    [{"text": "📊 Gyorsmérés", "callback_data": "/test"}, {"text": "📈 NMHH Riport", "callback_data": "/report"}],
+                    [{"text": "📡 Ping Részletek", "callback_data": "/ping"}, {"text": "⚙️ Erőforrások (Top)", "callback_data": "/tasks"}],
+                    [{"text": "🦎 Tailscale", "callback_data": "/tailscale"}, {"text": "🛡️ Reklámblokkoló", "callback_data": "/adblock"}]
+                ]
+            }
+            self.client.send_message(chat_id, msg, reply_markup=inline_status)
         except Exception as e:
             log.error("error in /status: %s", e)
-            self.client.send_message(chat_id, f"Error generating status: {html.escape(str(e))}")
+            self.client.send_message(chat_id, f"Error generating status: {html.escape(str(e))}", reply_markup=MAIN_KEYBOARD)
 
     def _cmd_ping(self, chat_id: int) -> None:
         try:
@@ -245,23 +289,30 @@ class CommandHandler:
             ).fetchall()
             conn.close()
 
-            lines = ["<b>Real-Time Probe Latency (Past 60s):</b>\n"]
+            lines = ["<b>📡 Valós Idejű Válaszidő & Csomagvesztés (Elmúlt 60 mp):</b>\n"]
             for r in rows:
                 cnt = r["count"]
                 lost = r["lost"]
                 loss_pct = (lost / cnt * 100.0) if cnt > 0 else 0.0
-                avg_ms = f"{(r['avg_us'] / 1000.0):.1f} ms" if r["avg_us"] else "No Reply"
-                loss_str = f"loss: {loss_pct:.0f}%"
+                avg_ms = f"{(r['avg_us'] / 1000.0):.1f} ms" if r["avg_us"] else "Nincs válasz"
+                loss_str = f"vesztés: {loss_pct:.0f}%"
                 lines.append(f"• <b>{html.escape(r['label'])}</b> (<code>{html.escape(r['addr'])}</code>): <b>{avg_ms}</b> ({loss_str})")
 
-            self.client.send_message(chat_id, "\n".join(lines))
+            inline_ping = {
+                "inline_keyboard": [
+                    [{"text": "🔄 Frissítés (Ping)", "callback_data": "/ping"}, {"text": "🚀 Sebességmérés", "callback_data": "/test"}],
+                    [{"text": "📊 Rendszerállapot", "callback_data": "/status"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                ]
+            }
+            self.client.send_message(chat_id, "\n".join(lines), reply_markup=inline_ping)
         except Exception as e:
-            self.client.send_message(chat_id, f"Error querying pings: {html.escape(str(e))}")
+            self.client.send_message(chat_id, f"Ping lekérdezési hiba: {html.escape(str(e))}")
 
     def _cmd_test(self, chat_id: int, args: list[str]) -> None:
         engine = args[0].lower() if args else None
-        engine_str = f" using <b>{html.escape(engine.upper())}</b>" if engine else ""
-        self.client.send_message(chat_id, f"<i>Initiating bandwidth speedtest{engine_str}... (may take up to 25 seconds)</i>")
+        engine_str = f" (Motor: <b>{html.escape(engine.upper())}</b>)" if engine else ""
+        self.client.send_chat_action(chat_id, "typing")
+        self.client.send_message(chat_id, f"<i>🚀 Sebességmérés indítása{engine_str}... Kérlek várj kb. 15-25 másodpercet!</i>")
         try:
             ok = run_measurement_cycle(
                 self.cfg,
@@ -273,55 +324,143 @@ class CommandHandler:
 
             conn = db.connect(readonly=True)
             row = conn.execute(
-                """SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine
+                """SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine, error
                    FROM speedtest ORDER BY ts DESC LIMIT 1"""
             ).fetchone()
             conn.close()
 
             if not row or row["status"] != "ok":
-                self.client.send_message(chat_id, "⚠️ Speedtest failed or was deferred.")
+                err = row["error"] if row and row["error"] else "Mérés meghiúsult vagy elhalasztva."
+                self.client.send_message(chat_id, f"⚠️ Sebességmérés hiba: {html.escape(str(err))}")
                 return
 
             down_mbps = (row["down_bps"] or 0) / 1_000_000.0
             up_mbps = (row["up_bps"] or 0) / 1_000_000.0
             ping_ms = (row["ping_us"] or 0) / 1000.0
+            jitter_ms = (row["jitter_us"] or 0) / 1000.0
 
-            down_compliance = (down_mbps / self.cfg.isp.contract_down_mbps) * 100.0 if self.cfg.isp.contract_down_mbps else 0.0
-            up_compliance = (up_mbps / self.cfg.isp.contract_up_mbps) * 100.0 if self.cfg.isp.contract_up_mbps else 0.0
+            # Resolving IP and ISP
+            client_ip = "--"
+            try:
+                dual = interfaces.get_dual_stack_ips()
+                client_ip = dual.get("public_ipv4") or dual.get("ipv4") or "--"
+            except Exception:
+                pass
+            isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
 
-            active_engine = (row["engine"] if "engine" in row.keys() else engine) or "Ookla"
+            c_down = self.cfg.isp.contract_down_mbps or 1000.0
+            c_up = self.cfg.isp.contract_up_mbps or 300.0
+            g_down = self.cfg.isp.guaranteed_down_mbps or (c_down * 0.8)
+            g_up = self.cfg.isp.guaranteed_up_mbps or (c_up * 0.8)
 
-            msg = f"""<b>Speedtest Results ({html.escape(str(active_engine)).upper()}):</b>
+            down_compliance = (down_mbps / c_down) * 100.0 if c_down else 0.0
+            up_compliance = (up_mbps / c_up) * 100.0 if c_up else 0.0
 
-<b>Download:</b> <b>{down_mbps:.1f} Mbps</b> ({down_compliance:.0f}% of plan)
-<b>Upload:</b> <b>{up_mbps:.1f} Mbps</b> ({up_compliance:.0f}% of plan)
-<b>Latency:</b> {ping_ms:.1f} ms (jitter: {(row['jitter_us'] or 0)/1000.0:.1f} ms)
-<b>Server:</b> {html.escape(str(row['server_name'] or 'Edge Mirror'))}
+            # NMHH Status Code calculation
+            if down_mbps >= g_down and up_mbps >= g_up:
+                nmhh_code = 1
+                nmhh_text = "1: Sikeres mérés (Megfelel a garantált értékeknek)"
+                nmhh_badge = "🟢 MEGFELELŐ"
+            elif down_mbps < g_down and up_mbps < g_up:
+                nmhh_code = 6
+                nmhh_text = "6: Letöltés és feltöltés elmaradás a garantált értéktől"
+                nmhh_badge = "🔴 NEM MEGFELELŐ"
+            elif down_mbps < g_down:
+                nmhh_code = 14
+                nmhh_text = "14: Letöltés elmaradás a garantált értéktől"
+                nmhh_badge = "🟡 LETÖLTÉS HIBA"
+            else:
+                nmhh_code = 15
+                nmhh_text = "15: Feltöltés elmaradás a garantált értéktől"
+                nmhh_badge = "🟡 FELTÖLTÉS HIBA"
+
+            active_engine = (row["engine"] if "engine" in row.keys() else engine) or "RTR-NetTest"
+
+            msg = f"""<b>📊 Sebességmérés Eredmény ({html.escape(str(active_engine)).upper()})</b>
+
+🌐 <b>Nyilvános IP:</b> <code>{html.escape(client_ip)}</code>
+🏢 <b>Szolgáltató (ISP):</b> <b>{html.escape(isp_name)}</b>
+
+📥 <b>Letöltés:</b> <b>{down_mbps:.1f} Mbps</b> ({down_compliance:.0f}% a szerződöttből | Min: {g_down:.0f} Mbps)
+📤 <b>Feltöltés:</b> <b>{up_mbps:.1f} Mbps</b> ({up_compliance:.0f}% a szerződöttből | Min: {g_up:.0f} Mbps)
+⏱️ <b>Késleltetés:</b> {ping_ms:.1f} ms (Jitter: {jitter_ms:.1f} ms)
+🖥️ <b>Mérőszerver:</b> {html.escape(str(row['server_name'] or 'Edge Server'))}
+
+⚖️ <b>NMHH Minősítés:</b> {nmhh_badge}
+<i>{nmhh_text}</i>
 """
-            self.client.send_message(chat_id, msg)
+            inline_kb = {
+                "inline_keyboard": [
+                    [{"text": "🔄 RTR-NetTest", "callback_data": "/test rtr"}, {"text": "⚡ Ookla", "callback_data": "/test ookla"}, {"text": "☁️ Cloudflare", "callback_data": "/test cloudflare"}],
+                    [{"text": "📈 NMHH Riport (.html)", "callback_data": "/report"}, {"text": "📊 Rendszerállapot", "callback_data": "/status"}]
+                ]
+            }
+            self.client.send_message(chat_id, msg, reply_markup=inline_kb)
         except Exception as e:
-            self.client.send_message(chat_id, f"Speedtest error: {html.escape(str(e))}")
+            self.client.send_message(chat_id, f"Sebességmérés hiba: {html.escape(str(e))}")
 
     def _cmd_report(self, chat_id: int) -> None:
-        self.client.send_message(chat_id, "<i>Compiling 24-hour telemetry dossier and charts...</i>")
+        self.client.send_chat_action(chat_id, "upload_document")
+        self.client.send_message(chat_id, "<i>📊 24 órás NMHH Szélessáv.net hitelesített vizsgálati jegyzőkönyv generálása...</i>")
         try:
             conn = db.connect()
             report = aggregate_report_data(conn, self.cfg, window_hours=24.0)
             conn.close()
 
             html_doc = generate_html_dossier(report)
-            filename = f"dossier_{self.cfg.system.box_id}_{int(time.time())}.html"
+            date_str = time.strftime('%Y%m%d_%H%M%S')
+            filename = f"NMHH_Szelessav_Riport_{self.cfg.system.box_id}_{date_str}.html"
 
             caption = (
-                f"<b>Network Telemetry Dossier (24h)</b>\n"
-                f"SLA Verdict: <b>{html.escape(str(report.sla_verdict))}</b> | Availability: <b>{report.uptime_pct:.2f}%</b>"
+                f"<b>📋 NMHH Szélessáv.net Vizsgálati Jegyzőkönyv (24h)</b>\n"
+                f"Eszköz: <code>{html.escape(self.cfg.system.box_id)}</code> | Szolgáltató: <b>{html.escape(report.isp_name)}</b>\n"
+                f"Hatósági minősítés: <b>{html.escape(str(report.sla_verdict))}</b>\n"
+                f"SLA Megfelelőség: <b>{report.speed_summary.sla_compliance_pct:.0f}%</b> | Elérhetőség: <b>{report.uptime_pct:.2f}%</b>"
             )
 
             ok = self.client.send_document(chat_id, filename, html_doc.encode("utf-8"), caption=caption)
             if not ok:
-                self.client.send_message(chat_id, "Dossier compiled, but sending attachment failed.")
+                self.client.send_message(chat_id, "A jegyzőkönyv elkészült, de a fájlküldés nem sikerült.")
         except Exception as e:
-            self.client.send_message(chat_id, f"Report compilation error: {html.escape(str(e))}")
+            self.client.send_message(chat_id, f"Riport generálási hiba: {html.escape(str(e))}")
+
+    def _cmd_tailscale(self, chat_id: int) -> None:
+        try:
+            ts_stat = tailscale.get_tailscale_status()
+            logged_in = ts_stat.get("logged_in", False)
+            ts_ip = ts_stat.get("tailscale_ip", "--")
+            magic_dns = ts_stat.get("magic_dns", "--")
+            auth_url = ts_stat.get("auth_url")
+            backend_state = ts_stat.get("backend_state", "Unknown")
+
+            if logged_in:
+                badge = "🟢 AKTÍV ÉS CSATLAKOZVA"
+                status_desc = f"A mérődoboz sikeresen csatlakozott a Tailscale hálózathoz. Bárhonnan biztonságosan elérheted a WebGUI-t ezen az IP-n:\n👉 <code>http://{ts_ip}:8080</code>"
+            elif auth_url:
+                badge = "🟡 HITELESÍTÉS SZÜKSÉGES"
+                status_desc = f"Az eszköz vár a hitelesítésre. Nyisd meg a linket a jóváhagyáshoz:\n👉 <a href=\"{auth_url}\">{auth_url}</a>"
+            else:
+                badge = f"⚫ INAKTÍV ({backend_state})"
+                status_desc = "A Tailscale jelenleg nincs csatlakoztatva vagy nincs bejelentkezve."
+
+            msg = f"""<b>🦎 Tailscale Mesh VPN Állapot</b>
+
+• Állapot: <b>{badge}</b>
+• Tailscale IP: <code>{html.escape(ts_ip)}</code>
+• MagicDNS Név: <code>{html.escape(magic_dns)}</code>
+• Szerepkör: Adminisztráció & WebGUI távoli elérés (nem NAT-ol vagy irányít át internet forgalmat)
+
+{status_desc}
+"""
+            buttons = []
+            if auth_url:
+                buttons.append([{"text": "🔑 Hitelesítés Megnyitása", "url": auth_url}])
+            buttons.append([{"text": "🔄 Frissítés", "callback_data": "/tailscale"}, {"text": "📊 Rendszerállapot", "callback_data": "/status"}])
+            buttons.append([{"text": "🛡️ VPN Hub (WireGuard)", "callback_data": "/vpn"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}])
+
+            self.client.send_message(chat_id, msg, reply_markup={"inline_keyboard": buttons})
+        except Exception as e:
+            self.client.send_message(chat_id, f"Tailscale lekérdezési hiba: {html.escape(str(e))}")
 
     def _cmd_ai(self, chat_id: int) -> None:
         self.client.send_message(chat_id, "<i>Generating AI LLM Diagnostic Markdown Bundle...</i>")
@@ -469,7 +608,13 @@ class CommandHandler:
 • <code>/vpn add &lt;name&gt;</code> - Generate new peer with instant QR & .conf
 • <code>/vpn qr &lt;name&gt;</code> - Receive QR code image for phone pairing
 """
-            self.client.send_message(chat_id, msg)
+            inline_vpn = {
+                "inline_keyboard": [
+                    [{"text": "👥 Kliensek Listája", "callback_data": "/vpn clients"}, {"text": "🦎 Tailscale Állapot", "callback_data": "/tailscale"}],
+                    [{"text": "📊 Rendszerállapot", "callback_data": "/status"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                ]
+            }
+            self.client.send_message(chat_id, msg, reply_markup=inline_vpn)
         except Exception as e:
             self.client.send_message(chat_id, f"Error getting VPN status: {html.escape(str(e))}")
 
@@ -989,7 +1134,14 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
 • <code>/adblock update</code> - Update Gravity ad sources
 • <code>/adblock guide</code> - Show router DHCP DNS instructions
 """
-            self.client.send_message(chat_id, msg)
+            inline_ab = {
+                "inline_keyboard": [
+                    [{"text": "🟢 Bekapcsolás" if not is_enabled else "🔴 Kikapcsolás", "callback_data": "/adblock off" if is_enabled else "/adblock on"},
+                     {"text": "🔄 Blokklisták Frissítése", "callback_data": "/adblock update"}],
+                    [{"text": "📊 Rendszerállapot", "callback_data": "/status"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                ]
+            }
+            self.client.send_message(chat_id, msg, reply_markup=inline_ab)
         except Exception as e:
             self.client.send_message(chat_id, f"Error getting adblock status: {html.escape(str(e))}")
 
@@ -1161,7 +1313,13 @@ System safely restored to checkpoint: <code>{html.escape(res.get('checkpoint', '
 
 To kill a stuck process: <code>/kill &lt;pid&gt;</code>
 """
-            self.client.send_message(chat_id, msg)
+            inline_tasks = {
+                "inline_keyboard": [
+                    [{"text": "🔄 Frissítés", "callback_data": "/tasks"}, {"text": "📊 Rendszerállapot", "callback_data": "/status"}],
+                    [{"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                ]
+            }
+            self.client.send_message(chat_id, msg, reply_markup=inline_tasks)
         except Exception as e:
             self.client.send_message(chat_id, f"Error getting tasks: {html.escape(str(e))}")
 
@@ -1239,7 +1397,13 @@ Status: <b>{badge}</b>
 • <code>/wifi connect &lt;ssid&gt; [pw]</code> - Connect to target network
 • <code>/wifi saved</code> - List saved Wi-Fi connection profiles
 """
-            self.client.send_message(chat_id, msg)
+            inline_wifi = {
+                "inline_keyboard": [
+                    [{"text": "🔍 Wi-Fi Keresés", "callback_data": "/wifi scan"}, {"text": "🔄 Szonda Frissítés", "callback_data": "/wifi"}],
+                    [{"text": "📊 Rendszerállapot", "callback_data": "/status"}, {"text": "🏠 Főmenü", "callback_data": "/menu"}]
+                ]
+            }
+            self.client.send_message(chat_id, msg, reply_markup=inline_wifi)
         except Exception as e:
             self.client.send_message(chat_id, f"Error getting Wi-Fi status: {html.escape(str(e))}")
 

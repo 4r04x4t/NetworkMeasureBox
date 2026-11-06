@@ -20,8 +20,15 @@ class MockTelegramClient:
         self.sent_documents = []
         self.sent_photos = []
 
-    def send_message(self, chat_id: int, text: str, parse_mode: str = "HTML") -> bool:
+    def send_message(self, chat_id: int, text: str, parse_mode: str = "HTML", reply_markup: dict = None) -> bool:
         self.sent_messages.append((chat_id, text, parse_mode))
+        self.last_reply_markup = reply_markup
+        return True
+
+    def send_chat_action(self, chat_id: int, action: str = "typing") -> bool:
+        return True
+
+    def answer_callback_query(self, callback_query_id: str, text: str = None, show_alert: bool = False) -> bool:
         return True
 
     def send_document(self, chat_id: int, filename: str, content: bytes, caption: str = "") -> bool:
@@ -83,7 +90,8 @@ class TestTelegramBot(unittest.TestCase):
         self.assertEqual(len(self.mock_client.sent_messages), 1)
         chat_id, text, _ = self.mock_client.sent_messages[0]
         self.assertEqual(chat_id, 999999)
-        self.assertIn("NetworkMeasureBox Management Bot", text)
+        self.assertIn("NetworkMeasureBox", text)
+        self.assertIn("test-box-01", text)
         self.assertIn("/vpn", text)
         self.assertIn("/adblock", text)
         self.assertIn("/heal", text)
@@ -93,15 +101,14 @@ class TestTelegramBot(unittest.TestCase):
         self.handler.handle_command(999999, "/status")
         self.assertEqual(len(self.mock_client.sent_messages), 1)
         _, text, _ = self.mock_client.sent_messages[0]
-        self.assertIn("System Status & Health", text)
-        self.assertIn("Operational Mode:", text)
-        self.assertIn("Security & Services:", text)
+        self.assertTrue("System Status" in text or "Rendszerállapot" in text)
+        self.assertTrue("Üzemmód" in text or "Mode" in text)
 
     def test_ping_command(self):
         self.handler.handle_command(999999, "/ping")
         self.assertEqual(len(self.mock_client.sent_messages), 1)
         _, text, _ = self.mock_client.sent_messages[0]
-        self.assertIn("Real-Time Probe Latency", text)
+        self.assertTrue("Valós Idejű" in text or "Real-Time Probe Latency" in text)
 
     @patch("nmb.bot.commands.run_measurement_cycle", return_value=True)
     def test_speedtest_command(self, mock_cycle):
@@ -121,7 +128,7 @@ class TestTelegramBot(unittest.TestCase):
         )
         self.assertEqual(len(self.mock_client.sent_messages), 2)
         _, result_text, _ = self.mock_client.sent_messages[1]
-        self.assertIn("Speedtest Results (CLOUDFLARE)", result_text)
+        self.assertTrue("CLOUDFLARE" in result_text)
         self.assertIn("500.0 Mbps", result_text)
         self.assertIn("100.0 Mbps", result_text)
 

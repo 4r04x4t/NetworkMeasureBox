@@ -58,14 +58,28 @@ class TelegramClient:
         res = self._request("getUpdates", payload, timeout=float(timeout + 5))
         return res if isinstance(res, list) else []
 
-    def send_message(self, chat_id: int, text: str, parse_mode: str = "HTML") -> bool:
+    def send_message(self, chat_id: int, text: str, parse_mode: str = "HTML", reply_markup: Optional[Dict[str, Any]] = None) -> bool:
         payload = {
             "chat_id": chat_id,
             "text": text,
             "parse_mode": parse_mode,
             "disable_web_page_preview": True,
         }
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
         res = self._request("sendMessage", payload, timeout=10.0)
+        return res is not None
+
+    def send_chat_action(self, chat_id: int, action: str = "typing") -> bool:
+        payload = {"chat_id": chat_id, "action": action}
+        res = self._request("sendChatAction", payload, timeout=5.0)
+        return res is not None
+
+    def answer_callback_query(self, callback_query_id: str, text: Optional[str] = None, show_alert: bool = False) -> bool:
+        payload = {"callback_query_id": callback_query_id, "show_alert": show_alert}
+        if text:
+            payload["text"] = text
+        res = self._request("answerCallbackQuery", payload, timeout=5.0)
         return res is not None
 
     def send_document(self, chat_id: int, filename: str, content: bytes, caption: str = "") -> bool:

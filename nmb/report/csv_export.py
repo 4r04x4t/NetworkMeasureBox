@@ -55,12 +55,12 @@ def export_ping_summary_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int
     return out.getvalue()
 
 
-def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, contract_down_mbps: float = 0.0, contract_up_mbps: float = 0.0) -> str:
+def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, contract_down_mbps: float = 0.0, contract_up_mbps: float = 0.0, default_isp: str = "") -> str:
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow([
         "timestamp_iso", "timestamp_ms", "trigger", "status", "engine", "colo", "connection_type",
-        "client_ip", "client_ipv6", "down_mbps", "up_mbps", "down_pct_of_offered", "up_pct_of_offered", "ping_ms", "jitter_ms", "loss_pct",
+        "client_ip", "client_ipv6", "isp_name", "down_mbps", "up_mbps", "down_pct_of_offered", "up_pct_of_offered", "ping_ms", "jitter_ms", "loss_pct",
         "bufferbloat_grade", "bufferbloat_delta_ms", "down_loaded_lat_ms", "up_loaded_lat_ms",
         "server_id", "server_name", "server_host", "server_location", "result_url", "error"
     ])
@@ -81,6 +81,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
         u_pct = round((u_mbps / contract_up_mbps) * 100.0, 1) if (contract_up_mbps > 0 and u_mbps is not None) else ""
 
         client_ipv6_val = r["client_ipv6"] if "client_ipv6" in r.keys() and r["client_ipv6"] else ""
+        isp = default_isp or "Unknown ISP"
 
         writer.writerow([
             _iso(r["ts"]),
@@ -92,6 +93,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
             r["connection_type"] or "",
             r["client_ip"] or "",
             client_ipv6_val,
+            isp,
             d_mbps if d_mbps is not None else "",
             u_mbps if u_mbps is not None else "",
             d_pct,
@@ -110,6 +112,83 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
             r["result_url"] or "",
             r["error"] or "",
         ])
+    return out.getvalue()
+
+
+def export_nmhh_speedtests_csv(
+    conn: sqlite3.Connection,
+    start_ms: int,
+    end_ms: int,
+    contract_down_mbps: float = 1000.0,
+    contract_up_mbps: float = 200.0,
+    guaranteed_down_mbps: float = 300.0,
+    guaranteed_up_mbps: float = 50.0,
+    default_isp: str = "DIGI Kft.",
+) -> str:
+    """Generate official NMHH Szélessáv.net semicolon-separated CSV export."""
+    out = io.StringIO()
+    # Semicolon delimited with UTF-8 BOM
+    out.write("\ufeff")
+    writer = csv.writer(out, delimiter=";")
+    writer.writerow([
+        "Időpont", "IP cím", "Szolgáltató", "Letöltés", "Letöltés %", "Feltöltés", "Feltöltés %", "Válaszidő", "Státusz"
+    ])
+
+    rows = conn.execute(
+        """SELECT ts, trigger, status, down_bps, up_bps, ping_us, jitter_us, client_ip, client_ipv6,
+                  connection_type, error
+           FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""",
+        (start_ms, end_ms)
+    ).fetchall()
+
+    for r in rows:
+        d_mbps = (r["down_bps"] or 0) / 1_000_000.0 if r["down_bps"] else None
+        u_mbps = (r["up_bps"] or 0) / 1_000_000.0 if r["up_bps"] else None
+        d_pct = round((d_mbps / contract_down_mbps) * 100.0) if (contract_down_mbps > 0 and d_mbps is not None) else 0
+        u_pct = round((u_mbps / contract_up_mbps) * 100.0) if (contract_up_mbps > 0 and u_mbps is not None) else 0
+        ping_ms = round(r["ping_us"] / 1000.0) if r["ping_us"] else 0
+
+        # Format datetime as YYYY-MM-DD HH:MM:SS
+        dt = datetime.datetime.fromtimestamp(r["ts"] / 1000.0, tz=datetime.timezone.utc)
+        dt_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        ip_str = r["client_ip"] or r["client_ipv6"] or "--"
+
+        # Determine NMHH Status code (1-15)
+        st_val = r["status"]
+        conn_tech = (r["connection_type"] or "").lower()
+        if st_val == "ok":
+            if conn_tech in ("wifi", "wlan", "guest_wifi"):
+                nmhh_code = 14
+            elif guaranteed_down_mbps > 0 and (d_mbps or 0) < guaranteed_down_mbps:
+                nmhh_code = 6
+            elif contract_down_mbps > 0 and (d_mbps or 0) < contract_down_mbps * 0.40:
+                nmhh_code = 6
+            else:
+                nmhh_code = 1
+        elif st_val == "skipped_busy":
+            nmhh_code = 9
+        elif st_val == "error":
+            err_str = str(r["error"] or "").lower()
+            nmhh_code = 7 if ("timeout" in err_str or "timed out" in err_str) else 12
+        else:
+            nmhh_code = 1
+
+        d_str = f"{d_mbps:.2f} Mb/s" if d_mbps is not None else "--"
+        u_str = f"{u_mbps:.2f} Mb/s" if u_mbps is not None else "--"
+
+        writer.writerow([
+            dt_str,
+            ip_str,
+            default_isp or "DIGI Kft.",
+            d_str,
+            f"{d_pct} %",
+            u_str,
+            f"{u_pct} %",
+            f"{ping_ms} ms",
+            nmhh_code,
+        ])
+
     return out.getvalue()
 
 
