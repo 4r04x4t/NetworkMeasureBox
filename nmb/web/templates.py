@@ -2450,6 +2450,47 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         align-items: center !important;
         word-break: normal !important;
       }
+      /* Responsive Charts on Mobile */
+      #speed-chart-container {
+        height: 280px !important;
+        min-height: 280px !important;
+        width: 100% !important;
+      }
+      #speed-chart-svg-wrap {
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+      }
+      #speed-chart-svg-wrap svg {
+        width: 100% !important;
+        height: 100% !important;
+        flex: 1 1 100% !important;
+        display: block !important;
+      }
+      #chart-latency {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: thin !important;
+        width: 100% !important;
+      }
+      #chart-latency svg, .nmb-svg {
+        min-width: 540px !important;
+        height: 220px !important;
+        display: block !important;
+      }
+      #adblock-timeline-chart-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: thin !important;
+        width: 100% !important;
+      }
+      #adblock-timeline-svg {
+        min-width: 540px !important;
+        height: 200px !important;
+      }
+      #subtab-content-vpnhub > div:first-child {
+        grid-template-columns: 1fr !important;
+      }
       .devlog-toolbar-left {
         width: 100% !important;
         flex-direction: column !important;
@@ -2458,16 +2499,25 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       .devlog-level-pills {
         display: flex !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
         gap: 6px !important;
         width: 100% !important;
+        padding: 4px 2px !important;
+      }
+      .devlog-level-pills::-webkit-scrollbar {
+        display: none !important;
       }
       .devlog-level-pills .lvl-btn {
-        flex: 1 1 auto !important;
+        flex-shrink: 0 !important;
+        flex-grow: 0 !important;
         white-space: nowrap !important;
+        word-break: normal !important;
         text-align: center !important;
         font-size: 11px !important;
-        padding: 5px 8px !important;
+        padding: 5px 10px !important;
       }
       #syslog-severity-select, #syslog-lines-select, #syslog-search-input {
         width: 100% !important;
@@ -2483,7 +2533,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       .devlog-toolbar-right button {
         flex: 1 1 auto !important;
       }
-      .app-tabs, .router-subnav {
+      .app-tabs, .router-subnav, .remote-subnav {
         display: flex !important;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
@@ -2492,7 +2542,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         max-width: 100% !important;
         scrollbar-width: none !important;
       }
-      .app-tab-btn, .router-subtab-btn {
+      .app-tab-btn, .router-subtab-btn, .remote-subtab-btn {
         flex-shrink: 0 !important;
         white-space: nowrap !important;
       }
@@ -2505,6 +2555,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
+        overflow-x: hidden !important;
       }
     }
 
@@ -2781,8 +2832,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/csv'">📡 Ping CSV Export</button>
         </div>
       </div>
-      <div id="chart-latency" style="background: #070d18; border-radius: 6px; padding: 12px; margin-bottom: 20px;">
-        <p style="text-align: center; color: var(--text-muted); padding: 40px;">Loading chart telemetry...</p>
+      <div id="chart-latency-container" style="background: #070d18; border-radius: 6px; padding: 12px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-size: 12px; font-weight: 600; color: #38bdf8;">📈 24h Késleltetés és Szakadás Telemetria</span>
+          <span class="mobile-hint-swipe" style="display: none; font-size: 11px; color: var(--text-muted);">↔️ Húzza el vízszintesen a teljes naphoz</span>
+        </div>
+        <div id="chart-latency" style="overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; width: 100%;">
+          <p style="text-align: center; color: var(--text-muted); padding: 40px;">Loading chart telemetry...</p>
+        </div>
       </div>
 
       <div class="section-subtitle">Monitored Reference Probe Endpoints</div>
@@ -2870,12 +2927,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         </div>
 
         <!-- SVG Container with dynamic Tooltip -->
-        <div id="speed-chart-container" style="position: relative; width: 100%; min-height: 250px; background: rgba(10, 15, 29, 0.7); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
-          <div id="speed-chart-svg-wrap" style="width: 100%; height: 100%; min-height: 250px;">
+        <div id="speed-chart-container" style="position: relative; width: 100%; height: 280px; min-height: 280px; background: rgba(10, 15, 29, 0.7); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+          <div id="speed-chart-svg-wrap" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
             <p style="text-align: center; color: var(--text-muted); padding: 50px;">Mérési adatok betöltése...</p>
           </div>
           <!-- Floating interactive tooltip -->
-          <div id="speed-chart-tooltip" style="display: none; position: absolute; pointer-events: none; z-index: 100; background: rgba(15, 23, 42, 0.95); border: 1px solid #38bdf8; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #f8fafc; box-shadow: 0 8px 24px rgba(0,0,0,0.6); backdrop-filter: blur(8px); min-width: 220px; transform: translate(-50%, -105%); transition: opacity 0.15s ease;">
+          <div id="speed-chart-tooltip" style="display: none; position: absolute; pointer-events: none; z-index: 100; background: rgba(15, 23, 42, 0.95); border: 1px solid #38bdf8; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #f8fafc; box-shadow: 0 8px 24px rgba(0,0,0,0.6); backdrop-filter: blur(8px); min-width: 200px; max-width: 320px; transition: opacity 0.15s ease;">
           </div>
         </div>
       </div>
@@ -3790,8 +3847,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div class="spinner-circle" style="margin: 0 auto 12px;"></div>
               <span style="color: var(--text-muted); font-size: 13px;">Loading measurement details from OONI probe...</span>
             </div>
-            <div id="ooni-measurements-container">
-              <table class="data-table" style="font-size: 12px;">
+            <div id="ooni-measurements-container" class="data-table-wrap">
+              <table class="data-table" style="font-size: 12px; min-width: 600px;">
                 <thead>
                   <tr>
                     <th>Target URL / Input</th>
@@ -3843,14 +3900,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <!-- Remote Subtabs -->
-      <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap;">
-        <button id="btn-subtab-vpnhub" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('vpnhub')" data-i18n="subtab_vpnhub">🛡️ PiVPN Hub</button>
-        <button id="btn-subtab-tailscale" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('tailscale')" data-i18n="subtab_tailscale">🦎 Tailscale (Mesh)</button>
-        <button id="btn-subtab-guide" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('guide')" data-i18n="subtab_guide">🌐 Port Forwarding Guide</button>
-        <button id="btn-subtab-wireguard" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('wireguard')" data-i18n="subtab_wireguard">🛡️ WireGuard Server</button>
-        <button id="btn-subtab-openvpn" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('openvpn')" data-i18n="subtab_openvpn">🔒 OpenVPN Server</button>
-        <button id="btn-subtab-duckdns" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('duckdns')" data-i18n="subtab_duckdns">🦆 DuckDNS (DynDNS)</button>
-        <button id="btn-subtab-proxy" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('proxy')" data-i18n="subtab_proxy">⚡ HTTPS Proxy</button>
+      <div class="remote-subnav" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap;">
+        <button id="btn-subtab-vpnhub" class="btn-primary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('vpnhub')" data-i18n="subtab_vpnhub">🛡️ PiVPN Hub</button>
+        <button id="btn-subtab-tailscale" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('tailscale')" data-i18n="subtab_tailscale">🦎 Tailscale (Mesh)</button>
+        <button id="btn-subtab-guide" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('guide')" data-i18n="subtab_guide">🌐 Port Forwarding Guide</button>
+        <button id="btn-subtab-wireguard" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('wireguard')" data-i18n="subtab_wireguard">🛡️ WireGuard Server</button>
+        <button id="btn-subtab-openvpn" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('openvpn')" data-i18n="subtab_openvpn">🔒 OpenVPN Server</button>
+        <button id="btn-subtab-duckdns" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('duckdns')" data-i18n="subtab_duckdns">🦆 DuckDNS (DynDNS)</button>
+        <button id="btn-subtab-proxy" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('proxy')" data-i18n="subtab_proxy">⚡ HTTPS Proxy</button>
       </div>
 
       <!-- SUBTAB 0: PIVPN HUB -->
@@ -4677,20 +4734,20 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
       <!-- Dedicated Guest Wi-Fi Receiver Status & Integration Banner -->
       <div id="explorer-guest-banner" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <span style="font-size: 24px;">📶</span>
-          <div>
-            <div style="font-weight: 700; font-size: 13.5px; color: #e9d5ff; display: flex; align-items: center; gap: 8px;">
-              <span data-i18n="explorer_guest_probe_title">Guest Wi-Fi Client Probe:</span>
-              <span id="explorer-guest-status-text" class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px;">Loading...</span>
+        <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1 1 280px; min-width: 0;">
+          <span style="font-size: 24px; flex-shrink: 0; margin-top: 2px;">📶</span>
+          <div style="min-width: 0; flex: 1 1 auto;">
+            <div style="font-weight: 700; font-size: 13.5px; color: #e9d5ff; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <span style="white-space: nowrap !important; flex-shrink: 0;" data-i18n="explorer_guest_probe_title">Guest Wi-Fi Client Probe:</span>
+              <span id="explorer-guest-status-text" class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px; white-space: normal !important; word-break: break-word !important; text-align: left; max-width: 100%;">Loading...</span>
             </div>
-            <div style="font-size: 12px; color: #d8b4fe; margin-top: 3px;" id="explorer-guest-details-text" data-i18n="explorer_guest_probe_desc">
+            <div style="font-size: 12px; color: #d8b4fe; margin-top: 4px; word-break: break-word;" id="explorer-guest-details-text" data-i18n="explorer_guest_probe_desc">
               Dual-homed: Wired eth0 connects to primary LAN, while wlan0 station connects to the isolated guest Wi-Fi.
             </div>
           </div>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(168, 85, 247, 0.5); color: #e9d5ff;" onclick="switchTab('tab-info'); switchRouterSubtab('rsub-guest');" data-i18n="explorer_guest_btn_settings">
+        <div style="display: flex; gap: 8px; flex-shrink: 0;">
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(168, 85, 247, 0.5); color: #e9d5ff; white-space: nowrap;" onclick="switchTab('tab-info'); switchRouterSubtab('rsub-guest');" data-i18n="explorer_guest_btn_settings">
             ⚙️ Guest Wi-Fi Settings & Scanner
           </button>
         </div>
@@ -9968,11 +10025,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       return;
     }
 
-    // Sort chronologically (oldest to newest) and take recent tests (up to 30)
-    const list = [...tests]
+    const container = document.getElementById('speed-chart-container');
+    const containerWidth = (container ? container.clientWidth : 0) || window.innerWidth || 800;
+    const isMobile = (window.innerWidth <= 768) || (containerWidth < 550);
+
+    // Sort chronologically (oldest to newest)
+    // On mobile screens, show the latest 14 data points for finger-friendly spacing (22-28px between points)
+    // On desktop screens, show up to 30 points
+    const sorted = [...tests]
       .filter(t => t && (t.status === 'ok' || t.down_bps || t.up_bps))
-      .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
-      .slice(-30);
+      .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+    const list = isMobile ? sorted.slice(-14) : sorted.slice(-30);
 
     if (list.length === 0) {
       wrap.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:240px; color:var(--text-muted); font-size:13px;">
@@ -9981,12 +10044,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       return;
     }
 
-    const W = 900;
-    const H = 250;
-    const padL = 60;
-    const padR = (mode === 'combined') ? 60 : 25;
-    const padT = 25;
-    const padB = 40;
+    const W = isMobile ? 480 : 900;
+    const H = isMobile ? 260 : 250;
+    const padL = isMobile ? (mode === 'latency' ? 46 : 44) : 60;
+    const padR = (mode === 'combined') ? (isMobile ? 46 : 60) : (isMobile ? 16 : 25);
+    const padT = isMobile ? 22 : 25;
+    const padB = isMobile ? 38 : 40;
     const chartW = W - padL - padR;
     const chartH = H - padT - padB;
 
@@ -10039,24 +10102,26 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       const y = padT + chartH - (i / steps) * chartH;
       svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-dasharray="3,3" />`;
       
+      const yFontSize = isMobile ? "12" : "10.5";
+      const yFontWeight = isMobile ? "600" : "normal";
       if (mode !== 'latency') {
         const valM = Math.round((maxMbps / steps) * i);
-        svg += `<text x="${padL - 8}" y="${y + 3.5}" fill="#38bdf8" font-size="10.5" text-anchor="end" font-family="monospace">${valM}M</text>`;
+        svg += `<text x="${padL - 6}" y="${y + 4}" fill="#38bdf8" font-size="${yFontSize}" font-weight="${yFontWeight}" text-anchor="end" font-family="monospace">${valM}M</text>`;
       } else {
         const valL = Math.round((maxLat / steps) * i);
-        svg += `<text x="${padL - 8}" y="${y + 3.5}" fill="#fbbf24" font-size="10.5" text-anchor="end" font-family="monospace">${valL}ms</text>`;
+        svg += `<text x="${padL - 6}" y="${y + 4}" fill="#fbbf24" font-size="${yFontSize}" font-weight="${yFontWeight}" text-anchor="end" font-family="monospace">${valL}ms</text>`;
       }
 
       if (mode === 'combined') {
         const valL = Math.round((maxLat / steps) * i);
-        svg += `<text x="${W - padR + 8}" y="${y + 3.5}" fill="#fbbf24" font-size="10.5" text-anchor="start" font-family="monospace">${valL}ms</text>`;
+        svg += `<text x="${W - padR + 6}" y="${y + 4}" fill="#fbbf24" font-size="${yFontSize}" font-weight="${yFontWeight}" text-anchor="start" font-family="monospace">${valL}ms</text>`;
       }
     }
 
     if (mode !== 'latency' && contractDown > 0 && contractDown <= maxMbps) {
       const yContract = padT + chartH - (contractDown / maxMbps) * chartH;
       svg += `<line x1="${padL}" y1="${yContract}" x2="${W - padR}" y2="${yContract}" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />`;
-      svg += `<text x="${W - padR - 6}" y="${yContract - 5}" fill="#ec4899" font-size="9.5" text-anchor="end" font-weight="600">SLA: ${contractDown}M</text>`;
+      svg += `<text x="${W - padR - 6}" y="${yContract - 5}" fill="#ec4899" font-size="${isMobile ? '10.5' : '9.5'}" text-anchor="end" font-weight="600">SLA: ${contractDown}M</text>`;
     }
 
     const n = list.length;
@@ -10079,6 +10144,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       ptsLat.push({ x, y: getYLat(lat), val: lat });
     });
 
+    const lineStroke = isMobile ? "3" : "2.5";
+    const latStroke = isMobile ? "2.5" : "2";
+
     if (mode !== 'latency' && ptsDown.length > 0) {
       let areaD = `M ${ptsDown[0].x},${padT + chartH} L ${ptsDown[0].x},${ptsDown[0].y}`;
       let lineD = `M ${ptsDown[0].x},${ptsDown[0].y}`;
@@ -10088,7 +10156,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       areaD += ` L ${ptsDown[ptsDown.length - 1].x},${padT + chartH} Z`;
       svg += `<path d="${areaD}" fill="url(#speedDownGrad)" />`;
-      svg += `<path d="${lineD}" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />`;
+      svg += `<path d="${lineD}" fill="none" stroke="#38bdf8" stroke-width="${lineStroke}" stroke-linejoin="round" stroke-linecap="round" />`;
     }
 
     if (mode !== 'latency' && ptsUp.length > 0) {
@@ -10100,7 +10168,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       areaU += ` L ${ptsUp[ptsUp.length - 1].x},${padT + chartH} Z`;
       svg += `<path d="${areaU}" fill="url(#speedUpGrad)" />`;
-      svg += `<path d="${lineU}" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />`;
+      svg += `<path d="${lineU}" fill="none" stroke="#34d399" stroke-width="${lineStroke}" stroke-linejoin="round" stroke-linecap="round" />`;
     }
 
     if (mode !== 'throughput' && ptsLat.length > 0) {
@@ -10109,10 +10177,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         lineL += ` L ${ptsLat[i].x},${ptsLat[i].y}`;
       }
       const latStrokeDash = (mode === 'combined') ? 'stroke-dasharray="4,3"' : '';
-      svg += `<path d="${lineL}" fill="none" stroke="#fbbf24" stroke-width="2" ${latStrokeDash} stroke-linejoin="round" stroke-linecap="round" />`;
+      svg += `<path d="${lineL}" fill="none" stroke="#fbbf24" stroke-width="${latStroke}" ${latStrokeDash} stroke-linejoin="round" stroke-linecap="round" />`;
     }
 
     svg += `<line id="speed-chart-crosshair" x1="0" y1="${padT}" x2="0" y2="${padT + chartH}" stroke="#64748b" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" pointer-events="none" />`;
+
+    const dotR = isMobile ? "4.5" : "3.5";
+    const dotStrkW = isMobile ? "2" : "1.5";
+    const labelInterval = isMobile ? Math.max(1, Math.floor(n / 4)) : Math.max(1, Math.floor(n / 6));
 
     list.forEach((item, idx) => {
       const x = getX(idx);
@@ -10120,20 +10192,21 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       const timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
       const dateStr = String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
 
-      const labelInterval = Math.max(1, Math.floor(n / 6));
       if (idx % labelInterval === 0 || idx === n - 1) {
-        svg += `<text x="${x}" y="${H - 14}" fill="#94a3b8" font-size="10" text-anchor="middle" font-family="monospace">${timeStr}</text>`;
-        svg += `<text x="${x}" y="${H - 3}" fill="#64748b" font-size="8.5" text-anchor="middle" font-family="monospace">${dateStr}</text>`;
+        const timeFontSize = isMobile ? "11.5" : "10";
+        const dateFontSize = isMobile ? "9.5" : "8.5";
+        svg += `<text x="${x}" y="${H - 14}" fill="#94a3b8" font-size="${timeFontSize}" font-weight="${isMobile ? '600' : 'normal'}" text-anchor="middle" font-family="monospace">${timeStr}</text>`;
+        svg += `<text x="${x}" y="${H - 3}" fill="#64748b" font-size="${dateFontSize}" text-anchor="middle" font-family="monospace">${dateStr}</text>`;
       }
 
       if (mode !== 'latency') {
-        svg += `<circle id="dot-down-${idx}" cx="${x}" cy="${ptsDown[idx].y}" r="3.5" fill="#38bdf8" stroke="#0a0f1d" stroke-width="1.5" pointer-events="none" />`;
+        svg += `<circle id="dot-down-${idx}" cx="${x}" cy="${ptsDown[idx].y}" r="${dotR}" fill="#38bdf8" stroke="#0a0f1d" stroke-width="${dotStrkW}" pointer-events="none" />`;
       }
       if (mode !== 'latency') {
-        svg += `<circle id="dot-up-${idx}" cx="${x}" cy="${ptsUp[idx].y}" r="3.5" fill="#34d399" stroke="#0a0f1d" stroke-width="1.5" pointer-events="none" />`;
+        svg += `<circle id="dot-up-${idx}" cx="${x}" cy="${ptsUp[idx].y}" r="${dotR}" fill="#34d399" stroke="#0a0f1d" stroke-width="${dotStrkW}" pointer-events="none" />`;
       }
       if (mode !== 'throughput') {
-        svg += `<circle id="dot-lat-${idx}" cx="${x}" cy="${ptsLat[idx].y}" r="3.5" fill="#fbbf24" stroke="#0a0f1d" stroke-width="1.5" pointer-events="none" />`;
+        svg += `<circle id="dot-lat-${idx}" cx="${x}" cy="${ptsLat[idx].y}" r="${dotR}" fill="#fbbf24" stroke="#0a0f1d" stroke-width="${dotStrkW}" pointer-events="none" />`;
       }
     });
 
@@ -10141,7 +10214,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     list.forEach((item, idx) => {
       const x = getX(idx);
       const hitX = (idx === 0) ? (x - padL) : (x - colStep / 2);
-      const hitW = (idx === 0 || idx === n - 1) ? (colStep / 2 + 10) : colStep;
+      const hitW = (idx === 0 || idx === n - 1) ? (colStep / 2 + 15) : colStep;
 
       svg += `<rect x="${hitX}" y="${padT}" width="${hitW}" height="${chartH}" fill="transparent" style="cursor:crosshair;"
         onmousemove="onSpeedChartHover(event, ${idx})"
@@ -10153,7 +10226,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     svg += `</svg>`;
     wrap.innerHTML = svg;
     window._currentSpeedChartList = list;
-    window._currentSpeedChartMeta = { W, H, padL, padR, padT, padB, chartW, chartH, n, getX };
+    window._currentSpeedChartMeta = { W, H, padL, padR, padT, padB, chartW, chartH, n, getX, isMobile };
   }
 
   function onSpeedChartHover(event, idx) {
@@ -10190,14 +10263,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       crosshair.setAttribute('opacity', '0.75');
     }
 
+    const activeR = meta.isMobile ? '7.5' : '6.5';
+    const normalR = meta.isMobile ? '4.5' : '3.5';
+
     for (let i = 0; i < meta.n; i++) {
       const dDot = document.getElementById('dot-down-' + i);
       const uDot = document.getElementById('dot-up-' + i);
       const lDot = document.getElementById('dot-lat-' + i);
       const isAct = (i === idx);
-      if (dDot) dDot.setAttribute('r', isAct ? '6.5' : '3.5');
-      if (uDot) uDot.setAttribute('r', isAct ? '6.5' : '3.5');
-      if (lDot) lDot.setAttribute('r', isAct ? '6.5' : '3.5');
+      if (dDot) dDot.setAttribute('r', isAct ? activeR : normalR);
+      if (uDot) uDot.setAttribute('r', isAct ? activeR : normalR);
+      if (lDot) lDot.setAttribute('r', isAct ? activeR : normalR);
     }
 
     const d = new Date(item.ts);
@@ -10248,14 +10324,24 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     const scaleX = rect.width / meta.W;
     const clientX = xPos * scaleX;
 
-    if (clientX > rect.width * 0.65) {
-      tooltip.style.transform = 'translate(-102%, -60%)';
+    if (rect.width < 500) {
+      tooltip.style.left = '50%';
+      tooltip.style.top = '10px';
+      tooltip.style.transform = 'translateX(-50%)';
+      tooltip.style.width = 'calc(100% - 20px)';
+      tooltip.style.maxWidth = '320px';
     } else {
-      tooltip.style.transform = 'translate(6%, -60%)';
+      tooltip.style.width = 'auto';
+      tooltip.style.maxWidth = '280px';
+      if (clientX > rect.width * 0.65) {
+        tooltip.style.transform = 'translate(-102%, -60%)';
+      } else {
+        tooltip.style.transform = 'translate(6%, -60%)';
+      }
+      tooltip.style.left = `${clientX}px`;
+      tooltip.style.top = '100px';
     }
 
-    tooltip.style.left = `${clientX}px`;
-    tooltip.style.top = '100px';
     tooltip.style.display = 'block';
   }
 
@@ -10267,13 +10353,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
     const meta = window._currentSpeedChartMeta;
     if (meta) {
+      const normalR = meta.isMobile ? '4.5' : '3.5';
       for (let i = 0; i < meta.n; i++) {
         const dDot = document.getElementById('dot-down-' + i);
         const uDot = document.getElementById('dot-up-' + i);
         const lDot = document.getElementById('dot-lat-' + i);
-        if (dDot) dDot.setAttribute('r', '3.5');
-        if (uDot) uDot.setAttribute('r', '3.5');
-        if (lDot) lDot.setAttribute('r', '3.5');
+        if (dDot) dDot.setAttribute('r', normalR);
+        if (uDot) uDot.setAttribute('r', normalR);
+        if (lDot) lDot.setAttribute('r', normalR);
       }
     }
   }
