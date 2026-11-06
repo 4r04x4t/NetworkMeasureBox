@@ -2446,11 +2446,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 18d. Telegram Chatbot & Alert Management
         if path == "/api/telegram/save":
             enabled = bool(body_json.get("enabled", False))
+            clear_token = bool(body_json.get("clear_token", False))
             token_in = str(body_json.get("token") or body_json.get("bot_token") or "").strip()
-            if token_in and not token_in.startswith("***") and "..." not in token_in:
-                self.server.cfg.telegram.token = token_in
-            elif not token_in and ("token" in body_json or "bot_token" in body_json):
+            if clear_token:
                 self.server.cfg.telegram.token = ""
+            elif token_in and not token_in.startswith("***") and "..." not in token_in:
+                self.server.cfg.telegram.token = token_in
+            # If token_in is empty and clear_token is False, preserve existing self.server.cfg.telegram.token
 
             chat_ids_raw = body_json.get("allowed_chat_ids", body_json.get("chat_ids", []))
             parsed_chats = []

@@ -165,6 +165,14 @@ class TestTailscaleAndTelegramUI(unittest.TestCase):
         self.assertIn('white-space: nowrap !important', html)
         self.assertIn('max-width: 100vw', html)
 
+    def test_telegram_token_input_protection(self):
+        """Verify dashboard HTML protects telegram token input from polling wipeout."""
+        html = get_dashboard_html()
+        self.assertIn('telegram-token-saved-badge', html)
+        self.assertIn('dataset.dirty', html)
+        self.assertIn('clearTelegramDirty', html)
+        self.assertIn('loadTelegramStatus(true)', html)
+
 
 if __name__ == "__main__":
     unittest.main()

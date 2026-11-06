@@ -7027,7 +7027,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
           <span id="telegram-main-badge" class="badge">Checking...</span>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTelegramStatus()" data-i18n="btn_refresh">🔄 Frissítés</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTelegramStatus(true)" data-i18n="btn_refresh">🔄 Frissítés</button>
         </div>
       </div>
 
@@ -7059,9 +7059,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </div>
 
           <div class="form-group" style="margin-bottom: 14px;">
-            <label class="form-label" style="font-size: 12px;" data-i18n="telegram_token">Telegram Bot API Token:</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label class="form-label" style="font-size: 12px; margin: 0;" data-i18n="telegram_token">Telegram Bot API Token:</label>
+              <span id="telegram-token-saved-badge" class="badge" style="display: none; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 10px;">Token elmentve</span>
+            </div>
             <div style="display: flex; gap: 6px;">
-              <input type="password" id="telegram-cfg-token" class="form-input" style="font-size: 13px; font-family: monospace; flex: 1;" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+              <input type="password" id="telegram-cfg-token" class="form-input" style="font-size: 13px; font-family: monospace; flex: 1;" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" autocomplete="off" spellcheck="false">
               <button class="btn-secondary" style="font-size: 12px; padding: 6px 10px;" type="button" onclick="toggleTelegramTokenVisibility()">👁️</button>
             </div>
             <div class="form-hint" style="font-size: 11px;">A @BotFather által kiadott titkos hozzáférési token.</div>
@@ -16200,31 +16203,82 @@ ${pkgList}`;
   // Telegram Bot & Alerts Integration
   // ==========================================
   let lastTelegramStatus = null;
+  let telegramFormLoaded = false;
 
-  async function loadTelegramStatus() {
+  function clearTelegramDirty() {
+    ['telegram-cfg-enabled', 'telegram-cfg-token', 'telegram-cfg-chats', 'telegram-cfg-alert-loss', 'telegram-cfg-loss-thresh', 'telegram-cfg-alert-latency', 'telegram-cfg-lat-thresh'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) delete el.dataset.dirty;
+    });
+  }
+
+  async function loadTelegramStatus(forceFormReload = false) {
     try {
       const res = await fetch('/api/telegram/status');
       if (!res.ok) return;
       const d = await res.json();
       lastTelegramStatus = d;
 
-      // Populate config fields
-      const elEnabled = document.getElementById('telegram-cfg-enabled');
-      if (elEnabled && !elEnabled.dataset.focused) elEnabled.checked = !!d.enabled;
-      const elToken = document.getElementById('telegram-cfg-token');
-      if (elToken && !elToken.dataset.focused && d.bot_token !== undefined) elToken.value = d.bot_token;
-      const elChats = document.getElementById('telegram-cfg-chats');
-      if (elChats && !elChats.dataset.focused) elChats.value = (d.chat_ids || []).join(', ');
+      // Populate form fields ONLY on initial load or explicit user-triggered refresh.
+      // Background interval polls must NEVER overwrite form fields while the user is typing or viewing!
+      if (!telegramFormLoaded || forceFormReload) {
+        const elEnabled = document.getElementById('telegram-cfg-enabled');
+        if (elEnabled && (forceFormReload || !elEnabled.dataset.dirty)) {
+          elEnabled.checked = !!d.enabled;
+        }
 
-      const elLoss = document.getElementById('telegram-cfg-alert-loss');
-      if (elLoss && !elLoss.dataset.focused) elLoss.checked = d.alert_on_loss !== false;
-      const elLossThresh = document.getElementById('telegram-cfg-loss-thresh');
-      if (elLossThresh && !elLossThresh.dataset.focused && d.loss_threshold_pct !== undefined) elLossThresh.value = d.loss_threshold_pct;
+        const elToken = document.getElementById('telegram-cfg-token');
+        if (elToken && (forceFormReload || (!elToken.dataset.dirty && document.activeElement !== elToken))) {
+          // If server has a token, populate it; if empty, do not overwrite user input
+          if (forceFormReload || !elToken.value) {
+            elToken.value = d.bot_token || d.token || '';
+          }
+        }
 
-      const elLat = document.getElementById('telegram-cfg-alert-latency');
-      if (elLat && !elLat.dataset.focused) elLat.checked = d.alert_on_latency !== false;
-      const elLatThresh = document.getElementById('telegram-cfg-lat-thresh');
-      if (elLatThresh && !elLatThresh.dataset.focused && d.latency_threshold_ms !== undefined) elLatThresh.value = d.latency_threshold_ms;
+        const elChats = document.getElementById('telegram-cfg-chats');
+        if (elChats && (forceFormReload || (!elChats.dataset.dirty && document.activeElement !== elChats))) {
+          if (forceFormReload || !elChats.value) {
+            elChats.value = (d.chat_ids || d.allowed_chat_ids || []).join(', ');
+          }
+        }
+
+        const elLoss = document.getElementById('telegram-cfg-alert-loss');
+        if (elLoss && (forceFormReload || !elLoss.dataset.dirty)) {
+          elLoss.checked = d.alert_on_loss !== false;
+        }
+
+        const elLossThresh = document.getElementById('telegram-cfg-loss-thresh');
+        if (elLossThresh && (forceFormReload || (!elLossThresh.dataset.dirty && document.activeElement !== elLossThresh))) {
+          const val = d.loss_threshold_pct !== undefined ? d.loss_threshold_pct : (d.alert_loss_threshold_pct ?? 5.0);
+          elLossThresh.value = val;
+        }
+
+        const elLat = document.getElementById('telegram-cfg-alert-latency');
+        if (elLat && (forceFormReload || !elLat.dataset.dirty)) {
+          elLat.checked = d.alert_on_latency !== false;
+        }
+
+        const elLatThresh = document.getElementById('telegram-cfg-lat-thresh');
+        if (elLatThresh && (forceFormReload || (!elLatThresh.dataset.dirty && document.activeElement !== elLatThresh))) {
+          const val = d.latency_threshold_ms !== undefined ? d.latency_threshold_ms : (d.alert_latency_threshold_ms ?? 100.0);
+          elLatThresh.value = val;
+        }
+
+        if (forceFormReload) {
+          clearTelegramDirty();
+        }
+        telegramFormLoaded = true;
+      }
+
+      // Update saved token badge indicator
+      const tokBadge = document.getElementById('telegram-token-saved-badge');
+      if (tokBadge) {
+        tokBadge.style.display = (d.token_set || d.bot_token || d.token) ? 'inline-flex' : 'none';
+      }
+      const tokInput = document.getElementById('telegram-cfg-token');
+      if (tokInput && d.token_set && !tokInput.value) {
+        tokInput.placeholder = '•••••••••••• (Elmentve - írja át a cseréhez)';
+      }
 
       // Badges
       const mainBadge = document.getElementById('telegram-main-badge');
@@ -16276,7 +16330,7 @@ ${pkgList}`;
         if (d.can_connect) {
           apiEl.textContent = '✅ Connected (Token Valid)';
           apiEl.style.color = '#10b981';
-        } else if (d.bot_token) {
+        } else if (d.bot_token || d.token || d.token_set) {
           apiEl.textContent = '❌ Invalid Token / No Connection';
           apiEl.style.color = '#ef4444';
         } else {
@@ -16293,6 +16347,7 @@ ${pkgList}`;
     const el = document.getElementById('telegram-cfg-token');
     if (el) {
       el.type = (el.type === 'password') ? 'text' : 'password';
+      el.focus();
     }
   }
 
@@ -16328,7 +16383,8 @@ ${pkgList}`;
       const data = await res.json();
       if (data.ok || data.status === 'ok') {
         showToast('Telegram beállítások sikeresen mentve!');
-        setTimeout(loadTelegramStatus, 1000);
+        clearTelegramDirty();
+        setTimeout(() => loadTelegramStatus(true), 1000);
       } else {
         showToast('Hiba: ' + (data.error || data.message || 'Failed to save'));
       }
@@ -16408,6 +16464,22 @@ ${pkgList}`;
     }
   });
 
+  // Track user edits on Telegram form to prevent background polling wipeouts
+  ['telegram-cfg-token', 'telegram-cfg-chats', 'telegram-cfg-loss-thresh', 'telegram-cfg-lat-thresh'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => el.dataset.dirty = '1');
+      el.addEventListener('change', () => el.dataset.dirty = '1');
+      el.addEventListener('paste', () => el.dataset.dirty = '1');
+    }
+  });
+  ['telegram-cfg-enabled', 'telegram-cfg-alert-loss', 'telegram-cfg-alert-latency'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', () => el.dataset.dirty = '1');
+    }
+  });
+
   setInterval(() => {
     const remoteTab = document.getElementById('tab-remote');
     if (remoteTab && remoteTab.classList.contains('active')) {
@@ -16429,7 +16501,7 @@ ${pkgList}`;
     }
     const telegramTab = document.getElementById('tab-telegram');
     if (telegramTab && telegramTab.classList.contains('active')) {
-      loadTelegramStatus();
+      loadTelegramStatus(false);
     }
   }, 3000);
 
