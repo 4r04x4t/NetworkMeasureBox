@@ -1,5 +1,5 @@
 # 🌐 NetworkMeasureBox (NMB) — Router Porting & 100% De-Pythonization Specification
-## Native Systems Engineering Plan for ASUS GT-AXE7800, ASUS RT-N12+, and TP-Link TL-WR740N (v4.23)
+## Native Systems Engineering Plan for ASUS RT-AXE7800, ASUS RT-N12+ (MT7620N), and TP-Link TL-WR740N (v4.23)
 
 ---
 
@@ -7,23 +7,23 @@
 
 This document provides the definitive, production-grade architectural and implementation specification for porting **NetworkMeasureBox (NMB)** directly onto commercial router hardware with **100% de-pythonization** (zero Python runtime, zero external Python libraries, zero interpreted dependencies).
 
-The entire system is re-engineered as a **native, single-binary appliance (`nmbd`)** written in **Go (Tier 1)** and **C11 with Musl libc (Tier 2 & 3)**, targeting three distinct hardware tiers ranging from a 2.0 GHz quad-core ARM64 multi-gigabit gaming router down to an extreme-constraint 400 MHz MIPS router with only **4 MB SPI Flash** and **32 MB RAM**.
+The entire system is re-engineered as a **native, single-binary appliance (`nmbd`)** written in **Go (Tier 1)** and **C11 with Musl libc (Tier 2 & 3)**, targeting three distinct hardware tiers based on official WikiDevi / OpenWrt hardware profiles:
 
 ```mermaid
 graph TD
-    subgraph Router1["Tier 1: High-End Flagship (ARM64)"]
-        R1_HW["ASUS ROG Rapture GT-AXE7800 / RT-AXE7800<br/>Broadcom BCM4912 Quad Cortex-A53 @ 2.0 GHz<br/>1 GB DDR4 RAM | 256 MB NAND Flash<br/>2.5GbE WAN/LAN + Wi-Fi 6E (160MHz)"]
-        R1_ARCH["Language: Go 1.23+ / C11 Monolith<br/>OS: Asuswrt-Merlin (Linux 4.19) / OpenWrt bcm4908<br/>Storage: RAM tmpfs + NAND Flash Persistence<br/>Throughput: 2.5 Gbps Line-Rate Saturation"]
+    subgraph Router1["Tier 1: High-End Flagship (ARM64 / ARMv8)"]
+        R1_HW["ASUS RT-AXE7800 (FCC ID: MSQ-RTAXE5H00)<br/>Broadcom BCM6756 Quad-Core ARM @ 1.7 GHz<br/>512 MB DDR4 RAM | 256 MB NAND Flash<br/>1x 2.5GbE + 4x 1GbE | Tri-Band Wi-Fi 6E (AXE7800)"]
+        R1_ARCH["Language: Go 1.23+ / C11 Monolith<br/>OS: Asuswrt / Asuswrt-Merlin (GNUton) / OpenWrt<br/>Storage: RAM tmpfs + NAND Flash Persistence<br/>Throughput: 2.5 Gbps Line-Rate Saturation"]
     end
 
     subgraph Router2["Tier 2: Low-Budget SOHO (MIPSle)"]
-        R2_HW["ASUS RT-N12+ (Ver. B1/C1)<br/>MediaTek MT7628N MIPS24KEc @ 575 MHz<br/>32 MB DDR RAM | 8 MB SPI NOR Flash<br/>100 Mbps Fast Ethernet + Wi-Fi 4 300Mbps"]
-        R2_ARCH["Language: Pure C11 (musl-libc) Monolith<br/>OS: OpenWrt 23.05 (ramips/mt76x8)<br/>Storage: RAM tmpfs + SPI Flash (/overlay)<br/>Throughput: 100 Mbps Line-Rate (<15% CPU)"]
+        R2_HW["ASUS RT-N12+ (FCC ID: MSQ-RT1901)<br/>MediaTek MT7620N ver:2 eco:6 MIPS24KEc @ 580 MHz<br/>32 MB DDR SDRAM | 8 MB SPI NOR Flash<br/>1x 100M WAN + 4x 100M LAN | Wi-Fi 4 300Mbps 2T2R"]
+        R2_ARCH["Language: Pure C11 (musl-libc) Monolith<br/>OS: OpenWrt 23.05 (Target: ramips/mt7620)<br/>Storage: RAM tmpfs + SPI Flash (/overlay)<br/>Throughput: 100 Mbps Line-Rate (<14% CPU)"]
     end
 
     subgraph Router3["Tier 3: Extreme Constraint Legacy (MIPSbe)"]
-        R3_HW["TP-Link TL-WR740N (v4.23)<br/>Qualcomm Atheros AR9331 MIPS 24Kc @ 400 MHz<br/>32 MB DDR RAM | 4 MB SPI NOR Flash<br/>100 Mbps Fast Ethernet + Wi-Fi 4 150Mbps"]
-        R3_ARCH["Language: Micro-C11 (musl, -Os, UPX-LZMA)<br/>OS: Minimal Stripped OpenWrt / Custom Buildroot<br/>Storage: 100% RAM-only Circular Ring Buffer<br/>Throughput: 100 Mbps Line-Rate (<25% CPU)"]
+        R3_HW["TP-Link TL-WR740N v4.x / v4.23 (FCC ID: TE7WR741NDV4)<br/>Qualcomm Atheros AR9331 MIPS 24Kc @ 400 MHz<br/>32 MB DDR SDRAM | 4 MiB (4 MB) SPI NOR Flash<br/>1x 100M WAN + 4x 100M LAN | Wi-Fi 4 150Mbps 1T1R"]
+        R3_ARCH["Language: Micro-C11 (musl, -Os, UPX-LZMA)<br/>OS: Minimal Stripped OpenWrt (Target: ath79/generic)<br/>Storage: 100% RAM-only Circular Ring Buffer<br/>Throughput: 100 Mbps Line-Rate (<22% CPU)"]
     end
 
     R1_HW --> R1_ARCH
@@ -31,24 +31,28 @@ graph TD
     R3_HW --> R3_ARCH
 ```
 
-### 1.1 Hardware Specifications & Constraint Comparison
+### 1.1 Hardware Specifications & Constraint Comparison (WikiDevi Verified)
 
-| Metric / Parameter | Tier 1: ASUS GT-AXE7800 | Tier 2: ASUS RT-N12+ | Tier 3: TP-Link TL-WR740N (v4.23) |
+| Metric / Parameter | Tier 1: ASUS RT-AXE7800 | Tier 2: ASUS RT-N12+ | Tier 3: TP-Link TL-WR740N (v4.23) |
 | :--- | :--- | :--- | :--- |
-| **SoC / Chipset** | Broadcom BCM4912 | MediaTek MT7628N (or MT7620N) | Qualcomm Atheros AR9331 |
-| **CPU Architecture** | ARMv8-A (aarch64, 64-bit) | MIPS 24KEc (mipsel, 32-bit little-endian) | MIPS 24Kc (mips, 32-bit big-endian) |
-| **CPU Cores & Clock** | 4 Cores @ 2.0 GHz | 1 Core @ 575 / 580 MHz | 1 Core @ 400 MHz |
+| **WikiDevi Reference** | [ASUS RT-AXE7800](https://wikidevi.wi-cat.ru/ASUS_RT-AXE7800) | [ASUS RT-N12 series](https://wikidevi.wi-cat.ru/ASUS_RT-N12_series) | [TP-LINK TL-WR740N v4.x](https://wikidevi.wi-cat.ru/TP-LINK_TL-WR740N_v4.x) |
+| **FCC ID** | `MSQ-RTAXE5H00` | `MSQ-RT1901` | `TE7WR741NDV4` |
+| **SoC / Chipset** | **Broadcom BCM6756** | **MediaTek MT7620N (ver:2 eco:6)** | **Qualcomm Atheros AR9331** |
+| **Switch Chip** | Broadcom BCM53134O | MediaTek MT7620N Integrated | Qualcomm Atheros AR9331 Integrated |
+| **CPU Architecture** | ARM Cortex-A7 / ARMv8 (64-bit capable) | MIPS 24KEc (mipsel, 32-bit little-endian) | MIPS 24Kc (mips, 32-bit big-endian) |
+| **CPU Cores & Clock** | **4 Cores @ 1.7 GHz** | **1 Core @ 580 MHz** | **1 Core @ 400 MHz** |
 | **Hardware FPU** | Hardware IEEE 754 FPU & NEON SIMD | No (Soft-Float emulation: `-msoft-float`) | No (Soft-Float emulation: `-msoft-float`) |
-| **System RAM** | **1,024 MB (1 GB) DDR4** | **32 MB DDR SDRAM** | **32 MB DDR SDRAM** |
-| **Available RAM (Free)** | ~750 MB free after boot | ~14 MB free after OpenWrt boot | ~9 MB free after minimal boot |
-| **Flash Storage** | **256 MB NAND Flash** | **8 MB SPI NOR Flash** | **4 MB SPI NOR Flash** (Extreme!) |
-| **Available Flash for NMB** | > 100 MB writable partition | ~2.5 MB on SquashFS overlay | **< 650 KB** (Compressed!) |
-| **Wired Network (WAN/LAN)** | 1x 2.5GbE + 1x 1GbE + 4x 1GbE | 1x 100M WAN + 4x 100M LAN | 1x 100M WAN + 4x 100M LAN |
-| **Wireless (Wi-Fi)** | Tri-Band Wi-Fi 6E (2.4/5/6 GHz, 160MHz) | Single-Band Wi-Fi 4 (2.4 GHz 2x2 MIMO) | Single-Band Wi-Fi 4 (2.4 GHz 1x1 SISO) |
-| **Target OS / Firmware** | Asuswrt-Merlin 388+ / OpenWrt bcm4908 | OpenWrt 23.05 (ramips/mt76x8) | Stripped OpenWrt 19.07 / Buildroot |
+| **System RAM** | **512 MB DDR4 RAM** | **32 MB DDR SDRAM** | **32 MB DDR SDRAM** |
+| **Available RAM (Free)** | **~380 MB – 420 MB free** after boot | **~12 MB – 14 MB free** after OpenWrt boot | **~8 MB – 10 MB free** after minimal boot |
+| **Flash Storage** | **256 MB NAND Flash** (Macronix) | **8 MB SPI NOR Flash** (Winbond W25Q64) | **4 MiB (4 MB) SPI Flash** (Winbond W25Q32) |
+| **Available Flash for NMB** | > 100 MB writable (`/jffs`) | ~2.1 MB on SquashFS overlay | **< 650 KB** (Compressed!) |
+| **Wired Network (WAN/LAN)** | **1x 2.5GbE (WAN/LAN) + 1x 1GbE (WAN/LAN) + 3x 1GbE (LAN)** | 1x 100M WAN + 4x 100M LAN | 1x 100M WAN + 4x 100M LAN |
+| **USB Expansion** | 1x USB 3.0 / USB 3.2 Gen 1 | None | None |
+| **Wireless (Wi-Fi)** | Tri-Band Wi-Fi 6E (AXE7800: 2.4G 574M + 5G 4804M + 6G 2402M) | Single-Band Wi-Fi 4 (2.4 GHz 2T2R 300 Mbps) | Single-Band Wi-Fi 4 (2.4 GHz 1T1R 150 Mbps) |
+| **Target Platform / OS** | Asuswrt / Asuswrt-Merlin (GNUton) / OpenWrt `bcm4908` | OpenWrt `ramips/mt7620` (profile: `asus_rt-n12p`) | Stripped OpenWrt `ath79/generic` (`tplink_tl-wr740n-v4`) |
 | **De-Pythonized Engine** | **Go 1.23+ Static Binary** or **C11** | **C11 Monolith (`musl-libc`)** | **Micro-C11 (`musl`, `-Os`, UPX LZMA)** |
-| **Executable Binary Size** | ~12 MB (Go) or ~1.5 MB (C11) | ~850 KB (C11) / ~320 KB (UPX) | **< 380 KB (C11) / ~180 KB (UPX)** |
-| **Active Memory Envelope** | 18 MB – 25 MB RSS | 2.5 MB – 3.8 MB RSS | **1.2 MB – 1.8 MB RSS** |
+| **Executable Binary Size** | ~12 MB (Go) or ~1.5 MB (C11) | ~850 KB (C11) / ~320 KB (UPX) | **< 380 KB (C11) / ~178 KB (UPX)** |
+| **Active Memory Envelope** | 18 MB – 24 MB RSS | 2.5 MB – 3.8 MB RSS | **1.2 MB – 1.8 MB RSS** |
 | **Primary Data Storage** | SQLite WAL (RAM) + Flash Sync | In-Memory SQLite or Flat Ring Buffer | **Zero Flash Writes**: RAM-only Ring Buffer |
 
 ---
@@ -75,7 +79,7 @@ graph TD
 ## 3. The Unified Native Architecture: `nmbd`
 
 The entire NetworkMeasureBox suite is consolidated into a single multicall binary:
-- **`nmbd` (Tier 1 Go / C11)** for ASUS GT-AXE7800.
+- **`nmbd` (Tier 1 Go / C11)** for ASUS RT-AXE7800.
 - **`nmbd-tiny` (Tier 2 C11)** for ASUS RT-N12+.
 - **`nmbd-micro` (Tier 3 C11)** for TP-Link TL-WR740N.
 
@@ -99,25 +103,32 @@ The entire NetworkMeasureBox suite is consolidated into a single multicall binar
 
 ---
 
-## 4. Hardware Target 1: ASUS ROG Rapture GT-AXE7800 / RT-AXE7800
+## 4. Hardware Target 1: ASUS RT-AXE7800
 
-### 4.1 Hardware Characteristics & Architecture
-- **SoC**: Broadcom BCM4912 (Quad-Core ARMv8 Cortex-A53 @ 2.0 GHz).
-- **RAM**: 1 GB DDR4 RAM.
-- **Flash**: 256 MB NAND Flash (`/jffs` writable partition has >120 MB free).
-- **Network**:
-  - 1x 2.5 Gbps Multi-Gigabit WAN/LAN (eth0 / eth4 depending on NVRAM mapping).
-  - 1x 1 Gbps Gigabit WAN/LAN.
-  - 4x 1 Gbps Gigabit LAN switch.
-  - Broadcom BCM43684 Wi-Fi 6E radios (2.4 GHz, 5 GHz, 6 GHz, 160 MHz channels).
+### 4.1 Hardware Characteristics & Architecture (WikiDevi Verified)
+- **Model**: ASUS RT-AXE7800 ([WikiDevi Entry](https://wikidevi.wi-cat.ru/ASUS_RT-AXE7800), FCC ID: `MSQ-RTAXE5H00`).
+- **SoC / CPU**: Broadcom BCM6756 (Quad-Core ARM Cortex-A7 / ARMv8 @ **1.7 GHz**).
+- **Switch Chip**: Broadcom BCM53134O Gigabit Switch.
+- **RAM**: **512 MB DDR4 RAM** (~380 MB free after boot).
+- **Flash**: **256 MB NAND Flash** (Macronix, `/jffs` writable partition has >120 MB free).
+- **Network Interfaces**:
+  - 1x 2.5 Gbps Multi-Gigabit WAN/LAN RJ45.
+  - 1x 1 Gbps Gigabit WAN/LAN RJ45.
+  - 3x 1 Gbps Gigabit LAN RJ45 switch ports.
+  - 1x USB 3.0 / USB 3.2 Gen 1 port.
+- **Wireless Radios (Tri-Band Wi-Fi 6E AXE7800)**:
+  - 2.4 GHz: Broadcom BCM6756 (2x2:2 MIMO, 802.11ax up to 574 Mbps).
+  - 5 GHz: Broadcom BCM6715 (4x4:4 MIMO, 802.11ax up to 4804 Mbps, 160 MHz channels).
+  - 6 GHz: Broadcom BCM6756/BCM6715 (2x2:2 MIMO, 802.11ax up to 2402 Mbps, 160 MHz channels).
+  - 6x external non-detachable dipole antennas.
 - **Firmware Ecosystem**:
-  - **Asuswrt-Merlin** (Recommended primary environment, Linux 4.19+ kernel).
-  - **Stock Asuswrt** (via USB Entware or `/jffs` user scripts).
-  - **OpenWrt** (Target: `bcm4908`).
+  - **Stock Asuswrt** (Linux 4.19+ kernel, USB Entware or `/jffs` user scripts).
+  - **Asuswrt-Merlin** (GNUton fork supporting BCM6756 platform).
+  - **OpenWrt** (Target: `bcm4908` / `broadcom`).
 
 ```mermaid
 flowchart TD
-    subgraph HW["Broadcom BCM4912 Quad-Core @ 2.0 GHz"]
+    subgraph HW["Broadcom BCM6756 Quad-Core @ 1.7 GHz"]
         CPU0["Core 0 (Linux Kernel & IRQs)"]
         CPU1["Core 1 (nmbd Speed Workers)"]
         CPU2["Core 2 (nmbd Web, Bot, Probe)"]
@@ -163,7 +174,7 @@ Asuswrt-Merlin provides a persistent writable partition at `/jffs`. We integrate
    - `services-stop`: Graceful shutdown and database flush to `/jffs/nmb/persist/`.
 
 ### 4.3 Broadcom Flow Cache (Runner/fcache) Acceleration Awareness
-Broadcom BCM4912 uses hardware packet acceleration (`bcm_enet`, Runner DHD offload, `fcache`).
+Broadcom BCM6756 uses hardware packet acceleration (`bcm_enet`, Runner DHD offload, `fcache`).
 - **The Problem**: When hardware acceleration bypasses the Linux network stack, per-packet byte counters in `/proc/net/dev` can stop updating, and active speedtests may bypass software traffic shaping.
 - **The Native Solution in `nmbd`**:
   - Before initiating a high-precision line-rate speedtest or CAKE calibration test, `nmbd` queries the Broadcom Flow Cache status via `ioctl` or `/proc/fcache/`:
@@ -176,7 +187,7 @@ Broadcom BCM4912 uses hardware packet acceleration (`bcm_enet`, Runner DHD offlo
   - `nmbd` binds raw measurement sockets directly to the 2.5 Gbps interface using `SO_BINDTODEVICE`, guaranteeing zero flow-cache packet drops while preserving 2.5 Gbps line-rate throughput.
 
 ### 4.4 CAKE SQM Integration on 2.5 Gbps WAN
-The quad-core Cortex-A53 @ 2.0 GHz has abundant CPU power to shape 2.5 Gbps traffic using **CAKE (`sch_cake`)**:
+The quad-core ARM Cortex-A7 / ARMv8 @ 1.7 GHz has abundant CPU power to shape 2.5 Gbps traffic using **CAKE (`sch_cake`)**:
 - `nmbd` dynamically configures multi-queue qdiscs:
   ```sh
   tc qdisc replace dev eth0 root cake bandwidth 2400mbit diffserv4 nat dual-srchost ack-filter memlimit 64M
@@ -188,12 +199,18 @@ The quad-core Cortex-A53 @ 2.0 GHz has abundant CPU power to shape 2.5 Gbps traf
 
 ## 5. Hardware Target 2: ASUS RT-N12+ (Low-Budget SOHO Router)
 
-### 5.1 Hardware Characteristics & Architecture
-- **SoC**: MediaTek MT7628N (or MT7620N depending on revision) — MIPS 24KEc @ 575 MHz.
-- **RAM**: 32 MB DDR SDRAM.
-- **Flash**: 8 MB SPI NOR Flash.
-- **Network**: Fast Ethernet (1x 10/100 Mbps WAN + 4x 10/100 Mbps LAN), Wi-Fi 4 (802.11n 2.4 GHz 2T2R 300 Mbps).
-- **Firmware Ecosystem**: OpenWrt 23.05 (Target: `ramips/mt76x8`).
+### 5.1 Hardware Characteristics & Architecture (WikiDevi Verified)
+- **Model**: ASUS RT-N12+ / RT-N12 Plus ([WikiDevi Entry](https://wikidevi.wi-cat.ru/ASUS_RT-N12_series), FCC ID: `MSQ-RT1901`).
+- **SoC / CPU**: MediaTek MT7620N ver:2 eco:6 (MIPS 24KEc @ **580 MHz**, 32-bit little-endian `mipsel`, soft-float).
+- **RAM**: **32 MB DDR SDRAM** (ESMT M12L2561616A, ~12 MB free after minimal boot).
+- **Flash**: **8 MB SPI NOR Flash** (Winbond W25Q64FVSIG).
+- **Network Interfaces**:
+  - Integrated Fast Ethernet Switch (1x 100M WAN + 4x 100M LAN).
+- **Wireless Radio**:
+  - Integrated Wi-Fi 4 (802.11b/g/n 2.4 GHz, 2T2R 2x2:2 MIMO up to 300 Mbps).
+  - 2x external 5 dBi fixed dipole antennas.
+- **USB Expansion**: None.
+- **Firmware Ecosystem**: OpenWrt 23.05 (Target: **`ramips/mt7620`**, subtarget: `mt7620`, profile: `asus_rt-n12p`).
 
 ```mermaid
 flowchart TD
@@ -246,9 +263,9 @@ With only **10 MB of free RAM**, standard SQLite page cache (default 2000 pages 
        - Rolling index pointer wraps around automatically with $\mathcal{O}(1)$ time complexity and zero memory allocation.
        - Never grows, never fragments RAM, and can never cause an OOM event.
 
-### 5.4 100 Mbps Line-Rate Saturation on 575 MHz MIPS
+### 5.4 100 Mbps Line-Rate Saturation on 580 MHz MT7620N MIPS
 - Fast Ethernet line rate is **100.00 Mbps** (~11.9 MB/s).
-- On a 575 MHz single-core MIPS processor without hardware floating point:
+- On a 580 MHz single-core MIPS 24KEc processor without hardware floating point:
   - Spawning Python or running curl/iperf scripts consumes 80% – 100% CPU.
   - `nmbd-tiny`'s C11 non-blocking socket loop with 64 KB static receive buffer saturates 100 Mbps utilizing **less than 14% CPU load**, leaving 86% of the CPU available for routing and Wi-Fi transmission.
 
@@ -337,7 +354,7 @@ To run NetworkMeasureBox on the TP-Link TL-WR740N v4.23:
 
 ### 7.1 Tailscale Mesh VPN Integration
 - **Current Architecture**: Spawns Python wrapper around `tailscale` CLI, reading JSON output.
-- **Tier 1 (ASUS GT-AXE7800)**:
+- **Tier 1 (ASUS RT-AXE7800)**:
   - Embed Tailscale natively using **`tailscale.com/tsnet`** in Go.
   - `tsnet` provides an in-process, pure userspace WireGuard mesh node embedded directly into the `nmbd` binary.
   - It listens on the Tailscale mesh IP (e.g. `100.64.0.1` / `100.x.y.z`) and provides direct HTTPS access to the NMB dashboard without requiring the external `tailscaled` daemon or TUN/TAP interfaces!
@@ -406,16 +423,16 @@ To run NetworkMeasureBox on the TP-Link TL-WR740N v4.23:
 ### 8.1 Toolchains Required
 
 ```bash
-# 1. Tier 1: ASUS GT-AXE7800 (ARM64)
+# 1. Tier 1: ASUS RT-AXE7800 (Broadcom BCM6756 1.7 GHz / ARM64)
 # Using standard Go or aarch64-linux-gnu-gcc
 export CC=aarch64-linux-gnu-gcc
 export GOOS=linux
 export GOARCH=arm64
 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/nmbd-axe7800-arm64 ./cmd/nmbd
 
-# 2. Tier 2: ASUS RT-N12+ (MediaTek MT7628 / mipsel soft-float)
-# Using OpenWrt ramips/mt76x8 SDK
-export STAGING_DIR=/opt/openwrt-sdk-ramips-mt76x8/staging_dir
+# 2. Tier 2: ASUS RT-N12+ (MediaTek MT7620N ver:2 eco:6 / mipsel soft-float)
+# Using OpenWrt ramips/mt7620 SDK
+export STAGING_DIR=/opt/openwrt-sdk-ramips-mt7620/staging_dir
 export PATH=$STAGING_DIR/toolchain-mipsel_24kc_gcc-12.3.0_musl/bin:$PATH
 mipsel-openwrt-linux-musl-gcc -Os -flto -mips32r2 -msoft-float -s -o dist/nmbd-tiny-rtn12 \
   src/*.c -lubox -luci -lmbedtls -lmbedcrypto
@@ -435,7 +452,7 @@ upx --best --lzma dist/nmbd-micro-wr740n -o dist/nmbd-micro-wr740n.upx
 
 ## 9. Performance & Resource Benchmarking Projections
 
-| Operational Parameter | Current Python Suite (Raspberry Pi 4) | Tier 1: ASUS GT-AXE7800 (Go/C11) | Tier 2: ASUS RT-N12+ (C11) | Tier 3: TP-Link WR740N (Micro-C) |
+| Operational Parameter | Current Python Suite (Raspberry Pi 4) | Tier 1: ASUS RT-AXE7800 (Go/C11) | Tier 2: ASUS RT-N12+ (C11) | Tier 3: TP-Link WR740N (Micro-C) |
 | :--- | :--- | :--- | :--- | :--- |
 | **Idle RAM (RSS)** | 180 MB – 220 MB | **18 MB** | **2.8 MB** | **1.4 MB** |
 | **Active Speedtest RAM** | 240 MB | **24 MB** | **3.6 MB** | **1.8 MB** |
@@ -453,7 +470,7 @@ upx --best --lzma dist/nmbd-micro-wr740n -o dist/nmbd-micro-wr740n.upx
 ## 10. Conclusion & Deployment Timeline
 
 With this **100% De-Pythonization Specification**:
-1. **ASUS ROG Rapture GT-AXE7800** becomes a multi-gigabit enterprise network probe capable of 2.5 Gbps line-rate testing, CAKE traffic shaping, and native Tailscale mesh management without slowing down gaming or Wi-Fi 6E performance.
+1. **ASUS RT-AXE7800** becomes a multi-gigabit enterprise network probe capable of 2.5 Gbps line-rate testing, CAKE traffic shaping, and native Tailscale mesh management without slowing down gaming or Wi-Fi 6E performance.
 2. **ASUS RT-N12+** is transformed from an obsolete 8MB/32MB SOHO router into a rock-solid, zero-maintenance SLA probe with instant web reporting and telegram alerts.
 3. **TP-Link TL-WR740N (v4.23)** achieves the seemingly impossible: running the complete NetworkMeasureBox diagnostic suite within **178 KB of flash** and **1.4 MB of RAM**, proving that native systems programming can extend the useful life of millions of legacy network appliances worldwide.
 

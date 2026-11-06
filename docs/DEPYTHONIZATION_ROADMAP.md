@@ -544,10 +544,10 @@ By executing this De-Pythonization blueprint, NetworkMeasureBox will transform f
 
 ## 10. Router Hardware Porting Specifications
 
-For detailed hardware-specific porting guidelines, memory budgets, and binary size optimization on commercial router models:
-- **ASUS ROG Rapture GT-AXE7800 / RT-AXE7800** (Broadcom BCM4912 Quad-Core ARMv8 @ 2.0 GHz, 1GB RAM, 256MB Flash, 2.5GbE, Wi-Fi 6E, Asuswrt-Merlin)
-- **ASUS RT-N12+** (MediaTek MT7628N MIPS24KEc @ 575 MHz, 32MB RAM, 8MB Flash, Fast Ethernet, OpenWrt 23.05)
-- **TP-Link TL-WR740N v4.23** (Atheros AR9331 MIPS 24Kc @ 400 MHz, 32MB RAM, 4MB Flash, Minimal Custom OpenWrt)
+For detailed hardware-specific porting guidelines, memory budgets, and binary size optimization on commercial router models (WikiDevi verified):
+- **ASUS RT-AXE7800** (Broadcom BCM6756 Quad-Core ARM @ 1.7 GHz, 512MB RAM, 256MB Flash, 1x 2.5GbE + 4x 1GbE, Tri-Band Wi-Fi 6E, Asuswrt / Asuswrt-Merlin GNUton)
+- **ASUS RT-N12+** (MediaTek MT7620N ver:2 eco:6 MIPS24KEc @ 580 MHz, 32MB RAM, 8MB Flash, Fast Ethernet, OpenWrt ramips/mt7620)
+- **TP-Link TL-WR740N v4.x / v4.23** (Atheros AR9331 MIPS 24Kc @ 400 MHz, 32MB RAM, 4MB Flash, Minimal Custom OpenWrt ath79/generic)
 
 Please consult the dedicated document:  
 📄 **[`ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`](ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md)**.

@@ -213,9 +213,9 @@ Specially engineered to run seamlessly on resource-constrained **512 MB RAM rout
 To run NetworkMeasureBox directly on commercial embedded routers with as little as **4MB Flash and 32MB RAM**, a complete 100% de-pythonization roadmap and implementation specification has been engineered:
 * **Unified Single Binary (`nmbd`)**: Written in **Go 1.23+** (Tier 1) and **C11 with Musl libc** (Tier 2 & 3), completely eliminating Python 3, pip, and all runtime packages.
 * **Target Hardware Porting Specifications**:
-  * **ASUS ROG Rapture GT-AXE7800 / RT-AXE7800** (Broadcom BCM4912 Quad-Core ARMv8 @ 2.0GHz, 1GB RAM, 256MB Flash, 2.5GbE, Wi-Fi 6E, Asuswrt-Merlin): 2.5 Gbps line-rate testing, Flow Cache acceleration bypass, multi-threaded CAKE SQM, and in-process `tsnet` Tailscale.
-  * **ASUS RT-N12+** (MediaTek MT7628N MIPS24KEc @ 575MHz, 32MB RAM, 8MB Flash, Fast Ethernet, OpenWrt 23.05): 850 KB C11 binary (320 KB UPX), 2.8 MB RAM RSS, 100 Mbps line-rate testing at <14% CPU.
-  * **TP-Link TL-WR740N v4.23** (Atheros AR9331 MIPS 24Kc @ 400MHz, 32MB RAM, **4MB Flash**, Minimal Stripped OpenWrt): **178 KB UPX-LZMA compressed binary**, 1.4 MB RAM RSS, 100% RAM-only circular ring-buffer to prevent flash wear!
+  * **ASUS RT-AXE7800** (Broadcom BCM6756 Quad-Core ARM @ 1.7GHz, 512MB RAM, 256MB Flash, 1x 2.5GbE + 4x 1GbE, Tri-Band Wi-Fi 6E, Asuswrt / Asuswrt-Merlin GNUton): 2.5 Gbps line-rate testing, Flow Cache acceleration bypass, multi-threaded CAKE SQM, and in-process `tsnet` Tailscale.
+  * **ASUS RT-N12+** (MediaTek MT7620N ver:2 eco:6 MIPS24KEc @ 580MHz, 32MB RAM, 8MB Flash, Fast Ethernet, OpenWrt `ramips/mt7620`): 850 KB C11 binary (320 KB UPX), 2.8 MB RAM RSS, 100 Mbps line-rate testing at <14% CPU.
+  * **TP-Link TL-WR740N v4.x / v4.23** (Atheros AR9331 MIPS 24Kc @ 400MHz, 32MB RAM, **4MB Flash**, Minimal Stripped OpenWrt `ath79/generic`): **178 KB UPX-LZMA compressed binary**, 1.4 MB RAM RSS, 100% RAM-only circular ring-buffer to prevent flash wear!
 * Full technical blueprints available in:
   * 📄 **[`docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`](docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md)**
   * 📄 **[`docs/DEPYTHONIZATION_ROADMAP.md`](docs/DEPYTHONIZATION_ROADMAP.md)**

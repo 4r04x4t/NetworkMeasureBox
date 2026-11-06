@@ -936,7 +936,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       font-weight: 800 !important;
     }
     [data-theme="prtd"] .app-tab-btn.active,
-    [data-theme="prtd"] .router-subtab-btn.active {
+    [data-theme="prtd"] .router-subtab-btn.active,
+    [data-theme="prtd"] .remote-subtab-btn.active,
+    [data-theme="prtd"] .adblock-subtab-btn.active {
       background: linear-gradient(90deg, #70c4ff 0%, #ffffff 50%, #f4a6c6 100%) !important;
       color: #0c101d !important;
       font-weight: 700 !important;
@@ -996,7 +998,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       font-weight: 800 !important;
     }
     [data-theme="proudride"] .app-tab-btn.active,
-    [data-theme="proudride"] .router-subtab-btn.active {
+    [data-theme="proudride"] .router-subtab-btn.active,
+    [data-theme="proudride"] .remote-subtab-btn.active,
+    [data-theme="proudride"] .adblock-subtab-btn.active {
       background: linear-gradient(90deg, #ff0055, #ff5500, #ffbb00, #00cc66, #00bbff, #aa00ff) !important;
       color: #ffffff !important;
       font-weight: 700 !important;
@@ -1066,7 +1070,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border-right: 1px solid #151515 !important;
     }
     [data-theme="amoled"] .app-tab-btn.active,
-    [data-theme="amoled"] .router-subtab-btn.active {
+    [data-theme="amoled"] .router-subtab-btn.active,
+    [data-theme="amoled"] .remote-subtab-btn.active,
+    [data-theme="amoled"] .adblock-subtab-btn.active {
       background: #00e5ff !important;
       color: #000000 !important;
       font-weight: 700 !important;
@@ -1208,7 +1214,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border-color: #00FFFF !important;
     }
     [data-theme="asuswrt"] .app-tab-btn.active,
-    [data-theme="asuswrt"] .router-subtab-btn.active {
+    [data-theme="asuswrt"] .router-subtab-btn.active,
+    [data-theme="asuswrt"] .remote-subtab-btn.active,
+    [data-theme="asuswrt"] .adblock-subtab-btn.active {
       background: linear-gradient(to bottom, #8AA6BE 0%, #466782 100%) !important;
       color: #ffffff !important;
       border: 1px solid #00FFFF !important;
@@ -1547,7 +1555,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border-color: #f59e0b !important;
     }
     [data-theme="asus_camo"] .app-tab-btn.active,
-    [data-theme="asus_camo"] .router-subtab-btn.active {
+    [data-theme="asus_camo"] .router-subtab-btn.active,
+    [data-theme="asus_camo"] .remote-subtab-btn.active,
+    [data-theme="asus_camo"] .adblock-subtab-btn.active {
       background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important;
       color: #000000 !important;
       font-weight: 800 !important;
@@ -1859,7 +1869,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       font-size: 12px !important;
     }
     [data-theme="tp_gold"] .app-tab-btn.active,
-    [data-theme="tp_gold"] .router-subtab-btn.active {
+    [data-theme="tp_gold"] .router-subtab-btn.active,
+    [data-theme="tp_gold"] .remote-subtab-btn.active,
+    [data-theme="tp_gold"] .adblock-subtab-btn.active {
       background: #66ba33 !important;
       color: #ffffff !important;
       border-color: #4b961e !important;
@@ -1952,7 +1964,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border: 1px solid #555555 !important;
     }
     [data-theme="mountain_hago"] .app-tab-btn.active,
-    [data-theme="mountain_hago"] .router-subtab-btn.active {
+    [data-theme="mountain_hago"] .router-subtab-btn.active,
+    [data-theme="mountain_hago"] .remote-subtab-btn.active,
+    [data-theme="mountain_hago"] .adblock-subtab-btn.active {
       background: #38bdf8 !important;
       color: #000000 !important;
       font-weight: 700 !important;
@@ -2113,7 +2127,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border-color: #888888 !important;
     }
     [data-theme="ndefault"] .app-tab-btn.active,
-    [data-theme="ndefault"] .router-subtab-btn.active {
+    [data-theme="ndefault"] .router-subtab-btn.active,
+    [data-theme="ndefault"] .remote-subtab-btn.active,
+    [data-theme="ndefault"] .adblock-subtab-btn.active {
       background: linear-gradient(to bottom, #de6e00, #a84c00) !important;
       color: #ffffff !important;
       border-color: #ff9900 !important;
@@ -2327,14 +2343,82 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         width: 100%;
         justify-content: flex-start !important;
       }
-      .app-tabs {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
-        flex-wrap: nowrap;
+      .app-tabs, .router-subnav, .remote-subnav, .adblock-subnav {
+        display: flex !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: thin !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        gap: 8px !important;
+        padding-bottom: 8px !important;
       }
-      .app-tab-btn {
-        flex-shrink: 0;
+      .app-tabs::-webkit-scrollbar, .router-subnav::-webkit-scrollbar, .remote-subnav::-webkit-scrollbar, .adblock-subnav::-webkit-scrollbar {
+        display: none !important;
+      }
+      .app-tabs > button,
+      .router-subnav > button,
+      .remote-subnav > button,
+      .adblock-subnav > button,
+      .app-tab-btn,
+      .router-subtab-btn,
+      .remote-subtab-btn,
+      .adblock-subtab-btn {
+        flex-shrink: 0 !important;
+        flex-grow: 0 !important;
+        white-space: nowrap !important;
+        word-break: keep-all !important;
+        overflow-wrap: normal !important;
+        min-width: max-content !important;
+        height: auto !important;
+        min-height: 38px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        padding: 8px 16px !important;
+      }
+      /* Responsive Charts on Mobile & Tablet */
+      #speed-chart-container {
+        height: clamp(350px, 48vh, 440px) !important;
+        min-height: 350px !important;
+        width: 100% !important;
+      }
+      #speed-chart-svg-wrap {
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+      }
+      #speed-chart-svg-wrap svg {
+        width: 100% !important;
+        height: 100% !important;
+        flex: 1 1 100% !important;
+        display: block !important;
+      }
+      #chart-latency {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: thin !important;
+        width: 100% !important;
+      }
+      #chart-latency svg, .nmb-svg {
+        min-width: 580px !important;
+        height: 320px !important;
+        display: block !important;
+      }
+      #adblock-timeline-chart-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: thin !important;
+        width: 100% !important;
+        height: 280px !important;
+      }
+      #adblock-timeline-svg {
+        min-width: 580px !important;
+        height: 280px !important;
+        display: block !important;
       }
       .engine-pills {
         display: grid;
@@ -3023,7 +3107,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         </div>
 
         <!-- SVG Container with dynamic Tooltip -->
-        <div id="speed-chart-container" style="position: relative; width: 100%; height: 260px; min-height: 240px; background: rgba(10, 15, 29, 0.7); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+        <div id="speed-chart-container" style="position: relative; width: 100%; height: 320px; min-height: 280px; background: rgba(10, 15, 29, 0.7); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
           <div id="speed-chart-svg-wrap" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
             <p style="text-align: center; color: var(--text-muted); padding: 50px;" data-i18n="speed_loading_results">Mérési adatok betöltése...</p>
           </div>
@@ -3405,13 +3489,13 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <!-- Navigation Subtabs Bar -->
-      <div class="adblock-subnav" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap;">
-        <button id="btn-adblock-subtab-dash" class="btn-primary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('dash')" data-i18n="adblock_subtab_dash">📊 Áttekintés & Statisztikák</button>
-        <button id="btn-adblock-subtab-log" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('log')" data-i18n="adblock_subtab_log">📋 Lekérdezési Napló</button>
-        <button id="btn-adblock-subtab-domains" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('domains')" data-i18n="adblock_subtab_domains">🛡️ Tartományok & RegEx</button>
-        <button id="btn-adblock-subtab-adlists" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('adlists')" data-i18n="adblock_subtab_adlists">🌐 Blokklisták (Gravity)</button>
-        <button id="btn-adblock-subtab-localdns" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('localdns')" data-i18n="adblock_subtab_localdns">🏠 Helyi DNS Rekordok</button>
-        <button id="btn-adblock-subtab-guide" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('guide')" data-i18n="adblock_subtab_guide">📖 Router Útmutató</button>
+      <div class="adblock-subnav">
+        <button id="btn-adblock-subtab-dash" class="adblock-subtab-btn active" onclick="switchAdblockSubtab('dash')" data-i18n="adblock_subtab_dash">📊 Áttekintés & Statisztikák</button>
+        <button id="btn-adblock-subtab-log" class="adblock-subtab-btn" onclick="switchAdblockSubtab('log')" data-i18n="adblock_subtab_log">📋 Lekérdezési Napló</button>
+        <button id="btn-adblock-subtab-domains" class="adblock-subtab-btn" onclick="switchAdblockSubtab('domains')" data-i18n="adblock_subtab_domains">🛡️ Tartományok & RegEx</button>
+        <button id="btn-adblock-subtab-adlists" class="adblock-subtab-btn" onclick="switchAdblockSubtab('adlists')" data-i18n="adblock_subtab_adlists">🌐 Blokklisták (Gravity)</button>
+        <button id="btn-adblock-subtab-localdns" class="adblock-subtab-btn" onclick="switchAdblockSubtab('localdns')" data-i18n="adblock_subtab_localdns">🏠 Helyi DNS Rekordok</button>
+        <button id="btn-adblock-subtab-guide" class="adblock-subtab-btn" onclick="switchAdblockSubtab('guide')" data-i18n="adblock_subtab_guide">📖 Router Útmutató</button>
       </div>
 
       <!-- SUBTAB 1: OVERVIEW & TELEMETRY DASHBOARD -->
@@ -3996,14 +4080,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <!-- Remote Subtabs -->
-      <div class="remote-subnav" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap;">
-        <button id="btn-subtab-vpnhub" class="btn-primary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('vpnhub')" data-i18n="subtab_vpnhub">🛡️ PiVPN Hub</button>
-        <button id="btn-subtab-tailscale" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('tailscale')" data-i18n="subtab_tailscale">🦎 Tailscale (Mesh)</button>
-        <button id="btn-subtab-guide" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('guide')" data-i18n="subtab_guide">🌐 Port Forwarding Guide</button>
-        <button id="btn-subtab-wireguard" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('wireguard')" data-i18n="subtab_wireguard">🛡️ WireGuard Server</button>
-        <button id="btn-subtab-openvpn" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('openvpn')" data-i18n="subtab_openvpn">🔒 OpenVPN Server</button>
-        <button id="btn-subtab-duckdns" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('duckdns')" data-i18n="subtab_duckdns">🦆 DuckDNS (DynDNS)</button>
-        <button id="btn-subtab-proxy" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('proxy')" data-i18n="subtab_proxy">⚡ HTTPS Proxy</button>
+      <div class="remote-subnav">
+        <button id="btn-subtab-vpnhub" class="remote-subtab-btn active" onclick="switchRemoteSubtab('vpnhub')" data-i18n="subtab_vpnhub">🛡️ PiVPN Hub</button>
+        <button id="btn-subtab-tailscale" class="remote-subtab-btn" onclick="switchRemoteSubtab('tailscale')" data-i18n="subtab_tailscale">🦎 Tailscale (Mesh)</button>
+        <button id="btn-subtab-guide" class="remote-subtab-btn" onclick="switchRemoteSubtab('guide')" data-i18n="subtab_guide">🌐 Port Forwarding Guide</button>
+        <button id="btn-subtab-wireguard" class="remote-subtab-btn" onclick="switchRemoteSubtab('wireguard')" data-i18n="subtab_wireguard">🛡️ WireGuard Server</button>
+        <button id="btn-subtab-openvpn" class="remote-subtab-btn" onclick="switchRemoteSubtab('openvpn')" data-i18n="subtab_openvpn">🔒 OpenVPN Server</button>
+        <button id="btn-subtab-duckdns" class="remote-subtab-btn" onclick="switchRemoteSubtab('duckdns')" data-i18n="subtab_duckdns">🦆 DuckDNS (DynDNS)</button>
+        <button id="btn-subtab-proxy" class="remote-subtab-btn" onclick="switchRemoteSubtab('proxy')" data-i18n="subtab_proxy">⚡ HTTPS Proxy</button>
       </div>
 
       <!-- SUBTAB 0: PIVPN HUB -->
@@ -4829,17 +4913,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <!-- Dedicated Guest Wi-Fi Receiver Status & Integration Banner -->
-      <div id="explorer-guest-banner" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-        <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1 1 280px; min-width: 0;">
-          <span style="font-size: 24px; flex-shrink: 0; margin-top: 2px;">📶</span>
-          <div style="min-width: 0; flex: 1 1 auto;">
-            <div style="font-weight: 700; font-size: 13.5px; color: #e9d5ff; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%;">
-              <span style="white-space: nowrap !important; flex-shrink: 0; min-width: max-content; display: inline-block;" data-i18n="explorer_guest_probe_title">Guest Wi-Fi Client Probe:</span>
-              <span id="explorer-guest-status-text" class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px; white-space: normal !important; word-break: break-word !important; text-align: left; max-width: 100%;">Loading...</span>
-            </div>
-            <div style="font-size: 12px; color: #d8b4fe; margin-top: 4px; word-break: break-word;" id="explorer-guest-details-text" data-i18n="explorer_guest_probe_desc">
-              Dual-homed: Wired eth0 connects to primary LAN, while wlan0 station connects to the isolated guest Wi-Fi.
-            </div>
+      <div id="explorer-guest-banner" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 280px; min-width: 0; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%;">
+            <span style="font-size: 20px; line-height: 1; flex-shrink: 0;">📶</span>
+            <span style="font-weight: 700; font-size: 13.5px; color: #e9d5ff; white-space: nowrap !important; word-break: keep-all !important; flex-shrink: 0;" data-i18n="explorer_guest_probe_title">Guest Wi-Fi Client Probe:</span>
+            <span id="explorer-guest-status-text" class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px; white-space: nowrap !important; word-break: keep-all !important; flex-shrink: 0;">Loading...</span>
+          </div>
+          <div style="font-size: 12px; color: #d8b4fe; line-height: 1.45; word-break: normal; overflow-wrap: break-word;" id="explorer-guest-details-text" data-i18n="explorer_guest_probe_desc">
+            Dual-homed: Wired eth0 connects to primary LAN, while wlan0 station connects to the isolated guest Wi-Fi.
           </div>
         </div>
         <div style="display: flex; gap: 8px; flex-shrink: 0;">
@@ -7819,7 +7901,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     const t = document.getElementById(tabId);
     if (t) t.classList.add('active');
     const b = Array.from(document.querySelectorAll('.app-tab-btn')).find(el => (el.getAttribute('onclick') || '').includes(tabId));
-    if (b) b.classList.add('active');
+    if (b) {
+      b.classList.add('active');
+      b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
 
     if (tabId === 'tab-script' && serverList.length === 0) {
       loadServers();
@@ -8229,9 +8314,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       if (pane) pane.style.display = (id === subtabId) ? 'block' : 'none';
       if (btn) {
         if (id === subtabId) {
-          btn.className = 'btn-primary adblock-subtab-btn active';
+          btn.classList.add('active');
+          btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
         } else {
-          btn.className = 'btn-secondary adblock-subtab-btn';
+          btn.classList.remove('active');
         }
       }
     });
@@ -10126,12 +10212,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       return;
     }
 
-    const W = isMobile ? 480 : 900;
-    const H = isMobile ? 360 : 250;
-    const padL = isMobile ? (mode === 'latency' ? 52 : 50) : 60;
-    const padR = (mode === 'combined') ? (isMobile ? 52 : 60) : (isMobile ? 18 : 25);
-    const padT = isMobile ? 26 : 25;
-    const padB = isMobile ? 44 : 40;
+    const W = isMobile ? 500 : 900;
+    const H = isMobile ? 380 : 270;
+    const padL = isMobile ? (mode === 'latency' ? 56 : 54) : 60;
+    const padR = (mode === 'combined') ? (isMobile ? 56 : 60) : (isMobile ? 20 : 25);
+    const padT = isMobile ? 30 : 25;
+    const padB = isMobile ? 50 : 40;
     const chartW = W - padL - padR;
     const chartH = H - padT - padB;
 
@@ -11176,7 +11262,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     const c = document.getElementById(subtabId);
     if (c) c.classList.add('active');
     const b = document.getElementById('btn-' + subtabId);
-    if (b) b.classList.add('active');
+    if (b) {
+      b.classList.add('active');
+      b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
     if (subtabId === 'rsub-guest') {
       loadGuestWifiStatus();
     }
@@ -14828,7 +14917,14 @@ ${pkgList}`;
     ['vpnhub', 'tailscale', 'guide', 'wireguard', 'openvpn', 'duckdns', 'proxy'].forEach(t => {
       const btn = document.getElementById('btn-subtab-' + t);
       const pane = document.getElementById('subtab-content-' + t);
-      if (btn) btn.className = (t === tabName) ? 'btn-primary remote-subtab-btn active' : 'btn-secondary remote-subtab-btn';
+      if (btn) {
+        if (t === tabName) {
+          btn.classList.add('active');
+          btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        } else {
+          btn.classList.remove('active');
+        }
+      }
       if (pane) pane.style.display = (t === tabName) ? 'block' : 'none';
     });
 

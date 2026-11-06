@@ -416,9 +416,9 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 A NetworkMeasureBox beágyazott kereskedelmi routereken történő futtatásához (akár **4 MB Flash és 32 MB RAM** mellett) elkészült a teljes, 100%-ban Python-mentes portolási specifikáció:
 * **Egységes Statikus Bináris (`nmbd`)**: **Go 1.23+** (Tier 1) és **C11 musl-libc** (Tier 2 & 3) alapon, zéró külső csomagfüggőséggel.
 * **Célhardver Portolási Kézikönyvek**:
-  * **ASUS ROG Rapture GT-AXE7800 / RT-AXE7800** (Broadcom BCM4912 4 mag @ 2.0 GHz, 1 GB RAM, 256 MB Flash, 2.5GbE, Wi-Fi 6E, Asuswrt-Merlin): 2.5 Gbps vonali sebességteszt, Flow Cache gyorsításkezelés, többmagos CAKE SQM és beágyazott `tsnet` Tailscale.
-  * **ASUS RT-N12+** (MediaTek MT7628N 575 MHz, 32 MB RAM, 8 MB Flash, 100M Ethernet, OpenWrt 23.05): 850 KB C11 bináris (320 KB UPX), 2.8 MB RAM RSS, 100 Mbps mérés <14% CPU terheléssel.
-  * **TP-Link TL-WR740N v4.23** (Atheros AR9331 400 MHz, 32 MB RAM, **4 MB Flash**, Minimal OpenWrt): **178 KB UPX-LZMA bináris**, 1.4 MB RAM RSS, 100% memóriabeli körkörös puffer a flash-kopás megakadályozására!
+  * **ASUS RT-AXE7800** (Broadcom BCM6756 4 mag @ 1.7 GHz, 512 MB DDR4 RAM, 256 MB NAND Flash, 1x 2.5GbE + 4x 1GbE, Tri-Band Wi-Fi 6E, Asuswrt / Asuswrt-Merlin GNUton): 2.5 Gbps vonali sebességteszt, Flow Cache gyorsításkezelés, többmagos CAKE SQM és beágyazott `tsnet` Tailscale.
+  * **ASUS RT-N12+** (MediaTek MT7620N ver:2 eco:6 MIPS24KEc @ 580 MHz, 32 MB DDR SDRAM, 8 MB SPI Flash, Fast Ethernet, OpenWrt `ramips/mt7620`): 850 KB C11 bináris (320 KB UPX), 2.8 MB RAM RSS, 100 Mbps mérés <14% CPU terheléssel.
+  * **TP-Link TL-WR740N v4.x / v4.23** (Atheros AR9331 400 MHz, 32 MB DDR SDRAM, **4 MB SPI Flash**, Minimal OpenWrt `ath79/generic`): **178 KB UPX-LZMA bináris**, 1.4 MB RAM RSS, 100% memóriabeli körkörös puffer a flash-kopás megakadályozására!
 * Részletes műszaki tervek:
   * 📄 **[`docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`](docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md)**
   * 📄 **[`docs/DEPYTHONIZATION_ROADMAP.md`](docs/DEPYTHONIZATION_ROADMAP.md)**
