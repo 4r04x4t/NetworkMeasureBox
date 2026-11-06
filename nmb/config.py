@@ -1060,10 +1060,21 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
             f.flush()
             os.fsync(f.fileno())
         try:
-            os.chmod(tmp_path, 0o600)
+            import shutil
+            shutil.chown(tmp_path, group="nmb")
+        except Exception:
+            pass
+        try:
+            os.chmod(tmp_path, 0o640)
         except OSError:
             pass
         os.replace(tmp_path, path)
+        try:
+            import shutil
+            shutil.chown(path, group="nmb")
+            os.chmod(path, 0o640)
+        except Exception:
+            pass
         sync_drive_config(path)
         return True
     except (PermissionError, OSError):

@@ -11,6 +11,7 @@ Environment=PYTHONPATH=/opt/nmb
 ExecStart=/opt/nmb/bin/nmb-telegram
 Restart=always
 RestartSec=10s
+TimeoutStopSec=5s
 
 # Security sandbox
 ProtectSystem=strict

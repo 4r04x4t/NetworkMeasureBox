@@ -2489,8 +2489,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             if shutil.which("systemctl"):
                 try:
                     if enabled and self.server.cfg.telegram.token:
+                        subprocess.run(["systemctl", "reset-failed", "nmb-telegram"], check=False, timeout=5)
                         subprocess.run(["systemctl", "enable", "--now", "nmb-telegram"], check=False, timeout=8)
-                        r = subprocess.run(["systemctl", "restart", "nmb-telegram"], capture_output=True, text=True, check=False, timeout=8)
+                        r = subprocess.run(["systemctl", "restart", "nmb-telegram"], capture_output=True, text=True, check=False, timeout=15)
                         if r.returncode == 0:
                             svc_started = True
                         else:
@@ -2539,7 +2540,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             box_id = getattr(self.server.cfg.system, "box_id", "nmb-01")
             import datetime
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            wan_ip = interfaces.get_interface_ip(self.server.cfg.network.wan_interface) or "N/A"
+            wan_iface = getattr(self.server.cfg.network, "wan_interface", "eth0")
+            wan_ips = interfaces.get_ip_addresses(wan_iface) if hasattr(interfaces, "get_ip_addresses") else []
+            wan_ip = wan_ips[0] if wan_ips else (interfaces.get_public_ip() or "N/A")
             test_msg = (
                 f"🔔 <b>NetworkMeasureBox Test Notification</b>\n\n"
                 f"✅ <i>Telegram chatbot integration is fully operational!</i>\n"
@@ -2579,7 +2582,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             err_msg = ""
             if shutil.which("systemctl"):
                 try:
-                    r = subprocess.run(["systemctl", action, "nmb-telegram"], capture_output=True, text=True, check=False, timeout=10)
+                    subprocess.run(["systemctl", "reset-failed", "nmb-telegram"], check=False, timeout=5)
+                    r = subprocess.run(["systemctl", action, "nmb-telegram"], capture_output=True, text=True, check=False, timeout=15)
                     if r.returncode != 0:
                         err_msg = r.stderr.strip() or r.stdout.strip()
                 except Exception as e:

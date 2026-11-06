@@ -32,6 +32,7 @@ class TelegramDaemon:
         if signum in (signal.SIGTERM, signal.SIGINT):
             log.info("received signal %d, stopping telegram daemon...", signum)
             self.running = False
+            sys.exit(0)
         elif signum == signal.SIGHUP:
             log.info("received SIGHUP, reloading telegram daemon configuration")
             new_cfg = load_config()
@@ -89,7 +90,7 @@ class TelegramDaemon:
         backoff = 2.0
         while self.running:
             try:
-                updates = self.client.get_updates(offset=self.last_update_id, timeout=25)
+                updates = self.client.get_updates(offset=self.last_update_id, timeout=5)
                 backoff = 2.0  # reset on successful poll
 
                 for u in updates:
