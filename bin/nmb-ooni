@@ -42,7 +42,7 @@ def cmd_status() -> int:
 
 def cmd_onboard() -> int:
     print("Verifying / executing OONI Probe unattended onboarding...", file=sys.stderr)
-    ok = ooni.ensure_ooni_onboarded()
+    ok = ooni.ensure_onboarding()
     if ok:
         print("✓ OONI Probe successfully onboarded and ready for measurements.")
         return 0
@@ -66,7 +66,7 @@ def cmd_history(limit: int) -> int:
         rid = str(h.get("id", ""))
         dt = h.get("start_time", "")[:19]
         asn = f"{h.get('network_name', '')} ({h.get('asn', '')})"[:18]
-        tot = str(h.get("measurement_count", 0))
+        tot = str(h.get("total_count", 0))
         anom = str(h.get("anomaly_count", 0))
         if int(h.get("anomaly_count", 0)) > 0:
             anom = f"⚠️ {anom}"
@@ -80,17 +80,18 @@ def cmd_run(category: str, url: str) -> int:
         print("[Error] ooniprobe is not installed on this system.", file=sys.stderr)
         return 1
 
-    ooni.ensure_ooni_onboarded()
+    ooni.ensure_onboarding()
 
-    print(f"Launching OONI Probe test: category={category}, url={url or 'default test list'} (this may take 30-90s)...", file=sys.stderr)
-    res = ooni.run_ooni_test_sync(category=category, url=url)
+    print(f"Launching OONI Probe test: category={category}, url={url or 'default test list'} (a full website run can take many minutes)...", file=sys.stderr)
+    res = ooni.run_ooni_test_sync(test_type=category, target_url=url or None)
     if res.get("status") == "ok":
         print("✓ OONI Probe test completed successfully!")
-        print(f"  Summary: {res.get('summary')}")
-        print(f"  Exit code: {res.get('exit_code')}")
+        print(f"  Verdict: {res.get('verdict')}")
+        print(f"  Tests: {res.get('total_tests')} | Anomalies: {res.get('anomalies')}")
+        print(f"  Duration: {res.get('duration_seconds')}s")
         return 0
     else:
-        print(f"[Error] OONI test execution failed: {res.get('message')}", file=sys.stderr)
+        print(f"[Error] OONI test execution failed: {res.get('message') or res.get('error')}", file=sys.stderr)
         return 1
 
 
