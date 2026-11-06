@@ -80,7 +80,6 @@ NMB eliminates this finger-pointing by placing an independent measurement system
   * Full router replacement with PPPoE client (including 802.1Q VLAN tagging), dynamic DHCP or static IP WAN.
   * Local gateway services: `dnsmasq` DHCP server, DNS caching, and iptables/nftables NAT masquerading.
   * Integrated Wi-Fi Access Point (`hostapd`) supporting IEEE 802.11 b/g/n/ac/ax/be across 2.4 GHz, 5 GHz, and 6 GHz bands.
-  * Smart Queue Management (SQM) with CAKE and fq_codel algorithms to eliminate bufferbloat under line saturation.
 * **Mode B (Passive Transparent Inline Bridge)**:
   * Inserts invisibly between an existing modem/ONT and router without taking an IP address on the customer subnet.
   * Operates as a stealth Layer 2 bridge (`br0`) to audit line telemetry with zero interference.
@@ -102,16 +101,16 @@ NMB eliminates this finger-pointing by placing an independent measurement system
 ### 3. Automated Hardware Driver & Firmware Management
 * Detects physical controllers (Realtek RTL8111/8168/8125/8126, Intel e1000e/igb/igc/ixgbe, Broadcom, MediaTek MT7921, Qualcomm Atheros, ASIX USB, Aquantia 10G).
 * Inspects `dmesg` ring buffer to detect missing non-free kernel firmware blobs.
-* Built-in one-click package installer via `nmb-helper install-drivers` across Debian (`apt`), OpenWrt (`opkg`), Alpine (`apk`), Arch (`pacman`), and Fedora (`dnf`) with real-time WebGUI terminal logging.
+* Built-in one-click package installer via `nmb-helper install-drivers`, tested on Raspberry Pi OS (`apt`); code paths for `opkg`, `apk`, `pacman` and `dnf` exist but are untested, with real-time WebGUI terminal logging.
 
-### 4. 5 Complementary Measurement Engines
+### 4. Measurement Engines & Checks
 1. **High-Frequency ICMP Probe (`nmb-probe`)**: 500ms continuous sampling to 4 independent reference targets (ISP Gateway, Cloudflare `1.1.1.1`, Google `8.8.8.8`, Quad9 `9.9.9.9`), RFC 3550 jitter calculation, p95/p99 latency tracking, and exact outage duration logging.
 2. **Ookla Speedtest CLI**: Official Ookla binary runner with automatic server detection or custom server targeting.
-3. **Cloudflare Speed Engine**: Official multipart 100MB/25MB CDN edge throughput benchmarking.
-4. **RTR-Netztest (RMBT)**: Open-source regulatory benchmark conforming to European BEREC and Austrian RTR standards.
+3. **Cloudflare Speed Engine**: Timed 4-stream download and upload against the Cloudflare edge (about 1.2 GB per run at gigabit speed).
+4. **RTR-Netztest (RMBT)**: Open-source benchmark from the Austrian regulator RTR.
 5. **iPerf3 Client & Managed Server**: Local LAN and public WAN throughput benchmarking across TCP and UDP with parallel threads.
 6. **Net-Neutrality Port Throttle Checker**: Audits whether the ISP throttles specific ports (HTTP 80, HTTPS 443, Alt-HTTP 8080, SSH 22, BitTorrent, VoIP).
-7. **Traffic Gate**: Monitors `/proc/net/dev` and postpones scheduled tests if existing customer LAN traffic exceeds 500 kbps.
+7. **Traffic Gate**: Monitors `/proc/net/dev` and postpones scheduled tests if existing traffic exceeds the configured threshold (2% of link capacity by default).
 
 ### 5. Embedded & Low-Memory Optimization (512 MB RAM Support)
 Memory-saving profiles for constrained Linux systems. These have only been run on the Raspberry Pi 4, not on routers:
@@ -146,9 +145,9 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
   * **Management-Plane Isolation**: Direct encrypted access to the WebUI dashboard from anywhere in the world without public port forwarding, dynamic DNS, or firewall opening.
   * Completely bypasses Carrier-Grade NAT (CGNAT) and multi-router cascades.
   * Real-time MagicDNS domain, Tailscale IPv4/IPv6 status, and one-click Connect / Disconnect controls directly from the WebUI.
-* **DynDNS & Embedded HTTPS Reverse Proxy**:
+* **DynDNS & Forward Proxy**:
   * Integrated DuckDNS dynamic DNS updater.
-  * Embedded HTTPS reverse proxy for secure TLS-encrypted LAN access.
+  * Optional built-in HTTP CONNECT forward proxy with required authentication.
 
 ### 9. Embedded DNS Ad-Blocker & Privacy Shield (Pi-hole Alternative)
 * **High-Performance In-Memory Sinkhole**:
@@ -181,7 +180,7 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
   * Root-cause correlation: Automatically identifies whether an outage is local CPE/gateway failure or upstream ISP transit peering failure.
 * **Storage I/O & Flash Filesystem Health**:
   * `%iowait` CPU tracking to detect failing or saturated microSD / flash storage.
-  * Filesystem wear and free capacity tracking via standard POSIX `statvfs()`.
+  * Free filesystem capacity tracking.
   * Kernel `dmesg`/`kmsg` ring-buffer traps catching hardware I/O and ext4/squashfs corruptions.
 * **Sanitized Configuration & PII Masking**:
   * Built-in redactor protecting customer privacy: automatically masks bot tokens, chat IDs, Wi-Fi PSKs, ISP account numbers, and circuit IDs before generating dossiers or exporting diagnostic snapshots.
@@ -193,7 +192,7 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
   * **Instant SLA Dossier Delivery**: Sends complete `.html` reports directly into the chat for forwarding to ISP technicians.
   * **Proactive Push Alerts**: Immediate alerts on link down, loss $>5\%$, high jitter, or service degradation.
 
-### 12. Regulatory-Grade Broadband SLA Evidence Dossier & Pure SVG Charts
+### 12. SLA Dossier & Pure SVG Charts
 * **Neutral International Branding**:
   * Completely neutral title: *"Broadband Quality & ISP SLA Performance Dossier"* / *"Szélessávú Hálózati Minőség & Szolgáltatói SLA Vizsgálati Dosszié"*.
   * Makes no official or regulatory claim. The SLA result is NMB's own evaluation against fixed thresholds, not a decision by an authority or an ISP.
@@ -201,7 +200,6 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
   * **Prominent IP & ISP Attribution**: Every measurement sample and telemetry table prominently highlights the detected client IPv4/IPv6 addresses alongside the verified ISP provider identity.
 * **Pure Mathematical SVG Vector Engine**:
   * Zero external charting dependencies: emits responsive `<svg viewBox="0 0 800 380">` with cubic bezier curves, dual y-axes (Mbps & ms), SLA threshold baselines, and touch dot overlays.
-  * Rendered in sub-millisecond execution time.
   * Exportable directly in 5 languages via `/dossier?lang=...` or Telegram `/report`.
 
 ### 13. Real-Time Task Manager (Embedded htop Engine)
@@ -212,9 +210,7 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 
 ### 14. Autonomous Self-Healing & Safety Rollback Watchdog (`nmb-heal`)
 * Automated background health audits verifying binary integrity, database health, permissions, and network connectivity.
-* Cryptographic signature verification and atomic executable replacement (`os.Rename`).
 * **Automated Safety Rollback**: If a software update fails integrity checks or breaks critical services, the watchdog automatically reverts to the previous snapshot.
-* Hardware Watchdog Timer support (`/dev/watchdog`) to prevent system lockups on remote unattended installations.
 
 ### 15. Planned De-Pythonization & Router Porting
 > **Status: planned only.** NMB is developed and run on the Raspberry Pi 4. No router software or firmware exists yet; the figures below are design targets, not measurements.

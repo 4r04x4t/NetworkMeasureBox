@@ -14,6 +14,7 @@ import collections
 import datetime
 import json
 import logging
+import logging.handlers
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
@@ -229,6 +230,29 @@ def get_active_log_file() -> Optional[str]:
     return _ACTIVE_LOG_FILE
 
 
+_WARNING_FILE_HANDLER = None
+
+
+def _add_persistent_warning_log(root: logging.Logger) -> None:
+    """Keep warnings and errors across reboots; /var/log lives in RAM and only holds recent logs."""
+    global _WARNING_FILE_HANDLER
+    if _WARNING_FILE_HANDLER is not None:
+        return
+    try:
+        directory = Path(os.environ.get("NMB_PERSIST_LOG_DIR", "/var/lib/nmb/persist/logs"))
+        directory.mkdir(parents=True, exist_ok=True)
+        name = Path(sys.argv[0] or "nmb").stem or "nmb"
+        handler = logging.handlers.RotatingFileHandler(
+            directory / f"warnings-{name}.log", maxBytes=2_000_000, backupCount=2, encoding="utf-8"
+        )
+    except OSError:
+        return
+    handler.setLevel(logging.WARNING)
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] [%(name)s] %(message)s"))
+    root.addHandler(handler)
+    _WARNING_FILE_HANDLER = handler
+
+
 def setup_dev_logging(
     cfg: Any = None,
     level: Optional[str] = None,
@@ -246,7 +270,7 @@ def setup_dev_logging(
             if cfg and hasattr(cfg, "logging") and getattr(cfg.logging, "level", None):
                 level = cfg.logging.level
             else:
-                level = "DEBUG"
+                level = "INFO"
 
         lvl_name = level.upper()
         if lvl_name == "TRACE":
@@ -269,6 +293,8 @@ def setup_dev_logging(
             root.addHandler(_CONSOLE_HANDLER)
         elif _CONSOLE_HANDLER:
             _CONSOLE_HANDLER.setLevel(lvl_no)
+
+        _add_persistent_warning_log(root)
 
         # 2. In-Memory Ring Buffer Handler
         if _BUFFER_HANDLER is None:

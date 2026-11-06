@@ -483,8 +483,10 @@ def get_interface_stats(iface: str) -> Dict[str, int]:
         tx_p = int((stats_dir / "tx_packets").read_text().strip())
         return {"rx_bytes": rx_b, "tx_bytes": tx_b, "rx_packets": rx_p, "tx_packets": tx_p}
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return {"rx_bytes": rx_b, "tx_bytes": tx_b, "rx_packets": rx_p, "tx_packets": tx_p}
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return {"rx_bytes": 0, "tx_bytes": 0, "rx_packets": 0, "tx_packets": 0}
 
 
@@ -512,6 +514,7 @@ def _bg_resolve_external_ips(iface: Optional[str] = None) -> None:
                         ipaddress.ip_address(val)
                         return val
             except Exception:
+                log.debug("suppressed exception", exc_info=True)
                 continue
         return None
 

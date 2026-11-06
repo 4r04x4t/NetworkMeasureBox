@@ -123,6 +123,7 @@ def get_ooni_history(limit: int = 15) -> List[Dict[str, Any]]:
                         "is_done": fields.get("is_done", True),
                     })
             except Exception:
+                log.debug("suppressed exception", exc_info=True)
                 continue
         results.sort(key=lambda r: r.get("id", 0), reverse=True)
         return results[:limit]
@@ -198,6 +199,7 @@ def get_ooni_run_measurements(run_id: int) -> Dict[str, Any]:
                         "data_up_kb": round(float(fields.get("data_usage_up", 0)), 1),
                     })
             except Exception:
+                log.debug("suppressed exception", exc_info=True)
                 continue
 
         # Sort measurements: anomalies first, then by id
@@ -428,6 +430,7 @@ def get_ooni_measurement_detail(msmt_id: int) -> Dict[str, Any]:
                         "raw_json": raw,
                     }
             except Exception:
+                log.debug("suppressed exception", exc_info=True)
                 continue
 
         return {"status": "error", "message": f"Measurement #{msmt_id} data not found."}
@@ -601,6 +604,7 @@ def run_ooni_test_sync(
                         if len(findings) < 8:
                             findings.append(msg)
                 except Exception:
+                    log.debug("suppressed exception", exc_info=True)
                     continue
 
         proc.wait(timeout=180)

@@ -468,6 +468,7 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
             )
             return any(obj in net for net in rfc1918_nets)
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             return False
 
     def is_rfc6598_cgnat(ip_s: Optional[str]) -> bool:
@@ -478,6 +479,7 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
             cgnat_net = ipaddress.ip_network("100.64.0.0/10")
             return obj in cgnat_net
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             return False
 
     is_cgnat = False
@@ -759,6 +761,7 @@ def _check_multihoming_arp_flux(eth_iface: str = "eth0", wlan_iface: str = "wlan
                     wlan_matched = w_str.split("/")[0]
                     break
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             continue
         if same_subnet:
             break

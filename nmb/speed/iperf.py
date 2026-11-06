@@ -454,6 +454,7 @@ def is_iperf_port_listening(port: int = 5201) -> bool:
             s.settimeout(0.2)
             return s.connect_ex(("127.0.0.1", port)) == 0
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return False
 
 

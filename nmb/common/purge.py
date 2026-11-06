@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
+import sqlite3
+import time
 from pathlib import Path
 from typing import Dict, Iterable, List
 
@@ -77,6 +80,30 @@ def _purge_dir(path: Path) -> int:
     return count
 
 
+def delete_impossible_speedtests(max_mbps: float, backup_dir: Path = backup.BACKUP_DIR) -> Dict[str, object]:
+    """Back up the database, then delete speed tests faster than the link can carry."""
+    limit_bps = max_mbps * 1_000_000
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup_path = backup_dir / f"pre-impossible-cleanup-{time.strftime('%Y%m%d-%H%M%S')}.db"
+    conn = db.connect()
+    try:
+        target = sqlite3.connect(backup_path)
+        try:
+            conn.backup(target)
+        finally:
+            target.close()
+        os.chmod(backup_path, 0o640)
+        with db.tx(conn):
+            deleted = conn.execute(
+                "DELETE FROM speedtest WHERE down_bps > ? OR up_bps > ?", (limit_bps, limit_bps)
+            ).rowcount
+    finally:
+        conn.close()
+    db.snapshot()
+    log.warning("deleted %d impossible speed tests above %.0f Mbps; backup: %s", deleted, max_mbps, backup_path)
+    return {"deleted": deleted, "backup": str(backup_path)}
+
+
 def purge(cfg, categories: Iterable[str]) -> Dict[str, object]:
     """Delete the selected categories. Returns deleted counts and per-category errors."""
     selected = list(dict.fromkeys(categories))
@@ -111,3 +138,11 @@ def purge(cfg, categories: Iterable[str]) -> Dict[str, object]:
             errors["logs"] = str(e)
     log.warning("data purge executed: categories=%s deleted=%s errors=%s", selected, deleted, errors)
     return {"deleted": deleted, "errors": errors}
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Delete physically impossible speed test rows, after a backup")
+    parser.add_argument("--max-mbps", type=float, required=True, help="Highest possible speed of the link")
+    print(delete_impossible_speedtests(parser.parse_args().max_mbps))

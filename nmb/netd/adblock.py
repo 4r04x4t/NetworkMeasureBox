@@ -303,6 +303,7 @@ def parse_dns_query(data: bytes) -> Optional[Tuple[int, str, int, int, bytes]]:
         question_slice = data[12 : end_q + 4]
         return txid, domain, qtype, qclass, question_slice
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return None
 
 
@@ -745,6 +746,7 @@ class AdblockEngine:
                 if resp:
                     return resp, upstream
             except Exception:
+                log.debug("suppressed exception", exc_info=True)
                 continue
             finally:
                 if s:
@@ -1799,6 +1801,7 @@ def is_adblock_running() -> bool:
         r = subprocess.run(["systemctl", "is-active", "--quiet", "nmb-adblock"], timeout=1.0)
         return r.returncode == 0
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return False
 
 

@@ -147,6 +147,7 @@ def _is_private_ip(ip_str: str) -> bool:
         ip_obj = ipaddress.ip_address(ip_str)
         return ip_obj.is_private or ip_obj.is_loopback
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return False
 
 

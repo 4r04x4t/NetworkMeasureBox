@@ -46,6 +46,7 @@ def is_tailscaled_active() -> bool:
         res = subprocess.run(["pgrep", "-x", "tailscaled"], capture_output=True, timeout=2)
         return res.returncode == 0
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return False
 
 

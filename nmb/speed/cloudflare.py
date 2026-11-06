@@ -77,6 +77,7 @@ def _current_ua() -> str:
     try:
         return get_effective_user_agent()
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/133.0.6943.126 Safari/537.36"
 
 
@@ -263,6 +264,10 @@ def _probe_loaded_latency(stop_event: threading.Event, output_list: List[float])
             log.debug("loaded latency sample failed: %s", e)
 
 
+class _RateLimited(Exception):
+    """Cloudflare asked us to stop; retrying would make it worse."""
+
+
 class _ByteMeter:
     """Thread-safe byte counter that ignores the TCP ramp-up period."""
 
@@ -284,23 +289,39 @@ class _ByteMeter:
 def _download_worker(conn, meter: _ByteMeter, start: threading.Event, window: Tuple[float, float], stop_at: List[float]) -> None:
     buffer = bytearray(READ_CHUNK_BYTES)
     start.wait()
-    try:
-        while time.monotonic() < stop_at[0]:
-            conn.request("GET", f"/__down?bytes={REQUEST_BYTES}", headers=_cf_headers())
-            response = conn.getresponse()
-            if response.status != 200:
-                raise http.client.HTTPException(f"HTTP {response.status}")
-            while time.monotonic() < stop_at[0]:
-                count = response.readinto(buffer)
-                if not count:
-                    break
-                meter.add(count, time.monotonic(), window[0], window[1])
-            else:
+    while time.monotonic() < stop_at[0]:
+        try:
+            conn = _download_until_stop(conn, buffer, meter, window, stop_at)
+        except _RateLimited as e:
+            meter.error(str(e))
+            break
+        except (OSError, http.client.HTTPException) as e:
+            # One dropped TLS stream should not lower the result for the rest of the window.
+            meter.error(str(e))
+            conn.close()
+            time.sleep(0.2)
+            try:
+                conn = _new_connection()
+            except (OSError, http.client.HTTPException) as reconnect_error:
+                meter.error(str(reconnect_error))
                 return
-    except (OSError, http.client.HTTPException) as e:
-        meter.error(str(e))
-    finally:
-        conn.close()
+    conn.close()
+
+
+def _download_until_stop(conn, buffer, meter, window, stop_at):
+    while time.monotonic() < stop_at[0]:
+        conn.request("GET", f"/__down?bytes={REQUEST_BYTES}", headers=_cf_headers())
+        response = conn.getresponse()
+        if response.status == 429:
+            raise _RateLimited("HTTP 429")
+        if response.status != 200:
+            raise http.client.HTTPException(f"HTTP {response.status}")
+        while time.monotonic() < stop_at[0]:
+            count = response.readinto(buffer)
+            if not count:
+                break
+            meter.add(count, time.monotonic(), window[0], window[1])
+    return conn
 
 
 def _upload_worker(conn, meter: _ByteMeter, start: threading.Event, window: Tuple[float, float], stop_at: List[float]) -> None:

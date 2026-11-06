@@ -155,6 +155,7 @@ def load_clients() -> List[Dict[str, Any]]:
         data = json.loads(CLIENTS_FILE.read_text())
         return data.get("clients", []) if isinstance(data, dict) else []
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return []
 
 

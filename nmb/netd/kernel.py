@@ -35,6 +35,7 @@ def get_cpu_affinity_mask_hex() -> str:
         mask_val = (1 << cpus) - 1
         return hex(mask_val)[2:]
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return "f"
 
 
@@ -46,6 +47,7 @@ def _write_kernel_param(path: Path | str, value: str) -> bool:
         p.write_text(val_str)
         return True
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return False
 
 
@@ -265,6 +267,7 @@ def get_kernel_network_status() -> Dict[str, Any]:
         try:
             return int(val)
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             return default
 
     # Congestion control & qdisc

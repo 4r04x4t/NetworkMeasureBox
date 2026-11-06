@@ -266,6 +266,7 @@ def gen_psk() -> str:
         res = subprocess.run(["wg", "genpsk"], capture_output=True, text=True, check=True)
         return res.stdout.strip()
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return base64.b64encode(os.urandom(32)).decode("ascii")
 
 

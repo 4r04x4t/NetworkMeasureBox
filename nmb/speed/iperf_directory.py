@@ -38,6 +38,7 @@ def _get_cache_path() -> Path:
             p.parent.mkdir(parents=True, exist_ok=True)
             return p
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             continue
     return Path("/tmp/iperf_public_servers.json")
 

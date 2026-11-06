@@ -199,7 +199,7 @@ auth_enabled = true
 admin_password = admin
 
 [logging]
-level = DEBUG
+level = INFO
 file_enabled = true
 file_path = /var/log/nmb/nmb_developer.log
 max_bytes = 10485760

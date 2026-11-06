@@ -66,6 +66,7 @@ def classify_hop_type(ip: str, target_ip: str = "") -> str:
             return "cgnat"
         return "public"
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return "public"
 
 

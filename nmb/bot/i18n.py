@@ -1092,6 +1092,7 @@ def t(key: str, lang: str = DEFAULT_LANGUAGE, **kwargs) -> str:
         try:
             return tmpl.format(**kwargs)
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             return tmpl
     return tmpl
 
@@ -1182,4 +1183,5 @@ def format_alert(alert_key: str, lang: str = DEFAULT_LANGUAGE, **kwargs) -> str:
     try:
         return tmpl.format(**kwargs)
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return tmpl

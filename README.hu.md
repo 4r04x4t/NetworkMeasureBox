@@ -51,7 +51,7 @@ Egyedi, manuálisan futtatott böngészős sebességtesztekkel a felhasználó t
 A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspberry Pi 4-en fejlesztve és futtatva) a nap 24 órájában, az év 365 napján automatikusan felügyeli és dokumentálja az internetkapcsolatot:
 1. **Objektív bizonyítékot gyűjt**: Rögzíti az összes késleltetést, mikroszakadást, jittert és sávszélesség-ingadozást.
 2. **Közvetlenül a vonalon mér**: Képes routerként (Mode A) vagy passzív, láthatatlan inline hídként (Mode B) üzemelni a modem és a router között, így kiküszöböli a belső hálózati zavaró tényezőket.
-3. **Nem zavarja a felhasználót**: A beépített intelligens forgalmi kapu (Traffic Gate) csak akkor indít nagy sávszélességű tesztet, ha a vonal éppen üres (< 500 kbps), így nem szakítja meg a videóhívást vagy az online játékot.
+3. **Nem zavarja a felhasználót**: A beépített intelligens forgalmi kapu (Traffic Gate) csak akkor indít nagy sávszélességű tesztet, ha a vonal éppen üres (a beállított küszöb alatt), így nem szakítja meg a videóhívást vagy az online játékot.
 4. **SLA dossziét generál**: Egyetlen gombnyomással önállóan megnyitható HTML jelentést állít elő beágyazott vektoros SVG diagramokkal és az előfizetői szerződéshez viszonyított SLA-megfelelőségi táblázattal, amelyet közvetlenül be lehet nyújtani hibajegyként a szolgáltatónak, vagy vita esetén az illetékes hírközlési hatóságnak.
 
 ---
@@ -60,7 +60,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 
 * **Zéró Külső Python Függőség (Zero Pip Dependencies)**: A teljes kód kizárólag a Python 3 szabványos könyvtáraira (`sqlite3`, `http.server`, `urllib`, `socket`, `ctypes`) és natív Linux segédprogramokra épül. Nincs szükség `pip install`-ra, így korlátozott beágyazott rendszereken is azonnal indul.
 * **Kettős Működési Mód**:
-  * **Mode A (Aktív Router / Gateway)**: Teljes értékű router PPPoE tárcsázással, VLAN tageléssel, NAT masquerade-del, DHCP kiszolgálóval (`dnsmasq`), CAKE / fq_codel QoS-szel és Wi-Fi 6/6E/7 hozzáférési ponttal (`hostapd`).
+  * **Mode A (Aktív Router / Gateway)**: Teljes értékű router PPPoE tárcsázással, VLAN tageléssel, NAT masquerade-del, DHCP kiszolgálóval (`dnsmasq`).
   * **Mode B (Passzív Transzparens Híd / Inline Bridge)**: Két fizikai interfész közötti transzparens híd (`br0`), zéró IP interferenciával, teljesen láthatatlanul a hálózat számára.
 * **LAN Passthrough és Link Aggregation** (routerhez csatlakoztatott, önálló mérőeszköz; WebGUI: Portok és Illesztőprogramok):
   * **Passthrough**: a kiválasztott portok 2. rétegben az uplinkre hidalódnak, így a doboz mögötti eszközök a router alhálózatán maradnak.
@@ -77,7 +77,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
   * Egykattintásos driver/firmware telepítő (Debian `apt`, OpenWrt `opkg`, Alpine `apk`, Arch `pacman`, Fedora `dnf`) élő terminálablakkal a WebGUI-ban.
 * **5 Párhuzamos Sebességmérő Motor**:
   1. **Ookla Speedtest CLI**: Hivatalos Ookla mérőmotor automatikus szerverválasztással vagy testreszabott szerverazonosítóval.
-  2. **Cloudflare Speed Engine**: Hivatalos Cloudflare CDN 100 MB / 25 MB multipart sávszélesség-mérés.
+  2. **Cloudflare Speed Engine**: Időalapú, 4 szálas le- és feltöltés a Cloudflare felé (gigabites vonalon futásonként kb. 1,2 GB).
   3. **RTR-Netztest (RMBT)**: Az Osztrák Szabályozó Hatóság (RTR) és az európai BEREC szabványos RMBT mérőmotorja.
   4. **iPerf3 Kliens és Szerver**: Helyi és távoli iPerf3 audit TCP/UDP protokollal, állítható szálakkal.
   5. **Net-Neutrality Portfojtás-Ellenőrző**: Célzott tesztek specifikus portokon (HTTP 80, HTTPS 443, Alt-HTTP 8080, SSH 22, BitTorrent, SIP/VoIP).
@@ -112,7 +112,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 │                         ▼                                                           ▼                            │
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Forgalomfüggő Sebességmérő (nmb-speed)       │          │ Elemző és Dosszié-Generátor (nmb-report)         │  │
-│  │ • /proc/net/dev üresjárati kapu (<500 kbps)  │          │ • Önmagában álló HTML jelentés vektoros SVG-vel  │  │
+│  │ • /proc/net/dev üresjárati kapu (küszöbbel) │          │ • Önmagában álló HTML jelentés vektoros SVG-vel  │  │
 │  │ • 5 motor: Ookla, Cloudflare, RTR, iPerf, FW │          │ • RFC 4180 CSV telemetria exportáló              │  │
 │  │ • Net-neutrality portfojtás-ellenőrző        │          │ • Automatikus SMTP hibajegy-továbbítás           │  │
 │  └──────────────────────┬───────────────────────┘          └────────────────────────┬─────────────────────────┘  │
@@ -146,7 +146,6 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 | **IP cím a hálózatban** | Igen (Gateway: `192.168.100.1` vagy egyedi) | Nincs (csak mérési felügyelet a fizikai portokon) |
 | **PPPoE tárcsázás & VLAN** | Támogatott (beépített kliens) | Átengedi a csomagokat érintetlenül |
 | **DHCP & DNS kiszolgálás** | Igen (`dnsmasq` integráció) | Nincs (a meglévő router oszt IP-t) |
-| **QoS / Bufferbloat védelem** | Igen (CAKE / fq_codel SQM) | Nincs |
 | **Láthatóság a hálózaton** | Routerként látható | Teljesen láthatatlan (Layer 2 bridge) |
 | **Üzemszünet-kockázat** | Ha leáll, nincs net | Szoftveres hiba esetén szoftverhíd, bypass hardverrel átenged |
 
@@ -210,7 +209,7 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 
 ### 7. Traffic Gate (Forgalmi Kapu)
 * Az automatikus mérések előtt az NMB megvizsgálja a `/proc/net/dev` számlálóit.
-* Ha a belső hálózaton a felhasználói forgalom meghaladja a beállított küszöbértéket (alapértelmezetten 500 kbps), a teszt elhalasztásra kerül, így a mérés soha nem okoz akadást a felhasználónak.
+* Ha a belső hálózaton a felhasználói forgalom meghaladja a beállított küszöbértéket (alapértelmezetten a kapacitás 2%-a), a teszt elhalasztásra kerül, így a mérés soha nem okoz akadást a felhasználónak.
 
 ---
 
@@ -283,7 +282,6 @@ A beépített webes felület a **szabványos 80-as HTTP router porton** érhető
     * **🔀 Portok és Illesztőprogramok**: Multi-NIC szerepkör mátrix, WAN2 failover/loadbalance, LAN bridge (`br-lan`), hardveres driver detektálás és egykattintásos telepítés.
     * Működési mód (Mode A / Mode B / Auto-Failover).
     * Memóriaprofilok (`embedded` 512MB, `standard`, `performance`) és RAM karbantartás.
-    * CAKE / fq_codel SQM QoS beállítások.
     * Adminisztrátori hitelesítés és jelszókezelés.
 14. **Kijelentkezés (Logout)**: Biztonsági kijelentkezés a böngésző hitelesítési gyorsítótárának törlésével.
 
@@ -329,9 +327,9 @@ A távoli elérés elengedhetetlen, ha a mérődoboz telephelyen, nyaralóban va
 * Teljesen áthidalja a szolgáltatói CGNAT korlátozásokat és a többszörös router-kaszkádokat.
 * Valós idejű MagicDNS azonosító, Tailscale IPv4/IPv6 cím kijelzés, és egykattintásos Csatlakozás / Leválasztás vezérlés.
 
-### 3. DynDNS & Beépített HTTPS Fordított Proxy
+### 3. DynDNS & Továbbító Proxy
 * Integrált DuckDNS dinamikus DNS frissítő kliens.
-* Beágyazott HTTPS reverse proxy az eszköz LAN-on belüli TLS titkosításához.
+* Opcionális beépített HTTP CONNECT továbbító proxy, kötelező hitelesítéssel.
 
 ---
 
@@ -412,9 +410,7 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 ## 16. Önjavító Watchdog és Biztonsági Visszaállás (`nmb-heal`)
 
 * Autonóm háttérbeli audit: ellenőrzi a binárisok épségét, az adatbázist, a jogosultságokat és az internetkapcsolatot.
-* Kriptográfiai aláírás-ellenőrzés és atomi fájlcsere (`os.Rename`).
 * **Automatikus Biztonsági Visszaállás**: Ha egy frissítés hibás vagy a tesztek elhasalnak, a watchdog automatikusan visszaállítja a korábbi működő állapotot.
-* Hardveres Watchdog támogatás (`/dev/watchdog`) távoli, felügyelet nélküli eszközök lefagyásának megakadályozására.
 
 ---
 

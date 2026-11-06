@@ -156,6 +156,7 @@ def _normalize_server(s: dict) -> Optional[dict]:
             "host": host,
         }
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return None
 
 
@@ -320,6 +321,7 @@ def find_or_install_ookla_binary() -> Optional[str]:
             target_dir = d
             break
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             continue
 
     if not target_dir:

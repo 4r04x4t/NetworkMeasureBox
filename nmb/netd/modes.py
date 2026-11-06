@@ -46,6 +46,9 @@ class ModeA(NetworkMode):
     def __init__(self, cfg: NetworkConfig, svc_mgr: ServiceManager):
         super().__init__(cfg, svc_mgr)
         self.lan_ifaces: List[str] = []
+        self.wan_fail_count = 0
+        self.wan_ok_count = 0
+        self.on_wan2 = False
 
     def _setup_vlan_if_needed(self) -> str:
         if self.cfg.pppoe_vlan > 0:
@@ -96,6 +99,29 @@ class ModeA(NetworkMode):
             [ip_bin, "route", "replace", "default", *primary, "nexthop", "via", gw2, "dev", wan2, "weight", "1"],
             check=False,
         )
+
+    def check_wan_failover(self) -> None:
+        """Move the default route to WAN2 after 3 failed checks, and back after 3 good ones."""
+        wan2 = getattr(self.cfg, "wan2_interface", "")
+        ip_bin = shutil.which("ip")
+        ping_bin = shutil.which("ping")
+        if getattr(self.cfg, "wan_mode", "single") != "failover" or not wan2 or not ip_bin or not ping_bin:
+            return
+        target = (getattr(self.cfg, "detection_targets", None) or ["1.1.1.1"])[0]
+        result = interfaces.run_cmd([ping_bin, "-c", "1", "-W", "2", "-I", self.active_wan, target], check=False)
+        self.wan_fail_count = 0 if result.returncode == 0 else self.wan_fail_count + 1
+        self.wan_ok_count = self.wan_ok_count + 1 if result.returncode == 0 else 0
+
+        if not self.on_wan2 and self.wan_fail_count >= 3:
+            gateway = self.cfg.wan2_gateway or interfaces.get_default_gateway(wan2)
+            if gateway:
+                log.warning("primary WAN %s is failing; switching default route to %s", self.active_wan, wan2)
+                interfaces.run_cmd([ip_bin, "route", "replace", "default", "via", gateway, "dev", wan2, "metric", "10"], check=False)
+                self.on_wan2 = True
+        elif self.on_wan2 and self.wan_ok_count >= 3:
+            log.warning("primary WAN %s recovered; removing failover route", self.active_wan)
+            interfaces.run_cmd([ip_bin, "route", "del", "default", "dev", wan2, "metric", "10"], check=False)
+            self.on_wan2 = False
 
     def setup(self) -> bool:
         log.info("initializing Mode A (Active Gateway / NAT)")

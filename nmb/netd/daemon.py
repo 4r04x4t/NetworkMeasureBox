@@ -183,6 +183,9 @@ class NetworkDaemon:
                 override = self._get_override_mode()
                 target_mode, reason, is_ready = self.detector.get_debounced_mode(override)
 
+                if isinstance(self.current_mode_inst, ModeA):
+                    self.current_mode_inst.check_wan_failover()
+
                 if is_ready and target_mode != self.current_mode_name:
                     self.switch_mode(target_mode, reason)
                 else:

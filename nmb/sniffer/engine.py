@@ -311,6 +311,7 @@ class SnifferEngine:
                 return f"{prefix} for {qname} ({qtype})"
             return f"{prefix} id=0x{tx_id:04x} qd={qdcount} an={ancount}"
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             return "malformed"
 
     def _extract_dns_query(self, payload: bytes) -> Tuple[str, str]:
@@ -339,6 +340,7 @@ class SnifferEngine:
                 qtype = qtype_map.get(type_val, f"TYPE{type_val}")
             return domain, qtype
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             return "", ""
 
     def get_stats(self) -> dict:

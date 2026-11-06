@@ -84,6 +84,7 @@ def has_ipv6_route() -> bool:
         s.close()
         return True
     except Exception:
+        log.debug("suppressed exception", exc_info=True)
         return False
 
 
@@ -103,6 +104,7 @@ def detect_public_ipv6(timeout: float = 2.0) -> Optional[str]:
                     if ip and ":" in ip and not ip.startswith(("fe80", "fd", "fc")):
                         return ip
         except Exception:
+            log.debug("suppressed exception", exc_info=True)
             continue
     return None
 

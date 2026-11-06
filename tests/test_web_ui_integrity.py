@@ -31,7 +31,7 @@ class DashboardIntegrityTests(unittest.TestCase):
                     self.assertEqual(res.returncode, 0, res.stderr[:500])
 
     def test_template_has_no_hardcoded_hungarian(self):
-        source = Path("nmb/web/templates.py").read_text(encoding="utf-8")
+        source = "".join(Path(f"nmb/web/assets/dashboard.{e}").read_text(encoding="utf-8") for e in ("html", "css", "js"))
         accented = re.compile("[áéíóöőúüűÁÉÍÓÖŐÚÜŰ]")
         leaks = [
             line.strip()[:100] for line in source.splitlines()

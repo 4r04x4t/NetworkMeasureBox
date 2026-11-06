@@ -242,6 +242,7 @@ class ProxyServer:
                 try:
                     return socket.create_connection((cand_ip, port), timeout=timeout)
                 except Exception:
+                    log.debug("suppressed exception", exc_info=True)
                     continue
 
         # 3. Fallback to standard system resolver
