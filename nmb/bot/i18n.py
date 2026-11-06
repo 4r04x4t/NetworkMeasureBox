@@ -98,35 +98,35 @@ def get_main_keyboard(lang: str = "hu") -> Dict[str, Any]:
 
     keyboards = {
         "hu": [
-            [{"text": "📊 Gyors Sebességmérés"}, {"text": "📈 NMHH Riport Letöltése"}],
+            [{"text": "📊 Gyors Sebességmérés"}, {"text": "📈 Szélessávú Riport Letöltése"}],
             [{"text": "📡 Ping & Telemetria"}, {"text": "🛡️ Reklámblokkoló"}],
             [{"text": "🦎 Tailscale & VPN"}, {"text": "📶 Wi-Fi Kliensszonda"}],
             [{"text": "⚙️ Rendszerállapot"}, {"text": "ℹ️ Parancsok & Súgó"}],
             [{"text": "🌐 Nyelv / Language"}]
         ],
         "en": [
-            [{"text": "📊 Quick Speed Test"}, {"text": "📈 Download NMHH Report"}],
+            [{"text": "📊 Quick Speed Test"}, {"text": "📈 Download Broadband Report"}],
             [{"text": "📡 Ping & Telemetry"}, {"text": "🛡️ Ad Blocker"}],
             [{"text": "🦎 Tailscale & VPN"}, {"text": "📶 Wi-Fi Client Probe"}],
             [{"text": "⚙️ System Status"}, {"text": "ℹ️ Commands & Help"}],
             [{"text": "🌐 Language / Nyelv"}]
         ],
         "de": [
-            [{"text": "📊 Schneller Speedtest"}, {"text": "📈 NMHH-Bericht herunterladen"}],
+            [{"text": "📊 Schneller Speedtest"}, {"text": "📈 Breitbandbericht herunterladen"}],
             [{"text": "📡 Ping & Telemetrie"}, {"text": "🛡️ Werbeblocker"}],
             [{"text": "🦎 Tailscale & VPN"}, {"text": "📶 WLAN-Clientsonde"}],
             [{"text": "⚙️ Systemstatus"}, {"text": "ℹ️ Befehle & Hilfe"}],
             [{"text": "🌐 Sprache / Language"}]
         ],
         "fr": [
-            [{"text": "📊 Test de débit rapide"}, {"text": "📈 Télécharger le rapport NMHH"}],
+            [{"text": "📊 Test de débit rapide"}, {"text": "📈 Télécharger le rapport haut débit"}],
             [{"text": "📡 Ping & Télémétrie"}, {"text": "🛡️ Bloqueur de pub"}],
             [{"text": "🦎 Tailscale & VPN"}, {"text": "📶 Sonde Wi-Fi client"}],
             [{"text": "⚙️ État du système"}, {"text": "ℹ️ Commandes & Aide"}],
             [{"text": "🌐 Langue / Language"}]
         ],
         "uk": [
-            [{"text": "📊 Швидкий тест швидкості"}, {"text": "📈 Завантажити звіт NMHH"}],
+            [{"text": "📊 Швидкий тест швидкості"}, {"text": "📈 Завантажити широкосмуговий звіт"}],
             [{"text": "📡 Пінг та телеметрія"}, {"text": "🛡️ Блокувальник реклами"}],
             [{"text": "🦎 Tailscale та VPN"}, {"text": "📶 Клієнтський Wi-Fi зонд"}],
             [{"text": "⚙️ Стан системи"}, {"text": "ℹ️ Команди та довідка"}],
@@ -178,7 +178,20 @@ def get_menu_aliases() -> Dict[str, str]:
         "📊 швидкий тест швидкості": "/test",
         "тест швидкості": "/test",
 
-        # NMHH Report
+        # Broadband / SLA Report
+        "📈 szélessávú riport letöltése": "/report",
+        "📈 szélessávú riport": "/report",
+        "szélessávú riport": "/report",
+        "📈 download broadband report": "/report",
+        "download broadband report": "/report",
+        "broadband report": "/report",
+        "📈 breitbandbericht herunterladen": "/report",
+        "breitbandbericht": "/report",
+        "📈 télécharger le rapport haut débit": "/report",
+        "rapport haut débit": "/report",
+        "📈 завантажити широкосмуговий звіт": "/report",
+        "широкосмуговий звіт": "/report",
+        # Legacy aliases
         "📈 nmhh riport letöltése": "/report",
         "📈 nmhh riport": "/report",
         "nmhh riport": "/report",
@@ -400,7 +413,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "download": "Letöltés",
         "upload": "Feltöltés",
         "server": "Mérőszerver",
-        "nmhh_verdict": "NMHH Minősítés",
+        "nmhh_verdict": "SLA Minősítés",
         "speed_starting": "<i>🚀 Sebességmérés indítása{engine_str}... Kérlek várj kb. 15-25 másodpercet!</i>",
         "speed_error": "⚠️ Sebességmérés hiba: {error}",
         "speed_result_title": "<b>📊 Sebességmérés Eredmény ({engine})</b>",
@@ -445,7 +458,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "reboot_confirm": "⚠️ <b>Újraindítás Megerősítése Szükséges</b>\nA NetworkMeasureBox biztonságos újraindításához küldd el a következőt:\n👉 <code>/reboot now</code>",
         "reboot_starting": "🔄 <b>NetworkMeasureBox újraindítása most...</b> A kapcsolat kb. 45 másodperc múlva helyreáll.",
         "unknown_cmd": "Ismeretlen parancs: <code>{cmd}</code>. Nyomd meg a menü gombok egyikét vagy használd a /help parancsot.",
-        "lang_title": "🌐 <b>Nyelv Kiválasztása / Language Selection</b>",
+        "lang_title": "🌐 <b>Nyelv Kiválasztása</b>",
         "lang_desc": "Jelenlegi nyelv: <b>{curr_lang}</b>\n\nVálassz egy nyelvet az alábbi gombok segítségével:",
         "lang_updated": "🌐 A bot nyelve sikeresen módosítva: <b>{flag} {name}</b>!\nA menü és az összes jövőbeli üzenet ezen a nyelven jelenik meg.",
         "help_message": """<b>NetworkMeasureBox Irányító Chatbot</b>
@@ -455,7 +468,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /status - Rendszerállapot, Uptime, CPU és SLA megfelelőség
 • /ping - Valós idejű késleltetés és csomagvesztés referencia csomópontok felé
 • /test (vagy /speed) <code>[ookla|cloudflare|rtr]</code> - Sebességmérés futtatása
-• /report - 24 órás NMHH Szélessáv.net riport letöltése (.html fájl)
+• /report - 24 órás szélessávú mérési és SLA megfelelőségi riport letöltése (.html fájl)
 • /ai - AI diagnosztikai naplócsomag letöltése LLM-ekhez (.md fájl)
 • /mode <code>[auto|standalone|mode_a|mode_b]</code> - Üzemmód váltás
 
@@ -578,7 +591,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "reboot_confirm": "⚠️ <b>Reboot Confirmation Required</b>\nTo safely restart the NetworkMeasureBox host, send:\n👉 <code>/reboot now</code>",
         "reboot_starting": "🔄 <b>Rebooting NetworkMeasureBox now...</b> Connectivity will resume in ~45 seconds.",
         "unknown_cmd": "Unknown command: <code>{cmd}</code>. Tap one of the menu buttons below or type /help.",
-        "lang_title": "🌐 <b>Language Settings / Nyelvi Beállítások</b>",
+        "lang_title": "🌐 <b>Language Settings</b>",
         "lang_desc": "Current language: <b>{curr_lang}</b>\n\nPlease select your preferred language using the buttons below:",
         "lang_updated": "🌐 Bot language successfully changed to <b>{flag} {name}</b>!\nThe menu and all future responses are now localized in {name}.",
         "help_message": """<b>NetworkMeasureBox Management Chatbot</b>
@@ -711,7 +724,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "reboot_confirm": "⚠️ <b>Neustart-Bestätigung erforderlich</b>\nUm das Gerät sicher neu zu starten, senden Sie:\n👉 <code>/reboot now</code>",
         "reboot_starting": "🔄 <b>Starte NetworkMeasureBox neu...</b> Verbindung wird in ca. 45 Sekunden wiederhergestellt.",
         "unknown_cmd": "Unbekannter Befehl: <code>{cmd}</code>. Drücken Sie eine der Menütasten oder nutzen Sie /help.",
-        "lang_title": "🌐 <b>Spracheinstellungen / Language Settings</b>",
+        "lang_title": "🌐 <b>Spracheinstellungen</b>",
         "lang_desc": "Aktuelle Sprache: <b>{curr_lang}</b>\n\nBitte wählen Sie die gewünschte Sprache aus:",
         "lang_updated": "🌐 Bot-Sprache erfolgreich auf <b>{flag} {name}</b> umgestellt!\nDas Menü und alle zukünftigen Ausgaben sind nun auf Deutsch lokalisiert.",
         "help_message": """<b>NetworkMeasureBox Verwaltungs-Chatbot</b>
@@ -844,7 +857,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "reboot_confirm": "⚠️ <b>Confirmation de Redémarrage Requise</b>\nPour redémarrer NetworkMeasureBox en toute sécurité, envoyez:\n👉 <code>/reboot now</code>",
         "reboot_starting": "🔄 <b>Redémarrage de NetworkMeasureBox en cours...</b> La connectivité reprendra dans environ 45 secondes.",
         "unknown_cmd": "Commande inconnue: <code>{cmd}</code>. Appuyez sur un bouton du menu ou tapez /help.",
-        "lang_title": "🌐 <b>Paramètres de Langue / Language Settings</b>",
+        "lang_title": "🌐 <b>Paramètres de Langue</b>",
         "lang_desc": "Langue actuelle: <b>{curr_lang}</b>\n\nVeuillez sélectionner votre langue préférée:",
         "lang_updated": "🌐 La langue du bot a été changée pour <b>{flag} {name}</b>!\nLe menu et tous les messages sont désormais traduits en français.",
         "help_message": """<b>Chatbot de Gestion NetworkMeasureBox</b>
@@ -977,7 +990,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "reboot_confirm": "⚠️ <b>Потрібне підтвердження перезавантаження</b>\nЩоб безпечно перезавантажити пристрій NetworkMeasureBox, надішліть:\n👉 <code>/reboot now</code>",
         "reboot_starting": "🔄 <b>Перезавантаження NetworkMeasureBox...</b> Зв'язок відновиться приблизно через 45 секунд.",
         "unknown_cmd": "Невідома команда: <code>{cmd}</code>. Натисніть одну з кнопок меню або введіть /help.",
-        "lang_title": "🌐 <b>Налаштування мови / Language Settings</b>",
+        "lang_title": "🌐 <b>Налаштування мови</b>",
         "lang_desc": "Поточна мова: <b>{curr_lang}</b>\n\nОберіть бажану мову за допомогою кнопок нижче:",
         "lang_updated": "🌐 Мову бота успішно змінено на <b>{flag} {name}</b>!\nМеню та всі подальші повідомлення будуть відображатися українською мовою.",
         "help_message": """<b>Керуючий чат-бот NetworkMeasureBox</b>

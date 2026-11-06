@@ -835,30 +835,36 @@ def generate_html_dossier(report: ReportData, lang: str = "hu") -> str:
     p_sum = report.ping_summary
 
     # Render Contracted/Guaranteed Speed Cards
-    if has_contract_speeds:
-        down_guar_val = f"{report.guaranteed_down_mbps:.0f} Mb/s" if has_guaranteed_down else tr["lbl_unspecified"]
-        down_cont_val = f"{report.contract_down_mbps:.0f} Mb/s" if has_contract_down else tr["lbl_unspecified"]
-        up_guar_val = f"{report.guaranteed_up_mbps:.0f} Mb/s" if has_guaranteed_up else tr["lbl_unspecified"]
-        up_cont_val = f"{report.contract_up_mbps:.0f} Mb/s" if has_contract_up else tr["lbl_unspecified"]
-
-        contract_cards_html = f"""
-    <div class="contract-cards">
+    cards = []
+    if has_guaranteed_down:
+        cards.append(f"""
       <div class="contract-card">
         <div class="contract-label">{tr['lbl_guaranteed_down']}</div>
-        <div class="contract-val-guar">{down_guar_val}</div>
-      </div>
+        <div class="contract-val-guar">{report.guaranteed_down_mbps:.0f} Mb/s</div>
+      </div>""")
+    if has_contract_down:
+        cards.append(f"""
       <div class="contract-card">
         <div class="contract-label">{tr['lbl_contract_down']}</div>
-        <div class="contract-val">{down_cont_val}</div>
-      </div>
+        <div class="contract-val">{report.contract_down_mbps:.0f} Mb/s</div>
+      </div>""")
+    if has_guaranteed_up:
+        cards.append(f"""
       <div class="contract-card">
         <div class="contract-label">{tr['lbl_guaranteed_up']}</div>
-        <div class="contract-val-guar">{up_guar_val}</div>
-      </div>
+        <div class="contract-val-guar">{report.guaranteed_up_mbps:.0f} Mb/s</div>
+      </div>""")
+    if has_contract_up:
+        cards.append(f"""
       <div class="contract-card">
         <div class="contract-label">{tr['lbl_contract_up']}</div>
-        <div class="contract-val">{up_cont_val}</div>
-      </div>
+        <div class="contract-val">{report.contract_up_mbps:.0f} Mb/s</div>
+      </div>""")
+
+    if cards:
+        contract_cards_html = f"""
+    <div class="contract-cards">
+      {"".join(cards)}
     </div>
 """
     else:

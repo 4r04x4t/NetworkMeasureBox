@@ -122,6 +122,7 @@ Specially engineered to run seamlessly on resource-constrained **512 MB RAM rout
 
 ### 7. Responsive WebGUI & REST API
 * Modern dark-themed router dashboard on **standard HTTP port 80** (with automatic unprivileged fallback to port 8080 for development).
+* **Mobile-First Ergonomics**: Sub-navigation bars (`.router-subnav`, `.remote-subnav`, `.adblock-subnav`) are styled as resilient horizontal swipe ribbons (`flex: 0 0 auto`, `nowrap`) with container-relative `scrollTo`, eliminating vertical pill squeezing and letter-wrapping on small smartphone screens (360px–420px).
 * Live inline SVG graphs, historical speed records, network device explorer (ARP sweep & MAC vendor lookup), real-time syslog inspector, and one-click diagnostic LLM bundle generation.
 * **100% Internationalization (i18n)**: Fully translated into 5 languages with complete key parity:
   * 🇬🇧 English (EN)
@@ -191,7 +192,9 @@ Specially engineered to run seamlessly on resource-constrained **512 MB RAM rout
 ### 12. Regulatory-Grade Broadband SLA Evidence Dossier & Pure SVG Charts
 * **Neutral International Branding**:
   * Completely neutral title: *"Broadband Quality & ISP SLA Performance Dossier"* / *"Szélessávú Hálózati Minőség & Szolgáltatói SLA Vizsgálati Dosszié"*.
-  * Fully compliant with European BEREC guidelines and international telecom regulatory standards (FCC, RTR, NMHH).
+  * Avoids misleading official regulatory claims while strictly adhering to European BEREC measurement methodologies and national regulatory standards (FCC, RTR, NMHH).
+  * **Accurate Contractual Speed Handling**: Guaranteed speed cards displaying `0 Mb/s` or unspecified parameters are automatically suppressed to avoid deceptive compliance reporting; explicit disclaimers guide SLA verification.
+  * **Prominent IP & ISP Attribution**: Every measurement sample and telemetry table prominently highlights the detected client IPv4/IPv6 addresses alongside the verified ISP provider identity.
 * **Pure Mathematical SVG Vector Engine**:
   * Zero external charting dependencies: emits responsive `<svg viewBox="0 0 800 380">` with cubic bezier curves, dual y-axes (Mbps & ms), SLA threshold baselines, and touch dot overlays.
   * Rendered in sub-millisecond execution time.
@@ -212,10 +215,24 @@ Specially engineered to run seamlessly on resource-constrained **512 MB RAM rout
 ### 15. 100% De-Pythonization Architecture & Commercial Router Porting
 To run NetworkMeasureBox directly on commercial embedded routers with as little as **4MB Flash and 32MB RAM**, a complete 100% de-pythonization roadmap and implementation specification has been engineered:
 * **Unified Single Binary (`nmbd`)**: Written in **Go 1.23+** (Tier 1) and **C11 with Musl libc** (Tier 2 & 3), completely eliminating Python 3, pip, and all runtime packages.
-* **Target Hardware Porting Specifications**:
-  * **ASUS RT-AXE7800** (Broadcom BCM6756 Quad-Core ARM @ 1.7GHz, 512MB RAM, 256MB Flash, 1x 2.5GbE + 4x 1GbE, Tri-Band Wi-Fi 6E, Asuswrt / Asuswrt-Merlin GNUton): 2.5 Gbps line-rate testing, Flow Cache acceleration bypass, multi-threaded CAKE SQM, and in-process `tsnet` Tailscale.
-  * **ASUS RT-N12+** (MediaTek MT7620N ver:2 eco:6 MIPS24KEc @ 580MHz, 32MB RAM, 8MB Flash, Fast Ethernet, OpenWrt `ramips/mt7620`): 850 KB C11 binary (320 KB UPX), 2.8 MB RAM RSS, 100 Mbps line-rate testing at <14% CPU.
-  * **TP-Link TL-WR740N v4.x / v4.23** (Atheros AR9331 MIPS 24Kc @ 400MHz, 32MB RAM, **4MB Flash**, Minimal Stripped OpenWrt `ath79/generic`): **178 KB UPX-LZMA compressed binary**, 1.4 MB RAM RSS, 100% RAM-only circular ring-buffer to prevent flash wear!
+* **Target Hardware Porting Specifications & WikiDevi Profiles**:
+  * **[ASUS RT-AXE7800](https://wikidevi.wi-cat.ru/ASUS_RT-AXE7800)**:
+    * Broadcom BCM6756 Quad-Core ARM Cortex-A7 @ 1.7 GHz, 512 MB DDR4 RAM, 256 MB NAND Flash, 1x 2.5GbE + 1x 1GbE WAN/LAN + 3x 1GbE LAN, Tri-Band Wi-Fi 6E, USB 3.2 Gen 1.
+    * OS: Asuswrt / Asuswrt-Merlin (GNUton fork) or upstream OpenWrt `bcm4908`.
+    * Native daemon: Go 1.23+ single binary or C11; 2.5 Gbps line-rate testing, multi-threaded CAKE SQM, Flow Cache bypass, in-process `tsnet` Tailscale.
+  * **[ASUS RT-N12+](https://wikidevi.wi-cat.ru/ASUS_RT-N12_series)**:
+    * MediaTek MT7620N ver:2 eco:6 MIPS24KEc @ 580 MHz (`ramips/mt7620`), 32 MB DDR SDRAM, 8 MB SPI Flash, Fast Ethernet (100 Mbps).
+    * OS: OpenWrt `ramips/mt7620`.
+    * Native daemon: Monolithic C11 with musl libc (<850 KB, ~2.8 MB RAM RSS), 100 Mbps line-rate testing at <14% CPU.
+  * **[TP-Link TL-WR740N v4.x / v4.23](https://wikidevi.wi-cat.ru/TP-LINK_TL-WR740N_v4.x)**:
+    * Qualcomm Atheros AR9331 MIPS 24Kc @ 400 MHz (`ath79/generic` / `ar71xx`), 32 MB DDR SDRAM, **4 MB SPI Flash**, Fast Ethernet (100 Mbps).
+    * OS: Stripped OpenWrt `ath79/generic` (no LuCI, minimal kernel).
+    * Native daemon: Micro-C11 with `-Os`, stripped, UPX-LZMA compressed (**178 KB binary**), 1.4 MB RAM RSS, 100% RAM-only circular ring-buffer (`tmpfs`) with zero flash writes.
+* **Key Native Subsystems (Zero Python)**:
+  * **Memory-Bounded DNS Sinkhole / AdBlock**: 512 KB Counting Bloom Filter (MurmurHash3, 0.1% FPR) and Trie running in <640 KB RAM on 32MB routers.
+  * **Zero-Dependency Speedtest Socket Sinks**: In-process TCP/TLS client streaming directly to Ookla, Cloudflare Edge, and RTR-NetTest endpoints using `splice()`/`recv()` zero-copy buffers without external binaries.
+  * **Autonomous Self-Healing Engine (`nmb_heal`)**: Multi-tier watchdog (service restart, link bounce, driver offload toggling, configuration rollback).
+  * **Dynamic DNS Client**: Direct TLS 1.3 Netlink-aware updater for `duckdns` and `dynv6` (<60 KB RAM).
 * Full technical blueprints available in:
   * 📄 **[`docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`](docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md)**
   * 📄 **[`docs/DEPYTHONIZATION_ROADMAP.md`](docs/DEPYTHONIZATION_ROADMAP.md)**

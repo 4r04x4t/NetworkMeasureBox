@@ -416,6 +416,44 @@ To run NetworkMeasureBox on the TP-Link TL-WR740N v4.23:
     - If WAN IP is RFC 1918 (`192.168.x.x` / `10.x.x.x`) $\to$ **Double NAT Confirmed**.
     - If WAN IP matches STUN IP $\to$ **Direct Public IP Confirmed**.
 
+### 7.7 Native DNS Sinkhole / AdBlock Engine (Memory-Bounded Bloom Filter & Radix Trie)
+- **Current Architecture**: Python DNS sniffer + SQLite database recording query logs and parsing flat `/etc/hosts` lists.
+- **Native Implementation (`adblock_dns.c` / `adblock.go`)**:
+  - **Tier 1 (ASUS RT-AXE7800)**:
+    - Full Radix Trie storing 300,000+ domain names directly in RAM (~14 MB).
+    - Sub-microsecond exact and wildcard matching with direct `dnsmasq` ipset / nftables integration.
+  - **Tier 2 (ASUS RT-N12+) & Tier 3 (TP-Link WR740N)**:
+    - On 32 MB RAM routers, a Trie of 100k domains would consume 6 MB – 10 MB, risking OOM.
+    - **Dual-Stage Probabilistic Filter**:
+      1. **Counting Bloom Filter (CBF)**: A 512 KB bit-vector using MurmurHash3 / FNV-1a hashes with a 0.1% false-positive rate representing 50,000 top threat domains.
+      2. **Small Static Hash Table**: Exact match for local whitelists and custom LAN domains (`custom.list`).
+    - Total memory footprint: **< 640 KB RAM**.
+    - Redirects blocked domains to `0.0.0.0` or `::` in under 0.05 ms per DNS query.
+
+### 7.8 Native Multi-Engine Speedtest Client in Pure C/Go (Zero-Dep Sockets)
+- **Current Architecture**: Python subprocess invoking official `speedtest` Ookla CLI, RTR-NetTest, or Cloudflare Edge.
+- **Native Implementation (`speedtest_engine.c` / `speedtest.go`)**:
+  - **Ookla Protocol Emulation**: Connects to nearest Speedtest.net server over TCP port 8080 or HTTPS port 5060, streaming parallel unthrottled HTTP chunked GET/POST streams (`/download`, `/upload`).
+  - **Cloudflare Edge Engine**: Fetches 25MB, 50MB, 100MB chunk files directly from `speed.cloudflare.com/__down?bytes=...` using pre-warmed keep-alive HTTP/1.1 sockets.
+  - **RTR-NetTest / Open-RMBT Protocol**: Implements the official European RTR-NetTest JSON token handshake and multi-thread TCP socket sink.
+  - **CPU-Efficient Zero-Copy Sinks**: Incoming packets are received via `splice()` or `recv()` into a static 64 KB buffer without memory allocation, calculating Mbps throughput in real-time.
+  - Eliminates the 22 MB closed-source Ookla binary and all Python runtime overhead.
+
+### 7.9 Autonomous Self-Healing & Safety Rollback Engine (`nmb_heal`)
+- **Native Implementation**:
+  - Embedded watchdog inspecting link carrier state, DNS resolution latency, default route persistence, and CPU softirq peaks.
+  - Multi-tier recovery sequence:
+    1. Tier 1: Soft restart of network daemons (`ubus call service restart ...`).
+    2. Tier 2: Interface bounce with hardware MAC re-registration and DHCP release/renew.
+    3. Tier 3: Driver offload toggle (disable EEE, enable RPS steering `rps_cpus`).
+    4. Tier 4: Safe fallback to baseline network configuration with rollback log preserved in flash/RAM.
+
+### 7.10 Dynamic DNS Engine (`duckdns` & `dynv6` Client)
+- **Native Implementation**:
+  - Embedded micro-HTTP client executing TLS 1.3 GET requests directly to DuckDNS (`https://duckdns.org/update?domains=...&token=...`) and dynv6 APIs.
+  - Automatically queries local WAN IPv4 and IPv6 via Netlink, detects public IP changes instantly without polling external servers, and submits signed updates in under 80 ms.
+  - RAM consumption: **< 60 KB**.
+
 ---
 
 ## 8. Cross-Compilation Matrix & Toolchain Setup

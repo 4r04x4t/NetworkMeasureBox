@@ -601,10 +601,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       flex-wrap: nowrap;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
       margin-bottom: 20px;
       border-bottom: 1px solid #1e293b;
       padding-bottom: 12px;
-      scrollbar-width: none;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .router-subnav::-webkit-scrollbar, .remote-subnav::-webkit-scrollbar, .adblock-subnav::-webkit-scrollbar {
       display: none;
@@ -619,14 +623,20 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s ease;
+      flex: 0 0 auto !important;
       flex-shrink: 0 !important;
+      flex-grow: 0 !important;
       white-space: nowrap !important;
+      word-break: keep-all !important;
+      overflow-wrap: normal !important;
       min-width: max-content !important;
-      height: auto !important;
-      min-height: 36px !important;
+      height: 38px !important;
+      min-height: 38px !important;
+      max-height: 38px !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
+      box-sizing: border-box !important;
     }
     .router-subtab-btn:hover, .remote-subtab-btn:hover, .adblock-subtab-btn:hover {
       background: #1e293b;
@@ -2343,13 +2353,26 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         width: 100%;
         justify-content: flex-start !important;
       }
-      .app-tabs, .router-subnav, .remote-subnav, .adblock-subnav {
+      .app-tabs {
         display: flex !important;
         overflow-x: auto !important;
         overflow-y: hidden !important;
         -webkit-overflow-scrolling: touch !important;
         scrollbar-width: thin !important;
         flex-wrap: nowrap !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        gap: 8px !important;
+        padding-bottom: 8px !important;
+      }
+      .router-subnav, .remote-subnav, .adblock-subnav {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
         width: 100% !important;
         max-width: 100% !important;
         gap: 8px !important;
@@ -2366,19 +2389,22 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       .router-subtab-btn,
       .remote-subtab-btn,
       .adblock-subtab-btn {
+        flex: 0 0 auto !important;
         flex-shrink: 0 !important;
         flex-grow: 0 !important;
         white-space: nowrap !important;
         word-break: keep-all !important;
         overflow-wrap: normal !important;
         min-width: max-content !important;
-        height: auto !important;
+        height: 38px !important;
         min-height: 38px !important;
+        max-height: 38px !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
         box-sizing: border-box !important;
-        padding: 8px 16px !important;
+        padding: 8px 14px !important;
+        border-radius: 6px !important;
       }
       /* Responsive Charts on Mobile & Tablet */
       #speed-chart-container {
@@ -2698,7 +2724,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         display: block !important;
         word-break: break-word !important;
       }
-      .app-tabs, .router-subnav, .remote-subnav, .adblock-subnav {
+      .app-tabs {
         display: flex !important;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
@@ -2706,6 +2732,18 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         width: 100% !important;
         max-width: 100% !important;
         scrollbar-width: none !important;
+      }
+      .router-subnav, .remote-subnav, .adblock-subnav {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        gap: 6px !important;
       }
       .app-tabs > button,
       .router-subnav > button,
@@ -2715,15 +2753,21 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       .router-subtab-btn,
       .remote-subtab-btn,
       .adblock-subtab-btn {
+        flex: 0 0 auto !important;
         flex-shrink: 0 !important;
+        flex-grow: 0 !important;
         white-space: nowrap !important;
+        word-break: keep-all !important;
+        overflow-wrap: normal !important;
         min-width: max-content !important;
-        height: auto !important;
-        min-height: 36px !important;
+        height: 38px !important;
+        min-height: 38px !important;
+        max-height: 38px !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
         box-sizing: border-box !important;
+        padding: 6px 12px !important;
       }
       .remote-subtab, #subtab-content-vpnhub {
         width: 100% !important;
@@ -3063,22 +3107,22 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div>
             <div style="font-weight: 700; font-size: 14px; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
               <span>📈</span>
-              <span data-i18n="speed_chart_title">Sebesség és Latency Idősoros Grafikon (Interaktív)</span>
+              <span data-i18n="speed_chart_title">Interactive Throughput & Latency Time Series</span>
             </div>
             <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;" data-i18n="speed_chart_subtitle">
-              Sávszélesség trendek, feltöltési/letöltési arányok és hálózati késleltetés (RTT) vizualizációja.
+              Visualizing bandwidth trends, download/upload ratios, and network round-trip time (RTT).
             </div>
           </div>
           <!-- Chart Mode Switcher Buttons -->
           <div style="display: flex; gap: 6px; background: rgba(15, 23, 42, 0.6); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color); flex-wrap: wrap;">
             <button id="btn-speed-chart-mode-combined" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('combined')" data-i18n="speed_chart_mode_combined">
-              📊 Kombinált (Sebesség + Latency)
+              📊 Combined (Throughput + Latency)
             </button>
             <button id="btn-speed-chart-mode-throughput" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('throughput')" data-i18n="speed_chart_mode_throughput">
-              🚀 Csak Sávszélesség (Mbps)
+              🚀 Throughput Only (Mbps)
             </button>
             <button id="btn-speed-chart-mode-latency" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('latency')" data-i18n="speed_chart_mode_latency">
-              ⏱️ Csak Késleltetés (ms)
+              ⏱️ Latency Only (ms)
             </button>
           </div>
         </div>
@@ -3087,11 +3131,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div style="display: flex; gap: 16px; margin-bottom: 10px; font-size: 11.5px; flex-wrap: wrap; align-items: center;">
           <div id="speed-legend-down" style="display: flex; align-items: center; gap: 5px;">
             <span style="display:inline-block; width:12px; height:3px; background:#38bdf8; border-radius:2px;"></span>
-            <span style="color:#38bdf8; font-weight:600;" data-i18n="speed_legend_down">Letöltés (Down Mbps)</span>
+            <span style="color:#38bdf8; font-weight:600;" data-i18n="speed_legend_down">Download (Down Mbps)</span>
           </div>
           <div id="speed-legend-up" style="display: flex; align-items: center; gap: 5px;">
             <span style="display:inline-block; width:12px; height:3px; background:#34d399; border-radius:2px;"></span>
-            <span style="color:#34d399; font-weight:600;" data-i18n="speed_legend_up">Feltöltés (Up Mbps)</span>
+            <span style="color:#34d399; font-weight:600;" data-i18n="speed_legend_up">Upload (Up Mbps)</span>
           </div>
           <div id="speed-legend-lat" style="display: flex; align-items: center; gap: 5px;">
             <span style="display:inline-block; width:12px; height:3px; background:#fbbf24; border-radius:2px;"></span>
@@ -3099,10 +3143,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </div>
           <div id="speed-legend-contract" style="display: none; align-items: center; gap: 5px;">
             <span style="display:inline-block; width:12px; height:2px; background:#ec4899; border-top:1px dashed #ec4899;"></span>
-            <span style="color:#f472b6; font-size:11px;" data-i18n="speed_legend_contract">Garantált / Szerződött sebesség</span>
+            <span style="color:#f472b6; font-size:11px;" data-i18n="speed_legend_contract">Guaranteed / Contracted Rate</span>
           </div>
           <div style="margin-left: auto; color: var(--text-muted); font-size: 11px;">
-            <span data-i18n="speed_chart_touch_tip">💡 Vigye a kurzort vagy érintse meg a mérési pontokat a részletekért!</span>
+            <span data-i18n="speed_chart_touch_tip">💡 Hover or tap points on the chart for full benchmark details!</span>
           </div>
         </div>
 
@@ -3630,14 +3674,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div id="subtab-adblock-log" class="adblock-subtab-pane" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            <button id="btn-adblock-filter-all" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="setAdblockLogFilter('all')">Összes</button>
-            <button id="btn-adblock-filter-blocked" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #f87171;" onclick="setAdblockLogFilter('BLOCKED')">🛑 Blokkolt</button>
-            <button id="btn-adblock-filter-allowed" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #34d399;" onclick="setAdblockLogFilter('ALLOWED')">🟢 Engedélyezett</button>
-            <button id="btn-adblock-filter-cached" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #38bdf8;" onclick="setAdblockLogFilter('CACHED')">⚡ Gyorsítótár</button>
+            <button id="btn-adblock-filter-all" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="setAdblockLogFilter('all')" data-i18n="adblock_filter_all">All</button>
+            <button id="btn-adblock-filter-blocked" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #f87171;" onclick="setAdblockLogFilter('BLOCKED')" data-i18n="adblock_filter_blocked">🛑 Blocked</button>
+            <button id="btn-adblock-filter-allowed" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #34d399;" onclick="setAdblockLogFilter('ALLOWED')" data-i18n="adblock_filter_allowed">🟢 Allowed</button>
+            <button id="btn-adblock-filter-cached" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #38bdf8;" onclick="setAdblockLogFilter('CACHED')" data-i18n="adblock_filter_cached">⚡ Cached</button>
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="adblock-log-filter" placeholder="Keresés: tartomány vagy IP..." onkeyup="filterAdblockLog()" style="padding: 6px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff; width: 220px;">
-            <button class="btn-secondary" style="font-size: 11.5px; padding: 6px 12px;" onclick="loadAdblockQueryLog()">🔄 Frissítés</button>
+            <input type="text" id="adblock-log-filter" placeholder="Search domain or client IP..." data-i18n-placeholder="adblock_log_search_ph" onkeyup="filterAdblockLog()" style="padding: 6px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff; width: 220px;">
+            <button class="btn-secondary" style="font-size: 11.5px; padding: 6px 12px;" onclick="loadAdblockQueryLog()" data-i18n="btn_refresh">🔄 Refresh</button>
           </div>
         </div>
 
@@ -3645,17 +3689,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <table class="data-table" style="margin: 0; width: 100%;">
             <thead>
               <tr>
-                <th style="font-size: 11.5px; width: 75px;" data-i18n="adblock_col_time">Idő</th>
-                <th style="font-size: 11.5px; width: 140px;" data-i18n="adblock_col_client">Kliens</th>
-                <th style="font-size: 11.5px; width: 60px;" data-i18n="adblock_col_type">Típus</th>
-                <th style="font-size: 11.5px; width: 120px;" data-i18n="adblock_col_status">Állapot</th>
-                <th style="font-size: 11.5px; width: 70px;" data-i18n="adblock_col_duration">Válaszidő</th>
-                <th style="font-size: 11.5px;" data-i18n="adblock_col_domain">Lekért Tartomány</th>
-                <th style="font-size: 11.5px; width: 130px; text-align: center;">Művelet</th>
+                <th style="font-size: 11.5px; width: 75px;" data-i18n="adblock_col_time">Time</th>
+                <th style="font-size: 11.5px; width: 140px;" data-i18n="adblock_col_client">Client</th>
+                <th style="font-size: 11.5px; width: 60px;" data-i18n="adblock_col_type">Type</th>
+                <th style="font-size: 11.5px; width: 120px;" data-i18n="adblock_col_status">Status</th>
+                <th style="font-size: 11.5px; width: 70px;" data-i18n="adblock_col_duration">Duration</th>
+                <th style="font-size: 11.5px;" data-i18n="adblock_col_domain">Queried Domain</th>
+                <th style="font-size: 11.5px; width: 130px; text-align: center;" data-i18n="adblock_col_action">Action</th>
               </tr>
             </thead>
             <tbody id="adblock-querylog-tbody">
-              <tr><td colspan="7" style="text-align: center; color: var(--text-muted); font-size: 12px;">DNS lekérdezések betöltése...</td></tr>
+              <tr><td colspan="7" style="text-align: center; color: var(--text-muted); font-size: 12px;" data-i18n="adblock_loading_queries">Loading DNS query log...</td></tr>
             </tbody>
           </table>
         </div>
@@ -3667,17 +3711,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <!-- 1. Whitelist Box -->
           <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <div style="font-weight: 700; color: #34d399; font-size: 13.5px;" data-i18n="adblock_whitelist_title">✅ Fehérlista (Mindig Engedélyezett Címek)</div>
+              <div style="font-weight: 700; color: #34d399; font-size: 13.5px;" data-i18n="adblock_whitelist_title">✅ Domain Whitelist (Always Allowed)</div>
               <span id="adblock-wl-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">0</span>
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-              <input type="text" id="adblock-wl-input" placeholder="pl. pelda.hu" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-              <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockWhitelist()">➕ Hozzáadás</button>
+              <input type="text" id="adblock-wl-input" placeholder="e.g. example.com" data-i18n-placeholder="adblock_wl_input_ph" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+              <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockWhitelist()" data-i18n="btn_add">➕ Add</button>
             </div>
             <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
               <table class="data-table" style="margin: 0; width: 100%;">
                 <tbody id="adblock-wl-tbody">
-                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek fehérlistás címek</td></tr>
+                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;" data-i18n="adblock_wl_empty">No whitelisted domains configured</td></tr>
                 </tbody>
               </table>
             </div>
@@ -3686,17 +3730,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <!-- 2. Blacklist Box -->
           <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <div style="font-weight: 700; color: #f87171; font-size: 13.5px;" data-i18n="adblock_blacklist_title">⛔ Feketelista (Egyéni Blokkolt Címek)</div>
+              <div style="font-weight: 700; color: #f87171; font-size: 13.5px;" data-i18n="adblock_blacklist_title">⛔ Domain Blacklist (Blocked Custom)</div>
               <span id="adblock-bl-badge" class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">0</span>
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-              <input type="text" id="adblock-bl-input" placeholder="pl. tracker.rossz.hu" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-              <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockBlacklist()">➕ Hozzáadás</button>
+              <input type="text" id="adblock-bl-input" placeholder="e.g. tracker.badsite.com" data-i18n-placeholder="adblock_bl_input_ph" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+              <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockBlacklist()" data-i18n="btn_add">➕ Add</button>
             </div>
             <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
               <table class="data-table" style="margin: 0; width: 100%;">
                 <tbody id="adblock-bl-tbody">
-                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek feketelistás címek</td></tr>
+                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;" data-i18n="adblock_bl_empty">No custom blacklisted domains</td></tr>
                 </tbody>
               </table>
             </div>
@@ -3705,17 +3749,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <!-- 3. RegEx Whitelist Box -->
           <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <div style="font-weight: 700; color: #34d399; font-size: 13.5px;">✅ RegEx Fehérlista (Engedélyezett Minták)</div>
+              <div style="font-weight: 700; color: #34d399; font-size: 13.5px;" data-i18n="adblock_regex_wl_title">✅ RegEx Whitelist (Allowed Patterns)</div>
               <span id="adblock-regex-wl-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">0</span>
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-              <input type="text" id="adblock-regex-wl-input" placeholder="pl. .*\\.biztonsagos\\.hu$" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-              <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockRegexFilter('white')">➕ RegEx</button>
+              <input type="text" id="adblock-regex-wl-input" placeholder="e.g. .*\\.trusted\\.domain$" data-i18n-placeholder="adblock_regex_wl_ph" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+              <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockRegexFilter('white')" data-i18n="btn_add_regex">➕ RegEx</button>
             </div>
             <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
               <table class="data-table" style="margin: 0; width: 100%;">
                 <tbody id="adblock-regex-wl-tbody">
-                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek RegEx fehérlista szabályok</td></tr>
+                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;" data-i18n="adblock_regex_wl_empty">No RegEx whitelist rules defined</td></tr>
                 </tbody>
               </table>
             </div>
@@ -3724,17 +3768,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <!-- 4. RegEx Blacklist Box -->
           <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <div style="font-weight: 700; color: #f87171; font-size: 13.5px;">⛔ RegEx Feketelista (Tiltott Minták)</div>
+              <div style="font-weight: 700; color: #f87171; font-size: 13.5px;" data-i18n="adblock_regex_bl_title">⛔ RegEx Blacklist (Blocked Patterns)</div>
               <span id="adblock-regex-bl-badge" class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">0</span>
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-              <input type="text" id="adblock-regex-bl-input" placeholder="pl. ^telemetry\\..*" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-              <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockRegexFilter('black')">➕ RegEx</button>
+              <input type="text" id="adblock-regex-bl-input" placeholder="e.g. ^telemetry\\..*" data-i18n-placeholder="adblock_regex_bl_ph" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+              <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockRegexFilter('black')" data-i18n="btn_add_regex">➕ RegEx</button>
             </div>
             <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
               <table class="data-table" style="margin: 0; width: 100%;">
                 <tbody id="adblock-regex-bl-tbody">
-                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;">Nincsenek RegEx feketelista szabályok</td></tr>
+                  <tr><td style="color: var(--text-muted); font-size: 12px; text-align: center;" data-i18n="adblock_regex_bl_empty">No RegEx blacklist rules defined</td></tr>
                 </tbody>
               </table>
             </div>
@@ -3746,23 +3790,23 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div id="subtab-adblock-adlists" class="adblock-subtab-pane" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
           <div>
-            <div style="font-weight: 700; color: #38bdf8; font-size: 14px;" data-i18n="adblock_adlists_title">Blokklista Források Kezelése (Gravity)</div>
+            <div style="font-weight: 700; color: #38bdf8; font-size: 14px;" data-i18n="adblock_adlists_title">Manage Blocklist Sources (Gravity)</div>
             <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;" data-i18n="adblock_adlists_desc">
-              Kapcsolj be vagy adj hozzá új külső blokklistákat (StevenBlack, AdAway, Peter Lowe stb.).
+              Enable or add external curated blocklists (StevenBlack, AdAway, Peter Lowe, etc.).
             </p>
           </div>
-          <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #0284c7;" onclick="updateGravity()">
-            🔄 Gravity Blokklista Letöltése és Frissítése Most
+          <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #0284c7;" onclick="updateGravity()" data-i18n="adblock_btn_update_gravity">
+            🔄 Download & Update Gravity Blocklists Now
           </button>
         </div>
 
         <!-- Add Adlist Form -->
         <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
-          <div style="font-size: 12.5px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px;">➕ Új Blokklista Forrás Hozzáadása</div>
+          <div style="font-size: 12.5px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px;" data-i18n="adblock_add_adlist_title">➕ Add New Blocklist Source</div>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <input type="text" id="adblock-adlist-url-input" placeholder="https://example.com/hosts.txt" style="flex: 2; min-width: 250px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <input type="text" id="adblock-adlist-name-input" placeholder="Megnevezés (pl. OISD Full)" style="flex: 1; min-width: 150px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <button class="btn-primary" style="font-size: 12px; padding: 7px 16px;" onclick="addAdblockAdlistSource()">➕ Hozzáadás</button>
+            <input type="text" id="adblock-adlist-url-input" placeholder="https://example.com/hosts.txt" data-i18n-placeholder="adblock_adlist_url_ph" style="flex: 2; min-width: 250px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <input type="text" id="adblock-adlist-name-input" placeholder="List Name (e.g. OISD Full)" data-i18n-placeholder="adblock_adlist_name_ph" style="flex: 1; min-width: 150px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <button class="btn-primary" style="font-size: 12px; padding: 7px 16px;" onclick="addAdblockAdlistSource()" data-i18n="btn_add">➕ Add</button>
           </div>
         </div>
 
@@ -3771,15 +3815,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <table class="data-table" style="margin: 0; width: 100%;">
             <thead>
               <tr>
-                <th style="font-size: 11.5px; width: 65px; text-align: center;">Aktív</th>
-                <th style="font-size: 11.5px;">Forrás Megnevezése & URL</th>
-                <th style="font-size: 11.5px; width: 110px; text-align: right;">Címek Száma</th>
-                <th style="font-size: 11.5px; width: 140px;">Utolsó Frissítés</th>
-                <th style="font-size: 11.5px; width: 70px; text-align: center;">Törlés</th>
+                <th style="font-size: 11.5px; width: 65px; text-align: center;" data-i18n="adblock_th_active">Active</th>
+                <th style="font-size: 11.5px;" data-i18n="adblock_th_source">Source Name & URL</th>
+                <th style="font-size: 11.5px; width: 110px; text-align: right;" data-i18n="adblock_th_count">Domains Count</th>
+                <th style="font-size: 11.5px; width: 140px;" data-i18n="adblock_th_updated">Last Updated</th>
+                <th style="font-size: 11.5px; width: 70px; text-align: center;" data-i18n="adblock_th_delete">Delete</th>
               </tr>
             </thead>
             <tbody id="adblock-adlists-tbody">
-              <tr><td colspan="5" style="text-align: center; color: var(--text-muted); font-size: 12px;">Blokklisták betöltése...</td></tr>
+              <tr><td colspan="5" style="text-align: center; color: var(--text-muted); font-size: 12px;" data-i18n="adblock_loading_adlists">Loading blocklist sources...</td></tr>
             </tbody>
           </table>
         </div>
@@ -3787,10 +3831,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <!-- Gravity Sync Log Console -->
         <div style="background: rgba(0,0,0,0.4); border: 1px solid #1e293b; border-radius: 8px; padding: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">📋 Gravity Letöltési & Fordítási Napló</span>
-            <span id="adblock-gravity-status-badge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 11px;">Kész</span>
+            <span style="font-size: 12px; font-weight: 700; color: #38bdf8;" data-i18n="adblock_gravity_console_title">📋 Gravity Download & Compilation Log</span>
+            <span id="adblock-gravity-status-badge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 11px;">Ready</span>
           </div>
-          <pre id="adblock-gravity-log" style="margin: 0; max-height: 140px; overflow-y: auto; font-family: monospace; font-size: 11.5px; color: #94a3b8; white-space: pre-wrap; line-height: 1.5;">Kattints a fenti "Gravity Frissítése" gombra a legfrissebb blokklisták letöltéséhez.</pre>
+          <pre id="adblock-gravity-log" style="margin: 0; max-height: 140px; overflow-y: auto; font-family: monospace; font-size: 11.5px; color: #94a3b8; white-space: pre-wrap; line-height: 1.5;">Click "Download & Update Gravity Blocklists" above to fetch the latest threat feeds.</pre>
         </div>
       </div>
 
@@ -3798,20 +3842,20 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div id="subtab-adblock-localdns" class="adblock-subtab-pane" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
           <div>
-            <div style="font-weight: 700; color: #34d399; font-size: 14px;" data-i18n="adblock_localdns_title">Helyi DNS Rekordok (custom.list)</div>
+            <div style="font-weight: 700; color: #34d399; font-size: 14px;" data-i18n="adblock_localdns_title">Local Custom DNS Records (custom.list)</div>
             <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;" data-i18n="adblock_localdns_desc">
-              Rendelj barátságos helyi tartományneveket (pl. box.lan, nas.local) a helyi IP címekhez külső DNS kérések nélkül.
+              Assign friendly local domain names (e.g. box.lan, nas.local) to local IP addresses without public DNS queries.
             </p>
           </div>
         </div>
 
         <!-- Add Local DNS Form -->
         <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
-          <div style="font-size: 12.5px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px;">➕ Új Helyi DNS Rekord Mentése</div>
+          <div style="font-size: 12.5px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px;" data-i18n="adblock_add_localdns_title">➕ Save New Local DNS Record</div>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <input type="text" id="adblock-localdns-domain-input" placeholder="Helyi tartománynév (pl. box.lan vagy nas.otthon)" style="flex: 2; min-width: 220px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <input type="text" id="adblock-localdns-ip-input" placeholder="Helyi IP cím (pl. 192.168.1.100)" style="flex: 1.5; min-width: 180px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #059669;" onclick="addAdblockLocalDnsRecord()">➕ Rekord Mentése</button>
+            <input type="text" id="adblock-localdns-domain-input" placeholder="Local hostname (e.g. box.lan or nas.home)" data-i18n-placeholder="adblock_localdns_domain_ph" style="flex: 2; min-width: 220px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <input type="text" id="adblock-localdns-ip-input" placeholder="Target IP address (e.g. 192.168.1.100)" data-i18n-placeholder="adblock_localdns_ip_ph" style="flex: 1.5; min-width: 180px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #059669;" onclick="addAdblockLocalDnsRecord()" data-i18n="btn_save_record">➕ Save Record</button>
           </div>
         </div>
 
@@ -3820,14 +3864,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <table class="data-table" style="margin: 0; width: 100%;">
             <thead>
               <tr>
-                <th style="font-size: 11.5px;">Helyi Tartománynév (LAN Hostname)</th>
-                <th style="font-size: 11.5px; width: 180px;">Cél IP Cím</th>
-                <th style="font-size: 11.5px; width: 80px; text-align: center;">Típus</th>
-                <th style="font-size: 11.5px; width: 70px; text-align: center;">Törlés</th>
+                <th style="font-size: 11.5px;" data-i18n="adblock_th_hostname">Local Hostname (LAN Domain)</th>
+                <th style="font-size: 11.5px; width: 180px;" data-i18n="adblock_th_target_ip">Target IP Address</th>
+                <th style="font-size: 11.5px; width: 80px; text-align: center;" data-i18n="adblock_th_type">Type</th>
+                <th style="font-size: 11.5px; width: 70px; text-align: center;" data-i18n="adblock_th_delete">Delete</th>
               </tr>
             </thead>
             <tbody id="adblock-localdns-tbody">
-              <tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-size: 12px;">Helyi DNS rekordok betöltése...</td></tr>
+              <tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-size: 12px;" data-i18n="adblock_loading_localdns">Loading local DNS records...</td></tr>
             </tbody>
           </table>
         </div>
@@ -3837,22 +3881,22 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div id="subtab-adblock-guide" class="adblock-subtab-pane" style="display: none;">
         <div style="background: rgba(2, 132, 199, 0.08); border: 1px solid #0284c7; border-radius: 8px; padding: 18px 22px;">
           <div style="font-weight: 700; color: #38bdf8; font-size: 14.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-            <span>📖</span> <span data-i18n="adblock_guide_title">Otthoni Router DHCP DNS Beállítása</span>
+            <span>📖</span> <span data-i18n="adblock_guide_title">Home Router DHCP DNS Configuration Guide</span>
           </div>
           <p style="font-size: 12.5px; color: #cbd5e1; margin-bottom: 14px;" data-i18n="adblock_guide_desc">
-            A reklámok blokkolásához a teljes helyi hálózaton (mobilok, okostévék, PC-k) állítsd be a router DHCP DNS szerverét a mérőbox IP címére:
+            To block advertisements across your entire home network (mobiles, smart TVs, PCs), configure your router DHCP DNS to point to the probe IP:
           </p>
           <div style="display: flex; align-items: center; gap: 10px; background: rgba(0, 0, 0, 0.3); padding: 12px 16px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
-            <span style="font-size: 12px; color: var(--text-muted);">Elsődleges DNS (Primary DNS IP):</span>
+            <span style="font-size: 12px; color: var(--text-muted);" data-i18n="adblock_guide_primary_dns">Primary DNS Server IP:</span>
             <span id="adblock-guide-ip" style="font-size: 20px; font-weight: 800; color: #34d399; font-family: monospace;">192.168.1.100</span>
-            <button class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px; margin-left: auto;" onclick="copyToClipboard(document.getElementById('adblock-guide-ip').innerText)" data-i18n="btn_copy">📋 Másolás</button>
+            <button class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px; margin-left: auto;" onclick="copyToClipboard(document.getElementById('adblock-guide-ip').innerText)" data-i18n="btn_copy">📋 Copy</button>
           </div>
           <div id="adblock-guide-steps" style="font-size: 12.5px; color: #94a3b8; line-height: 1.7;">
-            <div>1. Lépj be a meglévő routered admin felületére (általában a böngészőben: http://192.168.1.1).</div>
-            <div>2. Keresd meg a LAN / DHCP Szerver / DNS beállítások menüpontot.</div>
-            <div>3. Az Elsődleges DNS szerver (Primary DNS) mezőben add meg a mérőbox fenti IP címét.</div>
-            <div>4. A Másodlagos DNS (Secondary DNS) mezőt hagyd üresen, hogy a hálózat mindig a mérőboxot használja.</div>
-            <div>5. Mentsd el a beállítást. A router ezután automatikusan kiküldi ezt az összes csatlakozó eszköznek!</div>
+            <div data-i18n="adblock_guide_step1">1. Log in to your home router admin interface (typically http://192.168.1.1 or http://192.168.8.1).</div>
+            <div data-i18n="adblock_guide_step2">2. Navigate to LAN / DHCP Server / DNS settings.</div>
+            <div data-i18n="adblock_guide_step3">3. In Primary DNS (or DNS Server 1), enter the NetworkMeasureBox probe IP shown above.</div>
+            <div data-i18n="adblock_guide_step4">4. Leave Secondary DNS empty so all queries reliably route through the sinkhole.</div>
+            <div data-i18n="adblock_guide_step5">5. Save settings. The router will automatically distribute this DNS configuration to all devices!</div>
           </div>
         </div>
       </div>
@@ -4341,128 +4385,128 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <span id="duckdns-config-state-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);" data-i18n="duckdns_saved_active">Saved & Active</span>
             </div>
             <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;" data-i18n="duckdns_desc">
-              Automatikusan szinkronban tartja a dinamikus DNS hosztnevet a publikus WAN IPv4 és natív IPv6 (AAAA) címmel.
+              Automatically synchronizes your dynamic DNS hostname with the public WAN IPv4 and native IPv6 (AAAA) address.
             </p>
 
             <div id="duckdns-unsaved-alert" style="display: none; margin-bottom: 14px; padding: 8px 12px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; font-size: 12px; color: #f59e0b;" data-i18n="duckdns_unsaved_warning">
-              ⚠️ Nem mentett módosítások az űrlapon (Kattints a 'DynDNS Beállítások Mentése' gombra)!
+              ⚠️ Unsaved changes in form (Click 'Save DynDNS Settings' to apply)!
             </div>
 
             <!-- Provider Selection -->
             <div style="margin-bottom: 12px;">
-              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="dyndns_provider">DynDNS Szolgáltató:</label>
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="dyndns_provider">DynDNS Provider:</label>
               <select id="duckdns-provider" class="form-input" style="width: 100%; font-size: 13px; padding: 7px 10px;" onchange="onDynDnsProviderChange(); checkDuckdnsUnsavedChanges();">
                 <option value="duckdns">🦆 DuckDNS (duckdns.org)</option>
-                <option value="dynv6">⚡ dynv6.com (Dual-Stack IPv4 + Natív IPv6)</option>
+                <option value="dynv6">⚡ dynv6.com (Dual-Stack IPv4 + Native IPv6)</option>
               </select>
             </div>
 
             <div style="margin-bottom: 12px;">
               <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
-                <input type="checkbox" id="duckdns-enabled" onchange="checkDuckdnsUnsavedChanges()"> <span data-i18n="duckdns_enable">Dinamikus DNS Frissítő Engedélyezése</span>
+                <input type="checkbox" id="duckdns-enabled" onchange="checkDuckdnsUnsavedChanges()"> <span data-i18n="duckdns_enable">Enable Dynamic DNS Updater</span>
               </label>
             </div>
 
             <!-- Domain / Zone Name -->
             <div style="margin-bottom: 12px;">
-              <label id="duckdns-domain-label" style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_domain">DuckDNS Aldomain (.duckdns.org):</label>
+              <label id="duckdns-domain-label" style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_domain">DuckDNS Subdomain (.duckdns.org):</label>
               <div style="display: flex; align-items: center; gap: 6px;">
                 <input type="text" id="duckdns-domain" class="form-input" style="font-size: 13px; padding: 7px 10px; flex: 1;" placeholder="my-box" oninput="checkDuckdnsUnsavedChanges()">
                 <span id="duckdns-domain-suffix" style="font-size: 12px; color: var(--text-muted);">.duckdns.org</span>
               </div>
-              <div id="duckdns-zone-hint" style="display: none; font-size: 11px; color: #94a3b8; margin-top: 4px;">
-                💡 <b>dynv6.com:</b> Adja meg a zóna teljes nevét (pl. <code>my-box.v6.army</code> vagy <code>sajatbox.dynv6.net</code>).
+              <div id="duckdns-zone-hint" style="display: none; font-size: 11px; color: #94a3b8; margin-top: 4px;" data-i18n="duckdns_zone_hint">
+                💡 <b>dynv6.com:</b> Specify full zone name (e.g. <code>my-box.v6.army</code> or <code>mybox.dynv6.net</code>).
               </div>
             </div>
 
             <!-- Token -->
             <div style="margin-bottom: 12px;">
-              <label id="duckdns-token-label" style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_token">Fiók Token / API Key:</label>
+              <label id="duckdns-token-label" style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_token">Account Token / API Key:</label>
               <div style="display: flex; align-items: center; gap: 6px;">
                 <input type="password" id="duckdns-token" class="form-input" style="font-size: 13px; padding: 7px 10px; flex: 1;" placeholder="Token" oninput="checkDuckdnsUnsavedChanges()">
                 <button type="button" class="btn-secondary" style="font-size: 11px; padding: 7px 10px;" onclick="togglePasswordVisibility('duckdns-token')">👁️</button>
               </div>
-              <div id="duckdns-token-hint" style="display: none; font-size: 11px; color: #94a3b8; margin-top: 4px;">
-                A dynv6.com zóna beállításaiban vagy profiljában található HTTP Token (pl. <code>yLNPbR...</code>).
+              <div id="duckdns-token-hint" style="display: none; font-size: 11px; color: #94a3b8; margin-top: 4px;" data-i18n="duckdns_token_hint">
+                HTTP token found in your dynv6.com zone settings or account profile.
               </div>
             </div>
 
             <!-- Interval & IPv4 Override -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
               <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_interval">Frissítési Időköz (Perc):</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_interval">Update Interval (Minutes):</label>
                 <input type="number" id="duckdns-interval" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" min="1" max="1440" value="10" oninput="checkDuckdnsUnsavedChanges()">
               </div>
               <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_custom_ip">Egyéni WAN IPv4 (opcionális):</label>
-                <input type="text" id="duckdns-custom-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Automatikus észlelés" oninput="checkDuckdnsUnsavedChanges()">
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="duckdns_custom_ip">Custom WAN IPv4 (optional):</label>
+                <input type="text" id="duckdns-custom-ip" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto-detected" data-i18n-placeholder="duckdns_auto_detect" oninput="checkDuckdnsUnsavedChanges()">
               </div>
             </div>
 
             <!-- IPv6 Mode & Custom IPv6 -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
               <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="dyndns_ipv6_mode">IPv6 (AAAA Rekord) Kezelés:</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="dyndns_ipv6_mode">IPv6 (AAAA Record) Handling:</label>
                 <select id="duckdns-ipv6-mode" class="form-input" style="width: 100%; font-size: 13px; padding: 7px 10px;" onchange="onDynDnsIpv6ModeChange(); checkDuckdnsUnsavedChanges();">
-                  <option value="auto">🌐 Automatikus (WAN / SLAAC észlelés)</option>
-                  <option value="custom">✍️ Egyéni / Manuális IPv6 cím</option>
-                  <option value="none">🚫 Kikapcsolva (Csak IPv4 A rekord)</option>
+                  <option value="auto">🌐 Automatic (WAN / SLAAC detection)</option>
+                  <option value="custom">✍️ Custom / Manual IPv6 address</option>
+                  <option value="none">🚫 Disabled (IPv4 A record only)</option>
                 </select>
               </div>
               <div id="duckdns-custom-ipv6-wrap" style="display: none;">
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="dyndns_custom_ipv6">Egyéni Globális IPv6 Cím:</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" data-i18n="dyndns_custom_ipv6">Custom Global IPv6 Address:</label>
                 <input type="text" id="duckdns-custom-ipv6" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="2001:db8::..." oninput="checkDuckdnsUnsavedChanges()">
               </div>
             </div>
 
             <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-              <button id="btn-save-duckdns" class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveDuckdnsSettings()" data-i18n="duckdns_btn_save">💾 DynDNS Beállítások Mentése</button>
-              <button id="btn-update-duckdns" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="updateDuckdnsNow()" data-i18n="duckdns_btn_update">🔄 Azonnali Frissítés Most</button>
+              <button id="btn-save-duckdns" class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveDuckdnsSettings()" data-i18n="duckdns_btn_save">💾 Save DynDNS Settings</button>
+              <button id="btn-update-duckdns" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="updateDuckdnsNow()" data-i18n="duckdns_btn_update">🔄 Sync Now</button>
             </div>
 
             <div id="duckdns-saved-card" style="padding: 12px; background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px;">
-              <div style="font-size: 12px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;" data-i18n="duckdns_saved_card_title">💾 Mentett Konfiguráció (/etc/nmb/nmb.conf)</div>
+              <div style="font-size: 12px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;" data-i18n="duckdns_saved_card_title">💾 Saved Configuration (/etc/nmb/nmb.conf)</div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11.5px; color: var(--text-muted);">
-                <div>Szolgáltató: <span id="duckdns-saved-provider" style="color: #38bdf8; font-weight: 700;">DuckDNS</span></div>
-                <div>Aktív Hosztnév / Zóna: <span id="duckdns-saved-fqdn" style="color: #38bdf8; font-weight: 600;">--</span></div>
-                <div>Frissítési Időköz: <span id="duckdns-saved-interval" style="color: #34d399; font-weight: 700;">--</span></div>
-                <div>Állapot: <span id="duckdns-saved-enabled" style="font-weight: 600; color: var(--text-main);">--</span></div>
-                <div>Fiók Token: <span id="duckdns-saved-token-state" style="color: var(--text-main);">--</span></div>
-                <div>IPv6 Mód: <span id="duckdns-saved-ipv6-mode" style="color: #c084fc; font-weight: 600;">auto</span></div>
-                <div style="grid-column: span 2;">IPv4 Override: <span id="duckdns-saved-custom-ip" style="color: var(--text-main);">Automatikus észlelés</span></div>
+                <div>Provider: <span id="duckdns-saved-provider" style="color: #38bdf8; font-weight: 700;">DuckDNS</span></div>
+                <div>Active Hostname / Zone: <span id="duckdns-saved-fqdn" style="color: #38bdf8; font-weight: 600;">--</span></div>
+                <div>Update Interval: <span id="duckdns-saved-interval" style="color: #34d399; font-weight: 700;">--</span></div>
+                <div>Status: <span id="duckdns-saved-enabled" style="font-weight: 600; color: var(--text-main);">--</span></div>
+                <div>Account Token: <span id="duckdns-saved-token-state" style="color: var(--text-main);">--</span></div>
+                <div>IPv6 Mode: <span id="duckdns-saved-ipv6-mode" style="color: #c084fc; font-weight: 600;">auto</span></div>
+                <div style="grid-column: span 2;">IPv4 Override: <span id="duckdns-saved-custom-ip" style="color: var(--text-main);">Auto-detected</span></div>
               </div>
             </div>
           </div>
 
           <!-- Live Status Card -->
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
-            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;">🌐 DynDNS Élő Szinkronizációs Állapot</div>
+            <div style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #38bdf8;" data-i18n="duckdns_live_title">🌐 DynDNS Live Synchronization Status</div>
             <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_status">Legutóbbi Frissítés Állapota:</span>
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_status">Last Update Status:</span>
               <span id="duckdns-status-badge" class="badge">Checking...</span>
             </div>
             <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);">Aktív FQDN Domain:</span>
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_active_fqdn">Active FQDN Domain:</span>
               <span id="duckdns-detected-fqdn" style="font-weight: 700; color: #38bdf8; font-family: monospace;">--</span>
             </div>
             <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_ip">Érzékelt Publikus IPv4 (A):</span>
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_ip">Detected Public IPv4 (A):</span>
               <span id="duckdns-detected-ip" style="font-weight: 700; color: #34d399; font-family: monospace;">--</span>
             </div>
             <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);">Érzékelt Publikus IPv6 (AAAA):</span>
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_detected_ipv6">Detected Public IPv6 (AAAA):</span>
               <span id="duckdns-detected-ipv6" style="font-weight: 700; color: #c084fc; font-family: monospace; font-size: 11px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</span>
             </div>
             <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);">Utoljára Frissítve:</span>
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_last_updated">Last Synchronized:</span>
               <span id="duckdns-last-time" style="color: var(--text-main);">--</span>
             </div>
             <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_next_sync">Következő Tervezett Frissítés:</span>
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_next_sync">Next Scheduled Update:</span>
               <span id="duckdns-next-time" style="color: var(--text-muted);">--</span>
             </div>
             <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_countdown_next">Visszaszámlálás:</span>
+              <span style="font-size: 12px; color: var(--text-muted);" data-i18n="duckdns_countdown_next">Countdown:</span>
               <span id="duckdns-countdown-badge" class="badge" style="background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); font-weight: 700;">--</span>
             </div>
             <div id="duckdns-msg-box" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; color: #94a3b8; margin-top: 14px; word-break: break-all;">
@@ -4727,9 +4771,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; display: flex; align-items: flex-start; gap: 14px;">
           <div style="font-size: 24px; line-height: 1;">🛡️</div>
           <div style="flex: 1;">
-            <div style="font-weight: 700; font-size: 13.5px; color: #34d399; margin-bottom: 4px;">Management-Plane Isolation (Kizárólag Kezelőfelület Hozzáférés)</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: #34d399; margin-bottom: 4px;" data-i18n="tailscale_isolation_title">Management-Plane Isolation (Admin Access Only)</div>
             <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0;" data-i18n="tailscale_desc">
-              A Tailscale kizárólag a NetworkMeasureBox WebUI és SSH adminisztrációs felületének biztonságos, távoli elérésére szolgál (NAT és CGNAT mögül is, publikus portnyitás nélkül). Nem irányítja át a mért internet forgalmat (<code style="color:#38bdf8;">--accept-routes=false --advertise-exit-node=false --accept-dns=false</code>), így a sebesség- és késleltetésmérések mentesek maradnak a VPN interferenciától.
+              Tailscale is exclusively used for secure remote administration of the NetworkMeasureBox WebUI and SSH (even behind NAT and CGNAT, with zero open router ports). It does not route or tunnel measured internet transit (<code style="color:#38bdf8;">--accept-routes=false --advertise-exit-node=false --accept-dns=false</code>), ensuring speed and latency benchmarks remain completely unaffected by VPN overhead.
             </p>
           </div>
         </div>
@@ -4737,11 +4781,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <!-- Needs Login / Auth URL Banner -->
         <div id="tailscale-login-banner" style="display: none; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
           <div>
-            <div style="font-weight: 700; font-size: 14px; color: #f59e0b; margin-bottom: 4px;">🔑 Tailnet Bejelentkezés Szükséges</div>
-            <div style="font-size: 12px; color: var(--text-muted);">A készülék még nincs hitelesítve a Tailnet hálózatodon. Nyisd meg a linket egy böngészőben a gép csatlakoztatásához:</div>
+            <div style="font-weight: 700; font-size: 14px; color: #f59e0b; margin-bottom: 4px;" data-i18n="tailscale_login_title">🔑 Tailnet Authentication Required</div>
+            <div style="font-size: 12px; color: var(--text-muted);" data-i18n="tailscale_login_desc">This device is not yet authenticated to your Tailnet mesh. Open the approval URL in your browser to connect this box:</div>
           </div>
           <a id="tailscale-auth-url-btn" href="#" target="_blank" class="btn-primary" style="text-decoration: none; padding: 8px 18px; font-size: 13px; font-weight: 600;" data-i18n="tailscale_btn_login_web">
-            🔑 Bejelentkezés jóváhagyása a böngészőben ↗
+            🔑 Approve Login in Browser ↗
           </a>
         </div>
 
@@ -4749,79 +4793,79 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <!-- Status & Direct Links Card -->
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-              <div style="font-weight: 700; font-size: 14px; color: #10b981;" data-i18n="tailscale_title">🦎 Tailscale Biztonságos Hálózati Hozzáférés (Mesh VPN)</div>
+              <div style="font-weight: 700; font-size: 14px; color: #10b981;" data-i18n="tailscale_title">🦎 Tailscale Secure Mesh Remote Access (VPN)</div>
               <span id="tailscale-status-badge" class="badge">Checking...</span>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12.5px;">
               <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
-                <span style="color: var(--text-muted);" data-i18n="tailscale_ip_v4">Tailscale IPv4 Cím:</span>
+                <span style="color: var(--text-muted);" data-i18n="tailscale_ip_v4">Tailscale IPv4 Address:</span>
                 <span id="tailscale-ip-val" style="font-family: monospace; font-weight: 600; color: #34d399;">--</span>
               </div>
               <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
-                <span style="color: var(--text-muted);" data-i18n="tailscale_ip_v6">Tailscale IPv6 Cím:</span>
+                <span style="color: var(--text-muted);" data-i18n="tailscale_ip_v6">Tailscale IPv6 Address:</span>
                 <span id="tailscale-ipv6-val" style="font-family: monospace; font-size: 11px; color: #c084fc; word-break: break-all;">--</span>
               </div>
               <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
-                <span style="color: var(--text-muted);" data-i18n="tailscale_magic_dns">MagicDNS Domain Név:</span>
+                <span style="color: var(--text-muted);" data-i18n="tailscale_magic_dns">MagicDNS Domain Name:</span>
                 <span id="tailscale-dns-val" style="font-family: monospace; font-size: 11px; color: #38bdf8; word-break: break-all;">--</span>
               </div>
               <div style="display: flex; justify-content: space-between; padding-bottom: 4px;">
-                <span style="color: var(--text-muted);" data-i18n="tailscale_hostname">Tailscale Gépnév (Hostname):</span>
+                <span style="color: var(--text-muted);" data-i18n="tailscale_hostname">Tailscale Hostname:</span>
                 <span id="tailscale-hostname-val" style="font-family: monospace; color: var(--text-main);">--</span>
               </div>
             </div>
 
             <!-- Direct One-Click Links -->
             <div id="tailscale-direct-links" style="display: none; margin-top: 16px; padding: 12px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px;">
-              <div style="font-size: 11.5px; font-weight: 600; color: #38bdf8; margin-bottom: 8px;">🚀 Közvetlen Vezérlőpult Hivatkozások:</div>
+              <div style="font-size: 11.5px; font-weight: 600; color: #38bdf8; margin-bottom: 8px;" data-i18n="tailscale_direct_title">🚀 Direct Dashboard Access Links:</div>
               <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <a id="tailscale-link-ip" href="#" target="_blank" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; text-decoration: none; color: #34d399;">
-                  🌐 Megnyitás IP alapján (<span id="tailscale-link-ip-text">100.x.y.z</span>) ↗
+                  🌐 <span data-i18n="tailscale_open_ip">Open via IP</span> (<span id="tailscale-link-ip-text">100.x.y.z</span>) ↗
                 </a>
-                <a id="tailscale-link-magic" href="#" target="_blank" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; text-decoration: none; color: #38bdf8;">
-                  ✨ Megnyitás MagicDNS-sel ↗
+                <a id="tailscale-link-magic" href="#" target="_blank" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; text-decoration: none; color: #38bdf8;" data-i18n="tailscale_open_magic">
+                  ✨ Open via MagicDNS ↗
                 </a>
               </div>
             </div>
 
             <!-- Controls -->
             <div style="margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <button id="tailscale-btn-up" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="connectTailscale()" data-i18n="tailscale_btn_up">▶️ Csatlakozás (Tailscale Up)</button>
-              <button id="tailscale-btn-down" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="disconnectTailscale()" data-i18n="tailscale_btn_down">⏹️ Lekapcsolódás</button>
-              <button id="tailscale-btn-logout" class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" onclick="logoutTailscale()" data-i18n="tailscale_btn_logout">🚪 Kijelentkezés</button>
-              <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTailscaleStatus()" data-i18n="btn_refresh">🔄 Frissítés</button>
+              <button id="tailscale-btn-up" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="connectTailscale()" data-i18n="tailscale_btn_up">▶️ Connect (Tailscale Up)</button>
+              <button id="tailscale-btn-down" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="disconnectTailscale()" data-i18n="tailscale_btn_down">⏹️ Disconnect</button>
+              <button id="tailscale-btn-logout" class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" onclick="logoutTailscale()" data-i18n="tailscale_btn_logout">🚪 Log Out</button>
+              <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTailscaleStatus()" data-i18n="btn_refresh">🔄 Refresh</button>
             </div>
           </div>
 
           <!-- Configuration & Auth Key Card -->
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
-            <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 12px;">⚙️ Tailscale Vezérlő & Biztonsági Beállítások</div>
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 12px;" data-i18n="tailscale_settings_title">⚙️ Tailscale Control & Security Settings</div>
             
             <div class="form-group" style="margin-bottom: 14px;">
-              <label class="form-label" style="font-size: 12px;" data-i18n="tailscale_auth_key">Tailscale Auth Kulcs (tskey-auth-...):</label>
+              <label class="form-label" style="font-size: 12px;" data-i18n="tailscale_auth_key">Tailscale Auth Key (tskey-auth-...):</label>
               <input type="password" id="tailscale-auth-key-input" class="form-input" style="font-size: 13px; font-family: monospace;" placeholder="tskey-auth-k123456789...">
-              <div class="form-hint" style="font-size: 11px;">Opcionális. Megadása esetén böngészős jóváhagyás nélkül, automatikusan hitelesíti a készüléket.</div>
+              <div class="form-hint" style="font-size: 11px;" data-i18n="tailscale_auth_hint">Optional. Pre-authenticates the probe directly without web browser authorization.</div>
             </div>
 
             <div style="margin-bottom: 14px; background: rgba(0,0,0,0.15); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-              <div style="font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 8px;">Biztonsági Beállítások (Alapértelmezésben rögzítve):</div>
+              <div style="font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 8px;" data-i18n="tailscale_sec_title">Security Settings (Hardened Defaults):</div>
               <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; cursor: pointer;">
-                <input type="checkbox" id="tailscale-cfg-ssh" checked> <span>Tailscale SSH engedélyezése (<code style="color:#38bdf8;">--ssh</code>)</span>
+                <input type="checkbox" id="tailscale-cfg-ssh" checked> <span data-i18n="tailscale_cfg_ssh">Enable Tailscale SSH (<code style="color:#38bdf8;">--ssh</code>)</span>
               </label>
               <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; cursor: pointer;">
-                <input type="checkbox" id="tailscale-cfg-accept-routes"> <span>Alhálózati útvonalak elfogadása (<code style="color:#ef4444;">--accept-routes</code> - Alapértelmezett: Ki)</span>
+                <input type="checkbox" id="tailscale-cfg-accept-routes"> <span data-i18n="tailscale_cfg_routes">Accept Subnet Routes (<code style="color:#ef4444;">--accept-routes</code> - Default: Off)</span>
               </label>
               <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; cursor: pointer;">
-                <input type="checkbox" id="tailscale-cfg-accept-dns"> <span>Tailscale MagicDNS felülbírálás (<code style="color:#ef4444;">--accept-dns</code> - Alapértelmezett: Ki)</span>
+                <input type="checkbox" id="tailscale-cfg-accept-dns"> <span data-i18n="tailscale_cfg_dns">Accept Tailscale MagicDNS (<code style="color:#ef4444;">--accept-dns</code> - Default: Off)</span>
               </label>
               <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" id="tailscale-cfg-exit-node"> <span>Exit Node hirdetése (<code style="color:#ef4444;">--advertise-exit-node</code> - Alapértelmezett: Ki)</span>
+                <input type="checkbox" id="tailscale-cfg-exit-node"> <span data-i18n="tailscale_cfg_exit">Advertise Exit Node (<code style="color:#ef4444;">--advertise-exit-node</code> - Default: Off)</span>
               </label>
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 8px;">
-              <button class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveTailscaleConfig()">💾 Beállítások Mentése</button>
+              <button class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveTailscaleConfig()" data-i18n="btn_save_settings">💾 Save Settings</button>
             </div>
           </div>
         </div>
@@ -4829,21 +4873,21 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <!-- Peers List Table -->
         <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-weight: 700; font-size: 14px; color: #38bdf8;" data-i18n="tailscale_peers">Csatlakoztatott Eszközök a Tailnetben:</div>
-            <span id="tailscale-peer-count" class="badge">0 eszköz</span>
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8;" data-i18n="tailscale_peers">Connected Tailnet Devices:</div>
+            <span id="tailscale-peer-count" class="badge">0 devices</span>
           </div>
           <div class="table-container" style="max-height: 320px; overflow-y: auto;">
             <table class="router-table" style="width: 100%; font-size: 12px;">
               <thead>
                 <tr>
-                  <th>Eszköz / Hostname</th>
-                  <th>Tailscale IP</th>
-                  <th>Operációs Rendszer</th>
-                  <th>Állapot</th>
+                  <th data-i18n="tailscale_col_device">Device / Hostname</th>
+                  <th data-i18n="tailscale_col_ip">Tailscale IP</th>
+                  <th data-i18n="tailscale_col_os">Operating System</th>
+                  <th data-i18n="tailscale_col_status">Status</th>
                 </tr>
               </thead>
               <tbody id="tailscale-peers-tbody">
-                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 18px;">Nincs adat vagy a Tailscale nincs csatlakozva.</td></tr>
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 18px;" data-i18n="tailscale_no_peers">No data or Tailscale is not connected.</td></tr>
               </tbody>
             </table>
           </div>
@@ -7219,23 +7263,23 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div id="rsub-telegram" class="router-subtab-content">
         <div class="router-section-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-            <div style="font-size: 14px; font-weight: 700; color: #ffffff;" data-i18n="telegram_title">💬 Telegram Chatbot & Intelligens Riasztások</div>
-            <button class="btn-secondary" style="font-size: 12px; padding: 5px 12px;" onclick="switchTab('tab-telegram')">💬 Megnyitás Teljes Képernyőn ↗</button>
+            <div style="font-size: 14px; font-weight: 700; color: #ffffff;" data-i18n="telegram_title">💬 Telegram Chatbot & Smart Alerts</div>
+            <button class="btn-secondary" style="font-size: 12px; padding: 5px 12px;" onclick="switchTab('tab-telegram')" data-i18n="telegram_open_fullscreen">💬 Open Full Screen ↗</button>
           </div>
           <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;" data-i18n="telegram_desc">
-            Interaktív távoli felügyelet, diagnosztikai parancsok (/speed, /ping, /adblock, /status) és azonnali értesítések vonalszakadás vagy magas késleltetés esetén.
+            Interactive remote management, diagnostic commands (/speed, /ping, /adblock, /status), and instant outage or high-latency notifications.
           </p>
           <div id="rsub-telegram-summary" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-weight: 600;">Chatbot Szolgáltatás Állapota:</span>
+              <span style="font-weight: 600;" data-i18n="telegram_service_status_lbl">Chatbot Service Status:</span>
               <span id="rsub-telegram-badge" class="badge">Checking...</span>
             </div>
             <div style="font-size: 12px; color: var(--text-muted);">
-              Aktív bot azonosító: <b id="rsub-telegram-botname" style="color: #38bdf8;">--</b>
+              <span data-i18n="telegram_active_bot_lbl">Active Bot Identifier:</span> <b id="rsub-telegram-botname" style="color: #38bdf8;">--</b>
             </div>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchTab('tab-telegram')">⚙️ Chatbot és Riasztások Kezelése</button>
+            <button class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchTab('tab-telegram')" data-i18n="telegram_manage_btn">⚙️ Manage Chatbot & Alerts</button>
           </div>
         </div>
       </div>
@@ -7255,29 +7299,29 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <!-- Title & Header -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
         <div>
-          <div class="section-subtitle" style="margin: 0;" data-i18n="telegram_title">💬 Telegram Chatbot & Intelligens Riasztások</div>
+          <div class="section-subtitle" style="margin: 0;" data-i18n="telegram_title">💬 Telegram Chatbot & Smart Alerts</div>
           <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;" data-i18n="telegram_desc">
-            Interaktív távoli felügyelet, diagnosztikai parancsok (/speed, /ping, /adblock, /status) és azonnali értesítések vonalszakadás vagy magas késleltetés esetén.
+            Interactive remote management, diagnostic commands (/speed, /ping, /adblock, /status), and instant outage or high-latency notifications.
           </p>
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
           <span id="telegram-main-badge" class="badge">Checking...</span>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTelegramStatus(true)" data-i18n="btn_refresh">🔄 Frissítés</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTelegramStatus(true)" data-i18n="btn_refresh">🔄 Refresh</button>
         </div>
       </div>
 
       <!-- Quick 3-Step Setup Guide -->
       <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;">
-        <div style="font-weight: 700; font-size: 13.5px; color: #38bdf8; margin-bottom: 8px;">🚀 Gyors Beállítási Útmutató (3 Lépés):</div>
+        <div style="font-weight: 700; font-size: 13.5px; color: #38bdf8; margin-bottom: 8px;" data-i18n="telegram_guide_title">🚀 Quick 3-Step Setup Guide:</div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; font-size: 12px; color: var(--text-muted);">
           <div style="background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 6px;">
-            <b style="color: #cbd5e1;" data-i18n="telegram_step1">1. Bot Létrehozása:</b> Nyisd meg a Telegramot, keresd meg a <code style="color:#38bdf8;">@BotFather</code> felhasználót, küldd el a <code style="color:#38bdf8;">/newbot</code> parancsot, és másold be a kapott API Tokent.
+            <b style="color: #cbd5e1;" data-i18n="telegram_step1">1. Create Bot:</b> <span data-i18n="telegram_step1_desc">Open Telegram, search for @BotFather, send /newbot, and paste the API access token here.</span>
           </div>
           <div style="background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 6px;">
-            <b style="color: #cbd5e1;" data-i18n="telegram_step2">2. Chat ID Lekérdezése:</b> Keresd meg a <code style="color:#38bdf8;">@userinfobot</code>-ot a Telegramon a saját numerikus Chat ID-d lekéréséhez, vagy add hozzá a csoportot.
+            <b style="color: #cbd5e1;" data-i18n="telegram_step2">2. Get Chat ID:</b> <span data-i18n="telegram_step2_desc">Search for @userinfobot on Telegram to get your numeric Chat ID, or add your group ID.</span>
           </div>
           <div style="background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 6px;">
-            <b style="color: #cbd5e1;" data-i18n="telegram_step3">3. Bot Elindítása:</b> Indíts egy privát beszélgetést a saját botoddal és nyomj a <code style="color:#38bdf8;">/start</code> gombra a tesztüzenet elküldése előtt!
+            <b style="color: #cbd5e1;" data-i18n="telegram_step3">3. Start Chatting:</b> <span data-i18n="telegram_step3_desc">Start a private message with your bot and send /start before running immediate test notifications!</span>
           </div>
         </div>
       </div>
@@ -7285,58 +7329,58 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-bottom: 20px;">
         <!-- Left: Configuration Form -->
         <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
-          <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 14px;">🔑 Bot Hitelesítés & Riasztási Beállítások</div>
+          <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 14px;" data-i18n="telegram_auth_title">🔑 Bot Authentication & Alert Settings</div>
 
           <div style="margin-bottom: 14px;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
-              <input type="checkbox" id="telegram-cfg-enabled"> <span data-i18n="telegram_enable">Telegram Chatbot engedélyezése (nmb-telegram)</span>
+              <input type="checkbox" id="telegram-cfg-enabled"> <span data-i18n="telegram_enable">Enable Telegram Chatbot (nmb-telegram)</span>
             </label>
           </div>
 
           <div class="form-group" style="margin-bottom: 14px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
               <label class="form-label" style="font-size: 12px; margin: 0;" data-i18n="telegram_token">Telegram Bot API Token:</label>
-              <span id="telegram-token-saved-badge" class="badge" style="display: none; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 10px;">Token elmentve</span>
+              <span id="telegram-token-saved-badge" class="badge" style="display: none; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 10px;" data-i18n="telegram_token_saved">Token saved</span>
             </div>
             <div style="display: flex; gap: 6px;">
               <input type="password" id="telegram-cfg-token" class="form-input" style="font-size: 13px; font-family: monospace; flex: 1;" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" autocomplete="off" spellcheck="false">
               <button class="btn-secondary" style="font-size: 12px; padding: 6px 10px;" type="button" onclick="toggleTelegramTokenVisibility()">👁️</button>
             </div>
-            <div class="form-hint" style="font-size: 11px;">A @BotFather által kiadott titkos hozzáférési token.</div>
+            <div class="form-hint" style="font-size: 11px;" data-i18n="telegram_token_hint">Secret bot authorization token issued by @BotFather.</div>
           </div>
 
           <div class="form-group" style="margin-bottom: 14px;">
-            <label class="form-label" style="font-size: 12px;" data-i18n="telegram_chats">Engedélyezett Chat ID-k (vesszővel elválasztva):</label>
+            <label class="form-label" style="font-size: 12px;" data-i18n="telegram_chats">Authorized Chat IDs (comma-separated):</label>
             <input type="text" id="telegram-cfg-chats" class="form-input" style="font-size: 13px; font-family: monospace;" placeholder="123456789, 987654321">
-            <div class="form-hint" style="font-size: 11px;">Csak az itt megadott Telegram felhasználók és csoportok küldhetnek parancsot a botnak és kapnak riasztást.</div>
+            <div class="form-hint" style="font-size: 11px;" data-i18n="telegram_chats_hint">Only specified Telegram users and group chats are authorized to send commands and receive alerts.</div>
           </div>
 
           <div style="background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px;">
-            <div style="font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 10px;">🚨 Automatikus Hálózati Riasztások:</div>
+            <div style="font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 10px;" data-i18n="telegram_alerts_title">🚨 Automated Network Alerts:</div>
             
             <div style="margin-bottom: 10px;">
               <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; margin-bottom: 4px;">
-                <input type="checkbox" id="telegram-cfg-alert-loss"> <span>Riasztás csomagvesztés esetén</span>
+                <input type="checkbox" id="telegram-cfg-alert-loss"> <span data-i18n="telegram_alert_loss">Alert on packet loss exceeding threshold</span>
               </label>
               <div style="display: flex; align-items: center; gap: 8px; margin-left: 22px;">
-                <span style="font-size: 11.5px; color: var(--text-muted);" data-i18n="telegram_loss_thresh">Küszöb (%):</span>
+                <span style="font-size: 11.5px; color: var(--text-muted);" data-i18n="telegram_loss_thresh">Threshold (%):</span>
                 <input type="number" id="telegram-cfg-loss-thresh" class="form-input" style="width: 80px; font-size: 12px; padding: 4px 8px;" min="1" max="100" value="5">
               </div>
             </div>
 
             <div>
               <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; margin-bottom: 4px;">
-                <input type="checkbox" id="telegram-cfg-alert-latency"> <span>Riasztás magas késleltetés (ping) esetén</span>
+                <input type="checkbox" id="telegram-cfg-alert-latency"> <span data-i18n="telegram_alert_latency">Alert on high latency (ping RTT spike)</span>
               </label>
               <div style="display: flex; align-items: center; gap: 8px; margin-left: 22px;">
-                <span style="font-size: 11.5px; color: var(--text-muted);" data-i18n="telegram_lat_thresh">Küszöb (ms):</span>
+                <span style="font-size: 11.5px; color: var(--text-muted);" data-i18n="telegram_lat_thresh">Threshold (ms):</span>
                 <input type="number" id="telegram-cfg-lat-thresh" class="form-input" style="width: 80px; font-size: 12px; padding: 4px 8px;" min="5" max="5000" value="100">
               </div>
             </div>
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button class="btn-primary" style="padding: 8px 18px; font-size: 13px;" onclick="saveTelegramConfig()" data-i18n="telegram_btn_save">💾 Beállítások mentése & Bot indítása</button>
+            <button class="btn-primary" style="padding: 8px 18px; font-size: 13px;" onclick="saveTelegramConfig()" data-i18n="telegram_btn_save">💾 Save Settings & Start Bot</button>
           </div>
         </div>
 
@@ -7344,40 +7388,40 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div style="display: flex; flex-direction: column; gap: 16px;">
           <!-- Live Service Card -->
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
-            <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 12px;">🤖 Bot Állapot & Rendszerszolgáltatás</div>
+            <div style="font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 12px;" data-i18n="telegram_status_title">🤖 Bot Status & System Service</div>
             
             <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; margin-bottom: 16px;">
               <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
-                <span style="color: var(--text-muted);">Bot Felhasználónév:</span>
+                <span style="color: var(--text-muted);" data-i18n="telegram_stat_username_lbl">Bot Username:</span>
                 <span id="telegram-stat-username" style="font-weight: 600; color: #38bdf8;">--</span>
               </div>
               <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
-                <span style="color: var(--text-muted);">Bot Megjelenített Név:</span>
+                <span style="color: var(--text-muted);" data-i18n="telegram_stat_name_lbl">Bot Display Name:</span>
                 <span id="telegram-stat-first-name" style="color: var(--text-main);">--</span>
               </div>
               <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;">
-                <span style="color: var(--text-muted);">Telegram API Kapcsolat:</span>
+                <span style="color: var(--text-muted);" data-i18n="telegram_stat_api_lbl">Telegram API Connection:</span>
                 <span id="telegram-stat-api" style="font-weight: 600;">--</span>
               </div>
               <div style="display: flex; justify-content: space-between; padding-bottom: 4px;">
-                <span style="color: var(--text-muted);">Démon Folyamat (nmb-telegram):</span>
+                <span style="color: var(--text-muted);" data-i18n="telegram_stat_daemon_lbl">Daemon Process (nmb-telegram):</span>
                 <span id="telegram-stat-service" class="badge">--</span>
               </div>
             </div>
 
             <!-- Service Control Buttons -->
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
-              <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('start')" data-i18n="telegram_btn_start">▶️ Indítás</button>
-              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('stop')" data-i18n="telegram_btn_stop">⏹️ Leállítás</button>
-              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('restart')" data-i18n="telegram_btn_restart">🔄 Újraindítás</button>
+              <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('start')" data-i18n="telegram_btn_start">▶️ Start</button>
+              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('stop')" data-i18n="telegram_btn_stop">⏹️ Stop</button>
+              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('restart')" data-i18n="telegram_btn_restart">🔄 Restart</button>
             </div>
 
             <!-- Test Notification Section -->
             <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px;">
-              <div style="font-size: 12px; font-weight: 600; color: #34d399; margin-bottom: 8px;">📨 Azonnali Tesztüzenet Küldése:</div>
+              <div style="font-size: 12px; font-weight: 600; color: #34d399; margin-bottom: 8px;" data-i18n="telegram_test_title">📨 Send Immediate Test Notification:</div>
               <div style="display: flex; gap: 8px;">
-                <input type="text" id="telegram-test-chat-id" class="form-input" style="font-size: 12px; padding: 6px 10px; flex: 1;" placeholder="Opcionális cél Chat ID (vagy üresen az első beállított)">
-                <button class="btn-primary" style="font-size: 12px; padding: 6px 14px; white-space: nowrap;" onclick="sendTelegramTestNotification()" data-i18n="telegram_btn_test">📨 Küldés</button>
+                <input type="text" id="telegram-test-chat-id" class="form-input" style="font-size: 12px; padding: 6px 10px; flex: 1;" placeholder="Optional target Chat ID (or leave blank for first authorized ID)" data-i18n-placeholder="telegram_test_chat_ph">
+                <button class="btn-primary" style="font-size: 12px; padding: 6px 14px; white-space: nowrap;" onclick="sendTelegramTestNotification()" data-i18n="telegram_btn_test">📨 Send</button>
               </div>
               <div id="telegram-test-result" style="display: none; font-size: 11.5px; margin-top: 8px; padding: 6px 10px; border-radius: 6px;"></div>
             </div>
@@ -7385,15 +7429,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
           <!-- Bot Commands Cheatsheet Card -->
           <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px;">
-            <div style="font-weight: 700; font-size: 14px; color: #cbd5e1; margin-bottom: 10px;">📋 Elérhető Telegram Bot Parancsok</div>
+            <div style="font-weight: 700; font-size: 14px; color: #cbd5e1; margin-bottom: 10px;" data-i18n="telegram_cmds_title">📋 Available Telegram Bot Commands</div>
             <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 12px;">
-              <code style="color:#38bdf8;">/status</code><span>Rendszerállapot, Uptime, CPU, Hőmérséklet</span>
-              <code style="color:#38bdf8;">/ping</code><span>Azonnali ping késleltetés és csomagvesztés</span>
-              <code style="color:#38bdf8;">/speed</code><span>Legutóbbi sebességteszt eredmények / új mérés</span>
-              <code style="color:#38bdf8;">/wifi</code><span>Wi-Fi állapot és csatlakoztatott kliensek</span>
-              <code style="color:#38bdf8;">/adblock</code><span>DNS Reklámblokkoló statisztika</span>
-              <code style="color:#38bdf8;">/ip</code><span>Hálózati IP címek (WAN, LAN, Tailscale)</span>
-              <code style="color:#38bdf8;">/help</code><span>Összes elérhető parancs listája</span>
+              <code style="color:#38bdf8;">/status</code><span data-i18n="telegram_cmd_desc_status">System health, Uptime, CPU, Temperature & SLA</span>
+              <code style="color:#38bdf8;">/ping</code><span data-i18n="telegram_cmd_desc_ping">Instant latency & packet loss check</span>
+              <code style="color:#38bdf8;">/speed</code><span data-i18n="telegram_cmd_desc_speed">Recent speed test results or run new benchmark</span>
+              <code style="color:#38bdf8;">/wifi</code><span data-i18n="telegram_cmd_desc_wifi">Wi-Fi probe status & connected clients</span>
+              <code style="color:#38bdf8;">/adblock</code><span data-i18n="telegram_cmd_desc_adblock">DNS sinkhole ad-blocking telemetry</span>
+              <code style="color:#38bdf8;">/ip</code><span data-i18n="telegram_cmd_desc_ip">Public & local IP addresses (WAN, LAN, Tailscale)</span>
+              <code style="color:#38bdf8;">/help</code><span data-i18n="telegram_cmd_desc_help">Full command directory and interactive menu</span>
             </div>
           </div>
         </div>
@@ -8315,7 +8359,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       if (btn) {
         if (id === subtabId) {
           btn.classList.add('active');
-          btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+          const nav = btn.closest('.adblock-subnav') || btn.parentElement;
+          if (nav && typeof nav.scrollTo === 'function') {
+            const left = btn.offsetLeft - nav.offsetLeft - 16;
+            nav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+          }
         } else {
           btn.classList.remove('active');
         }
@@ -8871,14 +8919,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`'${domain}' feketelistára adva (azonnal blokkolva)`);
+        showToast(t('adblock_toast_blacklisted', `'${domain}' added to blacklist (instantly blocked)`));
         loadAdblockStatus();
         loadAdblockQueryLog();
       } else {
-        showToast('Hiba a hozzáadás során');
+        showToast(t('adblock_toast_add_err', 'Error adding domain'));
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('common_err', 'Error: ') + e);
     }
   }
 
@@ -8892,11 +8940,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`'${domain}' fehérlistára adva (mindig engedélyezve)`);
+        showToast(t('adblock_toast_whitelisted', `'${domain}' added to whitelist (always allowed)`));
         loadAdblockStatus();
         loadAdblockQueryLog();
       } else {
-        showToast('Hiba a hozzáadás során');
+        showToast(t('adblock_toast_add_err', 'Error adding domain'));
       }
     } catch (e) {
       showToast('Hiba: ' + e);
@@ -9007,15 +9055,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`'${dom}' fehérlistára adva`);
+        showToast(t('adblock_toast_wl_added', `'${dom}' added to whitelist`));
         input.value = '';
         loadAdblockDomains();
         loadAdblockStatus();
       } else {
-        showToast('Érvénytelen tartománynév');
+        showToast(t('adblock_toast_invalid_dom', 'Invalid domain name'));
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('common_err', 'Error: ') + e);
     }
   }
 
@@ -9028,12 +9076,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`'${dom}' törölve a fehérlistáról`);
+        showToast(t('adblock_toast_wl_removed', `'${dom}' removed from whitelist`));
         loadAdblockDomains();
         loadAdblockStatus();
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('common_err', 'Error: ') + e);
     }
   }
 
@@ -9049,15 +9097,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`'${dom}' feketelistára adva`);
+        showToast(t('adblock_toast_bl_added', `'${dom}' added to blacklist`));
         input.value = '';
         loadAdblockDomains();
         loadAdblockStatus();
       } else {
-        showToast('Érvénytelen tartománynév');
+        showToast(t('adblock_toast_invalid_dom', 'Invalid domain name'));
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('common_err', 'Error: ') + e);
     }
   }
 
@@ -9070,12 +9118,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`'${dom}' törölve a feketelistáról`);
+        showToast(t('adblock_toast_bl_removed', `'${dom}' removed from blacklist`));
         loadAdblockDomains();
         loadAdblockStatus();
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('common_err', 'Error: ') + e);
     }
   }
 
@@ -9196,11 +9244,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast('Blokklista forrás törölve');
+        showToast(t('adblock_toast_src_deleted', 'Blocklist source deleted'));
         loadAdblockAdlists();
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('common_err', 'Error: ') + e);
     }
   }
 
@@ -9215,7 +9263,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
       const records = data.records || [];
       if (records.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-size: 12px;">Nincsenek konfigurált helyi DNS rekordok</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-size: 12px;" data-i18n="adblock_localdns_none">' + t('adblock_localdns_none', 'No configured local DNS records') + '</td></tr>';
         return;
       }
 
@@ -9240,7 +9288,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     const domInput = document.getElementById('adblock-localdns-domain-input');
     const ipInput = document.getElementById('adblock-localdns-ip-input');
     if (!domInput || !ipInput || !domInput.value.trim() || !ipInput.value.trim()) {
-      showToast('Kérlek add meg a tartományt és az IP címet is!');
+      showToast(t('adblock_toast_specify_domain_ip', 'Please specify both hostname and IP address!'));
       return;
     }
     const dom = domInput.value.trim();
@@ -9254,15 +9302,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`Helyi rekord mentve: ${dom} -> ${ip}`);
+        showToast(t('adblock_toast_localdns_saved', `Local record saved: ${dom} -> ${ip}`));
         domInput.value = '';
         ipInput.value = '';
         loadAdblockLocalDns();
       } else {
-        showToast('Érvénytelen IP cím vagy tartománynév formátum');
+        showToast(t('adblock_toast_invalid_ip_dom', 'Invalid IP address or hostname format'));
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('common_err', 'Error: ') + e);
     }
   }
 
@@ -9275,24 +9323,24 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(`Helyi rekord törölve: ${domain}`);
+        showToast(t('adblock_toast_localdns_deleted', `Local record deleted: ${domain}`));
         loadAdblockLocalDns();
       }
     } catch (e) {
-      showToast('Hiba: ' + e);
+      showToast(t('common_err', 'Error: ') + e);
     }
   }
 
   async function updateGravity() {
     try {
-      showToast('Gravity frissítése (külső blokklisták letöltése folyamatban)...');
+      showToast(t('adblock_toast_updating_gravity', 'Updating Gravity (downloading blocklists in background)...'));
       switchAdblockSubtab('adlists');
 
       const logBox = document.getElementById('adblock-gravity-log');
       const badge = document.getElementById('adblock-gravity-status-badge');
-      if (logBox) logBox.innerText = 'Gravity frissítés elindítva, külső listák letöltése...';
+      if (logBox) logBox.innerText = t('adblock_log_starting_gravity', 'Gravity update triggered, downloading external lists...');
       if (badge) {
-        badge.innerText = 'Folyamatban...';
+        badge.innerText = t('status_in_progress', 'In Progress...');
         badge.style.color = '#fbbf24';
         badge.style.background = 'rgba(245, 158, 11, 0.15)';
       }
@@ -11264,7 +11312,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     const b = document.getElementById('btn-' + subtabId);
     if (b) {
       b.classList.add('active');
-      b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      const nav = b.closest('.router-subnav') || b.parentElement;
+      if (nav && typeof nav.scrollTo === 'function') {
+        const left = b.offsetLeft - nav.offsetLeft - 16;
+        nav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+      }
     }
     if (subtabId === 'rsub-guest') {
       loadGuestWifiStatus();
@@ -14920,7 +14972,11 @@ ${pkgList}`;
       if (btn) {
         if (t === tabName) {
           btn.classList.add('active');
-          btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+          const nav = btn.closest('.remote-subnav') || btn.parentElement;
+          if (nav && typeof nav.scrollTo === 'function') {
+            const left = btn.offsetLeft - nav.offsetLeft - 16;
+            nav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+          }
         } else {
           btn.classList.remove('active');
         }
@@ -15453,7 +15509,7 @@ ${pkgList}`;
       if (res.ok) {
         const tokInput = document.getElementById('duckdns-token');
         if (tokInput && token) tokInput.value = '';
-        showToast(`✅ ${provider === 'dynv6' ? 'dynv6.com' : 'DuckDNS'} beállítások sikeresen mentve! Időköz: ${interval_min} perc`);
+        showToast(t('dyndns_saved_success', `✅ ${provider === 'dynv6' ? 'dynv6.com' : 'DuckDNS'} settings saved successfully! Interval: ${interval_min} min`));
         await loadDuckdnsStatus();
 
         // Highlight card to visually confirm save
@@ -15468,10 +15524,10 @@ ${pkgList}`;
           }, 1500);
         }
       } else {
-        showToast('❌ DynDNS mentési hiba: ' + (d.message || 'Sikertelen'));
+        showToast(t('dyndns_save_err', '❌ DynDNS save error: ') + (d.message || 'Failed'));
       }
     } catch (e) {
-      showToast('❌ DynDNS mentési hiba: ' + e);
+      showToast(t('dyndns_save_err', '❌ DynDNS save error: ') + e);
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -15485,21 +15541,21 @@ ${pkgList}`;
     const oldText = btn ? btn.textContent : '';
     if (btn) {
       btn.disabled = true;
-      btn.textContent = '🔄 ' + t('updating', 'Frissítés...');
+      btn.textContent = '🔄 ' + t('updating', 'Updating...');
     }
     const prov = document.getElementById('duckdns-provider')?.value || 'duckdns';
-    showToast(`Dinamikus DNS szinkronizáció indítása (${prov === 'dynv6' ? 'dynv6.com' : 'DuckDNS'})...`);
+    showToast(t('dyndns_syncing', `Starting Dynamic DNS synchronization (${prov === 'dynv6' ? 'dynv6.com' : 'DuckDNS'})...`));
     try {
       const res = await fetch('/api/duckdns/update', { method: 'POST' });
       const d = await res.json();
       if (res.ok && (d.success || d.status === 'ok')) {
-        showToast(`✅ DynDNS frissítve! IP: ${d.ip || 'OK'} ${d.ipv6 ? 'IPv6: ' + d.ipv6 : ''}`);
+        showToast(t('dyndns_synced_success', `✅ DynDNS updated! IP: ${d.ip || 'OK'} ${d.ipv6 ? 'IPv6: ' + d.ipv6 : ''}`));
       } else {
-        showToast('DynDNS válasz: ' + (d.status || d.message || 'Sikertelen'));
+        showToast(t('dyndns_resp_msg', 'DynDNS response: ') + (d.status || d.message || 'Failed'));
       }
       setTimeout(loadDuckdnsStatus, 800);
     } catch (e) {
-      showToast('DynDNS frissítési hiba: ' + e);
+      showToast(t('dyndns_sync_err', 'DynDNS sync error: ') + e);
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -16297,12 +16353,14 @@ ${pkgList}`;
       const linkMagic = document.getElementById('tailscale-link-magic');
 
       if (isRunning && ipv4 !== '--') {
+        const curPort = (window.location.port && window.location.port !== '80' && window.location.port !== '443') ? (':' + window.location.port) : '';
+        const proto = window.location.protocol || 'http:';
         if (directBox) directBox.style.display = 'block';
-        if (linkIp) linkIp.href = 'http://' + ipv4 + '/';
-        if (linkIpText) linkIpText.textContent = ipv4;
+        if (linkIp) linkIp.href = proto + '//' + ipv4 + curPort + '/';
+        if (linkIpText) linkIpText.textContent = ipv4 + curPort;
         if (linkMagic && dnsName !== '--') {
           linkMagic.style.display = 'inline-block';
-          linkMagic.href = 'http://' + dnsName + '/';
+          linkMagic.href = proto + '//' + dnsName + curPort + '/';
         } else if (linkMagic) {
           linkMagic.style.display = 'none';
         }
@@ -16460,12 +16518,12 @@ ${pkgList}`;
       });
       const data = await res.json();
       if (data.ok) {
-        showToast('Tailscale beállítások sikeresen mentve!');
+        showToast(t('tailscale_saved_ok', 'Tailscale settings saved successfully!'));
       } else {
-        showToast('Hiba a mentés során: ' + (data.error || 'Failed'));
+        showToast(t('save_err', 'Error saving settings: ') + (data.error || 'Failed'));
       }
     } catch (e) {
-      showToast('Hálózati hiba: ' + e);
+      showToast(t('net_err', 'Network error: ') + e);
     }
   }
 
@@ -16652,14 +16710,14 @@ ${pkgList}`;
       });
       const data = await res.json();
       if (data.ok || data.status === 'ok') {
-        showToast('Telegram beállítások sikeresen mentve!');
+        showToast(t('telegram_saved_ok', 'Telegram settings saved successfully!'));
         clearTelegramDirty();
         setTimeout(() => loadTelegramStatus(true), 1000);
       } else {
-        showToast('Hiba: ' + (data.error || data.message || 'Failed to save'));
+        showToast(t('save_err', 'Error: ') + (data.error || data.message || 'Failed to save'));
       }
     } catch (e) {
-      showToast('Hálózati hiba: ' + e);
+      showToast(t('net_err', 'Network error: ') + e);
     }
   }
 
@@ -16701,13 +16759,13 @@ ${pkgList}`;
         resBox.style.color = '#f87171';
         resBox.textContent = t('telegram_test_network_err', '❌ Network error: ') + e;
       }
-      showToast('Hálózati hiba: ' + e);
+      showToast(t('net_err', 'Network error: ') + e);
     }
   }
 
   async function controlTelegramService(action) {
     try {
-      showToast(`Telegram démon: ${action}...`);
+      showToast(t('telegram_service_action', `Telegram daemon: ${action}...`));
       const res = await fetch('/api/telegram/service', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -16715,9 +16773,9 @@ ${pkgList}`;
       });
       const data = await res.json();
       if (data.ok || data.status === 'ok') {
-        showToast(`Telegram démon sikeresen módosítva: ${action}`);
+        showToast(t('telegram_daemon_action_ok', `Telegram daemon successfully updated: ${action}`));
       } else {
-        showToast('Hiba: ' + (data.error || data.message || 'Failed'));
+        showToast(t('common_err', 'Error: ') + (data.error || data.message || 'Failed'));
       }
       setTimeout(loadTelegramStatus, 1500);
     } catch (e) {

@@ -258,6 +258,7 @@ A legtöbb Raspberry Pi és beágyazott SBC a microSD kártya tönkremenetele mi
 ## 8. Beépített Webes Felület (WebGUI) és Többnyelvűség
 
 A beépített webes felület a **szabványos 80-as HTTP router porton** érhető el (fejlesztői futtatás esetén automatikus 8080-as fallback-kel), teljesen reszponzív, modern sötét dizájnnal és 14 dedikált kategóriával rendelkezik:
+* **Mobil-optimalizált Érintőkijelzős Ergonómia**: Az almenü-sávok (`.router-subnav`, `.remote-subnav`, `.adblock-subnav`) védett vízszintes görgető-szalagként (`flex: 0 0 auto`, `white-space: nowrap`) viselkednek intelligens `scrollTo` görgetéssel. Ez megakadályozza, hogy okostelefonos kijelzőkön (360px–420px) a gombok betűnként tördelődve függőleges hasábokká torzuljanak.
 
 1. **Irányítópult (Dashboard)**: Legutóbbi mérések összefoglalása, SLA státusz, egykattintásos mérésindítás, interfész-választó és élő végrehajtási terminál.
 2. **Ping Telemetria (ICMP Ping)**: Valós idejű vektoros SVG késleltetési grafikon, csomagvesztés, p95/p99 statisztikák, CSV export.
@@ -384,8 +385,10 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 ## 14. Hatósági Szintű SLA Dosszié és Vektoros SVG Motor
 
 * **Semleges Nemzetközi Megnevezés**:
-  * A riportok független és hivatalos megnevezése: *"Broadband Quality & ISP SLA Performance Dossier"* / *"Szélessávú Hálózati Minőség & Szolgáltatói SLA Vizsgálati Dosszié"*.
-  * Teljes mértékben megfelel az európai BEREC irányelveknek, az NMHH és a nemzetközi hatóságok elvárásainak.
+  * A riportok független, hivatalos megnevezése: *"Broadband Quality & ISP SLA Performance Dossier"* / *"Szélessávú Hálózati Minőség & Szolgáltatói SLA Vizsgálati Dosszié"*.
+  * Teljes mértékben megfelel az európai BEREC mérési irányelveknek, az NMHH és a nemzetközi hatóságok elvárásainak anélkül, hogy megtévesztő módon állami hatóság hivatalos kiadványaként tüntetné fel magát.
+  * **Megtévesztő `0 Mb/s` Értékek Szűrése**: Ha a szerződéses garantált sebesség nincs beállítva vagy 0 Mb/s, a riport nem jelenít meg félrevezető kártyát, hanem tájékoztató szöveggel segíti a hatósági/szolgáltatói összevetést.
+  * **Egyértelmű IP Cím és Szolgáltató Megjelenítés**: Minden egyes mérési sor és telemetria blokk kiemelten megjeleníti az észlelt publikus IPv4/IPv6 címet és a hozzá tartozó ISP szolgáltató nevét.
 * **Tiszta Matematikai Vektoros SVG Motor**:
   * Külső diagramkönyvtárak nélkül generál reszponzív, retina-éles `<svg viewBox="0 0 800 380">` grafikonokat Bézier-görbékkel, kettős Y-tengellyel (Mbps és ms) és érintőpontokkal.
   * Generálási idő: **< 1.5 ezredmásodperc**.
@@ -415,10 +418,24 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 
 A NetworkMeasureBox beágyazott kereskedelmi routereken történő futtatásához (akár **4 MB Flash és 32 MB RAM** mellett) elkészült a teljes, 100%-ban Python-mentes portolási specifikáció:
 * **Egységes Statikus Bináris (`nmbd`)**: **Go 1.23+** (Tier 1) és **C11 musl-libc** (Tier 2 & 3) alapon, zéró külső csomagfüggőséggel.
-* **Célhardver Portolási Kézikönyvek**:
-  * **ASUS RT-AXE7800** (Broadcom BCM6756 4 mag @ 1.7 GHz, 512 MB DDR4 RAM, 256 MB NAND Flash, 1x 2.5GbE + 4x 1GbE, Tri-Band Wi-Fi 6E, Asuswrt / Asuswrt-Merlin GNUton): 2.5 Gbps vonali sebességteszt, Flow Cache gyorsításkezelés, többmagos CAKE SQM és beágyazott `tsnet` Tailscale.
-  * **ASUS RT-N12+** (MediaTek MT7620N ver:2 eco:6 MIPS24KEc @ 580 MHz, 32 MB DDR SDRAM, 8 MB SPI Flash, Fast Ethernet, OpenWrt `ramips/mt7620`): 850 KB C11 bináris (320 KB UPX), 2.8 MB RAM RSS, 100 Mbps mérés <14% CPU terheléssel.
-  * **TP-Link TL-WR740N v4.x / v4.23** (Atheros AR9331 400 MHz, 32 MB DDR SDRAM, **4 MB SPI Flash**, Minimal OpenWrt `ath79/generic`): **178 KB UPX-LZMA bináris**, 1.4 MB RAM RSS, 100% memóriabeli körkörös puffer a flash-kopás megakadályozására!
+* **Célhardver Portolási Kézikönyvek & WikiDevi Hardver Profilok**:
+  * **[ASUS RT-AXE7800](https://wikidevi.wi-cat.ru/ASUS_RT-AXE7800)**:
+    * Broadcom BCM6756 4 mag @ 1.7 GHz Cortex-A7, 512 MB DDR4 RAM, 256 MB NAND Flash, 1x 2.5GbE + 1x 1GbE WAN/LAN + 3x 1GbE LAN, Tri-Band Wi-Fi 6E, USB 3.2 Gen 1.
+    * Rendszer: Asuswrt / Asuswrt-Merlin (GNUton fork) vagy OpenWrt `bcm4908`.
+    * Natív démon: Go 1.23+ egyetlen bináris vagy C11; 2.5 Gbps vonali sebességteszt, többmagos CAKE SQM, Flow Cache bypass, beágyazott `tsnet` Tailscale.
+  * **[ASUS RT-N12+](https://wikidevi.wi-cat.ru/ASUS_RT-N12_series)**:
+    * MediaTek MT7620N ver:2 eco:6 MIPS24KEc @ 580 MHz (`ramips/mt7620`), 32 MB DDR SDRAM, 8 MB SPI Flash, Fast Ethernet (100 Mbps).
+    * Rendszer: OpenWrt `ramips/mt7620`.
+    * Natív démon: Monolitikus C11 musl-libc-vel (<850 KB, ~2.8 MB RAM RSS), 100 Mbps mérés <14% CPU terheléssel.
+  * **[TP-Link TL-WR740N v4.x / v4.23](https://wikidevi.wi-cat.ru/TP-LINK_TL-WR740N_v4.x)**:
+    * Qualcomm Atheros AR9331 MIPS 24Kc @ 400 MHz (`ath79/generic` / `ar71xx`), 32 MB DDR SDRAM, **4 MB SPI Flash**, Fast Ethernet (100 Mbps).
+    * Rendszer: Minimal Stripped OpenWrt `ath79/generic` (LuCI nélkül, minimalista kernellel).
+    * Natív démon: Micro-C11 `-Os` optimalizálással, stripelve, UPX-LZMA tömörítéssel (**178 KB bináris**), 1.4 MB RAM RSS, 100% memóriabeli körkörös puffer (`tmpfs`) a flash-kopás kizárására!
+* **Főbb Natív Alrendszerek (Zéró Python)**:
+  * **Memória-optimalizált DNS Sinkhole / Reklámblokkoló**: 512 KB Counting Bloom Filter (MurmurHash3, 0.1% FPR) és Trie, amely kevesebb mint 640 KB RAM-ot fogyaszt 32 MB-os routereken.
+  * **Külső Függőség Nélküli Sebességmérő Socket Sinks**: Saját folyamaton belüli TCP/TLS kliens, amely közvetlenül csatlakozik Ookla, Cloudflare Edge és RTR-NetTest szerverekhez `splice()` és `recv()` zéró-másolásos pufferekkel külső binárisok nélkül.
+  * **Autonóm Önjavító Motor (`nmb_heal`)**: Többszintű watchdog (szolgáltatás újraindítás, interfész bounce, driver offload konfigurálás, biztonsági konfigurációs visszagörgetés).
+  * **Dinamikus DNS Kliens**: Közvetlen TLS 1.3 Netlink-tudatos frissítő `duckdns` és `dynv6` szolgáltatásokhoz (<60 KB RAM).
 * Részletes műszaki tervek:
   * 📄 **[`docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`](docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md)**
   * 📄 **[`docs/DEPYTHONIZATION_ROADMAP.md`](docs/DEPYTHONIZATION_ROADMAP.md)**
