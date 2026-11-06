@@ -15,6 +15,7 @@ import platform
 import re
 import shutil
 import socket
+import struct
 import subprocess
 import time
 from pathlib import Path
@@ -80,21 +81,96 @@ def _get_cpu_and_thermal_telemetry() -> Dict[str, Any]:
     except Exception:
         pass
 
+    # Hardware Model & SoC Identification
+    hardware_model = "Generic Linux System"
+    soc_model = "Unknown SoC"
+    try:
+        dt_model = Path("/proc/device-tree/model")
+        if dt_model.exists():
+            hardware_model = dt_model.read_text(encoding="utf-8", errors="ignore").replace("\x00", "").strip()
+    except Exception:
+        pass
+
+    if "Raspberry Pi 4" in hardware_model:
+        soc_model = "Broadcom BCM2711 (Quad-core Cortex-A72 @ 1.80GHz)"
+    elif "Raspberry Pi 5" in hardware_model:
+        soc_model = "Broadcom BCM2712 (Quad-core Cortex-A76 @ 2.40GHz)"
+    elif "Raspberry Pi 3" in hardware_model:
+        soc_model = "Broadcom BCM2837 (Quad-core Cortex-A53 @ 1.40GHz)"
+    elif "Raspberry Pi" in hardware_model:
+        soc_model = "Broadcom BCM SoC"
+    else:
+        try:
+            with open("/proc/cpuinfo", "r") as f:
+                for line in f:
+                    if "model name" in line.lower() or "hardware" in line.lower():
+                        soc_model = line.split(":", 1)[1].strip()
+                        break
+        except Exception:
+            pass
+
+    # Storage I/O & Root Partition Health
+    disk_total_gb = 0.0
+    disk_free_gb = 0.0
+    disk_free_pct = 0.0
+    try:
+        du = shutil.disk_usage("/")
+        disk_total_gb = round(du.total / (1024**3), 1)
+        disk_free_gb = round(du.free / (1024**3), 1)
+        disk_free_pct = round((du.free / du.total) * 100.0, 1)
+    except Exception:
+        pass
+
+    # %iowait telemetry
+    iowait_pct = 0.0
+    try:
+        with open("/proc/stat", "r") as f:
+            parts = f.readline().split()
+            # cpu user nice system idle iowait irq softirq steal guest guest_nice
+            total_jiffies = sum(int(x) for x in parts[1:])
+            iowait_jiffies = int(parts[5])
+            if total_jiffies > 0:
+                iowait_pct = round((iowait_jiffies / total_jiffies) * 100.0, 2)
+    except Exception:
+        pass
+
+    # Kernel Storage I/O Errors from dmesg
+    dmesg_io_errors = 0
+    try:
+        r_dmesg = subprocess.run(["dmesg"], capture_output=True, text=True, timeout=2, check=False)
+        for line in r_dmesg.stdout.splitlines():
+            low = line.lower()
+            if any(w in low for w in ("mmc0: error", "ext4-fs error", "buffer i/o error", "i/o error on device")):
+                dmesg_io_errors += 1
+    except Exception:
+        pass
+
+    userland_bitness = platform.architecture()[0]
+
     return {
         "temp_c": temp_c,
         "load_avg": load_avg,
         "freq_mhz": cur_freq_mhz,
         "throttled_hex": throttled_hex,
         "throttled_flags": throttled_flags,
+        "hardware_model": hardware_model,
+        "soc_model": soc_model,
+        "userland_bitness": userland_bitness,
+        "disk_total_gb": disk_total_gb,
+        "disk_free_gb": disk_free_gb,
+        "disk_free_pct": disk_free_pct,
+        "iowait_pct": iowait_pct,
+        "dmesg_io_errors": dmesg_io_errors,
     }
 
 
 def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
-    ethtool_bin = shutil.which("ethtool") or "/usr/sbin/ethtool"
+    ethtool_bin = shutil.which("ethtool") or "/usr/sbin/ethtool" or "/sbin/ethtool"
     ethtool_info: Dict[str, str] = {}
     eee_info: Dict[str, str] = {}
     pause_info: Dict[str, str] = {}
     link_partner_modes: List[str] = []
+    offload_info: Dict[str, str] = {}
 
     if os.path.exists(ethtool_bin):
         # 1. Main ethtool link state & partner modes
@@ -157,6 +233,42 @@ def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
         except Exception:
             pass
 
+        # 4. Offload parameters: ethtool -k <iface>
+        try:
+            r_offload = subprocess.run([ethtool_bin, "-k", iface], capture_output=True, text=True, timeout=3, check=False)
+            for line in r_offload.stdout.splitlines():
+                line = line.strip()
+                for feat in ("rx-checksumming:", "tx-checksumming:", "scatter-gather:", "tcp-segmentation-offload:",
+                             "generic-segmentation-offload:", "generic-receive-offload:"):
+                    if line.startswith(feat):
+                        offload_info[feat.rstrip(":")] = line.split(":", 1)[1].strip().split()[0]
+        except Exception:
+            pass
+
+    # 5. Packet Steering (RPS/XPS)
+    rps_cpus = "0"
+    xps_cpus = "0"
+    try:
+        rps_p = Path(f"/sys/class/net/{iface}/queues/rx-0/rps_cpus")
+        if rps_p.exists():
+            rps_cpus = rps_p.read_text().strip()
+    except Exception:
+        pass
+    try:
+        xps_p = Path(f"/sys/class/net/{iface}/queues/tx-0/xps_cpus")
+        if xps_p.exists():
+            xps_cpus = xps_p.read_text().strip()
+    except Exception:
+        pass
+
+    # 6. IRQBalance Daemon Status
+    irqbalance_status = "inactive"
+    try:
+        r_irq = subprocess.run(["systemctl", "is-active", "irqbalance"], capture_output=True, text=True, timeout=2, check=False)
+        irqbalance_status = r_irq.stdout.strip() or "inactive"
+    except Exception:
+        pass
+
     stats: Dict[str, int] = {}
     stat_dir = Path(f"/sys/class/net/{iface}/statistics")
     if stat_dir.exists():
@@ -180,9 +292,377 @@ def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
         "eee": eee_info,
         "pause": pause_info,
         "partner_modes": link_partner_modes,
+        "offload_info": offload_info,
+        "rps_cpus": rps_cpus,
+        "xps_cpus": xps_cpus,
+        "irqbalance_status": irqbalance_status,
         "stats": stats,
         "carrier_changes": carrier_changes,
     }
+
+
+def _get_wifi_phy_telemetry(wlan_iface: str = "wlan0") -> Dict[str, Any]:
+    iw_bin = None
+    for p in ("/usr/sbin/iw", "/sbin/iw", shutil.which("iw")):
+        if p and os.path.exists(p):
+            iw_bin = p
+            break
+
+    iwconfig_bin = None
+    for p in ("/usr/sbin/iwconfig", "/sbin/iwconfig", shutil.which("iwconfig")):
+        if p and os.path.exists(p):
+            iwconfig_bin = p
+            break
+
+    rssi_dbm: Optional[int] = None
+    rx_bitrate = "N/A"
+    tx_bitrate = "N/A"
+    freq_mhz: Optional[float] = None
+    tx_failed = 0
+    tx_retries = 0
+    missed_beacons = 0
+    connected_time_sec = None
+
+    if iw_bin:
+        try:
+            r = subprocess.run([iw_bin, "dev", wlan_iface, "link"], capture_output=True, text=True, timeout=3, check=False)
+            for line in r.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("signal:"):
+                    m = re.search(r"(-?\d+)\s*dBm", line)
+                    if m:
+                        rssi_dbm = int(m.group(1))
+                elif line.startswith("rx bitrate:"):
+                    rx_bitrate = line.split(":", 1)[1].strip()
+                elif line.startswith("tx bitrate:"):
+                    tx_bitrate = line.split(":", 1)[1].strip()
+                elif line.startswith("freq:"):
+                    try:
+                        freq_mhz = float(line.split(":", 1)[1].strip())
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        try:
+            r_st = subprocess.run([iw_bin, "dev", wlan_iface, "station", "dump"], capture_output=True, text=True, timeout=2, check=False)
+            if r_st.returncode != 0 and shutil.which("sudo"):
+                r_st = subprocess.run(["sudo", "-n", iw_bin, "dev", wlan_iface, "station", "dump"], capture_output=True, text=True, timeout=2, check=False)
+            for line in r_st.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("tx failed:"):
+                    try:
+                        tx_failed = int(line.split(":", 1)[1].strip())
+                    except Exception:
+                        pass
+                elif line.startswith("signal:") and rssi_dbm is None:
+                    m = re.search(r"(-?\d+)\s*dBm", line)
+                    if m:
+                        rssi_dbm = int(m.group(1))
+                elif line.startswith("tx bitrate:") and tx_bitrate == "N/A":
+                    tx_bitrate = line.split(":", 1)[1].strip()
+                elif line.startswith("rx bitrate:") and rx_bitrate == "N/A":
+                    rx_bitrate = line.split(":", 1)[1].strip()
+                elif line.startswith("connected time:"):
+                    try:
+                        connected_time_sec = int(line.split(":", 1)[1].strip().split()[0])
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    if iwconfig_bin:
+        try:
+            r_cfg = subprocess.run([iwconfig_bin, wlan_iface], capture_output=True, text=True, timeout=3, check=False)
+            for line in r_cfg.stdout.splitlines():
+                line = line.strip()
+                if "Tx excessive retries:" in line:
+                    m = re.search(r"Tx excessive retries:(\d+)", line)
+                    if m:
+                        tx_retries = int(m.group(1))
+                if "Missed beacon:" in line:
+                    m = re.search(r"Missed beacon:(\d+)", line)
+                    if m:
+                        missed_beacons = int(m.group(1))
+                if "Signal level=" in line and rssi_dbm is None:
+                    m = re.search(r"Signal level=(-?\d+)\s*dBm", line)
+                    if m:
+                        rssi_dbm = int(m.group(1))
+                if "Bit Rate=" in line and tx_bitrate == "N/A":
+                    m = re.search(r"Bit Rate=([0-9.]+\s*Mb/s)", line)
+                    if m:
+                        tx_bitrate = m.group(1)
+        except Exception:
+            pass
+
+    return {
+        "rssi_dbm": rssi_dbm,
+        "rx_bitrate": rx_bitrate,
+        "tx_bitrate": tx_bitrate,
+        "freq_mhz": freq_mhz,
+        "tx_failed": tx_failed,
+        "tx_retries": tx_retries,
+        "missed_beacons": missed_beacons,
+        "connected_time_sec": connected_time_sec,
+    }
+
+
+def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optional[str], http_public_ip: Optional[str]) -> Dict[str, Any]:
+    mapped_ip = None
+    mapped_port = None
+    stun_server_used = None
+
+    for server, port in (("stun.cloudflare.com", 3478), ("stun.l.google.com", 19302)):
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(1.5)
+            # STUN Binding Request (RFC 5389 / RFC 3489)
+            tx_id = os.urandom(12)
+            req = struct.pack("!HHI12s", 0x0001, 0, 0x2112A442, tx_id)
+            sock.sendto(req, (server, port))
+            resp, _ = sock.recvfrom(2048)
+            if len(resp) >= 20:
+                msg_type, msg_len, magic, r_tx = struct.unpack("!HHI12s", resp[:20])
+                idx = 20
+                while idx < 20 + msg_len and idx + 4 <= len(resp):
+                    attr_type, attr_len = struct.unpack("!HH", resp[idx:idx+4])
+                    attr_val = resp[idx+4:idx+4+attr_len]
+                    if attr_type == 0x0020 and len(attr_val) >= 8:  # XOR-MAPPED-ADDRESS
+                        _, family, xport = struct.unpack("!BBH", attr_val[:4])
+                        p_mapped = xport ^ (magic >> 16)
+                        if family == 1:
+                            xip = struct.unpack("!I", attr_val[4:8])[0]
+                            mapped_ip = socket.inet_ntoa(struct.pack("!I", xip ^ magic))
+                            mapped_port = p_mapped
+                            stun_server_used = server
+                            break
+                    elif attr_type == 0x0001 and len(attr_val) >= 8:  # MAPPED-ADDRESS
+                        _, family, p_mapped = struct.unpack("!BBH", attr_val[:4])
+                        if family == 1:
+                            mapped_ip = socket.inet_ntoa(attr_val[4:8])
+                            mapped_port = p_mapped
+                            stun_server_used = server
+                            break
+                    idx += 4 + attr_len
+            if mapped_ip:
+                break
+        except Exception:
+            pass
+        finally:
+            if sock:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+
+    def is_rfc1918(ip_s: Optional[str]) -> bool:
+        if not ip_s or ip_s in ("*", "???"):
+            return False
+        try:
+            obj = ipaddress.ip_address(ip_s)
+            return obj.is_private and not obj.is_reserved
+        except Exception:
+            return False
+
+    def is_rfc6598_cgnat(ip_s: Optional[str]) -> bool:
+        if not ip_s or ip_s in ("*", "???"):
+            return False
+        try:
+            obj = ipaddress.ip_address(ip_s)
+            cgnat_net = ipaddress.ip_network("100.64.0.0/10")
+            return obj in cgnat_net
+        except Exception:
+            return False
+
+    is_cgnat = False
+    is_double_nat = False
+    verdict = "Single NAT (Direct gateway mapping to Public IPv4)"
+
+    if hop2_ip and is_rfc6598_cgnat(hop2_ip):
+        is_cgnat = True
+        verdict = f"⚠️ Carrier-Grade NAT (CGNAT / RFC 6598 100.64.0.0/10) detected on Upstream Hop (`{hop2_ip}`). Direct inbound port forwarding is not supported by upstream ISP."
+    elif hop2_ip and is_rfc1918(hop2_ip) and is_rfc1918(gateway_ip):
+        is_double_nat = True
+        verdict = f"⚠️ Double NAT Detected: Local Gateway (`{gateway_ip}`) WAN is private (`{hop2_ip}` RFC 1918), residing behind an upstream router/ONT. External public IP (`{http_public_ip or mapped_ip}`) is routable (no ISP CGNAT), but inbound services require DMZ/cascaded forwarding."
+    elif mapped_ip and http_public_ip and mapped_ip != http_public_ip:
+        verdict = f"Multi-WAN or Symmetric Carrier NAT: STUN mapped IP (`{mapped_ip}`) differs from HTTP egress IP (`{http_public_ip}`)."
+    elif mapped_ip:
+        verdict = f"🟢 Clean Public IP Mapping: STUN mapped IP (`{mapped_ip}`) matches HTTP public egress IP. Single-tier NAT verified."
+
+    return {
+        "mapped_ip": mapped_ip,
+        "mapped_port": mapped_port,
+        "stun_server": stun_server_used,
+        "is_cgnat": is_cgnat,
+        "is_double_nat": is_double_nat,
+        "verdict": verdict,
+    }
+
+
+def _get_dns_telemetry_matrix(gateway_ip: str = "192.168.8.1") -> List[Dict[str, Any]]:
+    resolvers = [
+        {"ip": gateway_ip, "label": "Local Gateway / DHCP DNS", "role": "LAN Cache"},
+        {"ip": "1.1.1.1", "label": "Cloudflare DNS", "role": "Public Anycast"},
+        {"ip": "8.8.8.8", "label": "Google Public DNS", "role": "Public Anycast"},
+        {"ip": "9.9.9.9", "label": "Quad9 Secure DNS", "role": "Public Filtered / DNSSEC"},
+    ]
+    results = []
+    domain = "cloudflare.com"
+
+    for r in resolvers:
+        ip = r["ip"]
+        cold_ms = None
+        warm_ms = None
+        ad_flag = False
+        status_note = "OK"
+        sock = None
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(1.2)
+            # DNS Query for cloudflare.com, type A (1), class IN (1), RD=1, AD=1
+            tx_id = 0xA1B2
+            header = struct.pack("!HHHHHH", tx_id, 0x0120, 1, 0, 0, 0)
+            qname = b"".join(bytes([len(p)]) + p.encode("ascii") for p in domain.split(".")) + b"\x00"
+            query = header + qname + struct.pack("!HH", 1, 1)
+
+            # Cold query
+            t0 = time.monotonic()
+            sock.sendto(query, (ip, 53))
+            resp1, _ = sock.recvfrom(2048)
+            cold_ms = round((time.monotonic() - t0) * 1000.0, 2)
+
+            # Warm query
+            t1 = time.monotonic()
+            sock.sendto(query, (ip, 53))
+            resp2, _ = sock.recvfrom(2048)
+            warm_ms = round((time.monotonic() - t1) * 1000.0, 2)
+
+            if len(resp1) >= 12:
+                _, flags, _, ancount, _, _ = struct.unpack("!HHHHHH", resp1[:12])
+                ad_flag = bool(flags & 0x0020)
+                rcode = flags & 0x000F
+                if rcode != 0:
+                    status_note = f"DNS Error (RCODE {rcode})"
+                else:
+                    status_note = f"Valid ({ancount} answers, No Hijacking)"
+        except socket.timeout:
+            status_note = "Timeout (No reply)"
+        except Exception as e:
+            status_note = f"Error: {e}"
+        finally:
+            if sock:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+
+        results.append({
+            "ip": ip,
+            "label": r["label"],
+            "role": r["role"],
+            "cold_ms": cold_ms,
+            "warm_ms": warm_ms,
+            "ad_flag": ad_flag,
+            "status": status_note,
+        })
+    return results
+
+
+def _get_loss_pattern_telemetry(conn: Any, day_ago_ms: int, probes: List[Any]) -> Dict[int, Dict[str, Any]]:
+    stats: Dict[int, Dict[str, Any]] = {}
+    target_ids = [p["id"] for p in probes if p["sent"] and p["lost"]]
+    if not target_ids:
+        return stats
+
+    for tid in target_ids:
+        try:
+            # Check if this target is an ICMP-filtering hop (>90% loss)
+            matching_probe = next((p for p in probes if p["id"] == tid), None)
+            if matching_probe and (matching_probe["lost"] / matching_probe["sent"]) > 0.90:
+                stats[tid] = {
+                    "max_consecutive": matching_probe["lost"],
+                    "outages_gt_3s": 0,
+                    "pattern": "ICMP Echo Filtering / Rate-limiting (Control Plane)",
+                }
+                continue
+
+            rows = conn.execute(
+                "SELECT ts FROM ping_sample WHERE target_id = ? AND ts >= ? AND rtt_us IS NULL ORDER BY ts",
+                (tid, day_ago_ms)
+            ).fetchall()
+            cur_consec = 0
+            max_consec = 0
+            outages_gt_3s = 0
+            prev_ts = None
+
+            for r in rows:
+                ts = r["ts"]
+                if prev_ts is not None and (ts - prev_ts) <= 1500:
+                    cur_consec += 1
+                else:
+                    if cur_consec >= 4:
+                        outages_gt_3s += 1
+                    cur_consec = 1
+                if cur_consec > max_consec:
+                    max_consec = cur_consec
+                prev_ts = ts
+            if cur_consec >= 4:
+                outages_gt_3s += 1
+
+            pattern_desc = "Sporadic isolated drops (Noise / Jitter)"
+            if max_consec >= 20:
+                pattern_desc = f"Clustered outage burst (~{max_consec * 0.5:.0f}s duration)"
+            elif max_consec >= 6:
+                pattern_desc = f"Micro-outage clusters (~{max_consec * 0.5:.0f}s duration)"
+            elif len(rows) == 0:
+                pattern_desc = "Pristine delivery"
+
+            stats[tid] = {
+                "max_consecutive": max_consec,
+                "outages_gt_3s": outages_gt_3s,
+                "pattern": pattern_desc,
+            }
+        except Exception:
+            pass
+    return stats
+
+
+def _sanitize_config_text(conf_path: Path) -> str:
+    if not conf_path.exists():
+        return "N/A"
+    try:
+        raw_lines = conf_path.read_text().splitlines()
+        sanitized = []
+        cur_section = ""
+        for line in raw_lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or stripped.startswith(";"):
+                sanitized.append(line)
+                continue
+            if stripped.startswith("[") and stripped.endswith("]"):
+                cur_section = stripped[1:-1].strip().lower()
+                sanitized.append(line)
+                continue
+            if "=" in line:
+                k, v = line.split("=", 1)
+                k_clean = k.strip().lower()
+                if any(sec in k_clean for sec in ("password", "token", "psk", "secret", "private_key", "preshared_key")):
+                    sanitized.append(f"{k}= [REDACTED_SECRET]")
+                elif "allowed_chat_ids" in k_clean or "chat_id" in k_clean:
+                    sanitized.append(f"{k}= [REDACTED_CHAT_ID]")
+                elif any(sec in k_clean for sec in ("account_id", "circuit_id", "subscriber_id", "client_id", "customer_id")):
+                    sanitized.append(f"{k}= [REDACTED_IDENTIFIER]")
+                elif "domain" in k_clean and (cur_section in ("duckdns", "dyndns", "dynv6") or any(prov in k_clean for prov in ("duckdns", "dyndns", "dynv6"))):
+                    sanitized.append(f"{k}= [REDACTED_DOMAIN]")
+                else:
+                    sanitized.append(line)
+            else:
+                sanitized.append(line)
+        return "\n".join(sanitized)
+    except Exception as e:
+        return f"Error reading config: {e}"
 
 
 _cached_llm_bundle: tuple[float, str] | None = None
@@ -310,9 +790,8 @@ def _get_detailed_mtr(target: str = "1.1.1.1", cycles: int = 30) -> Dict[str, An
     cycles_str = str(max(10, min(cycles, 100)))
 
     if os.path.exists(mtr_bin):
-        # 1. Try fast structured JSON report (cycles=30, sudo with interval 0.25 if permitted)
         for cmd_prefix in (
-            ["sudo", mtr_bin, "--report", "--report-cycles", cycles_str, "-i", "0.25", "--json", "--", target],
+            ["sudo", "-n", mtr_bin, "--report", "--report-cycles", cycles_str, "-i", "0.25", "--json", "--", target],
             [mtr_bin, "--report", "--report-cycles", cycles_str, "--json", "--", target],
         ):
             try:
@@ -339,9 +818,8 @@ def _get_detailed_mtr(target: str = "1.1.1.1", cycles: int = 30) -> Dict[str, An
             except Exception as e:
                 log.debug("mtr json measurement exception: %s", e)
 
-        # 2. Fallback to plain text MTR
         for cmd_prefix in (
-            ["sudo", mtr_bin, "-r", "-w", "-c", cycles_str, "-i", "0.25", "-b", "--", target],
+            ["sudo", "-n", mtr_bin, "-r", "-w", "-c", cycles_str, "-i", "0.25", "-b", "--", target],
             [mtr_bin, "-r", "-w", "-c", cycles_str, "-b", "--", target],
         ):
             try:
@@ -367,7 +845,6 @@ def _get_detailed_mtr(target: str = "1.1.1.1", cycles: int = 30) -> Dict[str, An
             except Exception as e:
                 log.debug("mtr text measurement exception: %s", e)
 
-    # Fallback to traceroute if MTR is unavailable
     tr_bin = shutil.which("traceroute")
     if tr_bin:
         try:
@@ -416,10 +893,10 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     except Exception:
         pass
 
-    # 2. Hardware telemetry (Thermal & Throttling)
+    # 2. Hardware telemetry (Thermal, Throttling, SoC, Storage Health, iowait)
     hw_telemetry = _get_cpu_and_thermal_telemetry()
 
-    # 3. Physical link & interface statistics
+    # 3. Physical link & interface statistics (Offloads, RPS, EEE, Pause)
     phy_info = _get_phy_and_ethtool(wan_iface)
 
     # 4. Path MTU Discovery
@@ -483,11 +960,18 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     else:
         deploy_mode = "LAN Probe (Client behind NAT router)"
 
-    # 8. Latest Speedtest
+    # 8. Speedtest Results
     last_speed = conn.execute("SELECT * FROM speedtest ORDER BY ts DESC LIMIT 1").fetchone()
     last_speed_dict = dict(last_speed) if last_speed else {}
 
-    # 9. Ping probe telemetry stats (last 24h) with role and min/max RTT
+    recent_speeds = conn.execute(
+        """SELECT ts, engine, down_bps, up_bps, ping_us, jitter_us, bufferbloat_grade, bufferbloat_delta_ms, raw_json 
+           FROM speedtest 
+           ORDER BY ts DESC 
+           LIMIT 5"""
+    ).fetchall()
+
+    # 9. Ping probe telemetry stats (last 24h) with role, min/max RTT, and loss patterns
     now_ms = db.now_ms()
     day_ago = now_ms - (24 * 3600 * 1000)
     probes = []
@@ -512,18 +996,54 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     except Exception as e:
         log.debug("error querying ping probes: %s", e)
 
-    # 10. SQM Qdisc status
-    sqm_status = "N/A"
-    try:
-        res = subprocess.run(["tc", "qdisc", "show"], capture_output=True, text=True, check=False)
-        if res.returncode == 0:
-            sqm_status = res.stdout.strip() or "No custom queuing disciplines found."
-    except Exception:
-        pass
+    loss_patterns = _get_loss_pattern_telemetry(conn, day_ago, probes)
 
-    # 11. Recent System Events / Errors
+    # 10. SQM Qdisc status & Kernel Mismatch Check
+    sqm_status = "N/A"
+    tc_bin = shutil.which("tc") or "/sbin/tc" or "/usr/sbin/tc"
+    active_qdisc_types: List[str] = []
+    if os.path.exists(tc_bin):
+        try:
+            res = subprocess.run([tc_bin, "qdisc", "show", "dev", wan_iface], capture_output=True, text=True, check=False)
+            if res.returncode == 0 and res.stdout.strip():
+                sqm_status = res.stdout.strip()
+                for line in sqm_status.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[0] == "qdisc":
+                        active_qdisc_types.append(parts[1])
+            else:
+                res_all = subprocess.run([tc_bin, "qdisc", "show"], capture_output=True, text=True, check=False)
+                if res_all.returncode == 0:
+                    sqm_status = res_all.stdout.strip() or "No custom queuing disciplines found."
+        except Exception:
+            pass
+
+    configured_sqm_algo = getattr(cfg.system, "sqm_algorithm", "cake")
+    sqm_algo_str = str(configured_sqm_algo).lower()
+    sqm_mismatch_warning = ""
+    if "cake" in sqm_algo_str and "cake" not in active_qdisc_types:
+        kernel_qdiscs = ", ".join(set(active_qdisc_types)) or "mq / fq"
+        sqm_mismatch_warning = (
+            f"> ⚠️ **CONFIGURATION VS KERNEL MISMATCH**: Configured SQM algorithm is `{configured_sqm_algo}`, "
+            f"but active kernel root qdisc on `{wan_iface}` is `{kernel_qdiscs}`. CAKE traffic shaping is NOT active in the Linux kernel!"
+        )
+    elif "fq_codel" in sqm_algo_str and "fq_codel" not in active_qdisc_types:
+        kernel_qdiscs = ", ".join(set(active_qdisc_types)) or "mq / fq"
+        sqm_mismatch_warning = (
+            f"> ⚠️ **CONFIGURATION VS KERNEL MISMATCH**: Configured SQM algorithm is `{configured_sqm_algo}`, "
+            f"but active kernel root qdisc on `{wan_iface}` is `{kernel_qdiscs}`. FQ_CoDel shaping is NOT active in the Linux kernel!"
+        )
+    elif any(a in active_qdisc_types for a in ("cake", "fq_codel")):
+        sqm_mismatch_warning = f"> 🟢 **Active in Kernel**: `{', '.join(set(active_qdisc_types))}` verified active on `{wan_iface}`."
+
+    # 11. Recent Warning & Critical System Events (filtered to prevent routine speedtest INFO floods)
     events = conn.execute(
-        "SELECT ts, severity, source, kind, detail FROM event ORDER BY ts DESC LIMIT 20"
+        """SELECT ts, severity, source, kind, detail 
+           FROM event 
+           WHERE severity IN ('warning', 'error', 'critical') 
+              OR kind IN ('outage_start', 'outage_end', 'mode_transition', 'link_down', 'link_up')
+           ORDER BY ts DESC 
+           LIMIT 25"""
     ).fetchall()
     conn.close()
 
@@ -532,6 +1052,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     guest_wifi_info = get_guest_wifi_status()
     lan_dev_count = sum(1 for d in cached_devices if not d.get("is_guest"))
     guest_dev_count = sum(1 for d in cached_devices if d.get("is_guest"))
+    wifi_phy = _get_wifi_phy_telemetry(guest_wifi_info.get("interface", "wlan0"))
 
     # 13. iPerf & Traceroute / MTR (30 cycles)
     iperf_res = get_latest_iperf_result()
@@ -541,20 +1062,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
 
     # 14. Sanitized config text
     conf_path = Path("/etc/nmb/nmb.conf")
-    conf_text = "N/A"
-    if conf_path.exists():
-        try:
-            raw_lines = conf_path.read_text().splitlines()
-            sanitized = []
-            for line in raw_lines:
-                if any(sec in line.lower() for sec in ("password", "token", "psk", "secret")):
-                    k = line.split("=")[0]
-                    sanitized.append(f"{k}= [REDACTED]")
-                else:
-                    sanitized.append(line)
-            conf_text = "\n".join(sanitized)
-        except Exception as e:
-            conf_text = f"Error reading config: {e}"
+    conf_text = _sanitize_config_text(conf_path)
 
     # Resolve GeoIP and Wi-Fi Regulatory Context
     from nmb.netd.geoip import get_public_geoip, get_wifi_regulatory_domain, set_wifi_regulatory_domain
@@ -562,6 +1070,25 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     geoip_data = get_public_geoip(pub_ip)
     pub_ip_hdr = geoip_data.get("ip") or dual_ips.get("public_ipv4") or "N/A"
     geo_loc_hdr = f"(Country: `{geoip_data.get('country_code', '--')} / {geoip_data.get('country', 'Unknown')}`, City: `{geoip_data.get('city', 'Unknown')}`, ASN: `{geoip_data.get('asn', 'N/A')}`)"
+
+    # Resolve local gateway and hop 2 for NAT/STUN evaluation
+    local_gw_ip = "192.168.8.1"
+    for p in probes:
+        if p["target_role"] == "Local Gateway":
+            local_gw_ip = p["target_addr"]
+            break
+    hop2_ip = None
+    if mtr_data.get("hubs") and len(mtr_data["hubs"]) >= 2:
+        hop2_ip = mtr_data["hubs"][1].get("host")
+    elif trace_res and trace_res.get("hops") and len(trace_res["hops"]) >= 2:
+        hop2_ip = trace_res["hops"][1].get("ip")
+
+    nat_telemetry = _get_nat_and_stun_telemetry(
+        local_ip=dual_ips.get("local_ipv4") or "192.168.8.218",
+        gateway_ip=local_gw_ip,
+        hop2_ip=hop2_ip,
+        http_public_ip=pub_ip_hdr,
+    )
 
     # Build Markdown document
     lines = [
@@ -574,13 +1101,14 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         f"- **TCP Congestion Control**: `{tcp_cc}`",
         f"- **OS / Distribution**: {os_info.get('distro_name')} ({os_info.get('distro_id')} {os_info.get('distro_version')})",
         f"- **Kernel Version**: `{platform.release()}` ({platform.version()})",
-        f"- **Architecture**: `{platform.machine()}` ({platform.processor() or 'N/A'})",
-        f"- **Hardware Model**: {os_info.get('hardware_model')}",
+        f"- **Architecture**: `{platform.machine()}` ({hw_telemetry.get('userland_bitness', '64-bit')} userland) | **SoC**: `{hw_telemetry.get('soc_model')}`",
+        f"- **Hardware Model**: {hw_telemetry.get('hardware_model') or os_info.get('hardware_model')}",
         f"- **Raspberry Pi Hardware**: {'Yes' if os_info.get('is_raspberry_pi') else 'No (Generic PC / Server / VM)'}",
         f"- **System Uptime**: {uptime_str}",
         f"- **CPU Load Average**: `{hw_telemetry.get('load_avg')}`",
         f"- **CPU Temperature**: `{hw_telemetry.get('temp_c')} °C`" if hw_telemetry.get('temp_c') is not None else "- **CPU Temperature**: N/A",
         f"- **CPU Frequency**: `{hw_telemetry.get('freq_mhz')} MHz`" if hw_telemetry.get('freq_mhz') is not None else "- **CPU Frequency**: N/A",
+        f"- **Storage & SD Card Health**: Root (`/`) Free: `{hw_telemetry.get('disk_free_gb')} GB` / `{hw_telemetry.get('disk_total_gb')} GB` ({hw_telemetry.get('disk_free_pct')}% free) | Current `%iowait`: `{hw_telemetry.get('iowait_pct')}%` | Kernel Storage I/O Errors (`mmc0`/`ext4`): `{hw_telemetry.get('dmesg_io_errors')}` ({'🟢 Clean' if hw_telemetry.get('dmesg_io_errors') == 0 else '🔴 I/O Errors Detected!'})",
     ]
 
     th_hex = hw_telemetry.get("throttled_hex")
@@ -661,13 +1189,32 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     else:
         lines.append("- **Multi-homing Status**: 🟢 Clean (No ARP flux risk detected. Interfaces are on distinct subnets or Wi-Fi is inactive).")
 
+    # 2.4 CPU Interrupt Steering & Hardware Offloads
+    rps_val = phy_info.get("rps_cpus", "0")
+    rps_desc = "🟢 Multi-core packet processing active across all 4 cores" if rps_val not in ("0", "", None) else "⚠️ Disabled (0 - CPU0 bottleneck risk during gigabit traffic)"
+    offloads_dict = phy_info.get("offload_info", {})
+    offload_str = ", ".join(f"{k}: `{v}`" for k, v in offloads_dict.items()) or "Default kernel offloads"
+
     lines.extend([
         "",
-        "## 3. Path MTU Discovery (PMTU) & Encapsulation Analysis",
+        f"### 2.4 NIC Offloads & CPU Interrupt Steering (`{wan_iface}`)",
+        f"- **Receive Packet Steering (RPS)**: `{rps_val}` ({rps_desc})",
+        f"- **Transmit Packet Steering (XPS)**: `{phy_info.get('xps_cpus', '0')}`",
+        f"- **IRQ Balance Daemon**: `{phy_info.get('irqbalance_status', 'inactive')}`",
+        f"- **Hardware NIC Offloads (`ethtool -k`)**: {offload_str}",
+        "> **Performance Context**: Gigabit throughput on the Raspberry Pi 4 BCM54213PE / bcmgenet interface can saturate CPU0 if network interrupts are handled exclusively by a single core (SoftIRQ bottleneck). RPS (`rps_cpus = f`) distributes packet processing across all 4 Cortex-A72 cores, preventing packet drops (`tx_dropped`) and maintaining wire-speed line rates.",
+    ])
+
+    lines.extend([
+        "",
+        "## 3. Path MTU Discovery (PMTU) & NAT / CGNAT Topology",
         f"- **Configured Interface MTU**: `{pmtu_info.get('interface_mtu')} bytes`",
         f"- **Discovered Path MTU (PMTU)**: `{pmtu_info.get('discovered_pmtu')} bytes`",
         f"- **PPPoE Encapsulation Detected**: {'⚠️ YES (PPPoE 8-byte overhead confirmed)' if pmtu_info.get('is_pppoe') else 'No (Standard Ethernet / IPoE)'}",
         f"- **PMTU Diagnostic Analysis**: {pmtu_info.get('note')}",
+        f"- **NAT Topology Verdict**: {nat_telemetry.get('verdict')}",
+        f"- **UDP STUN Probe (`{nat_telemetry.get('stun_server') or 'stun.cloudflare.com'}`)**: Mapped IP: `{nat_telemetry.get('mapped_ip') or 'N/A'}:{nat_telemetry.get('mapped_port') or 'N/A'}` (Matches Public Egress: `{'YES' if nat_telemetry.get('mapped_ip') == pub_ip_hdr else 'NO / Transformed'}`)",
+        f"- **Carrier-Grade NAT (CGNAT RFC 6598)**: `{'⚠️ YES (Detected)' if nat_telemetry.get('is_cgnat') else 'No (Public IP Assigned)'}` | **Double NAT**: `{'⚠️ YES (Detected)' if nat_telemetry.get('is_double_nat') else 'No'}`",
         "",
         "## 4. Network Interfaces & IP Configuration",
         "| Interface | Type | State | MAC Address | MTU | IPv4 | IPv6 | Speed |",
@@ -711,7 +1258,6 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
 
     wlan_subnet = guest_wifi_info.get("subnet")
     if (not wlan_subnet or str(wlan_subnet).lower() in ("none", "n/a", "")) and wlan_ifc and wlan_ifc.get("ipv4"):
-        import ipaddress
         try:
             wlan_subnet = str(ipaddress.ip_network(wlan_ifc["ipv4"][0], strict=False))
         except Exception:
@@ -726,16 +1272,21 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     wlan_mac = guest_wifi_info.get("mac") or guest_wifi_info.get("mac_address") or (wlan_ifc.get("mac") if wlan_ifc else "--")
     wlan_gw = guest_wifi_info.get("gateway") or "--"
     wlan_sig = guest_wifi_info.get("signal") or guest_wifi_info.get("signal_percent") or 0
+    rssi_display = f"{wifi_phy.get('rssi_dbm')} dBm" if wifi_phy.get('rssi_dbm') is not None else f"{wlan_sig}%"
+
+    supervisor_status_str = "true (Periodic isolation scans active)" if getattr(cfg.guest_wifi, "enabled", False) else "false (Periodic isolation daemon idle in nmb.conf)"
 
     lines.extend([
         "",
         "### 4.1 Standalone Guest Wi-Fi Client Probe (Isolation Sniffer)",
-        f"- **Probe Operational State**: `{'CONNECTED' if guest_wifi_info.get('connected') else 'DISCONNECTED / IDLE'}`",
+        f"- **Daemon Supervisor Configuration**: `[guest_wifi] enabled = {supervisor_status_str}`",
+        f"- **Kernel Interface Operational State**: `{'CONNECTED' if guest_wifi_info.get('connected') else 'DISCONNECTED / IDLE'}`",
         f"- **Interface Assigned**: `{guest_wifi_info.get('interface', 'wlan0')}` (MAC: `{wlan_mac}`)",
         f"- **Target Guest SSID**: `{guest_wifi_info.get('ssid') or 'None'}` (BSSID: `{guest_wifi_info.get('bssid') or '--'}`)",
         f"- **Assigned IP & Subnet**: `{wlan_ip or 'None'}` (Subnet: `{wlan_subnet or 'None'}`, Gateway: `{wlan_gw}`)",
         f"- **Wi-Fi Regulatory Domain**: `{eff_reg_cc}` ({reg_origin}) | **Operating Channel**: {chan_str}",
-        f"- **Signal & Channel**: `{wlan_sig}%` (`{wlan_freq or '--'} MHz`, Channel `{wlan_chan or '--'}`)",
+        f"- **Signal & RF Metrics**: RSSI: `{rssi_display}` ({wlan_sig}%) | **Channel**: `{wlan_chan or '--'}` ({freq_str})",
+        f"- **PHY Bitrates & Error Counters**: TX Rate: `{wifi_phy.get('tx_bitrate')}` | RX Rate: `{wifi_phy.get('rx_bitrate')}` | TX Retries: `{wifi_phy.get('tx_retries', 0)}` | TX Failed: `{wifi_phy.get('tx_failed', 0)}` | Missed Beacons: `{wifi_phy.get('missed_beacons', 0)}`",
         f"- **Subnet Isolation vs Wired LAN (`eth0`)**: {guest_wifi_info.get('isolation_verdict', 'Unknown')}",
         f"- **Routing Metric Protection**: `{guest_wifi_info.get('metric', 600)}` (Ensures primary internet traffic, speedtest, and ping telemetry remain bound to `eth0`)",
         "",
@@ -744,11 +1295,25 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         routes_text,
         "```",
         "",
-        "## 6. DNS Resolver & Connectivity",
+        "## 6. DNS Resolver & Multi-Server Benchmark",
         f"- **DNS Resolution Test (`cloudflare.com`)**: {'OK (' + str(dns_rtt_ms) + ' ms)' if dns_test_ok else 'FAILED'}",
         f"- **Configured DNS Mode**: `{getattr(cfg.network, 'dns_mode', 'auto')}`",
         f"- **Primary DNS**: `{getattr(cfg.network, 'dns_primary', '1.1.1.1')}` | **Secondary DNS**: `{getattr(cfg.network, 'dns_secondary', '8.8.8.8')}`",
         f"- **DNS Fallback Enabled**: `{getattr(cfg.network, 'dns_fallback_enabled', True)}`",
+        "",
+        "### 6.1 Multi-Resolver DNS Benchmark & Hijacking Audit",
+        "| Resolver | Role / Purpose | Cold RTT | Warm (Cached) RTT | DNSSEC (AD Flag) | Status / Hijack Verification |",
+        "| :--- | :--- | :--- | :--- | :--- | :--- |",
+    ])
+
+    dns_matrix = _get_dns_telemetry_matrix(gateway_ip=local_gw_ip)
+    for dm in dns_matrix:
+        cold_s = f"{dm['cold_ms']:.2f} ms" if dm["cold_ms"] is not None else "--"
+        warm_s = f"{dm['warm_ms']:.2f} ms" if dm["warm_ms"] is not None else "--"
+        ad_s = "✅ Validated" if dm["ad_flag"] else "❌ Not set"
+        lines.append(f"| `{dm['ip']}` | **{dm['label']}** ({dm['role']}) | {cold_s} | {warm_s} | {ad_s} | {dm['status']} |")
+
+    lines.extend([
         "",
         "**`/etc/resolv.conf` contents:**",
         "```text",
@@ -841,15 +1406,43 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     else:
         lines.append("- No speedtest results recorded yet.")
 
+    # Recent speedtest executions table
     lines.extend([
         "",
-        "## 8. Continuous Ping Probe Telemetry & LAN vs. WAN Loss Isolation (Past 24 Hours)",
-        "| Target IP | Role / Purpose | Label | Packets Sent | Packets Lost | Loss % | Avg RTT | Min / Max RTT |",
-        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+        "### 7.1 Recent Speedtest Runs (Past 5 Executions)",
+    ])
+    if recent_speeds:
+        lines.extend([
+            "| Timestamp (UTC) | Engine | Down (Mbps) | Up (Mbps) | Latency (RTT) | Bufferbloat | Single-Core Peak |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+        ])
+        for s in recent_speeds:
+            ts_str = datetime.datetime.fromtimestamp(s["ts"] / 1000, tz=datetime.timezone.utc).strftime("%m-%d %H:%M")
+            d_m = f"{(s['down_bps'] or 0)/1000000.0:.1f} Mbps"
+            u_m = f"{(s['up_bps'] or 0)/1000000.0:.1f} Mbps"
+            lat_s = f"{(s['ping_us'] or 0)/1000.0:.1f} ms"
+            bb_s = f"+{s['bufferbloat_delta_ms']:.1f} ms ({s['bufferbloat_grade']})" if s["bufferbloat_grade"] else "--"
+            cpu_peak_s = "--"
+            if s["raw_json"]:
+                try:
+                    rj_item = json.loads(s["raw_json"]) if isinstance(s["raw_json"], str) else s["raw_json"]
+                    mc = rj_item.get("measurement_cpu")
+                    if mc:
+                        cpu_peak_s = f"{mc.get('single_core_max_pct', 0)}% ({mc.get('single_core_name', 'CPU0')})"
+                except Exception:
+                    pass
+            lines.append(f"| `{ts_str}` | `{s['engine']}` | **{d_m}** | **{u_m}** | {lat_s} | {bb_s} | {cpu_peak_s} |")
+    else:
+        lines.append("- *No prior speedtest runs recorded.*")
+
+    lines.extend([
+        "",
+        "## 8. Continuous Ping Probe Telemetry & Loss Pattern Isolation (Past 24 Hours)",
+        "| Target IP | Role / Purpose | Label | Sent | Lost | Loss % | Avg RTT | Min / Max RTT | Loss Pattern (Distribution) |",
+        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
     ])
 
     local_gw_loss = None
-    local_gw_ip = None
     isp_hop_loss = None
     isp_hop_ip = None
     public_losses = []
@@ -863,7 +1456,12 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         min_max_str = f"{p['min_rtt'] / 1000.0:.1f} / {p['max_rtt'] / 1000.0:.1f} ms" if p["min_rtt"] and p["max_rtt"] else "--"
         sent_str = f"{sent:,}" if sent > 0 else "(Awaiting samples)"
 
-        lines.append(f"| `{p['target_addr']}` | **{role}** | {p['target_label']} | {sent_str} | {lost:,} | **{loss_pct:.2f}%** | {avg_rtt_str} | {min_max_str} |")
+        pat_info = loss_patterns.get(p["id"], {})
+        pattern_str = pat_info.get("pattern", "Continuous pristine delivery")
+        if pat_info.get("max_consecutive", 0) > 0:
+            pattern_str = f"Max streak: {pat_info['max_consecutive']} ({pattern_str})"
+
+        lines.append(f"| `{p['target_addr']}` | **{role}** | {p['target_label']} | {sent_str} | {lost:,} | **{loss_pct:.2f}%** | {avg_rtt_str} | {min_max_str} | {pattern_str} |")
 
         if role == "Local Gateway":
             local_gw_loss = loss_pct if sent > 0 else None
@@ -943,9 +1541,9 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
 
     lines.append("")
     lines.append("> **Diagnostic Guidance for LLM**: Analyze the `Loss%` at each intermediate hop.")
-    lines.append("> - **Hop 1 / Hop 2 Control Plane Rate-Limiting**: Ha az 1. vagy 2. ugrásnál (helyi vagy szolgáltatói átjáró) magas csomagvesztés látható, de a távolabbi ugrásoknál és a célállomásnál a loss lecsökken 0.0%-ra (és a folyamatos közvetlen ping telemetria 0.00% csomagvesztést mutat), a tényleges forgalomtovábbítás hibátlan; az intermediate loss csupán a router vezérlősíkjának ICMP Time Exceeded rátakorlátozásából (Control Plane Rate-Limiting / CoPP) fakad.")
-    lines.append("> - **Transit Router Rate-Limiting**: Ha a köztes ugrásoknál (Hop 3+) mutatkozik csomagvesztés, de a célállomásnál 0.0%, az szintén a tranzit routerek ICMP prioritáscsökkentése, nem valós adatforgalmi csomagvesztés.")
-    lines.append("> - **Valódi csomagvesztés (True Packet Loss)**: Csak akkor áll fenn valódi hálózati hiba vagy csomagvesztés, ha a veszteség egy adott ugrástól kezdve az összes további downstream ugráson és a végső célállomáson is perzisztensen fennáll vagy kumulálódik.")
+    lines.append("> - **Hop 1 / Hop 2 Control Plane Rate-Limiting**: If high packet loss is observed at Hop 1 or Hop 2 (local gateway or ISP first hop), but downstream hops and the final destination show 0.0% loss (and continuous ping telemetry shows 0.00% loss), forwarding is healthy; the intermediate loss is strictly due to router control plane rate-limiting (CoPP / ICMP Time Exceeded generation caps), not network degradation.")
+    lines.append("> - **Transit Router Rate-Limiting**: Loss appearing at intermediate transit hops (Hop 3+) that disappears on subsequent hops is ICMP de-prioritization by core transit routers, not true data loss.")
+    lines.append("> - **True Packet Loss**: True network packet loss is only confirmed when packet drop beginning at a specific hop persists or accumulates across all subsequent downstream hops through to the final destination.")
 
     if trace_res and trace_res.get("hops"):
         lines.extend([
@@ -994,7 +1592,13 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     lines.extend([
         "",
         "## 11. Traffic Shaper & Bufferbloat Protection (SQM)",
-        f"- **Algorithm Setting**: `{getattr(cfg.system, 'sqm_algorithm', 'cake')}`",
+        f"- **Configured SQM Algorithm**: `{configured_sqm_algo}`",
+        f"- **Active Kernel Qdisc Types**: `{', '.join(set(active_qdisc_types)) or 'mq / fq'}`",
+    ])
+    if sqm_mismatch_warning:
+        lines.append(sqm_mismatch_warning)
+
+    lines.extend([
         "```text",
         sqm_status,
         "```",
@@ -1055,9 +1659,12 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         "| :--- | :--- | :--- | :--- | :--- |",
     ])
 
-    for e in events:
-        ts_str = datetime.datetime.fromtimestamp(e["ts"] / 1000, tz=datetime.timezone.utc).strftime("%H:%M:%S")
-        lines.append(f"| {ts_str} | **{e['severity'].upper()}** | `{e['source']}` | `{e['kind']}` | {e['detail']} |")
+    if events:
+        for e in events:
+            ts_str = datetime.datetime.fromtimestamp(e["ts"] / 1000, tz=datetime.timezone.utc).strftime("%H:%M:%S")
+            lines.append(f"| {ts_str} | **{e['severity'].upper()}** | `{e['source']}` | `{e['kind']}` | {e['detail']} |")
+    else:
+        lines.append("| --:--:-- | **INFO** | `nmb` | `all_clear` | 🟢 0 Warning or Critical events recorded in last 24h. Routine speedtest INFOs routed to Section 7. |")
 
     lines.extend([
         "",

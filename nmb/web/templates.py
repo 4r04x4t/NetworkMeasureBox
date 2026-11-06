@@ -2466,14 +2466,21 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       #explorer-guest-banner {
         flex-direction: column !important;
         align-items: stretch !important;
-        gap: 10px !important;
+        gap: 12px !important;
       }
       #explorer-guest-banner > div:first-child {
-        flex-direction: column !important;
+        display: flex !important;
+        flex-direction: row !important;
         align-items: flex-start !important;
         width: 100% !important;
         flex: none !important;
-        gap: 8px !important;
+        gap: 10px !important;
+      }
+      #explorer-guest-banner [data-i18n="explorer_guest_probe_title"] {
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        min-width: max-content !important;
+        display: inline-block !important;
       }
       #explorer-guest-banner .badge-pill, #explorer-guest-status-text {
         white-space: normal !important;
@@ -2483,8 +2490,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       /* Responsive Charts on Mobile */
       #speed-chart-container {
-        height: 260px !important;
-        min-height: 260px !important;
+        height: 320px !important;
+        min-height: 320px !important;
         width: 100% !important;
       }
       #speed-chart-svg-wrap {
@@ -4769,8 +4776,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1 1 280px; min-width: 0;">
           <span style="font-size: 24px; flex-shrink: 0; margin-top: 2px;">📶</span>
           <div style="min-width: 0; flex: 1 1 auto;">
-            <div style="font-weight: 700; font-size: 13.5px; color: #e9d5ff; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
-              <span style="white-space: nowrap !important; flex-shrink: 0;" data-i18n="explorer_guest_probe_title">Guest Wi-Fi Client Probe:</span>
+            <div style="font-weight: 700; font-size: 13.5px; color: #e9d5ff; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%;">
+              <span style="white-space: nowrap !important; flex-shrink: 0; min-width: max-content; display: inline-block;" data-i18n="explorer_guest_probe_title">Guest Wi-Fi Client Probe:</span>
               <span id="explorer-guest-status-text" class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px; white-space: normal !important; word-break: break-word !important; text-align: left; max-width: 100%;">Loading...</span>
             </div>
             <div style="font-size: 12px; color: #d8b4fe; margin-top: 4px; word-break: break-word;" id="explorer-guest-details-text" data-i18n="explorer_guest_probe_desc">
