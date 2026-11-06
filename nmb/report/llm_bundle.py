@@ -461,7 +461,12 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
             return False
         try:
             obj = ipaddress.ip_address(ip_s)
-            return obj.is_private and not obj.is_reserved
+            rfc1918_nets = (
+                ipaddress.ip_network("10.0.0.0/8"),
+                ipaddress.ip_network("172.16.0.0/12"),
+                ipaddress.ip_network("192.168.0.0/16"),
+            )
+            return any(obj in net for net in rfc1918_nets)
         except Exception:
             return False
 
@@ -500,13 +505,15 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
     }
 
 
-def _get_dns_telemetry_matrix(gateway_ip: str = "192.168.8.1") -> List[Dict[str, Any]]:
-    resolvers = [
-        {"ip": gateway_ip, "label": "Local Gateway / DHCP DNS", "role": "LAN Cache"},
+def _get_dns_telemetry_matrix(gateway_ip: str = "") -> List[Dict[str, Any]]:
+    resolvers = []
+    if gateway_ip and gateway_ip not in ("N/A", "Unknown", "0.0.0.0", "None"):
+        resolvers.append({"ip": gateway_ip, "label": "Local Gateway / DHCP DNS", "role": "LAN Cache"})
+    resolvers.extend([
         {"ip": "1.1.1.1", "label": "Cloudflare DNS", "role": "Public Anycast"},
         {"ip": "8.8.8.8", "label": "Google Public DNS", "role": "Public Anycast"},
         {"ip": "9.9.9.9", "label": "Quad9 Secure DNS", "role": "Public Filtered / DNSSEC"},
-    ]
+    ])
     results = []
     domain = "cloudflare.com"
 
@@ -1072,11 +1079,24 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     geo_loc_hdr = f"(Country: `{geoip_data.get('country_code', '--')} / {geoip_data.get('country', 'Unknown')}`, City: `{geoip_data.get('city', 'Unknown')}`, ASN: `{geoip_data.get('asn', 'N/A')}`)"
 
     # Resolve local gateway and hop 2 for NAT/STUN evaluation
-    local_gw_ip = "192.168.8.1"
+    local_gw_ip = ""
     for p in probes:
         if p["target_role"] == "Local Gateway":
             local_gw_ip = p["target_addr"]
             break
+    if not local_gw_ip:
+        try:
+            r = subprocess.run(["ip", "route", "show", "default"], capture_output=True, text=True, timeout=2)
+            parts = r.stdout.split()
+            if "via" in parts:
+                idx = parts.index("via")
+                if idx + 1 < len(parts):
+                    local_gw_ip = parts[idx + 1]
+        except Exception:
+            pass
+    if not local_gw_ip:
+        local_gw_ip = "N/A"
+
     hop2_ip = None
     if mtr_data.get("hubs") and len(mtr_data["hubs"]) >= 2:
         hop2_ip = mtr_data["hubs"][1].get("host")
@@ -1084,7 +1104,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         hop2_ip = trace_res["hops"][1].get("ip")
 
     nat_telemetry = _get_nat_and_stun_telemetry(
-        local_ip=dual_ips.get("local_ipv4") or "192.168.8.218",
+        local_ip=dual_ips.get("local_ipv4") or "N/A",
         gateway_ip=local_gw_ip,
         hop2_ip=hop2_ip,
         http_public_ip=pub_ip_hdr,

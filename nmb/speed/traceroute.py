@@ -251,10 +251,10 @@ def _parse_traceroute_line(line: str) -> Optional[Dict[str, Any]]:
     """
     Parse a single line of standard traceroute output.
     Examples:
-      1  _gateway (192.168.8.1)  0.334 ms  0.294 ms  0.275 ms
-      2  lo0.bdr1.bud.invitel.net (213.163.38.1)  4.120 ms  4.095 ms  4.050 ms
+      1  _gateway (192.168.1.1)  0.334 ms  0.294 ms  0.275 ms
+      2  isp-gw.example.net (93.184.216.1)  4.120 ms  4.095 ms  4.050 ms
       3  * * *
-      4  * cloudflare.bix.hu (193.188.137.27)  7.653 ms * *
+      4  * edge.example.com (93.184.216.34)  7.653 ms * *
       5  2001:db8::1 (2001:db8::1)  1.234 ms  1.120 ms  1.050 ms
     """
     line = line.strip()
@@ -360,7 +360,7 @@ def _run_ping_ttl_traceroute(target: str, max_hops: int, pref_iface: str, resolv
             stdout = ""
 
         # Parse output for gateway or echo reply
-        # Time to live exceeded: "From 192.168.8.1 icmp_seq=1 Time to live exceeded"
+        # Time to live exceeded: "From 192.168.1.1 icmp_seq=1 Time to live exceeded"
         # Echo reply: "64 bytes from 1.1.1.1: icmp_seq=1 ttl=56 time=5.68 ms"
         hop_ip = "*"
         hop_rtt = None
@@ -561,7 +561,7 @@ def run_traceroute(
                 if _stop_requested:
                     break
                 line = line.strip()
-                # Parse lines: " 1:  192.168.8.1  0.722ms"
+                # Parse lines: " 1:  192.168.1.1  0.722ms"
                 m_tp = re.match(r"^\s*(\d+):?\s+([0-9a-fA-F:.]+)\s+([0-9.]+)\s*ms", line)
                 if m_tp:
                     h_idx = int(m_tp.group(1))

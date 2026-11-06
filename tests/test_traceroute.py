@@ -11,11 +11,11 @@ from nmb.speed.traceroute import (
 class TestTracerouteEngine(unittest.TestCase):
     def test_parse_traceroute_lines(self):
         # 1. Standard LAN hop
-        line1 = " 1  _gateway (192.168.8.1)  0.334 ms  0.294 ms  0.275 ms"
+        line1 = " 1  _gateway (192.168.1.1)  0.334 ms  0.294 ms  0.275 ms"
         h1 = _parse_traceroute_line(line1)
         self.assertIsNotNone(h1)
         self.assertEqual(h1["hop"], 1)
-        self.assertEqual(h1["ip"], "192.168.8.1")
+        self.assertEqual(h1["ip"], "192.168.1.1")
         self.assertEqual(h1["host"], "_gateway")
         self.assertEqual(h1["rtt_ms"], 0.3)
         self.assertEqual(len(h1["rtts"]), 3)
@@ -24,12 +24,12 @@ class TestTracerouteEngine(unittest.TestCase):
         self.assertEqual(h1["hop_type"], "lan")
 
         # 2. ISP router with reverse DNS
-        line2 = " 2  lo0.bdr1.bud.invitel.net (213.163.38.1)  4.120 ms  4.095 ms  4.050 ms"
+        line2 = " 2  isp-gw.example.net (93.184.216.1)  4.120 ms  4.095 ms  4.050 ms"
         h2 = _parse_traceroute_line(line2)
         self.assertIsNotNone(h2)
         self.assertEqual(h2["hop"], 2)
-        self.assertEqual(h2["ip"], "213.163.38.1")
-        self.assertEqual(h2["host"], "lo0.bdr1.bud.invitel.net")
+        self.assertEqual(h2["ip"], "93.184.216.1")
+        self.assertEqual(h2["host"], "isp-gw.example.net")
         self.assertEqual(h2["hop_type"], "public")
 
         # 3. Timeout line
@@ -43,12 +43,12 @@ class TestTracerouteEngine(unittest.TestCase):
         self.assertEqual(h3["hop_type"], "timeout")
 
         # 4. Partial timeout with leading star
-        line4 = " 4  * cloudflare.bix.hu (193.188.137.27)  7.653 ms * *"
+        line4 = " 4  * edge.example.com (93.184.216.34)  7.653 ms * *"
         h4 = _parse_traceroute_line(line4)
         self.assertIsNotNone(h4)
         self.assertEqual(h4["hop"], 4)
-        self.assertEqual(h4["ip"], "193.188.137.27")
-        self.assertEqual(h4["host"], "cloudflare.bix.hu")
+        self.assertEqual(h4["ip"], "93.184.216.34")
+        self.assertEqual(h4["host"], "edge.example.com")
         self.assertEqual(h4["rtt_ms"], 7.65)
         self.assertEqual(len(h4["rtts"]), 1)
         self.assertAlmostEqual(h4["loss_pct"], 66.7, places=1)

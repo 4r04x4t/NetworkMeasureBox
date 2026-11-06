@@ -4173,7 +4173,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                 2️⃣ From Outside (Mobile Internet, Travel, Work): Router Port Forwarding Setup
               </div>
               <p style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5; margin-bottom: 12px;">
-                To connect to your home VPN from mobile data (4G/5G) or outside Wi-Fi, log in to your main home router admin page (typically <code>http://192.168.1.1</code>, <code>http://192.168.0.1</code>, or <code>http://192.168.8.1</code>) and locate the <strong>Port Forwarding</strong> / <strong>Virtual Server</strong> / <strong>NAT</strong> settings.
+                To connect to your home VPN from mobile data (4G/5G) or outside Wi-Fi, log in to your main home router admin page (typically <code>http://192.168.1.1</code>, <code>http://192.168.0.1</code>, or <code>http://10.0.0.1</code>) and locate the <strong>Port Forwarding</strong> / <strong>Virtual Server</strong> / <strong>NAT</strong> settings.
               </p>
               
               <div class="table-wrap" style="margin-bottom: 12px;">
@@ -4287,7 +4287,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                 <span id="duckdns-domain-suffix" style="font-size: 12px; color: var(--text-muted);">.duckdns.org</span>
               </div>
               <div id="duckdns-zone-hint" style="display: none; font-size: 11px; color: #94a3b8; margin-top: 4px;">
-                💡 <b>dynv6.com:</b> Adja meg a zóna teljes nevét (pl. <code>engyn.v6.army</code> vagy <code>sajatbox.dynv6.net</code>).
+                💡 <b>dynv6.com:</b> Adja meg a zóna teljes nevét (pl. <code>my-box.v6.army</code> vagy <code>sajatbox.dynv6.net</code>).
               </div>
             </div>
 
@@ -4785,7 +4785,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <!-- Populated dynamically with detected endpoints -->
         </select>
         <div id="wg-qr-custom-endpoint-wrap" style="display: none; margin-top: 6px; margin-bottom: 6px;">
-          <input type="text" id="wg-qr-custom-endpoint" class="form-input" style="font-size: 12.5px; padding: 6px 10px; width: 100%;" placeholder="host:port (e.g. 192.168.50.161:51820)" oninput="onWireguardQrCustomEndpointInput()">
+          <input type="text" id="wg-qr-custom-endpoint" class="form-input" style="font-size: 12.5px; padding: 6px 10px; width: 100%;" placeholder="host:port (e.g. 192.168.1.100:51820)" oninput="onWireguardQrCustomEndpointInput()">
         </div>
         <div id="wg-qr-endpoint-tip" style="font-size: 11.5px; line-height: 1.45; padding: 8px 10px; border-radius: 6px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); color: #bae6fd;">
         </div>
@@ -15109,17 +15109,17 @@ ${pkgList}`;
     const domInput = document.getElementById('duckdns-domain');
 
     if (prov === 'dynv6') {
-      if (domLabel) domLabel.textContent = 'dynv6 Zónanév (pl. engyn.v6.army):';
+      if (domLabel) domLabel.textContent = 'dynv6 Zónanév (pl. my-box.v6.army):';
       if (domSuffix) domSuffix.style.display = 'none';
       if (zoneHint) zoneHint.style.display = 'block';
       if (tokHint) tokHint.style.display = 'block';
-      if (domInput && (!domInput.value || domInput.placeholder === 'my-box')) domInput.placeholder = 'engyn.v6.army';
+      if (domInput && (!domInput.value || domInput.placeholder === 'my-box')) domInput.placeholder = 'my-box.v6.army';
     } else {
       if (domLabel) domLabel.textContent = t('duckdns_domain', 'DuckDNS Aldomain (.duckdns.org):');
       if (domSuffix) domSuffix.style.display = 'inline';
       if (zoneHint) zoneHint.style.display = 'none';
       if (tokHint) tokHint.style.display = 'none';
-      if (domInput && domInput.placeholder === 'engyn.v6.army') domInput.placeholder = 'my-box';
+      if (domInput && domInput.placeholder === 'my-box.v6.army') domInput.placeholder = 'my-box';
     }
   }
 
@@ -15666,7 +15666,7 @@ ${pkgList}`;
       tipDiv.style.background = 'rgba(148, 163, 184, 0.1)';
       tipDiv.style.borderColor = 'rgba(148, 163, 184, 0.25)';
       tipDiv.style.color = '#cbd5e1';
-      tipDiv.innerHTML = '✏️ ' + (t('wireguard_custom_endpoint_placeholder', 'Enter the desired host and port (e.g. 192.168.50.161:51820).'));
+      tipDiv.innerHTML = '✏️ ' + (t('wireguard_custom_endpoint_placeholder', 'Enter the desired host and port (e.g. 192.168.1.100:51820).'));
       return;
     }
     if (customWrap) customWrap.style.display = 'none';
@@ -15689,7 +15689,7 @@ ${pkgList}`;
       tipDiv.style.background = 'rgba(245, 158, 11, 0.12)';
       tipDiv.style.borderColor = 'rgba(245, 158, 11, 0.3)';
       tipDiv.style.color = '#fde68a';
-      tipDiv.innerHTML = t('wireguard_tip_wan', '⚠️ <strong>For remote cellular access:</strong> Forward UDP port <strong>51820</strong> on your main router (192.168.50.1) to this box. When connected to local Wi-Fi, select Local LAN.');
+      tipDiv.innerHTML = t('wireguard_tip_wan', '⚠️ <strong>For remote cellular access:</strong> Forward UDP port <strong>51820</strong> on your main router (e.g. 192.168.1.1) to this box. When connected to local Wi-Fi, select Local LAN.');
     }
   }
 

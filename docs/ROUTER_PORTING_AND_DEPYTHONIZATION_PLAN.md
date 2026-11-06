@@ -340,7 +340,7 @@ To run NetworkMeasureBox on the TP-Link TL-WR740N v4.23:
 - **Tier 1 (ASUS GT-AXE7800)**:
   - Embed Tailscale natively using **`tailscale.com/tsnet`** in Go.
   - `tsnet` provides an in-process, pure userspace WireGuard mesh node embedded directly into the `nmbd` binary.
-  - It listens on the Tailscale mesh IP (e.g. `100.66.57.12`) and provides direct HTTPS access to the NMB dashboard without requiring the external `tailscaled` daemon or TUN/TAP interfaces!
+  - It listens on the Tailscale mesh IP (e.g. `100.64.0.1` / `100.x.y.z`) and provides direct HTTPS access to the NMB dashboard without requiring the external `tailscaled` daemon or TUN/TAP interfaces!
 - **Tier 2 (ASUS RT-N12+) & Tier 3 (TP-Link WR740N)**:
   - On 32 MB RAM routers, `tailscaled` is too heavy (~18 MB RSS).
   - Native solution: Standard Linux kernel WireGuard (`kmod-wireguard`) configured via native Netlink. WireGuard kernel module uses **less than 400 KB RAM** and zero CPU when idle.

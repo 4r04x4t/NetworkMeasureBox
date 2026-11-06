@@ -317,7 +317,7 @@ flowchart TD
 - **De-Pythonization Target**: **Go `miekg/dns` or C11 Raw UDP DNS Sockets**.
 - **Blueprint**:
   - Concurrent multi-resolver diagnostic probe querying:
-    1. Local Gateway / DHCP Assigned DNS (e.g., `192.168.8.1`).
+    1. Local Gateway / DHCP Assigned DNS (e.g., `192.168.1.1`).
     2. Cloudflare DNS (`1.1.1.1` & `1.0.0.1`).
     3. Google Public DNS (`8.8.8.8` & `8.8.4.4`).
     4. Quad9 Security DNS (`9.9.9.9`).

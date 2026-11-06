@@ -51,10 +51,10 @@ class TestLLMBundle(unittest.TestCase):
     def test_nat_and_stun_classification(self):
         # Test Double NAT detection
         d_nat = _get_nat_and_stun_telemetry(
-            local_ip="192.168.8.218",
-            gateway_ip="192.168.8.1",
+            local_ip="192.168.1.100",
+            gateway_ip="192.168.1.1",
             hop2_ip="10.0.0.1",
-            http_public_ip="87.97.24.117"
+            http_public_ip="198.51.100.55"
         )
         self.assertTrue(d_nat["is_double_nat"])
         self.assertFalse(d_nat["is_cgnat"])
@@ -65,7 +65,7 @@ class TestLLMBundle(unittest.TestCase):
             local_ip="192.168.1.50",
             gateway_ip="192.168.1.1",
             hop2_ip="100.64.0.1",
-            http_public_ip="87.97.24.117"
+            http_public_ip="198.51.100.55"
         )
         self.assertTrue(cgnat["is_cgnat"])
         self.assertIn("Carrier-Grade NAT", cgnat["verdict"])
@@ -74,8 +74,8 @@ class TestLLMBundle(unittest.TestCase):
         clean = _get_nat_and_stun_telemetry(
             local_ip="192.168.1.50",
             gateway_ip="192.168.1.1",
-            hop2_ip="87.97.24.1",
-            http_public_ip="87.97.24.117"
+            hop2_ip="93.184.216.1",
+            http_public_ip="93.184.216.34"
         )
         self.assertFalse(clean["is_cgnat"])
         self.assertFalse(clean["is_double_nat"])
@@ -95,14 +95,14 @@ class TestLLMBundle(unittest.TestCase):
         with tempfile.NamedTemporaryFile("w+", delete=False) as f:
             f.write(
                 "[isp]\n"
-                "account_id = 987654321\n"
-                "circuit_id = FTTH-BUD-001\n"
+                "account_id = ACC-DUMMY-99\n"
+                "circuit_id = CKT-DUMMY-01\n"
                 "secret_key = SuperSecret123\n"
                 "[telegram]\n"
                 "token = 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11\n"
-                "allowed_chat_ids = 482322117\n"
+                "allowed_chat_ids = 999888777\n"
                 "[duckdns]\n"
-                "domain = my-home.duckdns.org\n"
+                "domain = example-box.duckdns.org\n"
                 "token = abcd-ef01-2345\n"
             )
             f_path = Path(f.name)
@@ -110,10 +110,10 @@ class TestLLMBundle(unittest.TestCase):
         try:
             sanitized = _sanitize_config_text(f_path)
             self.assertNotIn("SuperSecret123", sanitized)
-            self.assertNotIn("482322117", sanitized)
-            self.assertNotIn("987654321", sanitized)
-            self.assertNotIn("FTTH-BUD-001", sanitized)
-            self.assertNotIn("my-home.duckdns.org", sanitized)
+            self.assertNotIn("999888777", sanitized)
+            self.assertNotIn("ACC-DUMMY-99", sanitized)
+            self.assertNotIn("CKT-DUMMY-01", sanitized)
+            self.assertNotIn("example-box.duckdns.org", sanitized)
             self.assertIn("[REDACTED_SECRET]", sanitized)
             self.assertIn("[REDACTED_CHAT_ID]", sanitized)
             self.assertIn("[REDACTED_IDENTIFIER]", sanitized)
@@ -125,11 +125,11 @@ class TestLLMBundle(unittest.TestCase):
     def test_generate_llm_bundle_markdown(self, mock_mtr):
         mock_mtr.return_value = {
             "hubs": [
-                {"count": 1, "host": "192.168.8.1", "Loss%": 0.0, "Snt": 30, "Last": 0.8, "Avg": 0.9, "Best": 0.6, "Wrst": 2.1, "StDev": 0.3},
+                {"count": 1, "host": "192.168.1.1", "Loss%": 0.0, "Snt": 30, "Last": 0.8, "Avg": 0.9, "Best": 0.6, "Wrst": 2.1, "StDev": 0.3},
                 {"count": 2, "host": "10.0.0.1", "Loss%": 0.0, "Snt": 30, "Last": 2.1, "Avg": 2.3, "Best": 1.9, "Wrst": 4.5, "StDev": 0.5},
                 {"count": 3, "host": "1.1.1.1", "Loss%": 0.0, "Snt": 30, "Last": 6.2, "Avg": 6.5, "Best": 6.0, "Wrst": 8.1, "StDev": 0.4},
             ],
-            "raw": "HOST: speedtest  Loss%   Snt   Last   Avg  Best  Wrst StDev\n  1.|-- 192.168.8.1  0.0%    30    0.8   0.9   0.6   2.1   0.3",
+            "raw": "HOST: speedtest  Loss%   Snt   Last   Avg  Best  Wrst StDev\n  1.|-- 192.168.1.1  0.0%    30    0.8   0.9   0.6   2.1   0.3",
             "target": "1.1.1.1",
             "cycles": 30,
         }
