@@ -17,7 +17,7 @@ import time
 from typing import Optional
 from urllib.parse import urlparse
 
-from nmb.speed.ookla import SpeedtestResult, calculate_bufferbloat
+from nmb.speed.ookla import SpeedtestResult
 from nmb.speed.rmbt import connection, control, pretest, tests, uuid_store
 
 log = logging.getLogger("nmb.speed.rtr")
@@ -108,9 +108,10 @@ def _run_native_rmbt_speedtest(
         base = urlparse(host)
         share_url = f"{base.scheme}://{base.netloc}/share/{open_uuid}"
 
-    loaded_down_lat = ping_ms + 10.0
-    loaded_up_lat = ping_ms + 15.0
-    grade, delta = calculate_bufferbloat(ping_ms, loaded_down_lat, loaded_up_lat)
+    # RTR does not sample latency under load, so bufferbloat stays unknown instead of estimated.
+    loaded_down_lat = None
+    loaded_up_lat = None
+    grade, delta = None, None
 
     raw_json = json.dumps({
         "engine": "rtr-nettest-native-c",
@@ -294,8 +295,8 @@ def execute_rtr_speedtest(
     }
     control.submit_result(host, result_payload, debug=False)
 
-    # Bufferbloat rating
-    bb_grade, bb_delta = calculate_bufferbloat(min_ping_ms, median_ping_ms + 10.0, median_ping_ms + 15.0)
+    # RTR does not sample latency under load, so bufferbloat stays unknown instead of estimated.
+    bb_grade, bb_delta = None, None
 
     v4 = None
     v6 = None
@@ -333,8 +334,8 @@ def execute_rtr_speedtest(
             "ping_median_ms": round(median_ping_ms, 2),
         }),
         error=None,
-        down_loaded_lat_ms=round(median_ping_ms + 10.0, 2),
-        up_loaded_lat_ms=round(median_ping_ms + 15.0, 2),
+        down_loaded_lat_ms=None,
+        up_loaded_lat_ms=None,
         bufferbloat_grade=bb_grade,
         bufferbloat_delta_ms=bb_delta,
         engine="rtr",

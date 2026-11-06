@@ -148,7 +148,7 @@ class TestLLMBundle(unittest.TestCase):
         self.assertIn("## 8. Continuous Ping Probe Telemetry & Loss Pattern Isolation", bundle)
         self.assertIn("## 9. Hop-by-Hop Multi-Sample MTR Path Telemetry", bundle)
         self.assertIn("## 10. LAN vs WAN Performance Isolation & iPerf3 Benchmark", bundle)
-        self.assertIn("## 11. Traffic Shaper & Bufferbloat Protection (SQM)", bundle)
+        self.assertIn("## 11. Active Queue Discipline", bundle)
         self.assertIn("## 14. Recent Warning & Critical System Events", bundle)
         self.assertIn("## 15. Sanitized Configuration", bundle)
 
