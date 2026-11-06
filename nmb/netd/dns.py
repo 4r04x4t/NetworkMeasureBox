@@ -71,7 +71,7 @@ def is_fallback_active() -> bool:
             if "Fallback DNS Active" in head or "NetworkMeasureBox" in head:
                 return True
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     return False
 
 
@@ -287,7 +287,7 @@ def ensure_dns_fallback(
         FALLBACK_MARKER.parent.mkdir(parents=True, exist_ok=True)
         FALLBACK_MARKER.write_text(",".join(cleaned_servers) + "\n")
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # Verify resolution after injecting fallback
     ok, final_ip, final_lat = test_dns_resolution(timeout=2.5)
@@ -326,7 +326,7 @@ def restore_system_dns(iface: str = "eth0") -> Tuple[bool, str]:
         try:
             _run_privileged([nmcli_bin, "dev", "modify", iface, "ipv4.dns", ""])
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     FALLBACK_MARKER.unlink(missing_ok=True)
     _record_dns_event("dns_restored", "Restored system default DNS configuration")
@@ -344,7 +344,7 @@ def _record_dns_event(kind: str, detail: str) -> None:
             )
         conn.close()
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
 
 def get_dns_status(test_domain: Optional[str] = None) -> dict:

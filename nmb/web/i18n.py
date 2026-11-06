@@ -5693,6 +5693,18 @@ TRANSLATIONS = {
 
 # Strings extracted from hardcoded template text (key: en, hu, de, fr, uk).
 _EXTRA_TRANSLATIONS = {
+    'purge_title': ('🗑️ Delete Stored Data', '🗑️ Tárolt adatok törlése', '🗑️ Gespeicherte Daten löschen', '🗑️ Supprimer les données stockées', '🗑️ Видалення збережених даних'),
+    'purge_desc': ('Settings, passwords and VPN keys are never deleted. Deletion cannot be undone.', 'A beállítások, jelszavak és VPN-kulcsok soha nem törlődnek. A törlés nem vonható vissza.', 'Einstellungen, Passwörter und VPN-Schlüssel werden nie gelöscht. Das Löschen kann nicht rückgängig gemacht werden.', 'Les paramètres, mots de passe et clés VPN ne sont jamais supprimés. La suppression est irréversible.', 'Налаштування, паролі та ключі VPN ніколи не видаляються. Видалення не можна скасувати.'),
+    'purge_cat_measurements': ('Measurements', 'Mérések', 'Messungen', 'Mesures', 'Вимірювання'),
+    'purge_cat_events': ('Events and alerts', 'Események és riasztások', 'Ereignisse und Warnungen', 'Événements et alertes', 'Події та сповіщення'),
+    'purge_cat_reports': ('Saved reports', 'Mentett riportok', 'Gespeicherte Berichte', 'Rapports enregistrés', 'Збережені звіти'),
+    'purge_cat_backups': ('Backups', 'Biztonsági mentések', 'Sicherungen', 'Sauvegardes', 'Резервні копії'),
+    'purge_cat_logs': ('Logs', 'Naplók', 'Protokolle', 'Journaux', 'Журнали'),
+    'purge_items': ('items', 'tétel', 'Einträge', 'éléments', 'записів'),
+    'purge_confirm_label': ('Type PURGE to confirm:', 'A megerősítéshez írd be: PURGE', 'Zur Bestätigung PURGE eingeben:', 'Saisissez PURGE pour confirmer :', 'Введіть PURGE для підтвердження:'),
+    'purge_btn': ('🗑️ Delete Selected', '🗑️ Kijelöltek törlése', '🗑️ Auswahl löschen', '🗑️ Supprimer la sélection', '🗑️ Видалити вибране'),
+    'purge_need_selection': ('Select a category and type PURGE.', 'Jelölj ki egy kategóriát, és írd be: PURGE.', 'Wählen Sie eine Kategorie und geben Sie PURGE ein.', 'Sélectionnez une catégorie et saisissez PURGE.', 'Виберіть категорію та введіть PURGE.'),
+    'purge_done': ('Selected data deleted.', 'A kijelölt adatok törölve.', 'Ausgewählte Daten gelöscht.', 'Données sélectionnées supprimées.', 'Вибрані дані видалено.'),
     'adblock_localdns_none': ('No local DNS records defined', 'Nincsenek helyi DNS-bejegyzések', 'Keine lokalen DNS-Einträge definiert', 'Aucun enregistrement DNS local défini', 'Локальні DNS-записи не визначено'),
     'lanpt_title': ('🔗 LAN Passthrough & Link Aggregation', '🔗 LAN Passthrough és link aggregation', '🔗 LAN-Passthrough & Link Aggregation', '🔗 Passthrough LAN & agrégation de liens', '🔗 LAN Passthrough та агрегація каналів'),
     'lanpt_desc': ('For a probe connected behind a router: LAN devices can run through the box, and several ports or network cards can be combined to go beyond the limit of one Ethernet link.', 'Routerhez csatlakoztatott mérőeszközhöz: a LAN-eszközök áthaladhatnak a dobozon, és több port vagy hálózati kártya összevonható, hogy áttörje egy Ethernet-kapcsolat korlátját.', 'Für eine Sonde hinter einem Router: LAN-Geräte können durch die Box laufen, und mehrere Ports oder Netzwerkkarten lassen sich bündeln, um die Grenze einer Ethernet-Verbindung zu überwinden.', "Pour une sonde connectée derrière un routeur : les appareils LAN peuvent traverser le boîtier, et plusieurs ports ou cartes réseau peuvent être combinés pour dépasser la limite d'un lien Ethernet.", 'Для зонда за маршрутизатором: LAN-пристрої можуть працювати через пристрій, а кілька портів або мережевих карт можна об’єднати, щоб обійти обмеження одного Ethernet-каналу.'),

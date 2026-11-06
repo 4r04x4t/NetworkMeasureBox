@@ -159,7 +159,7 @@ class SnifferEngine:
             try:
                 sock.close()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
         self.running = False
 
     def _process_raw_frame(self, ts: float, iface: str, raw: bytes) -> None:

@@ -40,7 +40,7 @@ def _get_cpu_and_thermal_telemetry() -> Dict[str, Any]:
         with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
             temp_c = round(float(f.read().strip()) / 1000.0, 1)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     load_avg = "N/A"
     try:
@@ -48,14 +48,14 @@ def _get_cpu_and_thermal_telemetry() -> Dict[str, Any]:
             parts = f.read().split()
             load_avg = f"1m: {parts[0]}, 5m: {parts[1]}, 15m: {parts[2]} (Tasks: {parts[3]})"
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     cur_freq_mhz = None
     try:
         with open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", "r") as f:
             cur_freq_mhz = int(int(f.read().strip()) / 1000)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     throttled_hex = None
     throttled_flags: List[str] = []
@@ -79,7 +79,7 @@ def _get_cpu_and_thermal_telemetry() -> Dict[str, Any]:
                 if val & (1 << bit):
                     throttled_flags.append(desc)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # Hardware Model & SoC Identification
     hardware_model = "Generic Linux System"
@@ -89,7 +89,7 @@ def _get_cpu_and_thermal_telemetry() -> Dict[str, Any]:
         if dt_model.exists():
             hardware_model = dt_model.read_text(encoding="utf-8", errors="ignore").replace("\x00", "").strip()
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     if "Raspberry Pi 4" in hardware_model:
         soc_model = "Broadcom BCM2711 (Quad-core Cortex-A72 @ 1.80GHz)"
@@ -107,7 +107,7 @@ def _get_cpu_and_thermal_telemetry() -> Dict[str, Any]:
                         soc_model = line.split(":", 1)[1].strip()
                         break
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # Storage I/O & Root Partition Health
     disk_total_gb = 0.0
@@ -119,7 +119,7 @@ def _get_cpu_and_thermal_telemetry() -> Dict[str, Any]:
         disk_free_gb = round(du.free / (1024**3), 1)
         disk_free_pct = round((du.free / du.total) * 100.0, 1)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # %iowait telemetry
     iowait_pct = 0.0
@@ -132,7 +132,7 @@ def _get_cpu_and_thermal_telemetry() -> Dict[str, Any]:
             if total_jiffies > 0:
                 iowait_pct = round((iowait_jiffies / total_jiffies) * 100.0, 2)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # Kernel Storage I/O Errors from dmesg
     dmesg_io_errors = 0
@@ -143,7 +143,7 @@ def _get_cpu_and_thermal_telemetry() -> Dict[str, Any]:
             if any(w in low for w in ("mmc0: error", "ext4-fs error", "buffer i/o error", "i/o error on device")):
                 dmesg_io_errors += 1
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     userland_bitness = platform.architecture()[0]
 
@@ -195,7 +195,7 @@ def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
                 if "Link partner advertised pause frame use:" in line:
                     pause_info["partner_pause"] = line.split(":", 1)[1].strip()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         # 2. EEE (Energy-Efficient Ethernet) status: ethtool --show-eee <iface>
         try:
@@ -213,7 +213,7 @@ def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
                 elif line.startswith("Link partner advertised EEE link modes:"):
                     eee_info["partner_eee"] = line.split(":", 1)[1].strip()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         # 3. Flow control (Pause parameters): ethtool -a <iface>
         try:
@@ -231,7 +231,7 @@ def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
                 elif line.startswith("Autonegotiate:"):
                     pause_info["autoneg"] = line.split(":", 1)[1].strip()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         # 4. Offload parameters: ethtool -k <iface>
         try:
@@ -243,7 +243,7 @@ def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
                     if line.startswith(feat):
                         offload_info[feat.rstrip(":")] = line.split(":", 1)[1].strip().split()[0]
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # 5. Packet Steering (RPS/XPS)
     rps_cpus = "0"
@@ -253,13 +253,13 @@ def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
         if rps_p.exists():
             rps_cpus = rps_p.read_text().strip()
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
     try:
         xps_p = Path(f"/sys/class/net/{iface}/queues/tx-0/xps_cpus")
         if xps_p.exists():
             xps_cpus = xps_p.read_text().strip()
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # 6. IRQBalance Daemon Status
     irqbalance_status = "inactive"
@@ -267,7 +267,7 @@ def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
         r_irq = subprocess.run(["systemctl", "is-active", "irqbalance"], capture_output=True, text=True, timeout=2, check=False)
         irqbalance_status = r_irq.stdout.strip() or "inactive"
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     stats: Dict[str, int] = {}
     stat_dir = Path(f"/sys/class/net/{iface}/statistics")
@@ -285,7 +285,7 @@ def _get_phy_and_ethtool(iface: str) -> Dict[str, Any]:
         try:
             carrier_changes = cc_file.read_text().strip()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     return {
         "ethtool": ethtool_info,
@@ -340,9 +340,9 @@ def _get_wifi_phy_telemetry(wlan_iface: str = "wlan0") -> Dict[str, Any]:
                     try:
                         freq_mhz = float(line.split(":", 1)[1].strip())
                     except Exception:
-                        pass
+                        log.debug("suppressed exception", exc_info=True)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         try:
             r_st = subprocess.run([iw_bin, "dev", wlan_iface, "station", "dump"], capture_output=True, text=True, timeout=2, check=False)
@@ -354,7 +354,7 @@ def _get_wifi_phy_telemetry(wlan_iface: str = "wlan0") -> Dict[str, Any]:
                     try:
                         tx_failed = int(line.split(":", 1)[1].strip())
                     except Exception:
-                        pass
+                        log.debug("suppressed exception", exc_info=True)
                 elif line.startswith("signal:") and rssi_dbm is None:
                     m = re.search(r"(-?\d+)\s*dBm", line)
                     if m:
@@ -367,9 +367,9 @@ def _get_wifi_phy_telemetry(wlan_iface: str = "wlan0") -> Dict[str, Any]:
                     try:
                         connected_time_sec = int(line.split(":", 1)[1].strip().split()[0])
                     except Exception:
-                        pass
+                        log.debug("suppressed exception", exc_info=True)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     if iwconfig_bin:
         try:
@@ -393,7 +393,7 @@ def _get_wifi_phy_telemetry(wlan_iface: str = "wlan0") -> Dict[str, Any]:
                     if m:
                         tx_bitrate = m.group(1)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     return {
         "rssi_dbm": rssi_dbm,
@@ -448,13 +448,13 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
             if mapped_ip:
                 break
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
         finally:
             if sock:
                 try:
                     sock.close()
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
 
     def is_rfc1918(ip_s: Optional[str]) -> bool:
         if not ip_s or ip_s in ("*", "???"):
@@ -563,7 +563,7 @@ def _get_dns_telemetry_matrix(gateway_ip: str = "") -> List[Dict[str, Any]]:
                 try:
                     sock.close()
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
 
         results.append({
             "ip": ip,
@@ -632,7 +632,7 @@ def _get_loss_pattern_telemetry(conn: Any, day_ago_ms: int, probes: List[Any]) -
                 "pattern": pattern_desc,
             }
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     return stats
 
 
@@ -682,7 +682,7 @@ def _get_path_mtu_discovery(iface: str, target: str = "1.1.1.1") -> Dict[str, An
         if mtu_path.exists():
             iface_mtu = int(mtu_path.read_text().strip())
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     discovered_pmtu = iface_mtu
     is_pppoe = False
@@ -774,7 +774,7 @@ def _check_multihoming_arp_flux(eth_iface: str = "eth0", wlan_iface: str = "wlan
                 else:
                     arp_announce = f.read().strip()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     return {
         "eth_ips": eth_v4,
@@ -860,7 +860,7 @@ def _get_detailed_mtr(target: str = "1.1.1.1", cycles: int = 30) -> Dict[str, An
             if r.returncode == 0 and r.stdout.strip():
                 return {"hubs": [], "raw": r.stdout.strip(), "target": target}
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     return {"hubs": [], "raw": "", "target": target}
 
 
@@ -885,7 +885,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
             up_sec = float(f.read().split()[0])
             uptime_str = f"{int(up_sec // 3600)}h {int((up_sec % 3600) // 60)}m {int(up_sec % 60)}s"
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     mem_info = {}
     try:
@@ -898,7 +898,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
                     if k in ("MemTotal", "MemFree", "MemAvailable", "Buffers", "Cached"):
                         mem_info[k] = v
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # 2. Hardware telemetry (Thermal, Throttling, SoC, Storage Health, iowait)
     hw_telemetry = _get_cpu_and_thermal_telemetry()
@@ -916,7 +916,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         if res.returncode == 0:
             routes_text = res.stdout.strip()
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # 6. DNS configuration & test
     resolv_text = "N/A"
@@ -925,7 +925,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         if resolv_path.exists():
             resolv_text = resolv_path.read_text().strip()
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     dns_test_ok = False
     dns_rtt_ms = None
@@ -935,7 +935,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         dns_test_ok = ok
         dns_rtt_ms = lat
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # 7. Public Dual-Stack IPs
     dual_ips = get_dual_stack_ips(wan_iface)
@@ -956,7 +956,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         with open("/proc/sys/net/ipv4/tcp_congestion_control", "r") as f:
             tcp_cc = f.read().strip()
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # Deployment Mode
     net_mode = getattr(cfg.network, "mode", "standalone")
@@ -1023,7 +1023,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
                 if res_all.returncode == 0:
                     sqm_status = res_all.stdout.strip() or "No custom queuing disciplines found."
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     configured_sqm_algo = getattr(cfg.system, "sqm_algorithm", "cake")
     sqm_algo_str = str(configured_sqm_algo).lower()
@@ -1093,7 +1093,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
                 if idx + 1 < len(parts):
                     local_gw_ip = parts[idx + 1]
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     if not local_gw_ip:
         local_gw_ip = "N/A"
 
@@ -1400,7 +1400,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
                 if isinstance(rj, dict):
                     meas_cpu = rj.get("measurement_cpu")
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
         if meas_cpu:
             p_cpu = meas_cpu.get("peak_cpu_pct", 0)
@@ -1450,7 +1450,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
                     if mc:
                         cpu_peak_s = f"{mc.get('single_core_max_pct', 0)}% ({mc.get('single_core_name', 'CPU0')})"
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
             lines.append(f"| `{ts_str}` | `{s['engine']}` | **{d_m}** | **{u_m}** | {lat_s} | {bb_s} | {cpu_peak_s} |")
     else:
         lines.append("- *No prior speedtest runs recorded.*")

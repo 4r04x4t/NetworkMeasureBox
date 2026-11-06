@@ -255,7 +255,7 @@ def save_heal_state(state: Dict[str, Any]) -> None:
         try:
             os.chmod(path, 0o664)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     except Exception as e:
         log.warning("Failed to save self-healing state to %s: %s", path, e)
 
@@ -534,7 +534,7 @@ def audit_system_health() -> Dict[str, Any]:
             add_ok("network", "net:dns", "Local DNS Sinkhole", "Local DNS resolver listening on 127.0.0.1:53")
             dns_ok = True
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     if not dns_ok:
         add_issue("network", "net:dns", "DNS Resolver", "warning", "DNS resolution failed to resolve upstream domains")
@@ -561,7 +561,7 @@ def _repair_symlinks() -> List[str]:
     try:
         usr_bin.mkdir(parents=True, exist_ok=True)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     for link_name in CORE_SYMLINKS:
         link_path = usr_bin / link_name
@@ -588,7 +588,7 @@ def _repair_symlinks() -> List[str]:
                     try:
                         os.chmod(target, 0o755)
                     except Exception:
-                        pass
+                        log.debug("suppressed exception", exc_info=True)
                     actions.append(f"Restored symlink /usr/local/bin/{link_name} -> {target}")
             except Exception as e:
                 # Try via sudo
@@ -610,7 +610,7 @@ def _repair_filesystem_permissions() -> List[str]:
             try:
                 os.chmod(dir_path, 0o2775)
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
             actions.append(f"Ensured directory and permissions for {dir_path}")
         except PermissionError:
             rc, _ = _run_helper_or_sudo("heal-permissions", [str(dir_path)])

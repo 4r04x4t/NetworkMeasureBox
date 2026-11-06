@@ -52,7 +52,7 @@ from nmb.bot.i18n import (
     get_language_keyboard,
     get_main_keyboard,
     get_menu_aliases,
-    get_nmhh_status,
+    get_measurement_status,
     get_sla_verdict,
     set_chat_lang,
     t,
@@ -61,7 +61,7 @@ from nmb.bot.i18n import (
 log = logging.getLogger("nmb.bot.commands")
 
 # Backwards-compatible default keyboard
-MAIN_KEYBOARD = get_main_keyboard("hu")
+MAIN_KEYBOARD = get_main_keyboard("en")
 
 
 def format_bytes(num_bytes: int | float) -> str:
@@ -78,6 +78,18 @@ class CommandHandler:
     def __init__(self, cfg: Config, client: TelegramClient):
         self.cfg = cfg
         self.client = client
+
+    def _l(self, chat_id: int) -> str:
+        return get_chat_lang(chat_id, self.cfg)
+
+    def _tr(self, chat_id: int, key: str, **kwargs) -> str:
+        return t(key, self._l(chat_id), **kwargs)
+
+    def _say(self, chat_id: int, key: str, **kwargs) -> None:
+        self.client.send_message(chat_id, self._tr(chat_id, key, **kwargs))
+
+    def _say_error(self, chat_id: int, op: str, error: object) -> None:
+        self._say(chat_id, "op_error", op=op, error=html.escape(str(error)))
 
     def handle_command(self, chat_id: int, text: str) -> None:
         raw_text = text.strip()
@@ -97,6 +109,10 @@ class CommandHandler:
         # Dispatch table
         if cmd in ("/start", "/help", "/menu"):
             self._cmd_help(chat_id, lang)
+        elif cmd == "/sla":
+            self._say(chat_id, "sla_explain")
+        elif cmd == "/purge":
+            self._cmd_purge(chat_id, args)
         elif cmd in ("/lang", "/language"):
             self._cmd_lang(chat_id, args, lang)
         elif cmd == "/status":
@@ -105,7 +121,7 @@ class CommandHandler:
             self._cmd_ping(chat_id, lang)
         elif cmd in ("/test", "/speedtest", "/speed"):
             self._cmd_test(chat_id, args, lang)
-        elif cmd in ("/report", "/nmhh", "/dossier"):
+        elif cmd in ("/report", "/dossier"):
             self._cmd_report(chat_id, lang)
         elif cmd in ("/tailscale", "/mesh"):
             self._cmd_tailscale(chat_id, lang)
@@ -155,7 +171,7 @@ class CommandHandler:
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
         if not args:
-            curr_info = LANG_INFO.get(lang, LANG_INFO["hu"])
+            curr_info = LANG_INFO.get(lang, LANG_INFO["en"])
             curr_label = f"{curr_info['flag']} {curr_info['name']}"
             msg = f"{t('lang_title', lang)}\n\n{t('lang_desc', lang, curr_lang=curr_label)}"
             self.client.send_message(chat_id, msg, reply_markup=get_language_keyboard())
@@ -200,7 +216,7 @@ class CommandHandler:
             # Check Tailscale status
             try:
                 ts_stat = tailscale.get_tailscale_status()
-                ts_badge = f"🟢 UP ({ts_stat.get('tailscale_ip', '--')})" if ts_stat.get("logged_in") else ("🟡 LOGIN REQ" if ts_stat.get("auth_url") else "⚫ STOPPED")
+                ts_badge = f"{t('badge_up', lang)} ({ts_stat.get('tailscale_ip', '--')})" if ts_stat.get("logged_in") else (t("badge_login_req", lang) if ts_stat.get("auth_url") else t("badge_stopped", lang))
             except Exception:
                 ts_badge = "⚫ N/A"
 
@@ -215,8 +231,8 @@ class CommandHandler:
             except Exception:
                 ab_stat = {"enabled": False}
 
-            wg_badge = "🟢 UP" if wg_stat.get("active") else "⚫ STOPPED"
-            ab_badge = f"🟢 ON ({ab_stat.get('domains_on_blocklist', 0):,} domains)" if ab_stat.get("enabled") else "🔴 OFF"
+            wg_badge = t("badge_up", lang) if wg_stat.get("active") else t("badge_stopped", lang)
+            ab_badge = t("badge_on_domains", lang, count=f"{ab_stat.get('domains_on_blocklist', 0):,}") if ab_stat.get("enabled") else t("badge_off", lang)
 
             # Determine client IP and ISP
             client_ip = "--"
@@ -224,7 +240,7 @@ class CommandHandler:
                 dual = interfaces.get_dual_stack_ips()
                 client_ip = dual.get("public_ipv4") or dual.get("ipv4") or "--"
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
             isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
 
             latest_st = rep.speed_tests[0] if rep.speed_tests else {}
@@ -232,11 +248,15 @@ class CommandHandler:
             st_up = f"{latest_st.get('up_mbps', 0):.1f} Mb/s" if latest_st.get("up_mbps") else "--"
 
             outages_cnt = len(rep.outages)
-            outages_label = "kiesés" if lang == "hu" else ("Ausfälle" if lang == "de" else ("coupures" if lang == "fr" else ("перерв" if lang == "uk" else "outages")))
+            outages_label = t("outages_label", lang)
 
             rtt_avg = rep.ping_summary.rtt_avg_ms or '-'
             jitter_avg = rep.ping_summary.jitter_avg_ms or '-'
             sla_verdict_str = get_sla_verdict(str(rep.sla_verdict), lang)
+            sla_reason_line = ""
+            if rep.sla_reasons:
+                reasons = "; ".join(t(f"sla_reason_{r}", lang) for r in rep.sla_reasons)
+                sla_reason_line = "\n<i>" + t("sla_reasons_line", lang, reasons=reasons) + " (/sla)</i>"
 
             msg = f"""<b>{t('status_title', lang)}</b> [<code>{html.escape(self.cfg.system.box_id)}</code>]
 
@@ -247,7 +267,7 @@ class CommandHandler:
 📈 <b>{t('uptime_24h', lang)}:</b> <b>{rep.uptime_pct:.2f}%</b> ({outages_cnt} {outages_label})
 ⏱️ <b>{t('latency_rtt', lang)}:</b> {rtt_avg} ms (Jitter: {jitter_avg} ms)
 📉 <b>{t('packet_loss', lang)}:</b> <b>{rep.ping_summary.loss_pct:.2f}%</b>
-⚖️ <b>{t('sla_verdict', lang)}:</b> <b>{html.escape(sla_verdict_str)}</b> ({t('compliance', lang)}: {rep.speed_summary.sla_compliance_pct:.0f}%)
+⚖️ <b>{t('sla_verdict', lang)}:</b> <b>{html.escape(sla_verdict_str)}</b> ({t('compliance', lang)}: {rep.speed_summary.sla_compliance_pct:.0f}%){sla_reason_line}
 🚀 <b>{t('latest_speed', lang)}:</b> ↓ <b>{st_down}</b> | ↑ <b>{st_up}</b>
 
 🛡️ <b>{t('services_security', lang)}:</b>
@@ -257,7 +277,7 @@ class CommandHandler:
 """
             inline_status = {
                 "inline_keyboard": [
-                    [{"text": t("btn_quick_test", lang), "callback_data": "/test"}, {"text": t("btn_nmhh_report", lang), "callback_data": "/report"}],
+                    [{"text": t("btn_quick_test", lang), "callback_data": "/test"}, {"text": t("btn_report", lang), "callback_data": "/report"}],
                     [{"text": t("btn_ping_details", lang), "callback_data": "/ping"}, {"text": t("btn_top_resources", lang), "callback_data": "/tasks"}],
                     [{"text": t("btn_tailscale", lang), "callback_data": "/tailscale"}, {"text": t("btn_adblock", lang), "callback_data": "/adblock"}]
                 ]
@@ -265,7 +285,31 @@ class CommandHandler:
             self.client.send_message(chat_id, msg, reply_markup=inline_status)
         except Exception as e:
             log.error("error in /status: %s", e)
-            self.client.send_message(chat_id, f"Error generating status: {html.escape(str(e))}", reply_markup=get_main_keyboard(lang))
+            self.client.send_message(chat_id, t("op_error", lang, op="Status", error=html.escape(str(e))), reply_markup=get_main_keyboard(lang))
+
+    def _cmd_purge(self, chat_id: int, args: list[str]) -> None:
+        from nmb.common import purge as purge_mod
+        lang = self._l(chat_id)
+        category = args[0].lower() if args else ""
+        confirmed = len(args) > 1 and args[1].lower() == "confirm"
+        selected = list(purge_mod.CATEGORIES) if category == "all" else [category]
+        if not confirmed or not set(selected) <= set(purge_mod.CATEGORIES):
+            summary = purge_mod.get_purge_summary(self.cfg)
+            rows = "\n".join(
+                f"• {t('purge_cat_' + c, lang)}: <b>{summary[c]['items']:,}</b> ({format_bytes(summary[c]['bytes'])})"
+                for c in purge_mod.CATEGORIES
+            )
+            self._say(chat_id, "purge_menu", rows=rows)
+            return
+        try:
+            result = purge_mod.purge(self.cfg, selected)
+            done = [t("purge_cat_" + c, lang) for c in selected if c not in result["errors"]]
+            if done:
+                self._say(chat_id, "purge_done", cats=", ".join(done))
+            for c, err in result["errors"].items():
+                self._say_error(chat_id, t("purge_cat_" + c, lang), err)
+        except Exception as e:
+            self._say_error(chat_id, "Purge", e)
 
     def _cmd_ping(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -301,7 +345,7 @@ class CommandHandler:
             }
             self.client.send_message(chat_id, "\n".join(lines), reply_markup=inline_ping)
         except Exception as e:
-            self.client.send_message(chat_id, f"Ping error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Ping", e)
 
     def _cmd_test(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
         if lang is None:
@@ -327,7 +371,7 @@ class CommandHandler:
             conn.close()
 
             if not row or row["status"] != "ok":
-                err = row["error"] if row and row["error"] else "Measurement cycle failed or deferred."
+                err = row["error"] if row and row["error"] else t("speed_cycle_failed", lang)
                 self.client.send_message(chat_id, t("speed_error", lang, error=html.escape(str(err))))
                 return
 
@@ -342,7 +386,7 @@ class CommandHandler:
                 dual = interfaces.get_dual_stack_ips()
                 client_ip = dual.get("public_ipv4") or dual.get("ipv4") or "--"
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
             isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
 
             c_down = self.cfg.isp.contract_down_mbps or 1000.0
@@ -353,17 +397,17 @@ class CommandHandler:
             down_compliance = (down_mbps / c_down) * 100.0 if c_down else 0.0
             up_compliance = (up_mbps / c_up) * 100.0 if c_up else 0.0
 
-            # NMHH Status Code calculation
+            # Result against the contracted guaranteed speeds
             if down_mbps >= g_down and up_mbps >= g_up:
-                nmhh_code = 1
+                status_code = 1
             elif down_mbps < g_down and up_mbps < g_up:
-                nmhh_code = 6
+                status_code = 6
             elif down_mbps < g_down:
-                nmhh_code = 14
+                status_code = 14
             else:
-                nmhh_code = 15
+                status_code = 15
 
-            nmhh_badge, nmhh_text = get_nmhh_status(nmhh_code, lang)
+            status_badge, status_text = get_measurement_status(status_code, lang)
             active_engine = (row["engine"] if "engine" in row.keys() else engine) or "RTR-NetTest"
 
             title_str = t("speed_result_title", lang, engine=html.escape(str(active_engine)).upper())
@@ -376,20 +420,20 @@ class CommandHandler:
 📥 <b>{t('download', lang)}:</b> <b>{down_mbps:.1f} Mbps</b> ({down_compliance:.0f}% | Min: {g_down:.0f} Mbps)
 📤 <b>{t('upload', lang)}:</b> <b>{up_mbps:.1f} Mbps</b> ({up_compliance:.0f}% | Min: {g_up:.0f} Mbps)
 ⏱️ <b>{t('latency_rtt', lang)}:</b> {ping_ms:.1f} ms (Jitter: {jitter_ms:.1f} ms)
-🖥️ <b>{t('server', lang)}:</b> {html.escape(str(row['server_name'] or 'Edge Server'))}
+🖥️ <b>{t('server', lang)}:</b> {html.escape(str(row['server_name'] or t('edge_server', lang)))}
 
-⚖️ <b>{t('nmhh_verdict', lang)}:</b> {nmhh_badge}
-<i>{nmhh_text}</i>
+⚖️ <b>{t('speed_result_label', lang)}:</b> {status_badge}
+<i>{status_text}</i>
 """
             inline_kb = {
                 "inline_keyboard": [
                     [{"text": t("btn_rtr", lang), "callback_data": "/test rtr"}, {"text": t("btn_ookla", lang), "callback_data": "/test ookla"}, {"text": t("btn_cloudflare", lang), "callback_data": "/test cloudflare"}],
-                    [{"text": t("btn_nmhh_report", lang), "callback_data": "/report"}, {"text": t("btn_status", lang), "callback_data": "/status"}]
+                    [{"text": t("btn_report", lang), "callback_data": "/report"}, {"text": t("btn_status", lang), "callback_data": "/status"}]
                 ]
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_kb)
         except Exception as e:
-            self.client.send_message(chat_id, f"Speed test error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Speedtest", e)
 
     def _cmd_report(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -419,7 +463,7 @@ class CommandHandler:
             if not ok:
                 self.client.send_message(chat_id, t("report_fail", lang))
         except Exception as e:
-            self.client.send_message(chat_id, f"Report error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Report", e)
 
     def _cmd_tailscale(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -444,7 +488,7 @@ class CommandHandler:
 
             msg = f"""{t('tailscale_title', lang)}
 
-• Status: <b>{badge}</b>
+• {t('lbl_status', lang)}: <b>{badge}</b>
 • Tailscale IP: <code>{html.escape(ts_ip)}</code>
 • MagicDNS: <code>{html.escape(magic_dns)}</code>
 • {t('tailscale_role', lang)}
@@ -459,27 +503,24 @@ class CommandHandler:
 
             self.client.send_message(chat_id, msg, reply_markup={"inline_keyboard": buttons})
         except Exception as e:
-            self.client.send_message(chat_id, f"Tailscale error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Tailscale", e)
 
     def _cmd_ai(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
-        self.client.send_message(chat_id, "<i>Generating AI LLM Diagnostic Markdown Bundle...</i>")
+        self._say(chat_id, "ai_generating")
         try:
             conn = db.connect(readonly=True)
             bundle_md = llm_bundle.generate_llm_diagnostic_bundle(self.cfg, conn)
             conn.close()
 
             filename = f"nmb_diagnostic_bundle_{self.cfg.system.box_id}_{int(time.time())}.md"
-            caption = (
-                f"<b>AI Diagnostic Bundle (LLM Snapshot)</b>\n"
-                f"Formatted for ChatGPT, Claude, and Gemini deep network analysis."
-            )
+            caption = t("ai_caption", lang)
             ok = self.client.send_document(chat_id, filename, bundle_md.encode("utf-8"), caption=caption)
             if not ok:
-                self.client.send_message(chat_id, "Diagnostic bundle generated, but sending document failed.")
+                self._say(chat_id, "ai_send_failed")
         except Exception as e:
-            self.client.send_message(chat_id, f"AI bundle error: {html.escape(str(e))}")
+            self._say_error(chat_id, "AI", e)
 
     def _cmd_mode(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
         if lang is None:
@@ -562,19 +603,19 @@ class CommandHandler:
             self._vpn_list_clients(chat_id, lang)
         elif subcmd == "add":
             if len(args) < 2:
-                self.client.send_message(chat_id, "Usage: <code>/vpn add &lt;client_name&gt; [wg|ovpn]</code>")
+                self._say(chat_id, "usage", cmd="/vpn add &lt;client_name&gt; [wg|ovpn]")
                 return
             name = args[1].strip()
             proto = args[2].lower() if len(args) > 2 else "wg"
             self._vpn_add_client(chat_id, name, proto)
         elif subcmd == "qr":
             if len(args) < 2:
-                self.client.send_message(chat_id, "Usage: <code>/vpn qr &lt;client_name&gt;</code>")
+                self._say(chat_id, "usage", cmd="/vpn qr &lt;client_name&gt;")
                 return
             self._vpn_send_qr(chat_id, args[1].strip())
         elif subcmd in ("conf", "config", "profile"):
             if len(args) < 2:
-                self.client.send_message(chat_id, "Usage: <code>/vpn conf &lt;client_name&gt;</code>")
+                self._say(chat_id, "usage", cmd="/vpn conf &lt;client_name&gt;")
                 return
             self._vpn_send_conf(chat_id, args[1].strip())
         elif subcmd == "start":
@@ -585,16 +626,11 @@ class CommandHandler:
             self._vpn_toggle(chat_id, proto, enable=False)
         elif subcmd in ("del", "delete", "remove"):
             if len(args) < 2:
-                self.client.send_message(chat_id, "Usage: <code>/vpn del &lt;client_name&gt;</code>")
+                self._say(chat_id, "usage", cmd="/vpn del &lt;client_name&gt;")
                 return
             self._vpn_delete_client(chat_id, args[1].strip())
         else:
-            self.client.send_message(
-                chat_id,
-                f"Unknown VPN command <code>{html.escape(subcmd)}</code>.\n"
-                f"Supported: <code>/vpn</code>, <code>/vpn clients</code>, <code>/vpn add &lt;name&gt;</code>, "
-                f"<code>/vpn qr &lt;name&gt;</code>, <code>/vpn conf &lt;name&gt;</code>, <code>/vpn start</code>, <code>/vpn stop</code>, <code>/vpn del &lt;name&gt;</code>"
-            )
+            self._say(chat_id, "unknown_sub", cmd=html.escape(subcmd), supported="<code>/vpn</code>, <code>/vpn clients</code>, <code>/vpn add &lt;name&gt;</code>, <code>/vpn qr &lt;name&gt;</code>, <code>/vpn conf &lt;name&gt;</code>, <code>/vpn start</code>, <code>/vpn stop</code>, <code>/vpn del &lt;name&gt;</code>")
 
     def _vpn_status(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -626,26 +662,16 @@ class CommandHandler:
             active_wg_peers = sum(1 for p in wg_peers if (p.get("latest_handshake") or 0) > 0 and (p.get("latest_handshake") or 0) < 180)
             active_ov_clients = sum(1 for c in ov_clients if c.get("connected"))
 
-            msg = f"""<b>🛡️ VPN Server Hub Status</b>
-
-<b>1. WireGuard High-Performance VPN:</b>
-• Status: <b>{'🟢 ACTIVE' if wg_active else '⚫ STOPPED'}</b>
-• Listen Port: <code>UDP {self.cfg.wireguard.port}</code>
-• Tunnel Subnet: <code>{self.cfg.wireguard.subnet}</code>
-• Configured Peers: <b>{len(wg_peers)}</b> ({active_wg_peers} connected)
-• Public Endpoint: <code>{html.escape(str(wg_stat.get('endpoint') or 'Auto-detected'))}</code>
-
-<b>2. OpenVPN Robust Fallback Server:</b>
-• Status: <b>{'🟢 ACTIVE' if ov_active else '⚫ STOPPED'}</b>
-• Listen Port: <code>UDP {self.cfg.openvpn.port}</code>
-• Tunnel Subnet: <code>{self.cfg.openvpn.subnet}</code>
-• Configured Clients: <b>{len(ov_clients)}</b> ({active_ov_clients} connected)
-
-<b>Quick Commands:</b>
-• <code>/vpn clients</code> - View client connection list & traffic
-• <code>/vpn add &lt;name&gt;</code> - Generate new peer with instant QR & .conf
-• <code>/vpn qr &lt;name&gt;</code> - Receive QR code image for phone pairing
-"""
+            msg = t(
+                "vpn_status_msg", lang,
+                wg_status=t("badge_active", lang) if wg_active else t("badge_stopped", lang),
+                wg_port=self.cfg.wireguard.port, wg_subnet=self.cfg.wireguard.subnet,
+                wg_total=len(wg_peers), wg_conn=active_wg_peers,
+                wg_endpoint=html.escape(str(wg_stat.get("endpoint") or t("lbl_auto_detected", lang))),
+                ov_status=t("badge_active", lang) if ov_active else t("badge_stopped", lang),
+                ov_port=self.cfg.openvpn.port, ov_subnet=self.cfg.openvpn.subnet,
+                ov_total=len(ov_clients), ov_conn=active_ov_clients,
+            )
             inline_vpn = {
                 "inline_keyboard": [
                     [{"text": t("btn_vpn_clients", lang), "callback_data": "/vpn clients"}, {"text": t("btn_tailscale", lang), "callback_data": "/tailscale"}],
@@ -654,9 +680,10 @@ class CommandHandler:
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_vpn)
         except Exception as e:
-            self.client.send_message(chat_id, f"Error getting VPN status: {html.escape(str(e))}")
+            self._say_error(chat_id, "VPN", e)
 
     def _vpn_list_clients(self, chat_id: int, lang: Optional[str] = None) -> None:
+        lang = lang or self._l(chat_id)
         try:
             try:
                 wg_stat = wg.get_wireguard_status(
@@ -678,53 +705,45 @@ class CommandHandler:
             wg_peers = wg_stat.get("peers", [])
             ov_clients = ov_stat.get("clients", [])
 
-            lines = ["<b>Configured VPN Clients:</b>\n"]
+            lines = [t("vpn_clients_title", lang)]
 
-            lines.append("<b>🛡️ WireGuard Peers:</b>")
+            lines.append(t("vpn_wg_peers", lang))
             if not wg_peers:
-                lines.append("<i>No WireGuard peers configured.</i>")
+                lines.append(t("vpn_no_wg", lang))
             else:
                 for p in wg_peers:
                     hs_sec = p.get("latest_handshake") or 0
                     if hs_sec > 0 and hs_sec < 180:
-                        status = f"🟢 Connected ({p.get('latest_handshake_ago') or str(hs_sec)+'s'})"
+                        status = f"{t('vpn_connected', lang)} ({p.get('latest_handshake_ago') or str(hs_sec)+'s'})"
                     elif hs_sec > 0:
-                        status = f"⚪ Offline ({p.get('latest_handshake_ago') or str(int(hs_sec/60))+'m'})"
+                        status = f"{t('vpn_offline', lang)} ({p.get('latest_handshake_ago') or str(int(hs_sec/60))+'m'})"
                     else:
-                        status = "⚪ Never Connected"
+                        status = t("vpn_never", lang)
 
                     rx = format_bytes(p.get("transfer_rx") or 0)
                     tx = format_bytes(p.get("transfer_tx") or 0)
                     ip_str = p.get("allowed_ips") or p.get("client_ip") or "--"
 
-                    lines.append(
-                        f"• <b>{html.escape(p.get('name'))}</b>\n"
-                        f"  IP: <code>{html.escape(ip_str)}</code> | Status: {status}\n"
-                        f"  Transfer: ↓ {rx} / ↑ {tx}"
-                    )
+                    lines.append(t("vpn_client_row", lang, name=html.escape(p.get('name')), ip=html.escape(ip_str), status=status, rx=rx, tx=tx))
 
-            lines.append("\n<b>🔒 OpenVPN Clients:</b>")
+            lines.append("\n" + t("vpn_ovpn_clients", lang))
             if not ov_clients:
-                lines.append("<i>No OpenVPN clients configured.</i>")
+                lines.append(t("vpn_no_ovpn", lang))
             else:
                 for c in ov_clients:
-                    status = "🟢 Connected" if c.get("connected") else "⚪ Offline"
+                    status = t("vpn_connected", lang) if c.get("connected") else t("vpn_offline", lang)
                     rx = format_bytes(c.get("bytes_received") or 0)
                     tx = format_bytes(c.get("bytes_sent") or 0)
                     ip_str = c.get("virtual_ip") or "--"
 
-                    lines.append(
-                        f"• <b>{html.escape(c.get('name'))}</b>\n"
-                        f"  IP: <code>{html.escape(ip_str)}</code> | Status: {status}\n"
-                        f"  Transfer: ↓ {rx} / ↑ {tx}"
-                    )
+                    lines.append(t("vpn_client_row", lang, name=html.escape(c.get('name')), ip=html.escape(ip_str), status=status, rx=rx, tx=tx))
 
             self.client.send_message(chat_id, "\n".join(lines))
         except Exception as e:
-            self.client.send_message(chat_id, f"Error listing VPN clients: {html.escape(str(e))}")
+            self._say_error(chat_id, "VPN", e)
 
     def _vpn_add_client(self, chat_id: int, name: str, proto: str = "wg") -> None:
-        self.client.send_message(chat_id, f"<i>Generating {proto.upper()} client profile for <b>{html.escape(name)}</b>...</i>")
+        self._say(chat_id, "vpn_generating", proto=html.escape(proto.upper()), name=html.escape(name))
         try:
             if proto in ("ovpn", "openvpn"):
                 c = ovpn.add_client(name)
@@ -734,14 +753,10 @@ class CommandHandler:
                     port=self.cfg.openvpn.port
                 )
                 if not ovpn_profile:
-                    self.client.send_message(chat_id, f"Failed to generate OpenVPN profile for {name}.")
+                    self._say(chat_id, "vpn_profile_failed", proto="OpenVPN", name=html.escape(name))
                     return
 
-                caption = (
-                    f"✅ <b>OpenVPN Client Created</b>\n"
-                    f"Client Name: <b>{html.escape(name)}</b>\n"
-                    f"Assigned IP: <code>{c.get('ip') or 'DHCP Pool'}</code>"
-                )
+                caption = self._tr(chat_id, "vpn_ovpn_created", name=html.escape(name), ip=c.get("ip") or self._tr(chat_id, "vpn_dhcp_pool"))
                 self.client.send_document(
                     chat_id,
                     f"{name}.ovpn",
@@ -761,15 +776,13 @@ class CommandHandler:
                     port=self.cfg.wireguard.port
                 )
                 if not conf_str:
-                    self.client.send_message(chat_id, f"Failed to generate WireGuard config for {name}.")
+                    self._say(chat_id, "vpn_profile_failed", proto="WireGuard", name=html.escape(name))
                     return
 
                 ip_str = peer.get("allowed_ips") or peer.get("client_ip") or "10.66.66.x"
-                caption = (
-                    f"✅ <b>WireGuard Peer Created</b>\n"
-                    f"Client Name: <b>{html.escape(name)}</b>\n"
-                    f"Tunnel IP: <code>{html.escape(ip_str)}</code>\n"
-                    f"Endpoint: <code>{html.escape(str(self.cfg.wireguard.public_endpoint or 'Auto'))}:{self.cfg.wireguard.port}</code>"
+                caption = self._tr(
+                    chat_id, "vpn_wg_created", name=html.escape(name), ip=html.escape(ip_str),
+                    endpoint=f"{html.escape(str(self.cfg.wireguard.public_endpoint or 'Auto'))}:{self.cfg.wireguard.port}",
                 )
 
                 # 1. Send QR code image for instant mobile pairing
@@ -793,17 +806,17 @@ class CommandHandler:
                     chat_id,
                     f"{name}.conf",
                     conf_str.encode("utf-8"),
-                    caption=f"WireGuard Profile Configuration: <b>{html.escape(name)}.conf</b>"
+                    caption=self._tr(chat_id, "vpn_profile_caption", proto="WireGuard", file=f"{html.escape(name)}.conf")
                 )
         except Exception as e:
-            self.client.send_message(chat_id, f"Error creating VPN client: {html.escape(str(e))}")
+            self._say_error(chat_id, "VPN", e)
 
     def _vpn_send_qr(self, chat_id: int, name: str) -> None:
         try:
             peers = wg.load_peers()
             target = next((p for p in peers if p.get("name", "").lower() == name.lower() or p.get("id") == name), None)
             if not target:
-                self.client.send_message(chat_id, f"WireGuard peer <code>{html.escape(name)}</code> not found.")
+                self._say(chat_id, "vpn_wg_not_found", name=html.escape(name))
                 return
 
             qr_png = wg.get_client_qr_png_bytes(
@@ -812,17 +825,13 @@ class CommandHandler:
                 port=self.cfg.wireguard.port
             )
             if not qr_png:
-                self.client.send_message(chat_id, f"Failed to generate QR code for {name}. Ensure qrencode is installed.")
+                self._say(chat_id, "vpn_qr_failed", name=html.escape(name))
                 return
 
-            caption = (
-                f"📱 <b>WireGuard QR Code</b>: <b>{html.escape(target.get('name'))}</b>\n"
-                f"Tunnel IP: <code>{html.escape(target.get('allowed_ips') or '')}</code>\n"
-                f"Scan this image in the WireGuard mobile app to connect instantly."
-            )
+            caption = self._tr(chat_id, "vpn_qr_caption", name=html.escape(target.get("name")), ip=html.escape(target.get("allowed_ips") or ""))
             self.client.send_photo(chat_id, qr_png, caption=caption, filename=f"wireguard_{name}_qr.png")
         except Exception as e:
-            self.client.send_message(chat_id, f"Error generating QR code: {html.escape(str(e))}")
+            self._say_error(chat_id, "QR", e)
 
     def _vpn_send_conf(self, chat_id: int, name: str) -> None:
         try:
@@ -836,7 +845,7 @@ class CommandHandler:
                     port=self.cfg.wireguard.port
                 )
                 if conf_str:
-                    caption = f"WireGuard Config Profile: <b>{html.escape(wg_target.get('name'))}.conf</b>"
+                    caption = self._tr(chat_id, "vpn_profile_caption", proto="WireGuard", file=f"{html.escape(wg_target.get('name'))}.conf")
                     self.client.send_document(chat_id, f"{name}.conf", conf_str.encode("utf-8"), caption=caption)
                     return
 
@@ -850,17 +859,16 @@ class CommandHandler:
                     port=self.cfg.openvpn.port
                 )
                 if ovpn_profile:
-                    caption = f"OpenVPN Config Profile: <b>{html.escape(ov_target.get('name'))}.ovpn</b>"
+                    caption = self._tr(chat_id, "vpn_profile_caption", proto="OpenVPN", file=f"{html.escape(ov_target.get('name'))}.ovpn")
                     self.client.send_document(chat_id, f"{name}.ovpn", ovpn_profile.encode("utf-8"), caption=caption)
                     return
 
-            self.client.send_message(chat_id, f"Client profile <code>{html.escape(name)}</code> not found in WireGuard or OpenVPN.")
+            self._say(chat_id, "vpn_client_not_found", name=html.escape(name))
         except Exception as e:
-            self.client.send_message(chat_id, f"Error sending config profile: {html.escape(str(e))}")
+            self._say_error(chat_id, "VPN", e)
 
     def _vpn_toggle(self, chat_id: int, proto: str, enable: bool) -> None:
-        action = "Starting" if enable else "Stopping"
-        self.client.send_message(chat_id, f"<i>{action} {proto.upper()} server...</i>")
+        self._say(chat_id, "vpn_starting" if enable else "vpn_stopping", proto=html.escape(proto.upper()))
         try:
             if proto in ("ovpn", "openvpn"):
                 if enable:
@@ -873,8 +881,7 @@ class CommandHandler:
                     )
                 else:
                     ovpn.run_helper("openvpn-stop")
-                status = "started" if enable else "stopped"
-                self.client.send_message(chat_id, f"OpenVPN server {status} successfully.")
+                self._say(chat_id, "vpn_started" if enable else "vpn_stopped", proto="OpenVPN")
             else:
                 if enable:
                     wg.apply_configuration(
@@ -884,10 +891,9 @@ class CommandHandler:
                     )
                 else:
                     wg.run_helper("wireguard-stop")
-                status = "started" if enable else "stopped"
-                self.client.send_message(chat_id, f"WireGuard server {status} successfully.")
+                self._say(chat_id, "vpn_started" if enable else "vpn_stopped", proto="WireGuard")
         except Exception as e:
-            self.client.send_message(chat_id, f"Error toggling VPN server: {html.escape(str(e))}")
+            self._say_error(chat_id, "VPN", e)
 
     def _vpn_delete_client(self, chat_id: int, name: str) -> None:
         try:
@@ -896,7 +902,7 @@ class CommandHandler:
             wg_target = next((p for p in peers if p.get("name", "").lower() == name.lower() or p.get("id") == name), None)
             if wg_target:
                 wg.delete_peer(wg_target.get("id"))
-                self.client.send_message(chat_id, f"WireGuard peer <b>{html.escape(name)}</b> deleted.")
+                self._say(chat_id, "vpn_deleted", proto="WireGuard", name=html.escape(name))
                 return
 
             # Check OpenVPN
@@ -904,12 +910,12 @@ class CommandHandler:
             ov_target = next((c for c in clients if c.get("name", "").lower() == name.lower()), None)
             if ov_target:
                 ovpn.delete_client(ov_target.get("name"))
-                self.client.send_message(chat_id, f"OpenVPN client <b>{html.escape(name)}</b> deleted/revoked.")
+                self._say(chat_id, "vpn_deleted", proto="OpenVPN", name=html.escape(name))
                 return
 
-            self.client.send_message(chat_id, f"Client <code>{html.escape(name)}</code> not found.")
+            self._say(chat_id, "vpn_client_not_found", name=html.escape(name))
         except Exception as e:
-            self.client.send_message(chat_id, f"Error deleting client: {html.escape(str(e))}")
+            self._say_error(chat_id, "VPN", e)
 
     # =========================================================================
     # 3b. DuckDNS Dynamic DNS (DynDNS)
@@ -926,14 +932,10 @@ class CommandHandler:
 
         if subcmd in ("update", "sync", "now", "force"):
             if not d_cfg.domain or not d_cfg.token:
-                self.client.send_message(
-                    chat_id,
-                    "⚠️ <b>DuckDNS not configured</b>: Subdomain and token must be set before synchronizing.\n"
-                    "Use: <code>/dyndns domain &lt;subdomain&gt;</code> and <code>/dyndns token &lt;token&gt;</code>"
-                )
+                self._say(chat_id, "dd_not_configured")
                 return
 
-            self.client.send_message(chat_id, "⏳ <i>Triggering DuckDNS synchronization...</i>")
+            self._say(chat_id, "dd_syncing")
             detected_v6 = None
             try:
                 from nmb.netd.wireguard import get_device_addresses
@@ -941,7 +943,7 @@ class CommandHandler:
                 if v6_addrs:
                     detected_v6 = v6_addrs[0][1]
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
             res = dd.update_duckdns(
                 domain=d_cfg.domain,
@@ -952,50 +954,30 @@ class CommandHandler:
             dd.wake_duckdns_daemon()
 
             if res.get("status") == "ok" or res.get("success"):
-                ip = res.get("ip") or "detected WAN IP"
+                ip = res.get("ip") or self._tr(chat_id, "dd_detected_ip")
                 fqdn = res.get("fqdn") or f"{dd.clean_domain(d_cfg.domain)}.duckdns.org"
-                updated_tag = " (IP Updated)" if res.get("updated") else " (IP Unchanged)"
-                self.client.send_message(
-                    chat_id,
-                    f"✅ <b>DuckDNS Synced Successfully!</b>\n\n"
-                    f"• <b>Hostname:</b> <code>{html.escape(fqdn)}</code>\n"
-                    f"• <b>Public IP:</b> <code>{html.escape(ip)}</code>{updated_tag}\n"
-                    f"• <b>Status:</b> <code>{html.escape(res.get('message', 'OK'))}</code>"
-                )
+                updated_tag = self._tr(chat_id, "dd_ip_updated" if res.get("updated") else "dd_ip_unchanged")
+                self._say(chat_id, "dd_synced", fqdn=html.escape(fqdn), ip=html.escape(ip), tag=updated_tag, status=html.escape(res.get("message", "OK")))
             else:
-                self.client.send_message(
-                    chat_id,
-                    f"❌ <b>DuckDNS Update Failed:</b>\n\n"
-                    f"<code>{html.escape(res.get('message', 'Unknown error'))}</code>"
-                )
+                self._say(chat_id, "dd_failed", error=html.escape(res.get("message") or self._tr(chat_id, "unknown_error")))
             return
 
         if subcmd in ("interval", "every", "time"):
             if len(args) < 2:
                 curr_int = d_cfg.update_interval_min
-                self.client.send_message(
-                    chat_id,
-                    f"ℹ️ Current DuckDNS update interval is <b>{curr_int} minutes</b>.\n"
-                    f"Usage to change: <code>/dyndns interval &lt;minutes&gt;</code> (e.g. <code>/dyndns interval 5</code>)"
-                )
+                self._say(chat_id, "dd_interval_current", min=curr_int)
                 return
             try:
                 new_int = max(1, min(1440, int(args[1])))
             except ValueError:
-                self.client.send_message(chat_id, "❌ Invalid interval. Please specify a number between 1 and 1440.")
+                self._say(chat_id, "dd_interval_invalid")
                 return
 
             d_cfg.update_interval_min = new_int
             save_config(self.cfg)
             dd.wake_duckdns_daemon()
 
-            self.client.send_message(
-                chat_id,
-                f"✅ <b>DuckDNS Interval Updated!</b>\n\n"
-                f"• <b>New Interval:</b> <code>{new_int} minutes</code>\n"
-                f"• <b>Saved to:</b> <code>/etc/nmb/nmb.conf</code>\n"
-                f"• <b>Daemon Status:</b> Woken up immediately; new schedule active."
-            )
+            self._say(chat_id, "dd_interval_set", min=new_int)
             return
 
         if subcmd in ("on", "enable", "start"):
@@ -1003,91 +985,63 @@ class CommandHandler:
             save_config(self.cfg)
             dd.start_duckdns_service(lambda: self.cfg)
             dd.wake_duckdns_daemon()
-            self.client.send_message(
-                chat_id,
-                "✅ <b>DuckDNS updater enabled and started!</b>\n"
-                f"Hostname: <code>{html.escape(dd.clean_domain(d_cfg.domain))}.duckdns.org</code> (Interval: {d_cfg.update_interval_min}m)"
-            )
+            self._say(chat_id, "dd_enabled", host=html.escape(dd.clean_domain(d_cfg.domain)), min=d_cfg.update_interval_min)
             return
 
         if subcmd in ("off", "disable", "stop"):
             d_cfg.enabled = False
             save_config(self.cfg)
             dd.stop_duckdns_service()
-            self.client.send_message(chat_id, "⚪ <b>DuckDNS updater disabled and stopped.</b>")
+            self._say(chat_id, "dd_disabled")
             return
 
         if subcmd in ("domain", "host", "subdomain"):
             if len(args) < 2:
                 curr_dom = d_cfg.domain
-                self.client.send_message(
-                    chat_id,
-                    f"ℹ️ Current DuckDNS domain: <code>{html.escape(curr_dom or '(none)')}</code>\n"
-                    f"Usage: <code>/dyndns domain &lt;subdomain&gt;</code>"
-                )
+                self._say(chat_id, "dd_domain_current", domain=html.escape(curr_dom or self._tr(chat_id, "lbl_none")))
                 return
             new_dom = dd.clean_domain(args[1])
             d_cfg.domain = new_dom
             save_config(self.cfg)
             dd.wake_duckdns_daemon()
-            self.client.send_message(
-                chat_id,
-                f"✅ <b>DuckDNS Subdomain set to:</b> <code>{html.escape(new_dom)}.duckdns.org</code>"
-            )
+            self._say(chat_id, "dd_domain_set", domain=html.escape(new_dom))
             return
 
         if subcmd == "token":
             if len(args) < 2:
-                is_set = "Configured" if d_cfg.token else "Not configured"
-                self.client.send_message(
-                    chat_id,
-                    f"ℹ️ DuckDNS Token: <b>{is_set}</b>\n"
-                    f"Usage: <code>/dyndns token &lt;token&gt;</code>"
-                )
+                is_set = self._tr(chat_id, "lbl_configured" if d_cfg.token else "lbl_not_configured")
+                self._say(chat_id, "dd_token_current", state=is_set)
                 return
             new_tok = args[1].strip()
             d_cfg.token = new_tok
             save_config(self.cfg)
             dd.wake_duckdns_daemon()
-            self.client.send_message(
-                chat_id,
-                "✅ <b>DuckDNS Token updated & securely saved in /etc/nmb/nmb.conf!</b>"
-            )
+            self._say(chat_id, "dd_token_set")
             return
 
         # Default: Status overview
         st = dd.get_duckdns_status(self.cfg)
-        status_badge = "🟢 ENABLED (Running)" if st.get("enabled") else "⚪ DISABLED"
-        last_st = st.get("last_status", "Never Run")
+        status_badge = t("dd_enabled_badge", lang) if st.get("enabled") else t("dd_disabled_badge", lang)
+        last_st = st.get("last_status") or t("lbl_never", lang)
         last_st_badge = "🟢 OK" if last_st == "OK" else ("🔴 KO" if last_st == "KO" else html.escape(str(last_st)))
-        fqdn = st.get("fqdn") or (f"{st.get('domain')}.duckdns.org" if st.get("domain") else "<i>(Not configured)</i>")
-        wan_ip = st.get("last_ip") or st.get("detected_ip") or "<i>(Pending detection)</i>"
+        fqdn = st.get("fqdn") or (f"{st.get('domain')}.duckdns.org" if st.get("domain") else f"<i>{t('lbl_not_configured', lang)}</i>")
+        wan_ip = st.get("last_ip") or st.get("detected_ip") or f"<i>{t('dd_pending', lang)}</i>"
         interval_m = st.get("update_interval_min", 10)
-        last_up = st.get("last_update") or "Never"
+        last_up = st.get("last_update") or t("lbl_never", lang)
         next_secs = st.get("next_update_seconds", 0)
         if next_secs > 0:
             nm = next_secs // 60
             ns = next_secs % 60
-            next_str = f"in {nm}m {ns}s ({st.get('next_update', '')})"
+            next_str = t("dd_in_time", lang, m=nm, s=ns, at=st.get("next_update", ""))
         else:
             next_str = st.get("next_update") or "--"
 
-        msg = f"""<b>🦆 DuckDNS Dynamic DNS (DynDNS)</b>
-<b>Daemon Status:</b> {status_badge}
-
-• <b>FQDN:</b> <code>{fqdn}</code>
-• <b>Public WAN IP:</b> <code>{wan_ip}</code>
-• <b>Update Interval:</b> <code>{interval_m} minutes</code>
-• <b>Last Update:</b> <code>{html.escape(last_up)}</code> ({last_st_badge})
-• <b>Next Scheduled Sync:</b> <code>{html.escape(next_str)}</code>
-• <b>Token Configured:</b> {"Yes (Configured)" if st.get("token_set") else "No"}
-• <b>Last Message:</b> <i>{html.escape(st.get("last_message") or "Ready")}</i>
-
-<b>Quick Commands:</b>
-• <code>/dyndns update</code> - Force immediate sync
-• <code>/dyndns interval &lt;minutes&gt;</code> - Change sync interval
-• <code>/dyndns on</code> | <code>/dyndns off</code> - Toggle updater
-• <code>/dyndns domain &lt;name&gt;</code> - Change subdomain"""
+        msg = t(
+            "dd_status_msg", lang, status=status_badge, fqdn=fqdn, ip=wan_ip, min=interval_m,
+            last=html.escape(last_up), last_status=last_st_badge, next=html.escape(next_str),
+            token=t("lbl_yes" if st.get("token_set") else "lbl_no", lang),
+            message=html.escape(st.get("last_message") or t("lbl_ready", lang)),
+        )
         self.client.send_message(chat_id, msg)
 
     # =========================================================================
@@ -1109,45 +1063,29 @@ class CommandHandler:
             self.client.send_message(chat_id, t("adblock_disabled", lang))
         elif subcmd == "block":
             if len(args) < 2:
-                self.client.send_message(chat_id, "Usage: <code>/adblock block &lt;domain&gt;</code>")
+                self._say(chat_id, "usage", cmd="/adblock block &lt;domain&gt;")
                 return
             domain = args[1].strip()
             ab.add_blacklist_entry(domain)
             self.client.send_message(chat_id, t("adblock_blocked_msg", lang, domain=html.escape(domain)))
         elif subcmd == "unblock":
             if len(args) < 2:
-                self.client.send_message(chat_id, "Usage: <code>/adblock unblock &lt;domain&gt;</code>")
+                self._say(chat_id, "usage", cmd="/adblock unblock &lt;domain&gt;")
                 return
             domain = args[1].strip()
             ab.remove_blacklist_entry(domain)
             ab.add_whitelist_entry(domain)
             self.client.send_message(chat_id, t("adblock_unblocked_msg", lang, domain=html.escape(domain)))
         elif subcmd == "update":
-            self.client.send_message(chat_id, "<i>Updating Gravity domain blocklists in the background...</i>")
+            self._say(chat_id, "ab_updating")
             ab.trigger_gravity_update()
             self.client.send_message(chat_id, t("adblock_update_msg", lang))
         elif subcmd == "guide":
             guide = ab.get_router_dhcp_guide()
-            msg = f"""<b>📖 Home Router DHCP DNS Configuration Guide:</b>
-
-To block ads across all smartphones, PCs, laptops, and smart TVs on your home Wi-Fi:
-
-1. Log into your primary home router's admin page (e.g. <code>http://192.168.1.1</code>).
-2. Navigate to <b>LAN / DHCP Server / DNS Settings</b>.
-3. Set the <b>Primary DNS Server IP</b> to:
-   👉 <code>{html.escape(guide.get('primary_dns_ip') or guide.get('box_ip') or '192.168.1.100')}</code>
-4. Save and reboot your router (or reconnect Wi-Fi on client devices).
-
-All network devices will now instantly have ads, trackers, and telemetry sinkholed!"""
+            msg = t("ab_guide", lang, ip=html.escape(guide.get("primary_dns_ip") or guide.get("box_ip") or "192.168.1.100"))
             self.client.send_message(chat_id, msg)
         else:
-            self.client.send_message(
-                chat_id,
-                f"Unknown adblock command: <code>{html.escape(subcmd)}</code>.\n"
-                f"Usage: <code>/adblock</code>, <code>/adblock on</code>, <code>/adblock off</code>, "
-                f"<code>/adblock block &lt;domain&gt;</code>, <code>/adblock unblock &lt;domain&gt;</code>, "
-                f"<code>/adblock update</code>, <code>/adblock guide</code>"
-            )
+            self._say(chat_id, "unknown_sub", cmd=html.escape(subcmd), supported="<code>/adblock</code>, <code>/adblock on</code>, <code>/adblock off</code>, <code>/adblock block &lt;domain&gt;</code>, <code>/adblock unblock &lt;domain&gt;</code>, <code>/adblock update</code>, <code>/adblock guide</code>")
 
     def _adblock_status(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -1155,7 +1093,7 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
         try:
             stat = ab.get_full_adblock_status()
             is_enabled = stat.get("enabled", False)
-            status_badge = "🟢 ACTIVE & BLOCKING" if is_enabled else "🔴 DISABLED"
+            status_badge = t("ab_active_badge" if is_enabled else "ab_disabled_badge", lang)
 
             total_q = stat.get("total_queries_today", 0)
             blocked_q = stat.get("blocked_queries_today", 0)
@@ -1163,21 +1101,10 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
             gravity = stat.get("domains_on_blocklist", 0)
             upstreams = ", ".join(stat.get("upstream_dns_servers", [])) or "1.1.1.1, 8.8.8.8"
 
-            msg = f"""{t('adblock_title', lang)}
-
-• Status: <b>{status_badge}</b>
-• Listen Port: <code>UDP/TCP 53</code>
-• Blocklist (Gravity): <b>{gravity:,}</b> domains loaded
-• Queries Today: <b>{total_q:,}</b>
-• Blocked Today: <b>{blocked_q:,}</b> (<b>{pct:.1f}%</b> sinkholed)
-• Upstream Resolvers: <code>{html.escape(upstreams)}</code>
-
-<b>Quick Commands:</b>
-• <code>/adblock on</code> / <code>/adblock off</code> - Toggle blocking
-• <code>/adblock block &lt;domain&gt;</code> - Add domain to custom blacklist
-• <code>/adblock update</code> - Update Gravity ad sources
-• <code>/adblock guide</code> - Show router DHCP DNS instructions
-"""
+            msg = t("adblock_title", lang) + "\n\n" + t(
+                "ab_status_body", lang, status=status_badge, gravity=f"{gravity:,}", total=f"{total_q:,}",
+                blocked=f"{blocked_q:,}", pct=f"{pct:.1f}", upstreams=html.escape(upstreams),
+            )
             inline_ab = {
                 "inline_keyboard": [
                     [{"text": t("btn_disable" if is_enabled else "btn_enable", lang), "callback_data": "/adblock off" if is_enabled else "/adblock on"},
@@ -1187,7 +1114,7 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_ab)
         except Exception as e:
-            self.client.send_message(chat_id, f"Error getting adblock status: {html.escape(str(e))}")
+            self._say_error(chat_id, "Adblock", e)
 
     # =========================================================================
     # 5. Self-Healing & System Audit
@@ -1208,11 +1135,7 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
         elif subcmd == "apply":
             self._heal_apply_update(chat_id, lang)
         else:
-            self.client.send_message(
-                chat_id,
-                f"Unknown heal command: <code>{html.escape(subcmd)}</code>.\n"
-                f"Supported: <code>/heal</code>, <code>/heal fix [tier]</code>, <code>/heal updates</code>, <code>/heal apply</code>"
-            )
+            self._say(chat_id, "unknown_sub", cmd=html.escape(subcmd), supported="<code>/heal</code>, <code>/heal fix [tier]</code>, <code>/heal updates</code>, <code>/heal apply</code>")
 
     def _heal_audit(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -1244,7 +1167,7 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
                 svc_lines.append(f"  {icon} <code>{html.escape(s_name)}</code>")
 
             db_info = res.get("database", {})
-            db_status = "🟢 Integrity OK" if db_info.get("integrity_ok") else "🔴 Corrupted"
+            db_status = t("heal_db_ok" if db_info.get("integrity_ok") else "heal_db_bad", lang)
 
             title = (
                 "🩺 Rendszer-egészségügyi & Öngyógyítási Audit" if lang == "hu" else (
@@ -1258,31 +1181,24 @@ All network devices will now instantly have ads, trackers, and telemetry sinkhol
                 "Rendszerdémonok" if lang == "hu" else (
                 "System-Daemons" if lang == "de" else (
                 "Démons système" if lang == "fr" else (
-                "Си системні демони" if lang == "uk" else
+                "Системні демони" if lang == "uk" else
                 "Core System Daemons"
             ))))
 
-            msg = f"""<b>{title}</b>
-Verdict: <b>{verdict}</b>
-
-<b>{daemons_hdr}:</b>
-{chr(10).join(svc_lines)}
-
-<b>Database & Tables:</b> {db_status} (Tables: {db_info.get('table_count', 0)})
-<b>Missing Binaries:</b> {len(res.get('missing_binaries', []))}
-<b>Corrupted Symlinks:</b> {len(res.get('missing_symlinks', []))}
-
-To trigger automated repairs, use: <code>/heal fix</code>
-"""
+            msg = t(
+                "heal_body", lang, title=title, verdict=verdict, daemons=daemons_hdr, services=chr(10).join(svc_lines),
+                db=db_status, tables=db_info.get("table_count", 0),
+                binaries=len(res.get("missing_binaries", [])), symlinks=len(res.get("missing_symlinks", [])),
+            )
             self.client.send_message(chat_id, msg)
         except Exception as e:
-            self.client.send_message(chat_id, f"Audit error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Audit", e)
 
     def _heal_fix(self, chat_id: int, tier: Optional[int], lang: Optional[str] = None) -> None:
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
-        tier_msg = f" (Escalation Tier {tier})" if tier else " (Adaptive)"
-        self.client.send_message(chat_id, f"<i>Executing automated self-healing repairs{tier_msg}...</i>")
+        tier_msg = t("heal_tier", lang, tier=tier) if tier else t("heal_adaptive", lang)
+        self._say(chat_id, "heal_running", tier=tier_msg)
         try:
             res = heal.auto_heal_all(self.cfg, tier=tier)
             repairs = res.get("repairs_executed", [])
@@ -1290,23 +1206,18 @@ To trigger automated repairs, use: <code>/heal fix</code>
 
             if repairs:
                 repair_list = "\n".join(f"• {html.escape(r)}" for r in repairs)
-                msg = f"""✅ <b>Self-Healing Completed!</b>
-
-<b>Repairs Executed:</b>
-{repair_list}
-
-Remaining Issues: <b>{remaining}</b>"""
+                msg = t("heal_done", lang, repairs=repair_list, remaining=remaining)
             else:
-                msg = "✅ <b>System is already healthy</b>. No repairs required."
+                msg = t("heal_healthy", lang)
 
             self.client.send_message(chat_id, msg)
         except Exception as e:
-            self.client.send_message(chat_id, f"Self-healing error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Heal", e)
 
     def _heal_check_updates(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
-        self.client.send_message(chat_id, "<i>Checking for stable releases...</i>")
+        self._say(chat_id, "upd_checking")
         try:
             res = heal.check_stable_updates()
             cur_ver = res.get("current_version", "unknown")
@@ -1314,44 +1225,31 @@ Remaining Issues: <b>{remaining}</b>"""
             latest = res.get("latest_stable_version", cur_ver)
 
             if avail:
-                msg = f"""🔔 <b>NEW STABLE UPDATE AVAILABLE!</b>
-
-Current Version: <code>{html.escape(cur_ver)}</code>
-Latest Version: <b>{html.escape(latest)}</b>
-
-To apply with automatic safety backup & rollback:
-👉 <code>/heal apply</code>"""
+                msg = t("upd_available", lang, cur=html.escape(cur_ver), latest=html.escape(latest))
             else:
-                msg = f"✅ System is running the latest stable release: <b>{html.escape(cur_ver)}</b>."
+                msg = t("upd_latest", lang, cur=html.escape(cur_ver))
 
             self.client.send_message(chat_id, msg)
         except Exception as e:
-            self.client.send_message(chat_id, f"Error checking updates: {html.escape(str(e))}")
+            self._say_error(chat_id, "Update", e)
 
     def _heal_apply_update(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
-        self.client.send_message(chat_id, "<i>Creating safety checkpoint and applying verified update...</i>")
+        self._say(chat_id, "upd_applying")
         try:
             res = heal.apply_stable_update()
             if res.get("success"):
-                msg = f"""🎉 <b>Update Applied Successfully!</b>
-
-New Version: <b>{html.escape(res.get('new_version', ''))}</b>
-Safety Checkpoint: <code>{html.escape(res.get('checkpoint', ''))}</code>
-All automated verification unit tests passed."""
+                msg = t("upd_done", lang, ver=html.escape(res.get("new_version", "")), cp=html.escape(res.get("checkpoint", "")))
             else:
                 if res.get("rolled_back"):
-                    msg = f"""⚠️ <b>UPDATE FAILED — AUTOMATIC SAFETY ROLLBACK APPLIED!</b>
-
-Reason: <i>{html.escape(res.get('error', 'Test verification failure'))}</i>
-System safely restored to checkpoint: <code>{html.escape(res.get('checkpoint', ''))}</code>"""
+                    msg = t("upd_rolled_back", lang, error=html.escape(res.get("error") or t("unknown_error", lang)), cp=html.escape(res.get("checkpoint", "")))
                 else:
-                    msg = f"Update failed: {html.escape(res.get('error', 'Unknown error'))}"
+                    msg = t("upd_failed", lang, error=html.escape(res.get("error") or t("unknown_error", lang)))
 
             self.client.send_message(chat_id, msg)
         except Exception as e:
-            self.client.send_message(chat_id, f"Error applying update: {html.escape(str(e))}")
+            self._say_error(chat_id, "Update", e)
 
     # =========================================================================
     # 6. Tasks, Process Manager & Load
@@ -1371,7 +1269,7 @@ System safely restored to checkpoint: <code>{html.escape(res.get('checkpoint', '
             swap = summary.get("swap", {})
             disk = summary.get("disk", {})
             temp = summary.get("temperature_c")
-            temp_str = f" | Temp: <b>{temp:.1f}°C</b>" if temp is not None else ""
+            temp_str = t("tasks_temp", lang, temp=f"{temp:.1f}") if temp is not None else ""
 
             mem_used_h = format_bytes(mem.get("used", 0))
             mem_tot_h = format_bytes(mem.get("total", 0))
@@ -1385,19 +1283,14 @@ System safely restored to checkpoint: <code>{html.escape(res.get('checkpoint', '
                     f"<code>{p.get('pid'):>5} {p.get('user', '')[:6]:<6} {p.get('cpu_percent', 0.0):>4.1f}% {p.get('mem_percent', 0.0):>4.1f}% {html.escape(cmd_short)}</code>"
                 )
 
-            msg = f"""<b>📊 System Resource Load & Process Table</b>
-
-<b>CPU Usage:</b> <b>{cpu_pct:.1f}%</b> (Load: {load_avg[0]:.2f}, {load_avg[1]:.2f}, {load_avg[2]:.2f}){temp_str}
-<b>Memory:</b> <b>{mem_used_h} / {mem_tot_h}</b> ({mem.get('percent', 0.0):.1f}%)
-<b>Disk (/):</b> <b>{disk_used_h} / {disk_tot_h}</b> ({disk.get('percent', 0.0):.1f}%)
-<b>Uptime:</b> {html.escape(summary.get('uptime_human', '--'))} | Tasks: {summary.get('processes_count', 0)}
-
-<b>Top Resource-Consuming Processes:</b>
-<pre>  PID USER   CPU%  MEM% COMMAND
-{chr(10).join(proc_lines)}</pre>
-
-To kill a stuck process: <code>/kill &lt;pid&gt;</code>
-"""
+            msg = t("tasks_title", lang) + "\n\n" + t(
+                "tasks_body", lang, cpu=f"{cpu_pct:.1f}",
+                load=f"{load_avg[0]:.2f}, {load_avg[1]:.2f}, {load_avg[2]:.2f}", temp=temp_str,
+                mem=f"{mem_used_h} / {mem_tot_h}", mem_pct=f"{mem.get('percent', 0.0):.1f}",
+                disk=f"{disk_used_h} / {disk_tot_h}", disk_pct=f"{disk.get('percent', 0.0):.1f}",
+                uptime=html.escape(summary.get("uptime_human", "--")), count=summary.get("processes_count", 0),
+                procs=chr(10).join(proc_lines),
+            )
             inline_tasks = {
                 "inline_keyboard": [
                     [{"text": t("btn_refresh", lang), "callback_data": "/tasks"}, {"text": t("btn_status", lang), "callback_data": "/status"}],
@@ -1406,11 +1299,11 @@ To kill a stuck process: <code>/kill &lt;pid&gt;</code>
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_tasks)
         except Exception as e:
-            self.client.send_message(chat_id, f"Error getting tasks: {html.escape(str(e))}")
+            self._say_error(chat_id, "Tasks", e)
 
     def _cmd_kill(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
         if not args or not args[0].isdigit():
-            self.client.send_message(chat_id, "Usage: <code>/kill &lt;pid&gt; [signal_num]</code> (default signal: 15 / SIGTERM)")
+            self._say(chat_id, "usage", cmd="/kill &lt;pid&gt; [signal_num]")
             return
 
         pid = int(args[0])
@@ -1419,11 +1312,11 @@ To kill a stuck process: <code>/kill &lt;pid&gt;</code>
         try:
             res = tasks.kill_process(pid, signal_num=sig)
             if res.get("status") == "ok":
-                self.client.send_message(chat_id, f"✅ Process <code>{pid}</code> terminated (signal {sig}).")
+                self._say(chat_id, "kill_ok", pid=pid, sig=sig)
             else:
-                self.client.send_message(chat_id, f"❌ Failed to kill process {pid}: {html.escape(res.get('error', 'Unknown'))}")
+                self._say(chat_id, "kill_failed", pid=pid, error=html.escape(res.get("error") or self._tr(chat_id, "unknown_error")))
         except Exception as e:
-            self.client.send_message(chat_id, f"Kill error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Kill", e)
 
     # =========================================================================
     # 7. Wi-Fi & Guest Wi-Fi Station
@@ -1440,7 +1333,7 @@ To kill a stuck process: <code>/kill &lt;pid&gt;</code>
             self._wifi_scan(chat_id)
         elif subcmd == "connect":
             if len(args) < 2:
-                self.client.send_message(chat_id, "Usage: <code>/wifi connect &lt;ssid&gt; [password]</code>")
+                self._say(chat_id, "usage", cmd="/wifi connect &lt;ssid&gt; [password]")
                 return
             ssid = args[1].strip()
             pw = args[2].strip() if len(args) > 2 else ""
@@ -1448,11 +1341,7 @@ To kill a stuck process: <code>/kill &lt;pid&gt;</code>
         elif subcmd == "saved":
             self._wifi_saved(chat_id)
         else:
-            self.client.send_message(
-                chat_id,
-                f"Unknown wifi command: <code>{html.escape(subcmd)}</code>.\n"
-                f"Supported: <code>/wifi</code>, <code>/wifi scan</code>, <code>/wifi connect &lt;ssid&gt; [password]</code>, <code>/wifi saved</code>"
-            )
+            self._say(chat_id, "unknown_sub", cmd=html.escape(subcmd), supported="<code>/wifi</code>, <code>/wifi scan</code>, <code>/wifi connect &lt;ssid&gt; [password]</code>, <code>/wifi saved</code>")
 
     def _wifi_status(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -1462,30 +1351,24 @@ To kill a stuck process: <code>/kill &lt;pid&gt;</code>
             is_conn = stat.get("connected", False)
 
             if is_conn:
-                badge = "🟢 CONNECTED"
-                iso_badge = " [ISOLATED SUBNET VERIFIED]" if stat.get("is_isolated_subnet") else ""
-                details = (
-                    f"• SSID: <b>{html.escape(stat.get('ssid', ''))}</b>\n"
-                    f"• IP Address: <code>{html.escape(stat.get('ip_address', ''))}</code>\n"
-                    f"• Gateway: <code>{html.escape(stat.get('gateway', ''))}</code>\n"
-                    f"• Subnet: <code>{html.escape(stat.get('subnet', ''))}</code>{iso_badge}\n"
-                    f"• Signal (RSSI): <b>{stat.get('signal_percent', 0)}%</b> ({html.escape(stat.get('security', ''))})\n"
-                    f"• Interface: <code>{html.escape(stat.get('interface', 'wlan0'))}</code> (Metric: 600)"
+                badge = t("wifi_connected", lang)
+                iso_badge = t("wifi_isolated", lang) if stat.get("is_isolated_subnet") else ""
+                details = t(
+                    "wifi_details", lang, ssid=html.escape(stat.get("ssid", "")), ip=html.escape(stat.get("ip_address", "")),
+                    gw=html.escape(stat.get("gateway", "")), subnet=html.escape(stat.get("subnet", "")), iso=iso_badge,
+                    signal=stat.get("signal_percent", 0), sec=html.escape(stat.get("security", "")),
+                    iface=html.escape(stat.get("interface", "wlan0")),
                 )
             else:
-                badge = "⚪ NOT CONNECTED"
-                details = "<i>Station interface is disconnected or idle.</i>"
+                badge = t("wifi_disconnected", lang)
+                details = t("wifi_idle", lang)
 
-            msg = f"""<b>📶 Wi-Fi & Guest Wi-Fi Station Status</b>
-Status: <b>{badge}</b>
+            msg = f"""{t('wifi_title', lang)}
+{t('lbl_status', lang)}: <b>{badge}</b>
 
 {details}
 
-<b>Quick Commands:</b>
-• <code>/wifi scan</code> - Search for nearby wireless access points
-• <code>/wifi connect &lt;ssid&gt; [pw]</code> - Connect to target network
-• <code>/wifi saved</code> - List saved Wi-Fi connection profiles
-"""
+{t('wifi_commands', lang)}"""
             inline_wifi = {
                 "inline_keyboard": [
                     [{"text": t("btn_wifi_scan", lang), "callback_data": "/wifi scan"}, {"text": t("btn_probe_refresh", lang), "callback_data": "/wifi"}],
@@ -1494,33 +1377,34 @@ Status: <b>{badge}</b>
             }
             self.client.send_message(chat_id, msg, reply_markup=inline_wifi)
         except Exception as e:
-            self.client.send_message(chat_id, f"Error getting Wi-Fi status: {html.escape(str(e))}")
+            self._say_error(chat_id, "Wi-Fi", e)
 
     def _wifi_scan(self, chat_id: int) -> None:
-        self.client.send_message(chat_id, "<i>Scanning 2.4 GHz and 5 GHz wireless frequencies via wlan0...</i>")
+        self._say(chat_id, "wifi_scanning")
         try:
             nets = gw.scan_wifi_networks(interface="wlan0")
             if not nets:
-                self.client.send_message(chat_id, "No Wi-Fi access points detected.")
+                self._say(chat_id, "wifi_no_networks")
                 return
 
-            lines = [f"<b>🔍 Scanned Wi-Fi Networks ({len(nets)} found):</b>\n"]
+            lines = [self._tr(chat_id, "wifi_scan_title", count=len(nets))]
             for n in nets[:12]:
                 in_use = "🟢 " if n.get("in_use") else ""
-                ssid = n.get("ssid") or "&lt;Hidden SSID&gt;"
+                ssid_raw = n.get("ssid")
+                ssid = html.escape(ssid_raw) if ssid_raw else self._tr(chat_id, "wifi_hidden")
                 sig = n.get("signal", 0)
                 sec = n.get("security", "")
                 ch = n.get("channel", "")
 
-                lines.append(f"• {in_use}<b>{html.escape(ssid)}</b> — <b>{sig}%</b> (Ch {ch}, {html.escape(sec)})")
+                lines.append(f"• {in_use}<b>{ssid}</b> — <b>{sig}%</b> ({self._tr(chat_id, 'wifi_channel')} {ch}, {html.escape(sec)})")
 
-            lines.append("\nTo connect: <code>/wifi connect &lt;ssid&gt; [password]</code>")
+            lines.append(self._tr(chat_id, "wifi_connect_hint"))
             self.client.send_message(chat_id, "\n".join(lines))
         except Exception as e:
-            self.client.send_message(chat_id, f"Scan error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Wi-Fi", e)
 
     def _wifi_connect(self, chat_id: int, ssid: str, pw: str) -> None:
-        self.client.send_message(chat_id, f"<i>Connecting wlan0 to <b>{html.escape(ssid)}</b>...</i>")
+        self._say(chat_id, "wifi_connecting", ssid=html.escape(ssid))
         try:
             res = gw.connect_guest_wifi(
                 ssid=ssid,
@@ -1530,27 +1414,27 @@ Status: <b>{badge}</b>
                 save=True
             )
             if res.get("status") == "ok":
-                self.client.send_message(chat_id, f"✅ Connected to <b>{html.escape(ssid)}</b> successfully!")
+                self._say(chat_id, "wifi_conn_ok", ssid=html.escape(ssid))
             else:
-                self.client.send_message(chat_id, f"❌ Failed to connect to {html.escape(ssid)}: {html.escape(res.get('message', 'Unknown error'))}")
+                self._say(chat_id, "wifi_conn_failed", ssid=html.escape(ssid), error=html.escape(res.get("message") or self._tr(chat_id, "unknown_error")))
         except Exception as e:
-            self.client.send_message(chat_id, f"Connect error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Wi-Fi", e)
 
     def _wifi_saved(self, chat_id: int) -> None:
         try:
             profiles = gw.list_saved_wifi_connections()
             if not profiles:
-                self.client.send_message(chat_id, "No saved Wi-Fi profiles found.")
+                self._say(chat_id, "wifi_no_saved")
                 return
 
-            lines = ["<b>📋 Saved Wi-Fi Profiles:</b>\n"]
+            lines = [self._tr(chat_id, "wifi_saved_title")]
             for p in profiles:
-                active = "🟢 Active" if p.get("in_use") else "⚪ Saved"
+                active = self._tr(chat_id, "wifi_profile_active" if p.get("in_use") else "wifi_profile_saved")
                 lines.append(f"• <b>{html.escape(p.get('name'))}</b> ({active}) — UUID: <code>{html.escape(p.get('uuid', '--'))}</code>")
 
             self.client.send_message(chat_id, "\n".join(lines))
         except Exception as e:
-            self.client.send_message(chat_id, f"Error listing profiles: {html.escape(str(e))}")
+            self._say_error(chat_id, "Wi-Fi", e)
 
     # =========================================================================
     # 8. Backups & Disaster Recovery
@@ -1568,15 +1452,11 @@ Status: <b>{badge}</b>
             self._backup_create(chat_id, label, lang)
         elif subcmd == "send":
             if len(args) < 2:
-                self.client.send_message(chat_id, "Usage: <code>/backup send &lt;filename&gt;</code>")
+                self._say(chat_id, "usage", cmd="/backup send &lt;filename&gt;")
                 return
             self._backup_send(chat_id, args[1].strip(), lang)
         else:
-            self.client.send_message(
-                chat_id,
-                f"Unknown backup command: <code>{html.escape(subcmd)}</code>.\n"
-                f"Supported: <code>/backup list</code>, <code>/backup create [label]</code>, <code>/backup send &lt;filename&gt;</code>"
-            )
+            self._say(chat_id, "unknown_sub", cmd=html.escape(subcmd), supported="<code>/backup list</code>, <code>/backup create [label]</code>, <code>/backup send &lt;filename&gt;</code>")
 
     def _backup_list(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -1593,7 +1473,7 @@ Status: <b>{badge}</b>
                 dt = b.get("created_at", "")
                 fname = b.get("filename", "")
                 type_label = b.get("type", "full")
-                lines.append(f"• <code>{html.escape(fname)}</code>\n  {dt} | {sz} | Type: {type_label}")
+                lines.append(f"• <code>{html.escape(fname)}</code>\n  {dt} | {sz} | {t('backup_type', lang)}: {type_label}")
 
             tip_label = (
                 "Letöltés mobilra" if lang == "hu" else (
@@ -1605,7 +1485,7 @@ Status: <b>{badge}</b>
             lines.append(f"\n{tip_label}: <code>/backup send &lt;filename&gt;</code>")
             self.client.send_message(chat_id, "\n".join(lines))
         except Exception as e:
-            self.client.send_message(chat_id, f"Error listing backups: {html.escape(str(e))}")
+            self._say_error(chat_id, "Backup", e)
 
     def _backup_create(self, chat_id: int, label: str, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -1626,7 +1506,7 @@ Status: <b>{badge}</b>
             msg = t("backup_created", lang, fname=html.escape(fname), size=sz)
             self.client.send_message(chat_id, msg)
         except Exception as e:
-            self.client.send_message(chat_id, f"Backup error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Backup", e)
 
     def _backup_send(self, chat_id: int, filename: str, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -1654,12 +1534,12 @@ Status: <b>{badge}</b>
         self.client.send_message(chat_id, up_label)
         try:
             data = path.read_bytes()
-            caption = f"📦 <b>NetworkMeasureBox Backup Archive</b>\nFilename: <code>{html.escape(clean_name)}</code> ({format_bytes(len(data))})"
+            caption = t("backup_caption", lang, file=html.escape(clean_name), size=format_bytes(len(data)))
             ok = self.client.send_document(chat_id, clean_name, data, caption=caption)
             if not ok:
-                self.client.send_message(chat_id, "Failed to send backup archive.")
+                self._say(chat_id, "backup_send_failed")
         except Exception as e:
-            self.client.send_message(chat_id, f"Upload error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Backup", e)
 
     # =========================================================================
     # 9. Hardware Drivers
@@ -1686,11 +1566,11 @@ Status: <b>{badge}</b>
                 lines.append(no_ctrl)
             else:
                 for c in controllers:
-                    chip = c.get("chipset_name") or c.get("device_name") or ("Hálózati vezérlő" if lang == "hu" else "Network Controller")
+                    chip = c.get("chipset_name") or c.get("device_name") or t("drivers_controller", lang)
                     iface = c.get("interface") or "N/A"
                     driver_name = c.get("driver") or "generic"
                     bus = c.get("bus_type", "pci").upper()
-                    lines.append(f"• <b>{html.escape(chip)}</b>\n  Interface: <code>{html.escape(iface)}</code> | Driver: <code>{html.escape(driver_name)}</code> ({bus})")
+                    lines.append(t("drivers_row", lang, chip=html.escape(chip), iface=html.escape(iface), driver=html.escape(driver_name), bus=bus))
 
             if missing_fw:
                 fw_label = (
@@ -1716,7 +1596,7 @@ Status: <b>{badge}</b>
 
             self.client.send_message(chat_id, "\n".join(lines))
         except Exception as e:
-            self.client.send_message(chat_id, f"Error getting driver status: {html.escape(str(e))}")
+            self._say_error(chat_id, "Drivers", e)
 
     # =========================================================================
     # 10. System Reboot
@@ -1733,4 +1613,4 @@ Status: <b>{badge}</b>
         try:
             subprocess.Popen(["sudo", "systemctl", "reboot"])
         except Exception as e:
-            self.client.send_message(chat_id, f"Reboot error: {html.escape(str(e))}")
+            self._say_error(chat_id, "Reboot", e)

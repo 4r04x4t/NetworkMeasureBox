@@ -173,7 +173,7 @@ def enrich_hop_ips(hops: List[Dict[str, Any]]) -> None:
                                         "as": connection.get("asn", ""),
                                     }
                         except Exception:
-                            pass
+                            log.debug("suppressed exception", exc_info=True)
 
     # Map enriched data onto each hop
     with _cache_lock:
@@ -244,7 +244,7 @@ def _force_kill_proc(proc: subprocess.Popen) -> None:
         if proc.poll() is None:
             proc.kill()
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
 
 def _parse_traceroute_line(line: str) -> Optional[Dict[str, Any]]:
@@ -541,7 +541,7 @@ def run_traceroute(
                         try:
                             proc.terminate()
                         except Exception:
-                            pass
+                            log.debug("suppressed exception", exc_info=True)
                         break
 
             try:
@@ -550,7 +550,7 @@ def run_traceroute(
                 try:
                     proc.kill()
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
 
         elif is_tracepath_available():
             # Tracepath fallback
@@ -586,7 +586,7 @@ def run_traceroute(
             try:
                 proc.wait(timeout=2.0)
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
         else:
             # Fallback pure ping TTL engine

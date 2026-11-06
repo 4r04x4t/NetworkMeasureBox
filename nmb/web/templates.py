@@ -14,7 +14,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     initial_translations = json.dumps(get_translations_for_lang(initial_lang))
 
     html = """<!DOCTYPE html>
-<html lang="en" data-theme="__NMB_INITIAL_THEME__">
+<html lang="__NMB_INITIAL_LANG__" data-theme="__NMB_INITIAL_THEME__">
 <head>
   <meta charset="utf-8">
   <script>
@@ -681,7 +681,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       display: none;
       background: #0284c7;
       color: #ffffff;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
       padding: 2px 7px;
       border-radius: 10px;
@@ -798,7 +798,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
     .devlog-ts { color: #64748b; font-size: 11px; flex-shrink: 0; min-width: 145px; }
     .devlog-badge {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
       padding: 1px 5px;
       border-radius: 3px;
@@ -813,7 +813,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     .devlog-badge-warn  { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
     .devlog-badge-error { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
     .devlog-meta { color: #818cf8; font-size: 11px; flex-shrink: 0; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .devlog-thread { color: #eab308; font-size: 10.5px; flex-shrink: 0; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .devlog-thread { color: #eab308; font-size: 11px; flex-shrink: 0; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .devlog-msg { color: #f1f5f9; flex: 1; word-break: break-word; }
     .devlog-exc { color: #f87171; background: rgba(239, 68, 68, 0.08); padding: 4px 8px; border-radius: 4px; margin-top: 4px; font-size: 11px; border-left: 3px solid #ef4444; }
     .devlog-footer {
@@ -886,7 +886,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       color: #fde047;
     }
     .syslog-badge-tag {
-      font-size: 10px;
+      font-size: 11px;
       padding: 1px 4px;
       border-radius: 3px;
       margin-right: 6px;
@@ -899,7 +899,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     .syslog-badge-warn { background: #78350f; color: #fde047; }
 
     /* ========================================================================= */
-    /* THEME 1: DEFAULT (NMHH Dark Telecom WebUI)                                */
+    /* THEME 1: DEFAULT (Dark Telecom WebUI)                                */
     /* ========================================================================= */
     [data-theme="default"] select, [data-theme="default"] .hdr-select { color-scheme: dark; }
     [data-theme="default"] select option, [data-theme="default"] .hdr-select option { background-color: #0f172a !important; color: #f1f5f9 !important; }
@@ -2555,7 +2555,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         min-height: 280px !important;
       }
       .cli-quick-btns button {
-        font-size: 10.5px;
+        font-size: 11px;
         padding: 4px 8px;
       }
 
@@ -2713,10 +2713,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       .syslog-ts {
         min-width: auto !important;
-        font-size: 10px !important;
+        font-size: 11px !important;
       }
       .syslog-tag {
-        font-size: 10px !important;
+        font-size: 11px !important;
         padding: 1px 4px !important;
       }
       .syslog-msg {
@@ -2805,11 +2805,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         padding: 10px 8px !important;
       }
       table.data-table th, table.data-table td {
-        font-size: 10.5px !important;
+        font-size: 11px !important;
         padding: 5px 6px !important;
       }
     }
 
+  
+    :focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+    @media (max-width: 768px) { table.data-table { display: block; overflow-x: auto; } }
   </style>
 </head>
 <body>
@@ -2859,7 +2862,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <span id="hdr-auth-badge" style="display: none; font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
           👤 <span id="hdr-auth-user">admin</span>
         </span>
-        <button id="btn-logout" class="btn-logout" onclick="performLogout()" title="Logout" data-i18n-title="logout_btn">
+        <button type="button" id="btn-logout" class="btn-logout" onclick="performLogout()" title="Logout" data-i18n-title="logout_btn">
           🚪 <span data-i18n="logout_btn">Logout</span>
         </button>
       </div>
@@ -2871,25 +2874,25 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
   <!-- Tab Navigation -->
   <div class="app-tabs">
-    <button class="app-tab-btn active" onclick="switchTab('tab-home')" data-i18n="tab_home">Dashboard</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-ping')" data-i18n="tab_ping">Ping Telemetry</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-speed')" data-i18n="tab_speed">Speed Results</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-iperf')" data-i18n="tab_iperf">⚡ iPerf3 Tests</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-traceroute')" data-i18n="tab_traceroute">🔍 Traceroute</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-adblock')" data-i18n="tab_adblock">🛡️ DNS Ad-Blocker</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-ooni')" data-i18n="tab_ooni">🛡️ Censorship (OONI)</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-remote')" data-i18n="tab_remote">🌐 Remote Access & VPN</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-explorer')" data-i18n="tab_explorer">🌐 Network Explorer</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-sniffer')" data-i18n="tab_sniffer">📡 Packet Sniffer</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-qos')" data-i18n="tab_qos">📊 Bandwidth Monitor</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-portscan')" data-i18n="tab_portscan">Port Neutrality</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-script')" data-i18n="tab_script">Measurement & Servers</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-syslog')" data-i18n="tab_syslog">🛠️ Developer & System Logs</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminal</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-tasks')" data-i18n="tab_tasks">📊 Tasks & Load</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-info')" data-i18n="tab_router">🛠️ Router & System</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-telegram')" data-i18n="tab_telegram">💬 Telegram Bot</button>
-    <button class="app-tab-btn" onclick="switchTab('tab-llm')" data-i18n="tab_llm">🤖 AI Diagnostics (LLM)</button>
+    <button type="button" class="app-tab-btn active" onclick="switchTab('tab-home')" data-i18n="tab_home">Dashboard</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-ping')" data-i18n="tab_ping">Ping Telemetry</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-speed')" data-i18n="tab_speed">Speed Results</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-iperf')" data-i18n="tab_iperf">⚡ iPerf3 Tests</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-traceroute')" data-i18n="tab_traceroute">🔍 Traceroute</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-adblock')" data-i18n="tab_adblock">🛡️ DNS Ad-Blocker</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-ooni')" data-i18n="tab_ooni">🛡️ Censorship (OONI)</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-remote')" data-i18n="tab_remote">🌐 Remote Access & VPN</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-explorer')" data-i18n="tab_explorer">🌐 Network Explorer</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-sniffer')" data-i18n="tab_sniffer">📡 Packet Sniffer</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-qos')" data-i18n="tab_qos">📊 Bandwidth Monitor</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-portscan')" data-i18n="tab_portscan">Port Neutrality</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-script')" data-i18n="tab_script">Measurement & Servers</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-syslog')" data-i18n="tab_syslog">🛠️ Developer & System Logs</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-terminal')" data-i18n="tab_terminal">💻 CLI Terminal</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-tasks')" data-i18n="tab_tasks">📊 Tasks & Load</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-info')" data-i18n="tab_router">🛠️ Router & System</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-telegram')" data-i18n="tab_telegram">💬 Telegram Bot</button>
+    <button type="button" class="app-tab-btn" onclick="switchTab('tab-llm')" data-i18n="tab_llm">🤖 AI Diagnostics (LLM)</button>
   </div>
 
   <!-- TAB 1: DASHBOARD -->
@@ -2909,7 +2912,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div style="color: #cbd5e1; font-size: 13px;" data-i18n="default_pass_warn_desc">Default administrator credentials active. Please update in Settings!</div>
         </div>
       </div>
-      <button class="btn btn-secondary" onclick="switchTab('tab-config')" style="white-space: nowrap; font-size: 12px; padding: 6px 12px; border-color: #f59e0b; color: #fbbf24;" data-i18n="btn_change_password">
+      <button type="button" class="btn btn-secondary" onclick="switchTab('tab-config')" style="white-space: nowrap; font-size: 12px; padding: 6px 12px; border-color: #f59e0b; color: #fbbf24;" data-i18n="btn_change_password">
         ⚙️ Change Password / Settings
       </button>
     </div>
@@ -2950,7 +2953,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 11.5px; color: #64748b;" data-i18n="settings_synced">(Settings synchronized)</span>
-          <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchTab('tab-script')" data-i18n="btn_schedule_settings">⚙️ Schedule Settings ➔</button>
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchTab('tab-script')" data-i18n="btn_schedule_settings">⚙️ Schedule Settings ➔</button>
         </div>
       </div>
     </div>
@@ -2971,7 +2974,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </select>
           <div id="home-custom-server-wrap" style="display: none; align-items: center; gap: 6px;">
             <input type="text" id="home-custom-server-id" placeholder="e.g. 31717" class="form-input" style="width: 100px; padding: 7px 10px; font-size: 13px;">
-            <button class="btn-primary" style="padding: 7px 12px; font-size: 12px;" onclick="applyHomeCustomServer()">Select</button>
+            <button type="button" class="btn-primary" style="padding: 7px 12px; font-size: 12px;" onclick="applyHomeCustomServer()">Select</button>
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -3012,7 +3015,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <span id="home-mode-badge" class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">
           🟢 Automated Schedule Active
         </span>
-        <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-script')">⚙️ Configure Schedule</button>
+        <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-script')">⚙️ Configure Schedule</button>
       </div>
     </div>
 
@@ -3031,16 +3034,16 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div style="margin-top: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <div class="section-subtitle" style="margin: 0;" data-i18n="executed_cmd_title">Real-time Executed Linux Command & Telemetry Output:</div>
-          <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="copyScriptToClipboard()" data-i18n="btn_copy_cmd">📋 Copy Command</button>
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="copyScriptToClipboard()" data-i18n="btn_copy_cmd">📋 Copy Command</button>
         </div>
         <pre id="home-script-box" class="terminal-box">#!/bin/sh
 # Real-time executed command updates dynamically when measurement is started</pre>
       </div>
 
       <div class="action-buttons-row">
-        <button class="btn-primary" id="btn-home-measure" onclick="triggerSpeedtest()" data-i18n="btn_measure_now">▶️ Run Speedtest Now</button>
-        <button class="btn-danger" id="btn-home-stop" onclick="stopSpeedtest()" data-i18n="btn_stop_measure">⏹️ Stop Measurement</button>
-        <button class="btn-secondary" onclick="window.open('/dossier', '_blank')" data-i18n="btn_dossier">📄 Export Official Report (Dossier)</button>
+        <button type="button" class="btn-primary" id="btn-home-measure" onclick="triggerSpeedtest()" data-i18n="btn_measure_now">▶️ Run Speedtest Now</button>
+        <button type="button" class="btn-danger" id="btn-home-stop" onclick="stopSpeedtest()" data-i18n="btn_stop_measure">⏹️ Stop Measurement</button>
+        <button type="button" class="btn-secondary" onclick="window.open('/dossier', '_blank')" data-i18n="btn_dossier">📄 Export Official Report (Dossier)</button>
       </div>
     </div>
   </div>
@@ -3051,8 +3054,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
         <div class="section-subtitle" style="margin: 0;" data-i18n="ping_title">ICMP Ping Telemetry & Gateway Latency</div>
         <div style="display: flex; gap: 8px; align-items: center;">
-          <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-speed'); setSpeedChartMode('combined');" data-i18n="btn_combined_speed_ping_chart">📊 Combined Speed & Ping Chart</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/csv'" data-i18n="btn_ping_export_csv">📡 Ping CSV Export</button>
+          <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-speed'); setSpeedChartMode('combined');" data-i18n="btn_combined_speed_ping_chart">📊 Combined Speed & Ping Chart</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/csv'" data-i18n="btn_ping_export_csv">📡 Ping CSV Export</button>
         </div>
       </div>
       <div id="chart-latency-container" style="background: #070d18; border-radius: 6px; padding: 12px; margin-bottom: 20px; border: 1px solid var(--border-color);">
@@ -3095,9 +3098,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" data-i18n="speed_desc">Complete audit trail of all speed tests with provider SLA tracking, latency, and bufferbloat metrics.</p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="triggerSpeedtest()" data-i18n="btn_measure_now">▶️ Run Speedtest Now</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests.csv'" data-i18n="btn_speed_export_csv">📊 Speedtest CSV Export</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/nmhh_speedtests.csv'" data-i18n="btn_nmhh_export_csv">📋 Broadband Speedtest CSV Export</button>
+          <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="triggerSpeedtest()" data-i18n="btn_measure_now">▶️ Run Speedtest Now</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests.csv'" data-i18n="btn_speed_export_csv">📊 Speedtest CSV Export</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests_detailed.csv'" data-i18n="btn_nmhh_export_csv">📋 Broadband Speedtest CSV Export</button>
         </div>
       </div>
 
@@ -3115,13 +3118,13 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </div>
           <!-- Chart Mode Switcher Buttons -->
           <div style="display: flex; gap: 6px; background: rgba(15, 23, 42, 0.6); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color); flex-wrap: wrap;">
-            <button id="btn-speed-chart-mode-combined" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('combined')" data-i18n="speed_chart_mode_combined">
+            <button type="button" id="btn-speed-chart-mode-combined" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('combined')" data-i18n="speed_chart_mode_combined">
               📊 Combined (Throughput + Latency)
             </button>
-            <button id="btn-speed-chart-mode-throughput" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('throughput')" data-i18n="speed_chart_mode_throughput">
+            <button type="button" id="btn-speed-chart-mode-throughput" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('throughput')" data-i18n="speed_chart_mode_throughput">
               🚀 Throughput Only (Mbps)
             </button>
-            <button id="btn-speed-chart-mode-latency" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('latency')" data-i18n="speed_chart_mode_latency">
+            <button type="button" id="btn-speed-chart-mode-latency" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="setSpeedChartMode('latency')" data-i18n="speed_chart_mode_latency">
               ⏱️ Latency Only (ms)
             </button>
           </div>
@@ -3207,7 +3210,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <span id="iperf-server-badge" class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569;">
             Daemon: Inactive
           </span>
-          <button id="btn-iperf-server-toggle" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="toggleIperfServer()">
+          <button type="button" id="btn-iperf-server-toggle" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="toggleIperfServer()">
             ▶️ Start iPerf Server
           </button>
         </div>
@@ -3220,10 +3223,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             🛠️ Client Benchmark Configuration
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <button class="btn-secondary" style="font-size: 12px; padding: 6px 13px; display: inline-flex; align-items: center; gap: 6px;" onclick="openPublicServersModal('client')">
+            <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 13px; display: inline-flex; align-items: center; gap: 6px;" onclick="openPublicServersModal('client')">
               🌐 Browse Public Servers (170+ Global)
             </button>
-            <button class="btn-secondary" style="font-size: 12px; padding: 6px 13px; display: inline-flex; align-items: center; gap: 6px;" onclick="probeCurrentIperfServer()">
+            <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 13px; display: inline-flex; align-items: center; gap: 6px;" onclick="probeCurrentIperfServer()">
               ⚡ Ping Server
             </button>
           </div>
@@ -3277,7 +3280,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </div>
         </div>
         <div style="margin-top: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <button id="btn-iperf-run" class="btn-primary" style="padding: 9px 20px;" onclick="runIperfTest()">
+          <button type="button" id="btn-iperf-run" class="btn-primary" style="padding: 9px 20px;" onclick="runIperfTest()">
             ▶️ Run iPerf3 Benchmark
           </button>
           <span id="iperf-running-indicator" style="display: none; color: #38bdf8; font-size: 13px; font-weight: 600;">
@@ -3341,20 +3344,20 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               Dynamically fetched from global directories (export.iperf3serverlist.net & iperf.fr). Zero hardcoding.
             </div>
           </div>
-          <button onclick="closePublicServersModal()" style="background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer; padding: 4px 8px;">✕</button>
+          <button type="button" onclick="closePublicServersModal()" style="background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer; padding: 4px 8px;">✕</button>
         </div>
 
         <!-- Controls & Search -->
         <div style="padding: 12px 20px; border-bottom: 1px solid #1e293b; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; background: #090e1a;">
           <input type="text" id="iperf-modal-search" placeholder="Search by Country, City, Host, or Provider (e.g. Vienna, DATAPACKET)..." class="form-input" style="flex: 1; min-width: 240px; padding: 7px 12px; font-size: 12.5px;" oninput="onPublicServerSearch(this.value)">
           <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="iperf-modal-continents">
-            <button class="btn-secondary active-filter" onclick="filterPublicContinent('all', this)" style="font-size: 11.5px; padding: 5px 10px;">All</button>
-            <button class="btn-secondary" onclick="filterPublicContinent('Europe', this)" style="font-size: 11.5px; padding: 5px 10px;">🇪🇺 Europe</button>
-            <button class="btn-secondary" onclick="filterPublicContinent('North America', this)" style="font-size: 11.5px; padding: 5px 10px;">🇺🇸 North America</button>
-            <button class="btn-secondary" onclick="filterPublicContinent('Asia', this)" style="font-size: 11.5px; padding: 5px 10px;">🌏 Asia</button>
-            <button class="btn-secondary" onclick="filterPublicContinent('Other', this)" style="font-size: 11.5px; padding: 5px 10px;">Other</button>
+            <button type="button" class="btn-secondary active-filter" onclick="filterPublicContinent('all', this)" style="font-size: 11.5px; padding: 5px 10px;">All</button>
+            <button type="button" class="btn-secondary" onclick="filterPublicContinent('Europe', this)" style="font-size: 11.5px; padding: 5px 10px;">🇪🇺 Europe</button>
+            <button type="button" class="btn-secondary" onclick="filterPublicContinent('North America', this)" style="font-size: 11.5px; padding: 5px 10px;">🇺🇸 North America</button>
+            <button type="button" class="btn-secondary" onclick="filterPublicContinent('Asia', this)" style="font-size: 11.5px; padding: 5px 10px;">🌏 Asia</button>
+            <button type="button" class="btn-secondary" onclick="filterPublicContinent('Other', this)" style="font-size: 11.5px; padding: 5px 10px;">Other</button>
           </div>
-          <button class="btn-secondary" onclick="loadPublicServers(true)" style="font-size: 11.5px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 4px;">
+          <button type="button" class="btn-secondary" onclick="loadPublicServers(true)" style="font-size: 11.5px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 4px;">
             🔄 Refresh
           </button>
         </div>
@@ -3367,7 +3370,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <!-- Footer -->
         <div style="padding: 10px 20px; border-top: 1px solid #1e293b; background: #0f172a; display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #94a3b8;">
           <span id="iperf-modal-source-label">Source: iperf3serverlist.net (live JSON)</span>
-          <button class="btn-secondary" onclick="closePublicServersModal()" style="font-size: 12px; padding: 5px 14px;">Close</button>
+          <button type="button" class="btn-secondary" onclick="closePublicServersModal()" style="font-size: 12px; padding: 5px 14px;">Close</button>
         </div>
       </div>
     </div>
@@ -3384,7 +3387,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </p>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button id="btn-traceroute-copy" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="copyTracerouteText()" data-i18n="traceroute_btn_copy">
+          <button type="button" id="btn-traceroute-copy" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="copyTracerouteText()" data-i18n="traceroute_btn_copy">
             📋 Copy Route
           </button>
         </div>
@@ -3418,10 +3421,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <input type="number" id="traceroute-max-hops" value="30" min="1" max="64" class="form-input">
           </div>
           <div style="display: flex; gap: 8px;">
-            <button id="btn-traceroute-run" class="btn-primary" style="padding: 9px 18px;" onclick="runTracerouteTest()" data-i18n="traceroute_btn_trace">
+            <button type="button" id="btn-traceroute-run" class="btn-primary" style="padding: 9px 18px;" onclick="runTracerouteTest()" data-i18n="traceroute_btn_trace">
               ▶️ Trace Route
             </button>
-            <button id="btn-traceroute-stop" class="btn-danger" style="display: none; padding: 9px 16px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #f87171; border-radius: 6px; font-weight: 600; cursor: pointer;" onclick="stopTracerouteTest()" data-i18n="traceroute_btn_stop">
+            <button type="button" id="btn-traceroute-stop" class="btn-danger" style="display: none; padding: 9px 16px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #f87171; border-radius: 6px; font-weight: 600; cursor: pointer;" onclick="stopTracerouteTest()" data-i18n="traceroute_btn_stop">
               ⏹️ Stop Trace
             </button>
           </div>
@@ -3507,7 +3510,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
           <!-- Dropdown Toggle Menu for Pause / Disablement -->
           <div style="position: relative; display: inline-block;">
-            <button id="btn-toggle-adblock" class="btn-primary" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); cursor: pointer;" onclick="toggleAdblockDisableMenu(event)">
+            <button type="button" id="btn-toggle-adblock" class="btn-primary" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); cursor: pointer;" onclick="toggleAdblockDisableMenu(event)">
               <span data-i18n="adblock_active_btn">🛡️ Ad-Blocker: Active ▾</span>
             </button>
             <div id="adblock-disable-menu" style="display: none; position: absolute; top: calc(100% + 5px); right: 0; background: #0f172a; border: 1px solid #334155; border-radius: 8px; min-width: 220px; box-shadow: 0 10px 25px rgba(0,0,0,0.6); z-index: 100; overflow: hidden;">
@@ -3523,10 +3526,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <!-- Countdown timer badge when paused -->
           <span id="adblock-pause-countdown" style="display: none; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 12px; padding: 5px 10px; border-radius: 6px; font-weight: 700; align-items: center; gap: 8px;">
             <span><span data-i18n="adblock_paused_label">⏸️ Paused:</span> <b id="adblock-pause-timer-txt">00:00</b></span>
-            <button class="btn-primary" style="font-size: 10.5px; padding: 2px 8px; background: #10b981;" onclick="resumeAdblock()" data-i18n="adblock_enable">Enable</button>
+            <button type="button" class="btn-primary" style="font-size: 11px; padding: 2px 8px; background: #10b981;" onclick="resumeAdblock()" data-i18n="adblock_enable">Enable</button>
           </span>
 
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="updateGravity()" data-i18n="adblock_btn_update">
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="updateGravity()" data-i18n="adblock_btn_update">
             🔄 Update Gravity
           </button>
         </div>
@@ -3534,12 +3537,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
       <!-- Navigation Subtabs Bar -->
       <div class="adblock-subnav">
-        <button id="btn-adblock-subtab-dash" class="adblock-subtab-btn active" onclick="switchAdblockSubtab('dash')" data-i18n="adblock_subtab_dash">📊 Overview & Statistics</button>
-        <button id="btn-adblock-subtab-log" class="adblock-subtab-btn" onclick="switchAdblockSubtab('log')" data-i18n="adblock_subtab_log">📋 Query Log</button>
-        <button id="btn-adblock-subtab-domains" class="adblock-subtab-btn" onclick="switchAdblockSubtab('domains')" data-i18n="adblock_subtab_domains">🛡️ Domains & RegEx</button>
-        <button id="btn-adblock-subtab-adlists" class="adblock-subtab-btn" onclick="switchAdblockSubtab('adlists')" data-i18n="adblock_subtab_adlists">🌐 Blocklists (Gravity)</button>
-        <button id="btn-adblock-subtab-localdns" class="adblock-subtab-btn" onclick="switchAdblockSubtab('localdns')" data-i18n="adblock_subtab_localdns">🏠 Helyi DNS Rekordok</button>
-        <button id="btn-adblock-subtab-guide" class="adblock-subtab-btn" onclick="switchAdblockSubtab('guide')" data-i18n="adblock_subtab_guide">📖 Router Guide</button>
+        <button type="button" id="btn-adblock-subtab-dash" class="adblock-subtab-btn active" onclick="switchAdblockSubtab('dash')" data-i18n="adblock_subtab_dash">📊 Overview & Statistics</button>
+        <button type="button" id="btn-adblock-subtab-log" class="adblock-subtab-btn" onclick="switchAdblockSubtab('log')" data-i18n="adblock_subtab_log">📋 Query Log</button>
+        <button type="button" id="btn-adblock-subtab-domains" class="adblock-subtab-btn" onclick="switchAdblockSubtab('domains')" data-i18n="adblock_subtab_domains">🛡️ Domains & RegEx</button>
+        <button type="button" id="btn-adblock-subtab-adlists" class="adblock-subtab-btn" onclick="switchAdblockSubtab('adlists')" data-i18n="adblock_subtab_adlists">🌐 Blocklists (Gravity)</button>
+        <button type="button" id="btn-adblock-subtab-localdns" class="adblock-subtab-btn" onclick="switchAdblockSubtab('localdns')" data-i18n="adblock_subtab_localdns">🏠 Helyi DNS Rekordok</button>
+        <button type="button" id="btn-adblock-subtab-guide" class="adblock-subtab-btn" onclick="switchAdblockSubtab('guide')" data-i18n="adblock_subtab_guide">📖 Router Guide</button>
       </div>
 
       <!-- SUBTAB 1: OVERVIEW & TELEMETRY DASHBOARD -->
@@ -3674,14 +3677,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div id="subtab-adblock-log" class="adblock-subtab-pane" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            <button id="btn-adblock-filter-all" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="setAdblockLogFilter('all')" data-i18n="adblock_filter_all">All</button>
-            <button id="btn-adblock-filter-blocked" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #f87171;" onclick="setAdblockLogFilter('BLOCKED')" data-i18n="adblock_filter_blocked">🛑 Blocked</button>
-            <button id="btn-adblock-filter-allowed" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #34d399;" onclick="setAdblockLogFilter('ALLOWED')" data-i18n="adblock_filter_allowed">🟢 Allowed</button>
-            <button id="btn-adblock-filter-cached" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #38bdf8;" onclick="setAdblockLogFilter('CACHED')" data-i18n="adblock_filter_cached">⚡ Cached</button>
+            <button type="button" id="btn-adblock-filter-all" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="setAdblockLogFilter('all')" data-i18n="adblock_filter_all">All</button>
+            <button type="button" id="btn-adblock-filter-blocked" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #f87171;" onclick="setAdblockLogFilter('BLOCKED')" data-i18n="adblock_filter_blocked">🛑 Blocked</button>
+            <button type="button" id="btn-adblock-filter-allowed" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #34d399;" onclick="setAdblockLogFilter('ALLOWED')" data-i18n="adblock_filter_allowed">🟢 Allowed</button>
+            <button type="button" id="btn-adblock-filter-cached" class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px; color: #38bdf8;" onclick="setAdblockLogFilter('CACHED')" data-i18n="adblock_filter_cached">⚡ Cached</button>
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="text" id="adblock-log-filter" placeholder="Search domain or client IP..." data-i18n-placeholder="adblock_log_search_ph" onkeyup="filterAdblockLog()" style="padding: 6px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff; width: 220px;">
-            <button class="btn-secondary" style="font-size: 11.5px; padding: 6px 12px;" onclick="loadAdblockQueryLog()" data-i18n="btn_refresh">🔄 Refresh</button>
+            <button type="button" class="btn-secondary" style="font-size: 11.5px; padding: 6px 12px;" onclick="loadAdblockQueryLog()" data-i18n="btn_refresh">🔄 Refresh</button>
           </div>
         </div>
 
@@ -3716,7 +3719,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
               <input type="text" id="adblock-wl-input" placeholder="e.g. example.com" data-i18n-placeholder="adblock_wl_input_ph" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-              <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockWhitelist()" data-i18n="btn_add">➕ Add</button>
+              <button type="button" class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockWhitelist()" data-i18n="btn_add">➕ Add</button>
             </div>
             <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
               <table class="data-table" style="margin: 0; width: 100%;">
@@ -3735,7 +3738,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
               <input type="text" id="adblock-bl-input" placeholder="e.g. tracker.badsite.com" data-i18n-placeholder="adblock_bl_input_ph" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-              <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockBlacklist()" data-i18n="btn_add">➕ Add</button>
+              <button type="button" class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockBlacklist()" data-i18n="btn_add">➕ Add</button>
             </div>
             <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
               <table class="data-table" style="margin: 0; width: 100%;">
@@ -3754,7 +3757,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
               <input type="text" id="adblock-regex-wl-input" placeholder="e.g. .*\\.trusted\\.domain$" data-i18n-placeholder="adblock_regex_wl_ph" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-              <button class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockRegexFilter('white')" data-i18n="btn_add_regex">➕ RegEx</button>
+              <button type="button" class="btn-primary" style="font-size: 11.5px; padding: 6px 12px; background: #059669;" onclick="addAdblockRegexFilter('white')" data-i18n="btn_add_regex">➕ RegEx</button>
             </div>
             <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
               <table class="data-table" style="margin: 0; width: 100%;">
@@ -3773,7 +3776,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 12px;">
               <input type="text" id="adblock-regex-bl-input" placeholder="e.g. ^telemetry\\..*" data-i18n-placeholder="adblock_regex_bl_ph" style="flex: 1; padding: 6px 10px; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-              <button class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockRegexFilter('black')" data-i18n="btn_add_regex">➕ RegEx</button>
+              <button type="button" class="btn-danger" style="font-size: 11.5px; padding: 6px 12px;" onclick="addAdblockRegexFilter('black')" data-i18n="btn_add_regex">➕ RegEx</button>
             </div>
             <div style="max-height: 180px; overflow-y: auto; border: 1px solid #1e293b; border-radius: 6px;">
               <table class="data-table" style="margin: 0; width: 100%;">
@@ -3795,7 +3798,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               Enable or add external curated blocklists (StevenBlack, AdAway, Peter Lowe, etc.).
             </p>
           </div>
-          <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #0284c7;" onclick="updateGravity()" data-i18n="adblock_btn_update_gravity">
+          <button type="button" class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #0284c7;" onclick="updateGravity()" data-i18n="adblock_btn_update_gravity">
             🔄 Download & Update Gravity Blocklists Now
           </button>
         </div>
@@ -3806,7 +3809,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <input type="text" id="adblock-adlist-url-input" placeholder="https://example.com/hosts.txt" data-i18n-placeholder="adblock_adlist_url_ph" style="flex: 2; min-width: 250px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
             <input type="text" id="adblock-adlist-name-input" placeholder="List Name (e.g. OISD Full)" data-i18n-placeholder="adblock_adlist_name_ph" style="flex: 1; min-width: 150px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <button class="btn-primary" style="font-size: 12px; padding: 7px 16px;" onclick="addAdblockAdlistSource()" data-i18n="btn_add">➕ Add</button>
+            <button type="button" class="btn-primary" style="font-size: 12px; padding: 7px 16px;" onclick="addAdblockAdlistSource()" data-i18n="btn_add">➕ Add</button>
           </div>
         </div>
 
@@ -3855,7 +3858,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <input type="text" id="adblock-localdns-domain-input" placeholder="Local hostname (e.g. box.lan or nas.home)" data-i18n-placeholder="adblock_localdns_domain_ph" style="flex: 2; min-width: 220px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
             <input type="text" id="adblock-localdns-ip-input" placeholder="Target IP address (e.g. 192.168.1.100)" data-i18n-placeholder="adblock_localdns_ip_ph" style="flex: 1.5; min-width: 180px; padding: 7px 12px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #059669;" onclick="addAdblockLocalDnsRecord()" data-i18n="btn_save_record">➕ Save Record</button>
+            <button type="button" class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #059669;" onclick="addAdblockLocalDnsRecord()" data-i18n="btn_save_record">➕ Save Record</button>
           </div>
         </div>
 
@@ -3889,7 +3892,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div style="display: flex; align-items: center; gap: 10px; background: rgba(0, 0, 0, 0.3); padding: 12px 16px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
             <span style="font-size: 12px; color: var(--text-muted);" data-i18n="adblock_guide_primary_dns">Primary DNS Server IP:</span>
             <span id="adblock-guide-ip" style="font-size: 20px; font-weight: 800; color: #34d399; font-family: monospace;">192.168.1.100</span>
-            <button class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px; margin-left: auto;" onclick="copyToClipboard(document.getElementById('adblock-guide-ip').innerText)" data-i18n="btn_copy">📋 Copy</button>
+            <button type="button" class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px; margin-left: auto;" onclick="copyToClipboard(document.getElementById('adblock-guide-ip').innerText)" data-i18n="btn_copy">📋 Copy</button>
           </div>
           <div id="adblock-guide-steps" style="font-size: 12.5px; color: #94a3b8; line-height: 1.7;">
             <div data-i18n="adblock_guide_step1">1. Log in to your home router admin interface (typically http://192.168.1.1 or http://192.168.8.1).</div>
@@ -3922,7 +3925,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <span id="ooni-verdict-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
             🟢 Open Network
           </span>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadOoniStatus()" data-i18n="btn_refresh">
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadOoniStatus()" data-i18n="btn_refresh">
             🔄 Refresh
           </button>
         </div>
@@ -3955,7 +3958,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div style="margin-bottom: 10px;">
             <input type="text" id="ooni-custom-url" placeholder="https://example.com (or empty for default)" class="form-input" style="font-size: 12px; padding: 7px 10px;">
           </div>
-          <button class="btn-primary" id="btn-ooni-websites" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('websites')" data-i18n="ooni_btn_websites">
+          <button type="button" class="btn-primary" id="btn-ooni-websites" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('websites')" data-i18n="ooni_btn_websites">
             ▶️ Run Website Test
           </button>
         </div>
@@ -3969,7 +3972,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             Detects HTTP header field manipulations, transparent proxy injections, and invalid request line filtering.
           </p>
           <div style="height: 38px;"></div>
-          <button class="btn-primary" id="btn-ooni-middlebox" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('middlebox')" data-i18n="ooni_btn_middlebox">
+          <button type="button" class="btn-primary" id="btn-ooni-middlebox" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('middlebox')" data-i18n="ooni_btn_middlebox">
             ▶️ Test Middlebox / DPI
           </button>
         </div>
@@ -3983,7 +3986,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             Verifies whether WhatsApp (web & API), Telegram, and Signal endpoints are uninhibited or blocked.
           </p>
           <div style="height: 38px;"></div>
-          <button class="btn-primary" id="btn-ooni-im" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('im')" data-i18n="ooni_btn_im">
+          <button type="button" class="btn-primary" id="btn-ooni-im" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('im')" data-i18n="ooni_btn_im">
             ▶️ Test Messaging Apps
           </button>
         </div>
@@ -3997,7 +4000,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             Probes connectivity to Tor directory authorities, or_port nodes, and obfs4 censorship bridges.
           </p>
           <div style="height: 38px;"></div>
-          <button class="btn-primary" id="btn-ooni-circumvention" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('circumvention')" data-i18n="ooni_btn_circumvention">
+          <button type="button" class="btn-primary" id="btn-ooni-circumvention" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="runOoniTest('circumvention')" data-i18n="ooni_btn_circumvention">
             ▶️ Test Tor & Bridges
           </button>
         </div>
@@ -4050,15 +4053,15 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               </div>
               <div id="ooni-modal-subtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></div>
             </div>
-            <button class="btn-secondary" style="padding: 5px 12px; font-size: 12px;" onclick="closeOoniModal()" data-i18n="ooni_modal_close">✕ Close</button>
+            <button type="button" class="btn-secondary" style="padding: 5px 12px; font-size: 12px;" onclick="closeOoniModal()" data-i18n="ooni_modal_close">✕ Close</button>
           </div>
 
           <!-- Filter & Search Bar -->
           <div style="padding: 10px 20px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: rgba(0,0,0,0.2);">
             <div style="display: flex; gap: 6px;">
-              <button id="btn-ooni-filter-all" class="btn-primary" style="font-size: 11.5px; padding: 4px 10px;" onclick="setOoniFilter('all')">All (<span id="ooni-cnt-all">0</span>)</button>
-              <button id="btn-ooni-filter-anom" class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px;" onclick="setOoniFilter('anomalies')">🔴 Anomalies (<span id="ooni-cnt-anom">0</span>)</button>
-              <button id="btn-ooni-filter-clean" class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px;" onclick="setOoniFilter('clean')">🟢 Clean (<span id="ooni-cnt-clean">0</span>)</button>
+              <button type="button" id="btn-ooni-filter-all" class="btn-primary" style="font-size: 11.5px; padding: 4px 10px;" onclick="setOoniFilter('all')">All (<span id="ooni-cnt-all">0</span>)</button>
+              <button type="button" id="btn-ooni-filter-anom" class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px;" onclick="setOoniFilter('anomalies')">🔴 Anomalies (<span id="ooni-cnt-anom">0</span>)</button>
+              <button type="button" id="btn-ooni-filter-clean" class="btn-secondary" style="font-size: 11.5px; padding: 4px 10px;" onclick="setOoniFilter('clean')">🟢 Clean (<span id="ooni-cnt-clean">0</span>)</button>
             </div>
             <div style="flex: 1; max-width: 320px;">
               <input type="text" id="ooni-search-box" class="form-input" style="font-size: 12px; padding: 5px 10px; width: 100%;" placeholder="Filter URL or test name..." oninput="applyOoniFilter()">
@@ -4091,12 +4094,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <div id="ooni-deep-inspect-box" style="display: none; margin-top: 16px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <span id="ooni-deep-title" style="font-weight: 700; color: #38bdf8; font-size: 13px;">🔬 Deep Measurement Diagnostics</span>
-                <button class="btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('ooni-deep-inspect-box').style.display='none'">Hide</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="document.getElementById('ooni-deep-inspect-box').style.display='none'">Hide</button>
               </div>
               <div id="ooni-deep-content" style="font-size: 12px; line-height: 1.6;"></div>
               <div style="margin-top: 10px; display: flex; gap: 8px;">
-                <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleOoniRawJson()" data-i18n="ooni_raw_json">📄 View Raw JSON</button>
-                <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="copyOoniRawJson()" data-i18n="ooni_copy_json">📋 Copy JSON</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleOoniRawJson()" data-i18n="ooni_raw_json">📄 View Raw JSON</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="copyOoniRawJson()" data-i18n="ooni_copy_json">📋 Copy JSON</button>
               </div>
               <pre id="ooni-raw-json-pre" style="display: none; max-height: 250px; overflow-y: auto; background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; font-size: 11px; font-family: monospace; color: #cbd5e1; margin-top: 10px;"></pre>
             </div>
@@ -4119,19 +4122,19 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </p>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadRemoteAccessStatus()" data-i18n="btn_refresh">🔄 Refresh</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadRemoteAccessStatus()" data-i18n="btn_refresh">🔄 Refresh</button>
         </div>
       </div>
 
       <!-- Remote Subtabs -->
       <div class="remote-subnav">
-        <button id="btn-subtab-vpnhub" class="remote-subtab-btn active" onclick="switchRemoteSubtab('vpnhub')" data-i18n="subtab_vpnhub">🛡️ PiVPN Hub</button>
-        <button id="btn-subtab-tailscale" class="remote-subtab-btn" onclick="switchRemoteSubtab('tailscale')" data-i18n="subtab_tailscale">🦎 Tailscale (Mesh)</button>
-        <button id="btn-subtab-guide" class="remote-subtab-btn" onclick="switchRemoteSubtab('guide')" data-i18n="subtab_guide">🌐 Port Forwarding Guide</button>
-        <button id="btn-subtab-wireguard" class="remote-subtab-btn" onclick="switchRemoteSubtab('wireguard')" data-i18n="subtab_wireguard">🛡️ WireGuard Server</button>
-        <button id="btn-subtab-openvpn" class="remote-subtab-btn" onclick="switchRemoteSubtab('openvpn')" data-i18n="subtab_openvpn">🔒 OpenVPN Server</button>
-        <button id="btn-subtab-duckdns" class="remote-subtab-btn" onclick="switchRemoteSubtab('duckdns')" data-i18n="subtab_duckdns">🦆 DuckDNS (DynDNS)</button>
-        <button id="btn-subtab-proxy" class="remote-subtab-btn" onclick="switchRemoteSubtab('proxy')" data-i18n="subtab_proxy">⚡ HTTPS Proxy</button>
+        <button type="button" id="btn-subtab-vpnhub" class="remote-subtab-btn active" onclick="switchRemoteSubtab('vpnhub')" data-i18n="subtab_vpnhub">🛡️ PiVPN Hub</button>
+        <button type="button" id="btn-subtab-tailscale" class="remote-subtab-btn" onclick="switchRemoteSubtab('tailscale')" data-i18n="subtab_tailscale">🦎 Tailscale (Mesh)</button>
+        <button type="button" id="btn-subtab-guide" class="remote-subtab-btn" onclick="switchRemoteSubtab('guide')" data-i18n="subtab_guide">🌐 Port Forwarding Guide</button>
+        <button type="button" id="btn-subtab-wireguard" class="remote-subtab-btn" onclick="switchRemoteSubtab('wireguard')" data-i18n="subtab_wireguard">🛡️ WireGuard Server</button>
+        <button type="button" id="btn-subtab-openvpn" class="remote-subtab-btn" onclick="switchRemoteSubtab('openvpn')" data-i18n="subtab_openvpn">🔒 OpenVPN Server</button>
+        <button type="button" id="btn-subtab-duckdns" class="remote-subtab-btn" onclick="switchRemoteSubtab('duckdns')" data-i18n="subtab_duckdns">🦆 DuckDNS (DynDNS)</button>
+        <button type="button" id="btn-subtab-proxy" class="remote-subtab-btn" onclick="switchRemoteSubtab('proxy')" data-i18n="subtab_proxy">⚡ HTTPS Proxy</button>
       </div>
 
       <!-- SUBTAB 0: PIVPN HUB -->
@@ -4150,8 +4153,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div>Tunnel IPv6: <code style="color:#c084fc;">fd42:42:42::1/64</code></div>
             </div>
             <div style="margin-top: 12px; display: flex; gap: 8px;">
-              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('wireguard')">⚙️ Settings</button>
-              <button id="pivpn-btn-wg-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleWireguardServer()">Start/Stop</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('wireguard')">⚙️ Settings</button>
+              <button type="button" id="pivpn-btn-wg-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleWireguardServer()">Start/Stop</button>
             </div>
           </div>
 
@@ -4167,8 +4170,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div>Tunnel IPv6: <code style="color:#c084fc;">fd42:42:43::/64</code></div>
             </div>
             <div style="margin-top: 12px; display: flex; gap: 8px;">
-              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('openvpn')">⚙️ Settings</button>
-              <button id="pivpn-btn-ovpn-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleOpenvpnServer()">Start/Stop</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('openvpn')">⚙️ Settings</button>
+              <button type="button" id="pivpn-btn-ovpn-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleOpenvpnServer()">Start/Stop</button>
             </div>
           </div>
 
@@ -4184,8 +4187,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div style="margin-top: 4px; font-size: 11px; color: #94a3b8;">Role: <b>Admin / WebUI only</b> (No WAN override)</div>
             </div>
             <div style="margin-top: 12px; display: flex; gap: 8px;">
-              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('tailscale')">⚙️ Manage</button>
-              <button id="pivpn-btn-ts-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleTailscaleConnection()">Connect</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('tailscale')">⚙️ Manage</button>
+              <button type="button" id="pivpn-btn-ts-toggle" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleTailscaleConnection()">Connect</button>
             </div>
           </div>
 
@@ -4198,7 +4201,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div>Direct IPv6 (No NAT): <b id="pivpn-pub-ipv6" style="color:#c084fc; font-family:monospace; font-size:11px; word-break:break-all;">--</b></div>
             </div>
             <div style="margin-top: 10px;">
-              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('guide')">📖 Port Forwarding Guide</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchRemoteSubtab('guide')">📖 Port Forwarding Guide</button>
             </div>
           </div>
         </div>
@@ -4222,7 +4225,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <input type="text" id="pivpn-quick-name" placeholder="e.g. Pixel-Phone, Work-Laptop, iPad" class="form-input" style="font-size: 13px; padding: 7px 10px;">
             </div>
             <div>
-              <button class="btn-primary" style="padding: 8px 18px; font-size: 13px; font-weight: 600; width: 100%;" onclick="pivpnQuickAddClient()">
+              <button type="button" class="btn-primary" style="padding: 8px 18px; font-size: 13px; font-weight: 600; width: 100%;" onclick="pivpnQuickAddClient()">
                 ⚡ Generate Client Profile & QR Code
               </button>
             </div>
@@ -4460,8 +4463,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             </div>
 
             <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-              <button id="btn-save-duckdns" class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveDuckdnsSettings()" data-i18n="duckdns_btn_save">💾 Save DynDNS Settings</button>
-              <button id="btn-update-duckdns" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="updateDuckdnsNow()" data-i18n="duckdns_btn_update">🔄 Sync Now</button>
+              <button type="button" id="btn-save-duckdns" class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveDuckdnsSettings()" data-i18n="duckdns_btn_save">💾 Save DynDNS Settings</button>
+              <button type="button" id="btn-update-duckdns" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="updateDuckdnsNow()" data-i18n="duckdns_btn_update">🔄 Sync Now</button>
             </div>
 
             <div id="duckdns-saved-card" style="padding: 12px; background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px;">
@@ -4555,8 +4558,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               </div>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button class="btn-primary" style="font-size: 12.5px; padding: 8px 14px;" onclick="saveWireguardSettings()">Save Server Settings</button>
-              <button id="btn-wg-toggle" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="toggleWireguardServer()">Toggle WireGuard</button>
+              <button type="button" class="btn-primary" style="font-size: 12.5px; padding: 8px 14px;" onclick="saveWireguardSettings()">Save Server Settings</button>
+              <button type="button" id="btn-wg-toggle" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="toggleWireguardServer()">Toggle WireGuard</button>
             </div>
           </div>
 
@@ -4579,7 +4582,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                 <input type="text" id="wg-new-peer-ipv6" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (fd42:42:42::2)">
               </div>
             </div>
-            <button class="btn-primary" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="addWireguardPeer()">➕ Generate & Add Client Peer</button>
+            <button type="button" class="btn-primary" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="addWireguardPeer()">➕ Generate & Add Client Peer</button>
           </div>
         </div>
 
@@ -4648,8 +4651,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <input type="text" id="ovpn-endpoint" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="Auto (DuckDNS or WAN IP / IPv6)">
             </div>
             <div style="display: flex; gap: 8px;">
-              <button class="btn-primary" style="font-size: 12.5px; padding: 8px 14px;" onclick="saveOpenvpnSettings()">Save Server Settings</button>
-              <button id="btn-ovpn-toggle" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="toggleOpenvpnServer()">Toggle OpenVPN</button>
+              <button type="button" class="btn-primary" style="font-size: 12.5px; padding: 8px 14px;" onclick="saveOpenvpnSettings()">Save Server Settings</button>
+              <button type="button" id="btn-ovpn-toggle" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="toggleOpenvpnServer()">Toggle OpenVPN</button>
             </div>
           </div>
 
@@ -4663,7 +4666,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <input type="text" id="ovpn-new-client-name" class="form-input" style="font-size: 13px; padding: 7px 10px; width: 100%;" placeholder="e.g. tablet-client, user-laptop">
             </div>
             <div style="height: 48px;"></div>
-            <button class="btn-primary" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="addOpenvpnClient()">➕ Generate Client Certificate</button>
+            <button type="button" class="btn-primary" style="width: 100%; font-size: 12.5px; padding: 8px;" onclick="addOpenvpnClient()">➕ Generate Client Certificate</button>
           </div>
         </div>
 
@@ -4735,8 +4738,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               </label>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveProxySettings()" data-i18n="proxy_btn_save">Save Proxy Settings</button>
-              <button id="btn-proxy-toggle" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="toggleProxyServer()">Toggle Proxy</button>
+              <button type="button" class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="saveProxySettings()" data-i18n="proxy_btn_save">Save Proxy Settings</button>
+              <button type="button" id="btn-proxy-toggle" class="btn-secondary" style="font-size: 12.5px; padding: 8px 14px;" onclick="toggleProxyServer()">Toggle Proxy</button>
             </div>
           </div>
 
@@ -4831,10 +4834,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
             <!-- Controls -->
             <div style="margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap;">
-              <button id="tailscale-btn-up" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="connectTailscale()" data-i18n="tailscale_btn_up">▶️ Connect (Tailscale Up)</button>
-              <button id="tailscale-btn-down" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="disconnectTailscale()" data-i18n="tailscale_btn_down">⏹️ Disconnect</button>
-              <button id="tailscale-btn-logout" class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" onclick="logoutTailscale()" data-i18n="tailscale_btn_logout">🚪 Log Out</button>
-              <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTailscaleStatus()" data-i18n="btn_refresh">🔄 Refresh</button>
+              <button type="button" id="tailscale-btn-up" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="connectTailscale()" data-i18n="tailscale_btn_up">▶️ Connect (Tailscale Up)</button>
+              <button type="button" id="tailscale-btn-down" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="disconnectTailscale()" data-i18n="tailscale_btn_down">⏹️ Disconnect</button>
+              <button type="button" id="tailscale-btn-logout" class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" onclick="logoutTailscale()" data-i18n="tailscale_btn_logout">🚪 Log Out</button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTailscaleStatus()" data-i18n="btn_refresh">🔄 Refresh</button>
             </div>
           </div>
 
@@ -4865,7 +4868,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 8px;">
-              <button class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveTailscaleConfig()" data-i18n="btn_save_settings">💾 Save Settings</button>
+              <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveTailscaleConfig()" data-i18n="btn_save_settings">💾 Save Settings</button>
             </div>
           </div>
         </div>
@@ -4901,7 +4904,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     <div style="background: var(--bg-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 12px; max-width: 460px; width: 100%; padding: 22px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.6);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <div style="font-weight: 700; font-size: 16px; color: #38bdf8;" id="wg-qr-peer-title">📱 WireGuard QR Pairing & Connection</div>
-        <button style="background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 0 4px;" onclick="document.getElementById('wg-qr-modal').style.display='none'">✕</button>
+        <button type="button" style="background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 0 4px;" onclick="document.getElementById('wg-qr-modal').style.display='none'">✕</button>
       </div>
       <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
         Scan this QR code using the official WireGuard app on your phone, or download the configuration file below.
@@ -4927,7 +4930,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <a id="wg-qr-download-btn" href="#" download="" class="btn-secondary" style="font-size: 12px; padding: 8px 14px; text-decoration: none;">
           📥 <span data-i18n="wireguard_download_conf_endpoint">Download .conf with this Endpoint</span>
         </a>
-        <button class="btn-primary" style="padding: 8px 20px; font-size: 12.5px;" onclick="document.getElementById('wg-qr-modal').style.display='none'">
+        <button type="button" class="btn-primary" style="padding: 8px 20px; font-size: 12.5px;" onclick="document.getElementById('wg-qr-modal').style.display='none'">
           <span data-i18n="btn_cancel">Done</span>
         </button>
       </div>
@@ -4950,7 +4953,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <option value="eth0">🏠 Wired LAN (eth0)</option>
             <option value="wlan0">📶 Guest Wi-Fi Client (wlan0)</option>
           </select>
-          <button id="btn-explorer-scan" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="triggerNetworkSweep()">
+          <button type="button" id="btn-explorer-scan" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="triggerNetworkSweep()">
             🔄 Scan Subnets Now
           </button>
         </div>
@@ -4969,7 +4972,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </div>
         </div>
         <div style="display: flex; gap: 8px; flex-shrink: 0;">
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(168, 85, 247, 0.5); color: #e9d5ff; white-space: nowrap;" onclick="switchTab('tab-info'); switchRouterSubtab('rsub-guest');" data-i18n="explorer_guest_btn_settings">
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(168, 85, 247, 0.5); color: #e9d5ff; white-space: nowrap;" onclick="switchTab('tab-info'); switchRouterSubtab('rsub-guest');" data-i18n="explorer_guest_btn_settings">
             ⚙️ Guest Wi-Fi Settings & Scanner
           </button>
         </div>
@@ -5010,7 +5013,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             Audits whether the ISP throttles or blocks specific ports (Web, DNS, Gaming, VPN, Tor).
           </p>
         </div>
-        <button class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="triggerPortCheck()">⚡ Run Port Audit Now</button>
+        <button type="button" class="btn-primary" style="font-size: 12.5px; padding: 8px 16px;" onclick="triggerPortCheck()">⚡ Run Port Audit Now</button>
       </div>
 
       <div class="data-table-wrap">
@@ -5039,12 +5042,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <!-- Subtab Selector & Action Toolbar -->
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #1e293b; padding-bottom: 12px; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button id="btn-subtab-syslog" class="app-tab-btn active" onclick="switchSyslogSubtab('syslog')" style="font-size: 13px;" data-i18n="subtab_system_syslog">🐧 Kernel & Hardware Syslog</button>
-          <button id="btn-subtab-devlog" class="app-tab-btn" onclick="switchSyslogSubtab('devlog')" style="font-size: 13px;" data-i18n="subtab_devlog">🛠️ Developer Deep Console</button>
-          <button id="btn-subtab-audit" class="app-tab-btn" onclick="switchSyslogSubtab('audit')" style="font-size: 13px;" data-i18n="subtab_audit">📋 System Audit Events</button>
+          <button type="button" id="btn-subtab-syslog" class="app-tab-btn active" onclick="switchSyslogSubtab('syslog')" style="font-size: 13px;" data-i18n="subtab_system_syslog">🐧 Kernel & Hardware Syslog</button>
+          <button type="button" id="btn-subtab-devlog" class="app-tab-btn" onclick="switchSyslogSubtab('devlog')" style="font-size: 13px;" data-i18n="subtab_devlog">🛠️ Developer Deep Console</button>
+          <button type="button" id="btn-subtab-audit" class="app-tab-btn" onclick="switchSyslogSubtab('audit')" style="font-size: 13px;" data-i18n="subtab_audit">📋 System Audit Events</button>
         </div>
         <div>
-          <button class="btn-danger" style="font-size: 12.5px; padding: 6px 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);" onclick="triggerTotalLogPurge()" data-i18n="btn_total_log_purge" title="Completely purge all system, kernel, file, and database logs">
+          <button type="button" class="btn-danger" style="font-size: 12.5px; padding: 6px 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);" onclick="triggerTotalLogPurge()" data-i18n="btn_total_log_purge" title="Completely purge all system, kernel, file, and database logs">
             🔥 Total Log Purge
           </button>
         </div>
@@ -5064,11 +5067,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
             <!-- Source Filter Pills -->
             <div class="devlog-level-pills" id="syslog-source-pills">
-              <button class="lvl-btn active" data-src="all" onclick="setSyslogSourceFilter('all')">🌐 ALL (<span id="syslog-cnt-all">0</span>)</button>
-              <button class="lvl-btn" data-src="kernel" onclick="setSyslogSourceFilter('kernel')" style="color:#38bdf8;">🐧 KERNEL (dmesg) (<span id="syslog-cnt-kernel">0</span>)</button>
-              <button class="lvl-btn" data-src="network" onclick="setSyslogSourceFilter('network')" style="color:#34d399;">🔌 NETWORK & PHY (<span id="syslog-cnt-network">0</span>)</button>
-              <button class="lvl-btn" data-src="nmb" onclick="setSyslogSourceFilter('nmb')" style="color:#c084fc;">📦 NMB DAEMONS</button>
-              <button class="lvl-btn" data-src="security" onclick="setSyslogSourceFilter('security')" style="color:#fbbf24;">🔐 SECURITY & SSH</button>
+              <button type="button" class="lvl-btn active" data-src="all" onclick="setSyslogSourceFilter('all')">🌐 ALL (<span id="syslog-cnt-all">0</span>)</button>
+              <button type="button" class="lvl-btn" data-src="kernel" onclick="setSyslogSourceFilter('kernel')" style="color:#38bdf8;">🐧 KERNEL (dmesg) (<span id="syslog-cnt-kernel">0</span>)</button>
+              <button type="button" class="lvl-btn" data-src="network" onclick="setSyslogSourceFilter('network')" style="color:#34d399;">🔌 NETWORK & PHY (<span id="syslog-cnt-network">0</span>)</button>
+              <button type="button" class="lvl-btn" data-src="nmb" onclick="setSyslogSourceFilter('nmb')" style="color:#c084fc;">📦 NMB DAEMONS</button>
+              <button type="button" class="lvl-btn" data-src="security" onclick="setSyslogSourceFilter('security')" style="color:#fbbf24;">🔐 SECURITY & SSH</button>
             </div>
 
             <!-- Severity / Event Quick-Filter -->
@@ -5093,9 +5096,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </div>
 
           <div class="devlog-toolbar-right" style="gap: 8px;">
-            <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="downloadSystemSyslog()" title="Download raw system syslog file">📥 Download Raw Syslog (.log)</button>
-            <button class="btn-danger" style="padding:4px 10px; font-size:12px; font-weight: 700;" onclick="triggerTotalLogPurge()" title="Purge all system, file, and database logs" data-i18n="btn_total_log_purge">🔥 Total Log Purge</button>
-            <button class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="fetchSystemSyslog(true)">🔄 Refresh</button>
+            <button type="button" class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="downloadSystemSyslog()" title="Download raw system syslog file">📥 Download Raw Syslog (.log)</button>
+            <button type="button" class="btn-danger" style="padding:4px 10px; font-size:12px; font-weight: 700;" onclick="triggerTotalLogPurge()" title="Purge all system, file, and database logs" data-i18n="btn_total_log_purge">🔥 Total Log Purge</button>
+            <button type="button" class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="fetchSystemSyslog(true)">🔄 Refresh</button>
           </div>
         </div>
 
@@ -5125,12 +5128,12 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
             <!-- Level Filter Pills -->
             <div class="devlog-level-pills">
-              <button class="lvl-btn active" data-lvl="ALL" onclick="setDevLogLevelFilter('ALL')">ALL (<span id="cnt-all">0</span>)</button>
-              <button class="lvl-btn" data-lvl="TRACE" onclick="setDevLogLevelFilter('TRACE')" style="color:#c084fc;">TRACE</button>
-              <button class="lvl-btn" data-lvl="DEBUG" onclick="setDevLogLevelFilter('DEBUG')" style="color:#38bdf8;">DEBUG</button>
-              <button class="lvl-btn" data-lvl="INFO" onclick="setDevLogLevelFilter('INFO')" style="color:#34d399;">INFO</button>
-              <button class="lvl-btn" data-lvl="WARN" onclick="setDevLogLevelFilter('WARN')" style="color:#fbbf24;">WARN</button>
-              <button class="lvl-btn" data-lvl="ERROR" onclick="setDevLogLevelFilter('ERROR')" style="color:#f87171;">ERROR</button>
+              <button type="button" class="lvl-btn active" data-lvl="ALL" onclick="setDevLogLevelFilter('ALL')">ALL (<span id="cnt-all">0</span>)</button>
+              <button type="button" class="lvl-btn" data-lvl="TRACE" onclick="setDevLogLevelFilter('TRACE')" style="color:#c084fc;">TRACE</button>
+              <button type="button" class="lvl-btn" data-lvl="DEBUG" onclick="setDevLogLevelFilter('DEBUG')" style="color:#38bdf8;">DEBUG</button>
+              <button type="button" class="lvl-btn" data-lvl="INFO" onclick="setDevLogLevelFilter('INFO')" style="color:#34d399;">INFO</button>
+              <button type="button" class="lvl-btn" data-lvl="WARN" onclick="setDevLogLevelFilter('WARN')" style="color:#fbbf24;">WARN</button>
+              <button type="button" class="lvl-btn" data-lvl="ERROR" onclick="setDevLogLevelFilter('ERROR')" style="color:#f87171;">ERROR</button>
             </div>
 
             <!-- Component Filter -->
@@ -5161,10 +5164,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               </select>
             </div>
 
-            <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="downloadDevLog()" title="Download full un-truncated developer log file">📥 Download (.log)</button>
-            <button class="btn-danger" style="padding:4px 10px; font-size:12px;" onclick="clearDevLogBuffer()" title="Clear in-memory log buffer">🗑️ Clear Buffer</button>
-            <button class="btn-danger" style="padding:4px 10px; font-size:12px; font-weight: 700;" onclick="triggerTotalLogPurge()" title="Purge all system, file, and database logs" data-i18n="btn_total_log_purge">🔥 Total Log Purge</button>
-            <button class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="fetchDevLogs(true)">🔄 Refresh</button>
+            <button type="button" class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="downloadDevLog()" title="Download full un-truncated developer log file">📥 Download (.log)</button>
+            <button type="button" class="btn-danger" style="padding:4px 10px; font-size:12px;" onclick="clearDevLogBuffer()" title="Clear in-memory log buffer">🗑️ Clear Buffer</button>
+            <button type="button" class="btn-danger" style="padding:4px 10px; font-size:12px; font-weight: 700;" onclick="triggerTotalLogPurge()" title="Purge all system, file, and database logs" data-i18n="btn_total_log_purge">🔥 Total Log Purge</button>
+            <button type="button" class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="fetchDevLogs(true)">🔄 Refresh</button>
           </div>
         </div>
 
@@ -5186,7 +5189,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div class="section-subtitle" style="margin: 0;" data-i18n="syslog_title">System Event Log & Audit Trail</div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="text" id="log-filter-input" placeholder="Filter system events..." class="form-input" style="max-width: 280px; padding: 6px 12px; font-size: 12px;" onkeyup="filterLogTable(this.value)">
-            <button class="btn-danger" style="padding:6px 12px; font-size:12px; font-weight: 700;" onclick="triggerTotalLogPurge()" data-i18n="btn_total_log_purge">🔥 Total Log Purge</button>
+            <button type="button" class="btn-danger" style="padding:6px 12px; font-size:12px; font-weight: 700;" onclick="triggerTotalLogPurge()" data-i18n="btn_total_log_purge">🔥 Total Log Purge</button>
           </div>
         </div>
 
@@ -5224,9 +5227,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <option value="wlan0">wlan0 (Guest Wi-Fi Client Probe)</option>
             <option value="any">any (Simultaneous Multi-Interface)</option>
           </select>
-          <button id="btn-sniffer-toggle" class="btn-primary" onclick="toggleSniffer()" data-i18n="sniffer_btn_start">▶️ Start Sniffing</button>
-          <button class="btn-secondary" onclick="downloadPcap()" data-i18n="sniffer_btn_pcap">💾 Download PCAP</button>
-          <button class="btn-danger" onclick="clearSniffer()" data-i18n="sniffer_btn_clear">🗑️ Clear Buffer</button>
+          <button type="button" id="btn-sniffer-toggle" class="btn-primary" onclick="toggleSniffer()" data-i18n="sniffer_btn_start">▶️ Start Sniffing</button>
+          <button type="button" class="btn-secondary" onclick="downloadPcap()" data-i18n="sniffer_btn_pcap">💾 Download PCAP</button>
+          <button type="button" class="btn-danger" onclick="clearSniffer()" data-i18n="sniffer_btn_clear">🗑️ Clear Buffer</button>
         </div>
       </div>
 
@@ -5355,8 +5358,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <label class="form-label" style="font-size: 12px;">Automated Test Target Server:</label>
             <div style="display: flex; gap: 8px;">
               <input type="text" id="sched-server-id-input" placeholder="e.g. 31717 (blank = auto)" class="form-input" style="flex: 1;" oninput="markSchedDirty()">
-              <button class="btn-secondary" style="font-size: 12px; white-space: nowrap; padding: 7px 12px;" onclick="quickResolveServerId()">Resolve</button>
-              <button class="btn-secondary" style="font-size: 12px; white-space: nowrap; padding: 7px 12px;" onclick="clearSchedServer()">Auto</button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; white-space: nowrap; padding: 7px 12px;" onclick="quickResolveServerId()">Resolve</button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; white-space: nowrap; padding: 7px 12px;" onclick="clearSchedServer()">Auto</button>
             </div>
             <div id="sched-server-resolved-name" style="font-size: 11.5px; color: #38bdf8; margin-top: 5px;">
               Automatic selection
@@ -5369,7 +5372,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <div style="display: flex; gap: 8px;">
               <input type="text" id="sched-iperf-host" placeholder="pl. speedtest.init7.net" class="form-input" style="flex: 2;" oninput="markSchedDirty()">
               <input type="number" id="sched-iperf-port" value="5203" placeholder="5203" class="form-input" style="flex: 1; max-width: 90px;" oninput="markSchedDirty()">
-              <button class="btn-secondary" style="font-size: 12px; white-space: nowrap; padding: 7px 12px;" onclick="openPublicServersModal('sched')">🌐 Browse</button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; white-space: nowrap; padding: 7px 12px;" onclick="openPublicServersModal('sched')">🌐 Browse</button>
             </div>
             <div id="sched-iperf-resolved-info" style="font-size: 11.5px; color: #38bdf8; margin-top: 5px;">
               Configured iPerf3 endpoint
@@ -5419,7 +5422,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <button type="button" class="btn-secondary" style="padding: 9px 18px; font-size: 13px;" onclick="resetScheduleForm()" data-i18n="sched_discard_btn">
               🔄 Discard / Reset
             </button>
-            <button class="btn-primary" style="padding: 9px 22px; font-size: 13.5px;" onclick="saveScheduleSettings()" data-i18n="script_btn_save">
+            <button type="button" class="btn-primary" style="padding: 9px 22px; font-size: 13.5px;" onclick="saveScheduleSettings()" data-i18n="script_btn_save">
               💾 Save Scheduling Settings
             </button>
           </div>
@@ -5430,11 +5433,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div class="section-subtitle" data-i18n="servers_title">Ookla & Global Benchmark Servers Fleet</div>
       <div class="search-row">
         <input type="text" id="server-search-input" placeholder="Search server by name, country, or ID..." data-i18n-placeholder="servers_search_placeholder" class="form-input" style="flex: 1; min-width: 250px;" oninput="onServerSearchInput(this.value)">
-        <button class="btn-primary" style="padding: 8px 16px;" onclick="loadServers(document.getElementById('server-search-input').value)">🔍 Search</button>
+        <button type="button" class="btn-primary" style="padding: 8px 16px;" onclick="loadServers(document.getElementById('server-search-input').value)">🔍 Search</button>
         <div style="display: flex; gap: 6px;">
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('')">All</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('hungary')">Hungary</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('budapest')">Budapest</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('')">All</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('hungary')">Hungary</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('budapest')">Budapest</button>
         </div>
       </div>
 
@@ -5538,24 +5541,24 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div class="section-subtitle" style="margin: 0;">Advanced Network & Router Configuration</div>
           <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Comprehensive router configuration: WAN, LAN, Wi-Fi AP, Operating Mode, Schedule, and ISP Profile</p>
         </div>
-        <button class="btn-primary" style="padding: 9px 22px; font-size: 13.5px;" onclick="saveRouterSettings()">💾 Save & Apply Router Settings</button>
+        <button type="button" class="btn-primary" style="padding: 9px 22px; font-size: 13.5px;" onclick="saveRouterSettings()">💾 Save & Apply Router Settings</button>
       </div>
 
       <!-- Router Subtab Navigation -->
       <div class="router-subnav">
-        <button class="router-subtab-btn active" id="btn-rsub-wan" onclick="switchRouterSubtab('rsub-wan')" data-i18n="subtab_wan">🌐 WAN / Internet</button>
-        <button class="router-subtab-btn" id="btn-rsub-lan" onclick="switchRouterSubtab('rsub-lan')" data-i18n="subtab_lan">🏠 LAN / Local Network</button>
-        <button class="router-subtab-btn" id="btn-rsub-wifi" onclick="switchRouterSubtab('rsub-wifi')" data-i18n="subtab_wifi">📶 Wi-Fi Network (AP)</button>
-        <button class="router-subtab-btn" id="btn-rsub-guest" onclick="switchRouterSubtab('rsub-guest')" data-i18n="subtab_guest_wifi">📶 Guest Wi-Fi Receiver</button>
-        <button class="router-subtab-btn" id="btn-rsub-ports" onclick="switchRouterSubtab('rsub-ports')" data-i18n="subtab_ports">🔀 Ports & Drivers</button>
-        <button class="router-subtab-btn" id="btn-rsub-mode" onclick="switchRouterSubtab('rsub-mode')" data-i18n="subtab_mode">⚙️ Operation Mode</button>
-        <button class="router-subtab-btn" id="btn-rsub-schedule" onclick="switchRouterSubtab('rsub-schedule')" data-i18n="subtab_schedule">⏱️ Measurement Schedule</button>
-        <button class="router-subtab-btn" id="btn-rsub-isp" onclick="switchRouterSubtab('rsub-isp')" data-i18n="subtab_isp">📋 ISP Subscription</button>
-        <button class="router-subtab-btn" id="btn-rsub-kernel" onclick="switchRouterSubtab('rsub-kernel')" data-i18n="subtab_kernel">⚡ Kernel Performance</button>
-        <button class="router-subtab-btn" id="btn-rsub-system" onclick="switchRouterSubtab('rsub-system')" data-i18n="subtab_system">🛡️ Firewall & System</button>
-        <button class="router-subtab-btn" id="btn-rsub-backup" onclick="switchRouterSubtab('rsub-backup')" data-i18n="subtab_backup">📦 Backup & Restore</button>
-        <button class="router-subtab-btn" id="btn-rsub-heal" onclick="switchRouterSubtab('rsub-heal')" data-i18n="subtab_heal">🔄 Self-Healing & Updates</button>
-        <button class="router-subtab-btn" id="btn-rsub-telegram" onclick="switchRouterSubtab('rsub-telegram')" data-i18n="subtab_telegram">💬 Telegram Chatbot</button>
+        <button type="button" class="router-subtab-btn active" id="btn-rsub-wan" onclick="switchRouterSubtab('rsub-wan')" data-i18n="subtab_wan">🌐 WAN / Internet</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-lan" onclick="switchRouterSubtab('rsub-lan')" data-i18n="subtab_lan">🏠 LAN / Local Network</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-wifi" onclick="switchRouterSubtab('rsub-wifi')" data-i18n="subtab_wifi">📶 Wi-Fi Network (AP)</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-guest" onclick="switchRouterSubtab('rsub-guest')" data-i18n="subtab_guest_wifi">📶 Guest Wi-Fi Receiver</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-ports" onclick="switchRouterSubtab('rsub-ports')" data-i18n="subtab_ports">🔀 Ports & Drivers</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-mode" onclick="switchRouterSubtab('rsub-mode')" data-i18n="subtab_mode">⚙️ Operation Mode</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-schedule" onclick="switchRouterSubtab('rsub-schedule')" data-i18n="subtab_schedule">⏱️ Measurement Schedule</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-isp" onclick="switchRouterSubtab('rsub-isp')" data-i18n="subtab_isp">📋 ISP Subscription</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-kernel" onclick="switchRouterSubtab('rsub-kernel')" data-i18n="subtab_kernel">⚡ Kernel Performance</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-system" onclick="switchRouterSubtab('rsub-system')" data-i18n="subtab_system">🛡️ Firewall & System</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-backup" onclick="switchRouterSubtab('rsub-backup'); loadPurgeSummary()" data-i18n="subtab_backup">📦 Backup & Restore</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-heal" onclick="switchRouterSubtab('rsub-heal')" data-i18n="subtab_heal">🔄 Self-Healing & Updates</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-telegram" onclick="switchRouterSubtab('rsub-telegram')" data-i18n="subtab_telegram">💬 Telegram Chatbot</button>
       </div>
 
       <!-- SUBTAB 1: WAN / INTERNET -->
@@ -5644,8 +5647,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div class="form-hint">If your ISP binds connectivity to your previous router MAC, enter it here.</div>
             </div>
             <div class="form-group" style="display: flex; align-items: flex-end; gap: 10px;">
-              <button class="btn-primary" style="padding: 9px 18px;" onclick="applyMacAddress()">💾 Apply MAC</button>
-              <button class="btn-secondary" style="padding: 9px 18px;" onclick="resetMacAddress()">🔄 Reset to Factory</button>
+              <button type="button" class="btn-primary" style="padding: 9px 18px;" onclick="applyMacAddress()">💾 Apply MAC</button>
+              <button type="button" class="btn-secondary" style="padding: 9px 18px;" onclick="resetMacAddress()">🔄 Reset to Factory</button>
             </div>
           </div>
         </div>
@@ -5677,8 +5680,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
               <input type="text" id="dns-test-host" value="google.com" placeholder="Test host..." class="form-input" style="width: 140px; padding: 6px 10px; font-size: 12px;">
-              <button class="btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="testDnsResolution()">🔍 Test DNS</button>
-              <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="enforceDnsFallback()">⚡ Enforce Fallback</button>
+              <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="testDnsResolution()">🔍 Test DNS</button>
+              <button type="button" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="enforceDnsFallback()">⚡ Enforce Fallback</button>
             </div>
           </div>
         </div>
@@ -5995,7 +5998,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                 Scan and pick your router's guest Wi-Fi SSID for immediate connection.
               </p>
             </div>
-            <button id="btn-scan-guest-wifi" class="btn-primary" style="font-size: 12px; padding: 7px 16px;" onclick="scanGuestWifiNetworks()" data-i18n="guest_btn_scan_now">
+            <button type="button" id="btn-scan-guest-wifi" class="btn-primary" style="font-size: 12px; padding: 7px 16px;" onclick="scanGuestWifiNetworks()" data-i18n="guest_btn_scan_now">
               🔍 Scan Wi-Fi Networks Now
             </button>
           </div>
@@ -6085,10 +6088,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               </select>
             </div>
             <div style="display: flex; gap: 10px; align-items: flex-end; padding-bottom: 2px;">
-              <button class="btn-primary" style="padding: 9px 20px; font-weight: 600;" onclick="connectGuestWifi()" data-i18n="guest_btn_connect_now">
+              <button type="button" class="btn-primary" style="padding: 9px 20px; font-weight: 600;" onclick="connectGuestWifi()" data-i18n="guest_btn_connect_now">
                 ⚡ Connect Now
               </button>
-              <button class="btn-secondary" style="border: 1px solid #ef4444; color: #f87171; padding: 9px 18px;" onclick="disconnectGuestWifi()" data-i18n="guest_btn_disconnect">
+              <button type="button" class="btn-secondary" style="border: 1px solid #ef4444; color: #f87171; padding: 9px 18px;" onclick="disconnectGuestWifi()" data-i18n="guest_btn_disconnect">
                 🔌 Disconnect
               </button>
             </div>
@@ -6104,7 +6107,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                 List of known Wi-Fi profiles saved on the device. Switch between profiles with one click.
               </p>
             </div>
-            <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadSavedGuestWifiConnections()" data-i18n="guest_btn_refresh_list">
+            <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadSavedGuestWifiConnections()" data-i18n="guest_btn_refresh_list">
               🔄 Refresh List
             </button>
           </div>
@@ -6397,7 +6400,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                 Kernel-level tuning: Multi-core RPS packet steering, BBR pacing, 64MB buffers, and microsecond socket timestamping.
               </p>
             </div>
-            <button id="btn-apply-kernel-tuning" class="btn-primary" style="padding: 7px 16px; font-size: 12px;" onclick="applyKernelTuning()" data-i18n="kernel_btn_apply">
+            <button type="button" id="btn-apply-kernel-tuning" class="btn-primary" style="padding: 7px 16px; font-size: 12px;" onclick="applyKernelTuning()" data-i18n="kernel_btn_apply">
               🚀 Optimize Kernel Network Stack Now
             </button>
           </div>
@@ -6485,7 +6488,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
                 <div style="font-weight: 700; color: #38bdf8; font-size: 13px;">Default</div>
                 <span class="theme-card-badge" data-i18n="theme_badge_active">✓ Active</span>
               </div>
-              <div style="font-size: 11px; color: #8fa0ba; margin-top: 4px;">Original NMHH measurement box dark blue UI.</div>
+              <div style="font-size: 11px; color: #8fa0ba; margin-top: 4px;">Original dark blue measurement box UI.</div>
             </div>
 
             <div class="theme-card" data-theme-name="prtd" onclick="switchTheme('prtd')" style="background: linear-gradient(135deg, #101628, #22172a); border: 2px solid #f4a6c6; padding: 12px; border-radius: 6px;">
@@ -6674,10 +6677,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             </div>
           </div>
           <div style="margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <button class="btn-primary" style="padding: 7px 18px; font-size: 12.5px;" onclick="updateAdminCredentials()">
+            <button type="button" class="btn-primary" style="padding: 7px 18px; font-size: 12.5px;" onclick="updateAdminCredentials()">
               Update Credentials
             </button>
-            <button class="btn-logout" style="padding: 7px 16px; font-size: 12.5px;" onclick="performLogout()">
+            <button type="button" class="btn-logout" style="padding: 7px 16px; font-size: 12.5px;" onclick="performLogout()">
               🚪 <span data-i18n="logout_btn">Logout</span>
             </button>
           </div>
@@ -6695,10 +6698,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             Distro-aware package updates via native package manager (APT, DNF, Pacman, APK, Zypper).
           </p>
           <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
-            <button id="btn-check-updates" class="btn-secondary" style="padding: 7px 16px; font-size: 12.5px;" onclick="checkSystemUpdates()">
+            <button type="button" id="btn-check-updates" class="btn-secondary" style="padding: 7px 16px; font-size: 12.5px;" onclick="checkSystemUpdates()">
               🔍 Check for Updates
             </button>
-            <button id="btn-run-upgrade" class="btn-primary" style="padding: 7px 16px; font-size: 12.5px;" onclick="runSystemUpgrade()">
+            <button type="button" id="btn-run-upgrade" class="btn-primary" style="padding: 7px 16px; font-size: 12.5px;" onclick="runSystemUpgrade()">
               🚀 Upgrade System Packages Now
             </button>
             <span id="update-status-text" style="font-size: 12px; color: var(--text-muted);"></span>
@@ -6706,8 +6709,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <pre id="upgrade-terminal-box" class="terminal-box" style="max-height: 140px; font-size: 11.5px;">Package manager ready.</pre>
 
           <div style="margin-top: 20px; border-top: 1px solid #1e293b; padding-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
-            <button class="btn-secondary" style="padding: 9px 18px;" onclick="reloadDaemons()">🔄 Reload Services</button>
-            <button class="btn-danger" style="padding: 9px 18px;" onclick="rebootBox()" data-i18n="sys_btn_reboot">⚠️ Reboot Device</button>
+            <button type="button" class="btn-secondary" style="padding: 9px 18px;" onclick="reloadDaemons()">🔄 Reload Services</button>
+            <button type="button" class="btn-danger" style="padding: 9px 18px;" onclick="rebootBox()" data-i18n="sys_btn_reboot">⚠️ Reboot Device</button>
           </div>
         </div>
 
@@ -6744,10 +6747,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </div>
 
           <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <button class="btn-primary" style="padding: 7px 16px; font-size: 12.5px;" onclick="syncDriveConfigNow()" data-i18n="drive_btn_sync_now">
+            <button type="button" class="btn-primary" style="padding: 7px 16px; font-size: 12.5px;" onclick="syncDriveConfigNow()" data-i18n="drive_btn_sync_now">
               🔄 Sync to Drive Now
             </button>
-            <button class="btn-secondary" style="padding: 7px 16px; font-size: 12.5px;" onclick="execQuickTermCmd('cat /etc/nmb/nmb.conf'); switchTab('tab-terminal');" data-i18n="drive_btn_view_term">
+            <button type="button" class="btn-secondary" style="padding: 7px 16px; font-size: 12.5px;" onclick="execQuickTermCmd('cat /etc/nmb/nmb.conf'); switchTab('tab-terminal');" data-i18n="drive_btn_view_term">
               📄 View Config in Terminal
             </button>
             <span id="drive-sync-msg" style="font-size: 12px; color: #94a3b8;"></span>
@@ -6770,7 +6773,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <input type="checkbox" id="sys-reset-keep-db" checked style="accent-color: #38bdf8;">
               <span data-i18n="factory_reset_keep_db">Preserve measurement history (SQLite database retained)</span>
             </label>
-            <button class="btn-danger" style="background: #dc2626; border-color: #ef4444; font-size: 12.5px; padding: 8px 18px; color: white;" onclick="executeFactoryResetFromSettings()" data-i18n="factory_reset_btn">
+            <button type="button" class="btn-danger" style="background: #dc2626; border-color: #ef4444; font-size: 12.5px; padding: 8px 18px; color: white;" onclick="executeFactoryResetFromSettings()" data-i18n="factory_reset_btn">
               ⚠️ Initiate Factory Reset
             </button>
           </div>
@@ -6836,7 +6839,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div style="font-size: 11.5px; color: #fbbf24; flex: 1 1 280px;" data-i18n="lanpt_warning">Saving reconfigures the network and may change the IP address of this box, so the connection to this page can drop. It also switches the box to standalone mode.</div>
-            <button class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveLanTopology()" data-i18n="lanpt_btn_save">💾 Save & Apply</button>
+            <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveLanTopology()" data-i18n="lanpt_btn_save">💾 Save & Apply</button>
           </div>
         </div>
 
@@ -6848,8 +6851,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n="port_matrix_desc">Map physical NICs, USB adapters, and PCIe ports to WAN1, Secondary WAN2, Bridged LAN (br-lan), Guest Wi-Fi, or DMZ.</p>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadInterfaceMatrix(); loadDriverStatus();" data-i18n="btn_refresh_ports">🔄 Refresh Ports</button>
-              <button class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveInterfaceMatrix()" data-i18n="btn_save_ports">💾 Save & Apply Port Roles</button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadInterfaceMatrix(); loadDriverStatus();" data-i18n="btn_refresh_ports">🔄 Refresh Ports</button>
+              <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="saveInterfaceMatrix()" data-i18n="btn_save_ports">💾 Save & Apply Port Roles</button>
             </div>
           </div>
 
@@ -6921,7 +6924,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" data-i18n="drivers_desc">Inspect PCI/USB hardware controllers, kernel drivers, dmesg firmware loading status, and install recommended driver packages.</p>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button class="btn-primary" id="btn-install-all-drivers" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="installDrivers('all')" data-i18n="btn_install_drivers">📦 Install / Update Network Drivers</button>
+              <button type="button" class="btn-primary" id="btn-install-all-drivers" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="installDrivers('all')" data-i18n="btn_install_drivers">📦 Install / Update Network Drivers</button>
             </div>
           </div>
 
@@ -6997,10 +7000,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <a href="/api/dev/invasive-log.md" download="nmb_invasive_dev_snapshot.md" class="btn-primary" style="font-size: 12px; padding: 7px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" data-i18n="btn_invasive_download">
                 📥 Download Dev Log (.md)
               </a>
-              <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="copyInvasiveLog()" data-i18n="btn_invasive_copy">
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="copyInvasiveLog()" data-i18n="btn_invasive_copy">
                 📋 Copy Log
               </button>
-              <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="refreshInvasiveLog()" data-i18n="btn_invasive_refresh">
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="refreshInvasiveLog()" data-i18n="btn_invasive_refresh">
                 🔄 Refresh
               </button>
             </div>
@@ -7013,7 +7016,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_cable_status">Ethernet Cable Link &amp; Routing Priority:</div>
               <div id="diag-cable-badge" style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
                 <span>🔌 <span id="diag-cable-txt" data-i18n="invasive_cable_checking">Checking...</span></span>
-                <button class="btn-secondary" style="font-size: 10px; padding: 3px 8px;" onclick="enforceWiredPriority()" data-i18n="btn_enforce_priority">Enforce Priority</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="enforceWiredPriority()" data-i18n="btn_enforce_priority">Enforce Priority</button>
               </div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" id="diag-cable-sub" data-i18n="invasive_cable_sub_wired">Wired connection strictly prioritized at routing metric 50.</div>
             </div>
@@ -7023,7 +7026,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_antiban_status">Ookla Anti-Ban &amp; Server Quarantine:</div>
               <div id="diag-antiban-badge" style="font-size: 14px; font-weight: 700; color: #10b981; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
                 <span>🛡️ <span id="diag-antiban-txt" data-i18n="invasive_antiban_healthy">Active (0 servers quarantined - Healthy)</span></span>
-                <button class="btn-secondary" style="font-size: 10px; padding: 3px 8px;" onclick="clearOoklaQuarantine()" data-i18n="btn_clear_quarantine">Clear Quarantined Servers</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="clearOoklaQuarantine()" data-i18n="btn_clear_quarantine">Clear Quarantined Servers</button>
               </div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" data-i18n="invasive_antiban_sub">Automatic server rotation and RTR/Cloudflare failover upon HTTP 429 rate limit.</div>
             </div>
@@ -7042,7 +7045,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;" data-i18n="invasive_crash_title">Python Crash Interceptor:</div>
               <div id="diag-crash-badge" style="font-size: 14px; font-weight: 700; color: #10b981; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
                 <span>💥 <span id="diag-crash-txt" data-i18n="invasive_crash_clean">0 errors recorded (Clean)</span></span>
-                <button id="btn-clear-crashes" class="btn-secondary" style="font-size: 10px; padding: 3px 8px; display: none;" onclick="clearCrashReports()" data-i18n="btn_clear_crashes">Clear</button>
+                <button type="button" id="btn-clear-crashes" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; display: none;" onclick="clearCrashReports()" data-i18n="btn_clear_crashes">Clear</button>
               </div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;" data-i18n="invasive_crash_sub">Introspects call stack and local variables (with credentials redacted) on unexpected exceptions.</div>
             </div>
@@ -7072,6 +7075,18 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </p>
         </div>
 
+        <!-- Delete stored data -->
+        <div class="app-box" id="purge-card" style="border-color: rgba(239, 68, 68, 0.4);">
+          <div class="section-subtitle" style="margin: 0;" data-i18n="purge_title">🗑️ Delete Stored Data</div>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 12px;" data-i18n="purge_desc">Settings, passwords and VPN keys are never deleted. Deletion cannot be undone.</p>
+          <div id="purge-categories" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;"></div>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+            <label for="purge-confirm" style="font-size: 12px;" data-i18n="purge_confirm_label">Type PURGE to confirm:</label>
+            <input id="purge-confirm" class="form-input" autocomplete="off" style="width: 120px; max-width: 100%; padding: 6px 10px; font-size: 12px;">
+            <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 14px; background: #dc2626;" onclick="runPurge()" data-i18n="purge_btn">🗑️ Delete Selected</button>
+          </div>
+        </div>
+
         <!-- Backup Generation Cards Grid -->
         <div class="router-row-2">
           <!-- Card 1: Full System Backup -->
@@ -7090,10 +7105,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               </div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
-              <button class="btn-primary" style="font-size: 12px; padding: 8px 14px; flex: 1;" onclick="createBackup('full', false)" data-i18n="backup_btn_download_full">
+              <button type="button" class="btn-primary" style="font-size: 12px; padding: 8px 14px; flex: 1;" onclick="createBackup('full', false)" data-i18n="backup_btn_download_full">
                 📥 Download Full Backup (.tar.gz)
               </button>
-              <button class="btn-secondary" style="font-size: 12px; padding: 8px 14px;" onclick="createBackup('full', true)" data-i18n="backup_btn_save_device">
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 8px 14px;" onclick="createBackup('full', true)" data-i18n="backup_btn_save_device">
                 💾 Save to Device
               </button>
             </div>
@@ -7115,10 +7130,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               </div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
-              <button class="btn-primary" style="font-size: 12px; padding: 8px 14px; flex: 1; background: #9333ea; border-color: #a855f7;" onclick="createBackup('config', false)" data-i18n="backup_btn_download_cfg">
+              <button type="button" class="btn-primary" style="font-size: 12px; padding: 8px 14px; flex: 1; background: #9333ea; border-color: #a855f7;" onclick="createBackup('config', false)" data-i18n="backup_btn_download_cfg">
                 📥 Download Config Backup (.tar.gz)
               </button>
-              <button class="btn-secondary" style="font-size: 12px; padding: 8px 14px;" onclick="createBackup('config', true)" data-i18n="backup_btn_save_device">
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 8px 14px;" onclick="createBackup('config', true)" data-i18n="backup_btn_save_device">
                 💾 Save to Device
               </button>
             </div>
@@ -7136,7 +7151,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </p>
           <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
             <input type="file" id="backup-upload-file" accept=".tar.gz,.tgz,application/gzip,application/x-gzip" class="form-input" style="flex: 1; min-width: 240px; padding: 7px 10px;">
-            <button class="btn-primary" style="font-size: 12.5px; padding: 8px 20px; background: #059669; border-color: #10b981;" onclick="uploadAndRestoreBackup()" data-i18n="backup_upload_btn">
+            <button type="button" class="btn-primary" style="font-size: 12.5px; padding: 8px 20px; background: #059669; border-color: #10b981;" onclick="uploadAndRestoreBackup()" data-i18n="backup_upload_btn">
               🔄 Verify & Apply Restore
             </button>
           </div>
@@ -7150,7 +7165,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <span>🗄️</span>
               <span data-i18n="backup_stored_title">Locally Stored Device Backups</span>
             </div>
-            <button class="btn-secondary" style="font-size: 11px; padding: 4px 12px;" onclick="loadBackupsList()">
+            <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 12px;" onclick="loadBackupsList()">
               🔄 Refresh List
             </button>
           </div>
@@ -7187,7 +7202,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <input type="checkbox" id="reset-keep-db" checked style="accent-color: #38bdf8;">
               <span>Keep measurement history (preserve SQLite database)</span>
             </label>
-            <button class="btn-danger" style="background: #dc2626; border-color: #ef4444; font-size: 12.5px; padding: 8px 18px; color: white;" onclick="executeFactoryReset()" data-i18n="backup_reset_btn">
+            <button type="button" class="btn-danger" style="background: #dc2626; border-color: #ef4444; font-size: 12.5px; padding: 8px 18px; color: white;" onclick="executeFactoryReset()" data-i18n="backup_reset_btn">
               ⚠️ Execute Factory Reset
             </button>
           </div>
@@ -7209,10 +7224,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               </p>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="triggerHealAudit()" data-i18n="heal_btn_audit">
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="triggerHealAudit()" data-i18n="heal_btn_audit">
                 🔍 Run Health Audit
               </button>
-              <button class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #0284c7; border-color: #38bdf8;" onclick="triggerAutoHeal(null)" data-i18n="heal_btn_fix">
+              <button type="button" class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #0284c7; border-color: #38bdf8;" onclick="triggerAutoHeal(null)" data-i18n="heal_btn_fix">
                 🛠️ Auto-Repair Components
               </button>
             </div>
@@ -7279,10 +7294,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               System is running the verified stable software release.
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="checkStableUpdates(true)" data-i18n="heal_btn_check_up">
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 7px 14px;" onclick="checkStableUpdates(true)" data-i18n="heal_btn_check_up">
                 🔄 Check for Updates
               </button>
-              <button id="btn-apply-update" class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #9333ea; border-color: #a855f7;" onclick="applyStableUpdate()" data-i18n="heal_btn_apply_up">
+              <button type="button" id="btn-apply-update" class="btn-primary" style="font-size: 12px; padding: 7px 16px; background: #9333ea; border-color: #a855f7;" onclick="applyStableUpdate()" data-i18n="heal_btn_apply_up">
                 🚀 Apply Stable Update
               </button>
             </div>
@@ -7297,9 +7312,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <span data-i18n="heal_card_health">System & Component Health Status</span>
             </div>
             <div style="display: flex; gap: 6px;">
-              <button class="btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="triggerAutoHeal(1)">Force Tier 1 Fix</button>
-              <button class="btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="triggerAutoHeal(2)">Force Tier 2 Fix</button>
-              <button class="btn-secondary" style="font-size: 11px; padding: 4px 8px; border-color: #ef4444; color: #f87171;" onclick="triggerAutoHeal(3)">Force Tier 3 Fix</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="triggerAutoHeal(1)">Force Tier 1 Fix</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="triggerAutoHeal(2)">Force Tier 2 Fix</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 8px; border-color: #ef4444; color: #f87171;" onclick="triggerAutoHeal(3)">Force Tier 3 Fix</button>
             </div>
           </div>
           <div class="table-container" style="max-height: 480px; overflow-y: auto;">
@@ -7324,7 +7339,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div class="router-section-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
             <div style="font-size: 14px; font-weight: 700; color: #ffffff;" data-i18n="telegram_title">💬 Telegram Chatbot & Smart Alerts</div>
-            <button class="btn-secondary" style="font-size: 12px; padding: 5px 12px;" onclick="switchTab('tab-telegram')" data-i18n="telegram_open_fullscreen">💬 Open Full Screen ↗</button>
+            <button type="button" class="btn-secondary" style="font-size: 12px; padding: 5px 12px;" onclick="switchTab('tab-telegram')" data-i18n="telegram_open_fullscreen">💬 Open Full Screen ↗</button>
           </div>
           <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;" data-i18n="telegram_desc">
             Interactive remote management, diagnostic commands (/speed, /ping, /adblock, /status), and instant outage or high-latency notifications.
@@ -7339,14 +7354,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             </div>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchTab('tab-telegram')" data-i18n="telegram_manage_btn">⚙️ Manage Chatbot & Alerts</button>
+            <button type="button" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchTab('tab-telegram')" data-i18n="telegram_manage_btn">⚙️ Manage Chatbot & Alerts</button>
           </div>
         </div>
       </div>
 
       <!-- Bottom Sticky Save Bar -->
       <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
-        <button class="btn-primary" style="padding: 10px 28px; font-size: 14px;" onclick="saveRouterSettings()">
+        <button type="button" class="btn-primary" style="padding: 10px 28px; font-size: 14px;" onclick="saveRouterSettings()">
           💾 Save All Router Settings
         </button>
       </div>
@@ -7366,7 +7381,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
           <span id="telegram-main-badge" class="badge">Checking...</span>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTelegramStatus(true)" data-i18n="btn_refresh">🔄 Refresh</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="loadTelegramStatus(true)" data-i18n="btn_refresh">🔄 Refresh</button>
         </div>
       </div>
 
@@ -7400,7 +7415,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <div class="form-group" style="margin-bottom: 14px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
               <label class="form-label" style="font-size: 12px; margin: 0;" data-i18n="telegram_token">Telegram Bot API Token:</label>
-              <span id="telegram-token-saved-badge" class="badge" style="display: none; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 10px;" data-i18n="telegram_token_saved">Token saved</span>
+              <span id="telegram-token-saved-badge" class="badge" style="display: none; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 11px;" data-i18n="telegram_token_saved">Token saved</span>
             </div>
             <div style="display: flex; gap: 6px;">
               <input type="password" id="telegram-cfg-token" class="form-input" style="font-size: 13px; font-family: monospace; flex: 1;" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" autocomplete="off" spellcheck="false">
@@ -7440,7 +7455,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button class="btn-primary" style="padding: 8px 18px; font-size: 13px;" onclick="saveTelegramConfig()" data-i18n="telegram_btn_save">💾 Save Settings & Start Bot</button>
+            <button type="button" class="btn-primary" style="padding: 8px 18px; font-size: 13px;" onclick="saveTelegramConfig()" data-i18n="telegram_btn_save">💾 Save Settings & Start Bot</button>
           </div>
         </div>
 
@@ -7471,9 +7486,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
             <!-- Service Control Buttons -->
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
-              <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('start')" data-i18n="telegram_btn_start">▶️ Start</button>
-              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('stop')" data-i18n="telegram_btn_stop">⏹️ Stop</button>
-              <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('restart')" data-i18n="telegram_btn_restart">🔄 Restart</button>
+              <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('start')" data-i18n="telegram_btn_start">▶️ Start</button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('stop')" data-i18n="telegram_btn_stop">⏹️ Stop</button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="controlTelegramService('restart')" data-i18n="telegram_btn_restart">🔄 Restart</button>
             </div>
 
             <!-- Test Notification Section -->
@@ -7481,7 +7496,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div style="font-size: 12px; font-weight: 600; color: #34d399; margin-bottom: 8px;" data-i18n="telegram_test_title">📨 Send Immediate Test Notification:</div>
               <div style="display: flex; gap: 8px;">
                 <input type="text" id="telegram-test-chat-id" class="form-input" style="font-size: 12px; padding: 6px 10px; flex: 1;" placeholder="Optional target Chat ID (or leave blank for first authorized ID)" data-i18n-placeholder="telegram_test_chat_ph">
-                <button class="btn-primary" style="font-size: 12px; padding: 6px 14px; white-space: nowrap;" onclick="sendTelegramTestNotification()" data-i18n="telegram_btn_test">📨 Send</button>
+                <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 14px; white-space: nowrap;" onclick="sendTelegramTestNotification()" data-i18n="telegram_btn_test">📨 Send</button>
               </div>
               <div id="telegram-test-result" style="display: none; font-size: 11.5px; margin-top: 8px; padding: 6px 10px; border-radius: 6px;"></div>
             </div>
@@ -7516,13 +7531,13 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </p>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="copyLlmBundle()">
+          <button type="button" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="copyLlmBundle()">
             📋 Copy Full Report
           </button>
-          <button class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="downloadLlmBundle()">
+          <button type="button" class="btn-secondary" style="font-size: 12.5px; padding: 7px 16px;" onclick="downloadLlmBundle()">
             💾 Download .md File
           </button>
-          <button class="btn-secondary" style="font-size: 12.5px; padding: 7px 12px;" onclick="loadLlmBundle()">
+          <button type="button" class="btn-secondary" style="font-size: 12.5px; padding: 7px 12px;" onclick="loadLlmBundle()">
             🔄 Refresh
           </button>
         </div>
@@ -7545,8 +7560,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           </p>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="copyTerminalOutput()" data-i18n="btn_copy">📋 Copy Output</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="clearTerminalScreen()" data-i18n="btn_clear">🧹 Clear Screen</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="copyTerminalOutput()" data-i18n="btn_copy">📋 Copy Output</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="clearTerminalScreen()" data-i18n="btn_clear">🧹 Clear Screen</button>
         </div>
       </div>
 
@@ -7554,19 +7569,19 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       <div style="margin-bottom: 14px;">
         <div style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;" data-i18n="terminal_shortcuts_title">⚡ Quick Diagnostic Shortcuts:</div>
         <div class="cli-quick-btns">
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('ip -br a')">ip -br a</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('ip route')">ip route</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('ping -c 4 1.1.1.1')">ping -c 4 1.1.1.1</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('traceroute -n -m 12 1.1.1.1')">traceroute 1.1.1.1</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-speed --trigger manual')">nmb-speed manual</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('systemctl status nmb* --no-pager')">systemctl status nmb*</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('journalctl -u nmb-netd -n 25 --no-pager')">journalctl netd</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('rfkill list')">rfkill list (Wi-Fi)</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('cat /etc/nmb/nmb.conf')">cat nmb.conf</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('free -h && df -h / /var/lib/nmb')">free & df</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('uname -a')">uname -a</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-factory-reset --keep-db')">factory-reset (dry)</button>
-          <button class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-invasive-log')">nmb-invasive-log</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('ip -br a')">ip -br a</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('ip route')">ip route</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('ping -c 4 1.1.1.1')">ping -c 4 1.1.1.1</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('traceroute -n -m 12 1.1.1.1')">traceroute 1.1.1.1</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-speed --trigger manual')">nmb-speed manual</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('systemctl status nmb* --no-pager')">systemctl status nmb*</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('journalctl -u nmb-netd -n 25 --no-pager')">journalctl netd</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('rfkill list')">rfkill list (Wi-Fi)</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('cat /etc/nmb/nmb.conf')">cat nmb.conf</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('free -h && df -h / /var/lib/nmb')">free & df</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('uname -a')">uname -a</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-factory-reset --keep-db')">factory-reset (dry)</button>
+          <button type="button" class="cli-quick-btn" onclick="execQuickTermCmd('/opt/nmb/bin/nmb-invasive-log')">nmb-invasive-log</button>
         </div>
       </div>
 
@@ -7616,7 +7631,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <option value="0">Pause</option>
             </select>
           </div>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadTasksOverview()" data-i18n="tasks_btn_refresh">🔄 Refresh Now</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadTasksOverview()" data-i18n="tasks_btn_refresh">🔄 Refresh Now</button>
         </div>
       </div>
 
@@ -7656,7 +7671,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div id="tasks-ram-bar-buff" style="background: #3b82f6; width: 0%; height: 100%; transition: width 0.3s ease;"></div>
               <div id="tasks-ram-bar-cache" style="background: #10b981; width: 0%; height: 100%; transition: width 0.3s ease;"></div>
             </div>
-            <div style="display: flex; gap: 10px; font-size: 10px; color: #94a3b8; margin-top: 4px;">
+            <div style="display: flex; gap: 10px; font-size: 11px; color: #94a3b8; margin-top: 4px;">
               <span><span style="color: #a855f7;">■</span> Used</span>
               <span><span style="color: #3b82f6;">■</span> Buffers</span>
               <span><span style="color: #10b981;">■</span> Cache</span>
@@ -7709,9 +7724,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <input type="text" id="tasks-search-input" class="form-input" style="font-size: 12px; height: 32px;" placeholder="Filter by command, PID, or user..." data-i18n-placeholder="tasks_filter_placeholder" oninput="onTasksSearchInput(this.value)">
         </div>
         <div style="display: flex; gap: 6px; align-items: center;">
-          <button class="btn-secondary active" id="tasks-filter-btn-all" style="font-size: 11px; padding: 4px 10px;" onclick="setTasksCategoryFilter('all')">All Processes</button>
-          <button class="btn-secondary" id="tasks-filter-btn-nmb" style="font-size: 11px; padding: 4px 10px;" onclick="setTasksCategoryFilter('nmb')">NMB Only</button>
-          <button class="btn-secondary" id="tasks-filter-btn-apps" style="font-size: 11px; padding: 4px 10px;" onclick="setTasksCategoryFilter('apps')">User Apps</button>
+          <button type="button" class="btn-secondary active" id="tasks-filter-btn-all" style="font-size: 11px; padding: 4px 10px;" onclick="setTasksCategoryFilter('all')">All Processes</button>
+          <button type="button" class="btn-secondary" id="tasks-filter-btn-nmb" style="font-size: 11px; padding: 4px 10px;" onclick="setTasksCategoryFilter('nmb')">NMB Only</button>
+          <button type="button" class="btn-secondary" id="tasks-filter-btn-apps" style="font-size: 11px; padding: 4px 10px;" onclick="setTasksCategoryFilter('apps')">User Apps</button>
         </div>
       </div>
 
@@ -7908,6 +7923,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
   async function switchLanguage(lang) {
     currentLang = lang;
+    document.documentElement.lang = lang;
     localStorage.setItem('nmb_lang', lang);
     showToast('Changing language to ' + lang.toUpperCase() + '...');
     try {
@@ -8171,6 +8187,61 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
   }
 
+  function renderPurgeSummary(summary) {
+    const box = document.getElementById('purge-categories');
+    if (!box) return;
+    const fallback = { measurements: 'Measurements', events: 'Events and alerts', reports: 'Saved reports', backups: 'Backups', logs: 'Logs' };
+    box.innerHTML = Object.keys(fallback).map(c => {
+      const info = summary[c] || { items: 0, bytes: 0 };
+      const size = info.bytes ? ' · ' + (info.bytes / 1048576).toFixed(1) + ' MB' : '';
+      return `<label style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+        <input type="checkbox" value="${c}"> <span>${t('purge_cat_' + c, fallback[c])}: <b>${info.items}</b> ${t('purge_items', 'items')}${size}</span>
+      </label>`;
+    }).join('');
+  }
+
+  async function loadPurgeSummary() {
+    try {
+      const res = await fetch('/api/system/purge');
+      if (res.ok) renderPurgeSummary((await res.json()).summary);
+    } catch (e) {
+      console.error('Failed to load purge summary:', e);
+    }
+  }
+
+  async function runPurge() {
+    const categories = Array.from(document.querySelectorAll('#purge-categories input:checked')).map(el => el.value);
+    const confirmEl = document.getElementById('purge-confirm');
+    if (!categories.length || confirmEl.value !== 'PURGE') {
+      showToast(t('purge_need_selection', 'Select a category and type PURGE.'));
+      return;
+    }
+    try {
+      const res = await fetch('/api/system/purge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: categories, confirm: 'PURGE' })
+      });
+      const data = await res.json();
+      confirmEl.value = '';
+      if (data.summary) renderPurgeSummary(data.summary);
+      showToast(res.ok ? t('purge_done', 'Selected data deleted.') : t('error_prefix', 'Error: ') + JSON.stringify(data.errors || data.message));
+    } catch (e) {
+      showToast(t('error_prefix', 'Error: ') + e);
+    }
+  }
+
+  // Name form fields that have no label, and keep the document language current.
+  function enhanceAccessibility(root) {
+    (root || document).querySelectorAll('input, select, textarea').forEach(el => {
+      if (el.id && document.querySelector('label[for="' + el.id + '"]')) return;
+      if (el.closest('label') || el.getAttribute('aria-label')) return;
+      const name = el.placeholder || el.title || el.name || el.id;
+      if (name) el.setAttribute('aria-label', name);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', () => enhanceAccessibility());
+
   async function loadInterfaceMatrix() {
     try {
       const res = await fetch('/api/system/ports');
@@ -8403,7 +8474,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">${pkg.description}</div>
             </div>
             <div>
-              <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="installDrivers('${pkg.package}')">📦 Install ${pkg.package}</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="installDrivers('${pkg.package}')">📦 Install ${pkg.package}</button>
             </div>
           </div>`;
         });
@@ -8697,7 +8768,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <td style="font-size: 11.5px; font-weight: 600; color: #f87171; word-break: break-all;">${escapeHtml(item.domain)}</td>
             <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
             <td style="text-align: center;">
-              <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist('${escapeHtml(item.domain)}')">${t('adblock_btn_allow', '✅ Allow')}</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist('${escapeHtml(item.domain)}')">${t('adblock_btn_allow', '✅ Allow')}</button>
             </td>
           </tr>
         `).join('');
@@ -8716,7 +8787,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             <td style="font-size: 11.5px; font-weight: 600; color: #38bdf8; word-break: break-all;">${escapeHtml(item.domain)}</td>
             <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
             <td style="text-align: center;">
-              <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #f87171;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist('${escapeHtml(item.domain)}')">${t('adblock_btn_block', '⛔ Block')}</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist('${escapeHtml(item.domain)}')">${t('adblock_btn_block', '⛔ Block')}</button>
             </td>
           </tr>
         `).join('');
@@ -8734,7 +8805,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <tr>
             <td style="font-size: 11px;">
               <div style="font-weight: 700; color: #f1f5f9; cursor: pointer;" onclick="filterLogByClient('${escapeHtml(item.ip)}')">${escapeHtml(item.ip)}</div>
-              <div style="font-size: 10px; color: #94a3b8;">${escapeHtml(item.hostname || item.ip)}</div>
+              <div style="font-size: 11px; color: #94a3b8;">${escapeHtml(item.hostname || item.ip)}</div>
             </td>
             <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.total.toLocaleString()}</td>
             <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: ${item.blocked > 0 ? '#f87171' : '#64748b'};">${item.blocked_pct}%</td>
@@ -9026,19 +9097,19 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
 
       const clientDisplay = q.client_name && q.client_name !== q.client_ip
-        ? `<div style="font-weight: 600; color: #f1f5f9;">${escapeHtml(q.client_name)}</div><div style="font-size: 10px; color: #94a3b8;">${escapeHtml(q.client_ip)}</div>`
+        ? `<div style="font-weight: 600; color: #f1f5f9;">${escapeHtml(q.client_name)}</div><div style="font-size: 11px; color: #94a3b8;">${escapeHtml(q.client_ip)}</div>`
         : `<div style="font-family: monospace; color: #cbd5e1;">${escapeHtml(q.client_ip || '')}</div>`;
 
       return `<tr>
         <td style="font-size: 11.5px; color: #94a3b8; font-family: monospace;">${escapeHtml(q.time_str || '')}</td>
         <td style="font-size: 11.5px;">${clientDisplay}</td>
-        <td><span class="badge" style="background: rgba(255,255,255,0.06); color: #cbd5e1; font-size: 10.5px; padding: 2px 5px; border-radius: 3px; font-family: monospace;">${escapeHtml(q.type || 'A')}</span></td>
+        <td><span class="badge" style="background: rgba(255,255,255,0.06); color: #cbd5e1; font-size: 11px; padding: 2px 5px; border-radius: 3px; font-family: monospace;">${escapeHtml(q.type || 'A')}</span></td>
         <td>${stBadge}</td>
         <td style="font-size: 11.5px; color: var(--text-muted); font-family: monospace;">${q.latency_ms ? q.latency_ms.toFixed(1) + 'ms' : '<0.1ms'}</td>
         <td style="font-size: 11.5px; font-weight: 600; color: ${q.status === 'BLOCKED' ? '#f87171' : '#f1f5f9'}; word-break: break-all;">${escapeHtml(q.domain || '')}</td>
         <td style="text-align: center; white-space: nowrap;">
-          <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #f87171; margin-right: 4px;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist('${escapeHtml(q.domain)}')">${t('adblock_btn_block', '⛔ Block')}</button>
-          <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist('${escapeHtml(q.domain)}')">${t('adblock_btn_allow', '✅ Allow')}</button>
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171; margin-right: 4px;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist('${escapeHtml(q.domain)}')">${t('adblock_btn_block', '⛔ Block')}</button>
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist('${escapeHtml(q.domain)}')">${t('adblock_btn_allow', '✅ Allow')}</button>
         </td>
       </tr>`;
     }).join('');
@@ -9126,7 +9197,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <tr>
                 <td style="font-size: 12px; font-weight: 600; color: #34d399;">${escapeHtml(d)}</td>
                 <td style="text-align: right; width: 40px;">
-                  <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockWhitelist('${escapeHtml(d)}')">✕</button>
+                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockWhitelist('${escapeHtml(d)}')">✕</button>
                 </td>
               </tr>
             `).join('');
@@ -9146,7 +9217,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <tr>
                 <td style="font-size: 12px; font-weight: 600; color: #f87171;">${escapeHtml(d)}</td>
                 <td style="text-align: right; width: 40px;">
-                  <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockBlacklist('${escapeHtml(d)}')">✕</button>
+                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockBlacklist('${escapeHtml(d)}')">✕</button>
                 </td>
               </tr>
             `).join('');
@@ -9168,7 +9239,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <tr>
                 <td style="font-size: 11.5px; font-weight: 600; color: #34d399; font-family: monospace;">${escapeHtml(it.pattern)}</td>
                 <td style="text-align: right; width: 40px;">
-                  <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter('${escapeHtml(it.pattern)}', 'white')">✕</button>
+                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter('${escapeHtml(it.pattern)}', 'white')">✕</button>
                 </td>
               </tr>
             `).join('');
@@ -9185,7 +9256,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
               <tr>
                 <td style="font-size: 11.5px; font-weight: 600; color: #f87171; font-family: monospace;">${escapeHtml(it.pattern)}</td>
                 <td style="text-align: right; width: 40px;">
-                  <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter('${escapeHtml(it.pattern)}', 'black')">✕</button>
+                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter('${escapeHtml(it.pattern)}', 'black')">✕</button>
                 </td>
               </tr>
             `).join('');
@@ -9337,7 +9408,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
             ${item.updated_at ? escapeHtml(item.updated_at.replace('T', ' ').slice(0, 19)) : t('adblock_list_not_updated', 'Not updated yet')}
           </td>
           <td style="text-align: center;">
-            <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockAdlistSource('${escapeHtml(item.url)}')">✕</button>
+            <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockAdlistSource('${escapeHtml(item.url)}')">✕</button>
           </td>
         </tr>
       `).join('');
@@ -9426,10 +9497,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <td style="font-weight: 700; color: #38bdf8; font-size: 12.5px; font-family: monospace;">${escapeHtml(r.domain)}</td>
           <td style="font-weight: 700; color: #34d399; font-size: 12.5px; font-family: monospace;">${escapeHtml(r.ip)}</td>
           <td style="text-align: center;">
-            <span class="badge" style="font-size: 10px; background: rgba(255,255,255,0.06); color: #cbd5e1;">${r.ip.includes(':') ? 'AAAA' : 'A'}</span>
+            <span class="badge" style="font-size: 11px; background: rgba(255,255,255,0.06); color: #cbd5e1;">${r.ip.includes(':') ? 'AAAA' : 'A'}</span>
           </td>
           <td style="text-align: center;">
-            <button class="btn-secondary" style="font-size: 10.5px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockLocalDnsRecord('${escapeHtml(r.domain)}')">✕</button>
+            <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockLocalDnsRecord('${escapeHtml(r.domain)}')">✕</button>
           </td>
         </tr>
       `).join('');
@@ -9811,7 +9882,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         const wanV4 = escapeHtml(data.system_info.public_ipv4 || data.system_info.wan_ip || '');
         const wanV6 = escapeHtml(data.system_info.public_ipv6 || '');
         if (wanV4 && wanV6) {
-          document.getElementById('hdr-wan-ip').innerHTML = `<span style="color:#38bdf8;">${wanV4}</span> <span style="font-size:10px; color:#a78bfa;" title="${wanV6}">[v6]</span>`;
+          document.getElementById('hdr-wan-ip').innerHTML = `<span style="color:#38bdf8;">${wanV4}</span> <span style="font-size: 11px; color:#a78bfa;" title="${wanV6}">[v6]</span>`;
         } else {
           document.getElementById('hdr-wan-ip').innerText = wanV4 || wanV6 || '--';
         }
@@ -10233,14 +10304,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           const stV4 = escapeHtml(st.client_ip);
           const stV6 = escapeHtml(st.client_ipv6);
           const ispName = escapeHtml(st.isp_name || (data.isp && data.isp.name) || 'ISP');
-          const ispBadge = `<span class="badge" style="background:rgba(56,189,248,0.12); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); font-size:10px; margin-top:2px; display:inline-block; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${ispName}">🏢 ${ispName}</span>`;
+          const ispBadge = `<span class="badge" style="background:rgba(56,189,248,0.12); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); font-size: 11px; margin-top:2px; display:inline-block; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${ispName}">🏢 ${ispName}</span>`;
 
           if (stV4 && stV6) {
-            clientIpCell = `<div style="font-size:11px; line-height:1.3;"><span style="color:#38bdf8;" title="IPv4">${stV4}</span><br><span style="color:#a78bfa; font-size:10px;" title="IPv6">${stV6}</span><br>${ispBadge}</div>`;
+            clientIpCell = `<div style="font-size:11px; line-height:1.3;"><span style="color:#38bdf8;" title="IPv4">${stV4}</span><br><span style="color:#a78bfa; font-size: 11px;" title="IPv6">${stV6}</span><br>${ispBadge}</div>`;
           } else if (stV4) {
             clientIpCell = `<div style="font-size:11px; line-height:1.3;"><code style="color:#38bdf8;">${stV4}</code><br>${ispBadge}</div>`;
           } else if (stV6) {
-            clientIpCell = `<div style="font-size:11px; line-height:1.3;"><code style="color:#a78bfa; font-size:10px;">${stV6}</code><br>${ispBadge}</div>`;
+            clientIpCell = `<div style="font-size:11px; line-height:1.3;"><code style="color:#a78bfa; font-size: 11px;">${stV6}</code><br>${ispBadge}</div>`;
           } else {
             clientIpCell = `<div><code>--</code><br>${ispBadge}</div>`;
           }
@@ -10653,16 +10724,16 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     const lat = (item.ping_us || 0) / 1000.0;
     const jitter = item.jitter_ms !== undefined ? `${item.jitter_ms.toFixed(1)} ms` : (item.jitter_us ? `${(item.jitter_us / 1000.0).toFixed(1)} ms` : null);
 
-    let engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;font-size:10px;">OOKLA</span>';
+    let engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;font-size: 11px;">OOKLA</span>';
     if (item.engine === 'cloudflare') {
-      engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;font-size:10px;">CLOUDFLARE ${item.colo ? '[' + item.colo + ']' : ''}</span>`;
+      engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;font-size: 11px;">CLOUDFLARE ${item.colo ? '[' + item.colo + ']' : ''}</span>`;
     } else if (item.engine === 'rtr' || item.engine === 'rtr-nettest') {
-      engineBadge = '<span class="badge" style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;font-size:10px;">RTR-NETTEST</span>';
+      engineBadge = '<span class="badge" style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;font-size: 11px;">RTR-NETTEST</span>';
     } else if (item.engine === 'iperf3') {
-      engineBadge = '<span class="badge" style="background:rgba(168,85,247,0.2);color:#c084fc;border:1px solid #a855f7;font-size:10px;">IPERF3</span>';
+      engineBadge = '<span class="badge" style="background:rgba(168,85,247,0.2);color:#c084fc;border:1px solid #a855f7;font-size: 11px;">IPERF3</span>';
     }
 
-    const bb = item.bufferbloat_grade ? `<span class="badge badge-ok" style="font-size:10px;">${item.bufferbloat_grade} (+${item.bufferbloat_delta_ms || 0}ms)</span>` : '';
+    const bb = item.bufferbloat_grade ? `<span class="badge badge-ok" style="font-size: 11px;">${item.bufferbloat_grade} (+${item.bufferbloat_delta_ms || 0}ms)</span>` : '';
 
     let content = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:4px; gap:8px;">
@@ -10683,10 +10754,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
     const sName = item.server_name || item.server_host || '';
     if (sName) {
-      content += `<div style="font-size:10.5px; color:#94a3b8; border-top:1px solid rgba(255,255,255,0.06); padding-top:4px;">📍 ${t('server_prefix', 'Server')}: <b>${escapeHtml(sName)}</b></div>`;
+      content += `<div style="font-size: 11px; color:#94a3b8; border-top:1px solid rgba(255,255,255,0.06); padding-top:4px;">📍 ${t('server_prefix', 'Server')}: <b>${escapeHtml(sName)}</b></div>`;
     }
     if (item.client_ip || item.client_ipv6) {
-      content += `<div style="font-size:10px; color:#64748b; font-family:monospace;">🌐 IP: ${escapeHtml(item.client_ip || '')} ${item.client_ipv6 ? '[' + escapeHtml(item.client_ipv6) + ']' : ''}</div>`;
+      content += `<div style="font-size: 11px; color:#64748b; font-family:monospace;">🌐 IP: ${escapeHtml(item.client_ip || '')} ${item.client_ipv6 ? '[' + escapeHtml(item.client_ipv6) + ']' : ''}</div>`;
     }
 
     tooltip.innerHTML = content;
@@ -10881,8 +10952,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <td>${s.location || s.name || '--'}</td>
         <td>${s.country || '--'}</td>
         <td style="text-align: center;">
-          <button class="btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="setDefaultServer(${sid}, '${sName}', '${sHost}')">⭐ ${t('servers_btn_use', 'Use as Target Server')}</button>
-          <button class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="runSingleServerTest(${sid})">${t('server_test_btn', '▶ Test to this server')}</button>
+          <button type="button" class="btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="setDefaultServer(${sid}, '${sName}', '${sHost}')">⭐ ${t('servers_btn_use', 'Use as Target Server')}</button>
+          <button type="button" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="runSingleServerTest(${sid})">${t('server_test_btn', '▶ Test to this server')}</button>
         </td>
       </tr>`;
     });
@@ -11216,15 +11287,6 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
 
   async function changeDaemonLogLevel(newLevel) {
     try {
@@ -12436,8 +12498,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <td style="font-size: 12px; color: #cbd5e1;">${commentEsc}</td>
           <td style="text-align: right; white-space: nowrap;">
             <a href="/api/backup/download?file=${encodeURIComponent(b.filename)}" class="btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; display: inline-block; margin-right: 4px;">📥 Download</a>
-            <button class="btn-primary" style="font-size: 11px; padding: 4px 8px; margin-right: 4px;" onclick="restoreLocalBackup('${filenameEsc}')">${t('backup_action_restore', '🔄 Restore')}</button>
-            <button class="btn-danger" style="font-size: 11px; padding: 4px 8px; background: #dc2626; border-color: #ef4444; color: white;" onclick="deleteLocalBackup('${filenameEsc}')">🗑️</button>
+            <button type="button" class="btn-primary" style="font-size: 11px; padding: 4px 8px; margin-right: 4px;" onclick="restoreLocalBackup('${filenameEsc}')">${t('backup_action_restore', '🔄 Restore')}</button>
+            <button type="button" class="btn-danger" style="font-size: 11px; padding: 4px 8px; background: #dc2626; border-color: #ef4444; color: white;" onclick="deleteLocalBackup('${filenameEsc}')">🗑️</button>
           </td>
         </tr>`;
       }
@@ -12767,17 +12829,17 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           let escHtml = '<div style="display: flex; flex-direction: column; gap: 8px;">';
           for (const c of entries) {
             const isResolved = c.resolved;
-            const tierBadge = c.last_tier_attempted ? `<span class="badge-pill" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #d97706; font-size: 10px;">Tier ${c.last_tier_attempted}</span>` : '';
+            const tierBadge = c.last_tier_attempted ? `<span class="badge-pill" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #d97706; font-size: 11px;">Tier ${c.last_tier_attempted}</span>` : '';
             const statusBadge = isResolved
-              ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; font-size: 10px;">RESOLVED</span>'
-              : '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #dc2626; font-size: 10px;">ACTIVE ISSUE</span>';
+              ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; font-size: 11px;">RESOLVED</span>'
+              : '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #dc2626; font-size: 11px;">ACTIVE ISSUE</span>';
             escHtml += `<div style="padding: 8px 10px; background: rgba(0,0,0,0.25); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); font-size: 11.5px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <strong style="color: #ffffff;">${escapeHtml(c.label || c.id)}</strong>
                 <div style="display: flex; gap: 4px;">${tierBadge}${statusBadge}</div>
               </div>
               <div style="color: #94a3b8; font-size: 11px;">Consecutive failures: <strong style="color: ${c.consecutive_failures > 1 ? '#f87171' : '#fbbf24'};">${c.consecutive_failures || 0}</strong> | Total: ${c.total_failures || 0}</div>
-              ${c.last_actions && c.last_actions.length ? `<div style="color: #38bdf8; font-size: 10.5px; margin-top: 2px;">Last action: ${escapeHtml(c.last_actions[c.last_actions.length - 1])}</div>` : ''}
+              ${c.last_actions && c.last_actions.length ? `<div style="color: #38bdf8; font-size: 11px; margin-top: 2px;">Last action: ${escapeHtml(c.last_actions[c.last_actions.length - 1])}</div>` : ''}
             </div>`;
           }
           escHtml += '</div>';
@@ -13504,7 +13566,7 @@ Use UP/DOWN arrow keys for command history.
 
     listEl.innerHTML = filtered.map((s, idx) => {
       const flag = getFlagEmoji(s.country);
-      const speedBadge = s.speed ? `<span style="font-size: 10.5px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 2px 7px; border-radius: 4px; margin-left: 6px;">${escapeHtml(s.speed)}</span>` : '';
+      const speedBadge = s.speed ? `<span style="font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 2px 7px; border-radius: 4px; margin-left: 6px;">${escapeHtml(s.speed)}</span>` : '';
       const safeHost = escapeHtml(s.host);
       const safeSite = escapeHtml(s.site || s.country || 'Global');
       const safeProvider = escapeHtml(s.provider || '');
@@ -13525,8 +13587,8 @@ Use UP/DOWN arrow keys for command history.
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span id="probe-badge-${idx}" style="font-size: 11.5px; color: #94a3b8; min-width: 70px; text-align: right;"></span>
-            <button class="btn-secondary" style="font-size: 11.5px; padding: 5px 11px;" onclick="probeServerModal('${s.host}', ${s.port}, 'probe-badge-${idx}', this)">⚡ Ping</button>
-            <button class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="selectPublicServer('${s.host}', ${s.port}, '${safeProvider}', '${safeSite}', '${s.speed || ''}')">🎯 Select Server</button>
+            <button type="button" class="btn-secondary" style="font-size: 11.5px; padding: 5px 11px;" onclick="probeServerModal('${s.host}', ${s.port}, 'probe-badge-${idx}', this)">⚡ Ping</button>
+            <button type="button" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="selectPublicServer('${s.host}', ${s.port}, '${safeProvider}', '${safeSite}', '${s.speed || ''}')">🎯 Select Server</button>
           </div>
         </div>
       `;
@@ -13546,10 +13608,6 @@ Use UP/DOWN arrow keys for command history.
     }
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
 
   async function probeServerModal(host, port, badgeId, btnEl) {
     const badge = document.getElementById(badgeId);
@@ -13768,15 +13826,15 @@ Use UP/DOWN arrow keys for command history.
       let typePill = '';
       const hType = h.hop_type || (h.ip === '*' ? 'timeout' : 'public');
       if (hType === 'target') {
-        typePill = '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; font-size: 10px; padding: 2px 6px;">🎯 Target</span>';
+        typePill = '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; font-size: 11px; padding: 2px 6px;">🎯 Target</span>';
       } else if (hType === 'lan') {
-        typePill = '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; font-size: 10px; padding: 2px 6px;">🏠 LAN</span>';
+        typePill = '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; font-size: 11px; padding: 2px 6px;">🏠 LAN</span>';
       } else if (hType === 'cgnat') {
-        typePill = '<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; font-size: 10px; padding: 2px 6px;">📡 CGNAT</span>';
+        typePill = '<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; font-size: 11px; padding: 2px 6px;">📡 CGNAT</span>';
       } else if (hType === 'timeout') {
-        typePill = '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; font-size: 10px; padding: 2px 6px;">⚠️ Timeout</span>';
+        typePill = '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; font-size: 11px; padding: 2px 6px;">⚠️ Timeout</span>';
       } else {
-        typePill = '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 10px; padding: 2px 6px;">🌐 Public</span>';
+        typePill = '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px; padding: 2px 6px;">🌐 Public</span>';
       }
 
       // Country with flag emoji and badge
@@ -13784,7 +13842,7 @@ Use UP/DOWN arrow keys for command history.
       if (h.ip !== '*' && h.country && h.country !== '--') {
         const flag = h.flag || '🌐';
         const cName = escapeHtml(h.country);
-        const cCode = h.country_code ? `<span class="badge" style="font-size: 10px; padding: 2px 5px; margin-left: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">${escapeHtml(h.country_code)}</span>` : '';
+        const cCode = h.country_code ? `<span class="badge" style="font-size: 11px; padding: 2px 5px; margin-left: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">${escapeHtml(h.country_code)}</span>` : '';
         countryHtml = `<span style="font-size: 14px; margin-right: 4px;">${flag}</span> <span style="font-weight: 600; color: #f1f5f9;">${cName}</span> ${cCode}`;
       } else if (h.ip === '*') {
         countryHtml = '<span style="color: #64748b;">--</span>';
@@ -14058,7 +14116,7 @@ Use UP/DOWN arrow keys for command history.
         <td>${item.total_count || 1}</td>
         <td>${verdBadge}</td>
         <td>
-          <button class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="openOoniRunDetails(${item.id})">
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="openOoniRunDetails(${item.id})">
             🔍 Details
           </button>
         </td>
@@ -14223,7 +14281,7 @@ Use UP/DOWN arrow keys for command history.
         <td>${badge}</td>
         <td style="color: var(--text-muted); font-size: 12px;">${runtimeStr}</td>
         <td>
-          <button class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="inspectOoniMeasurement(${m.id})">
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="inspectOoniMeasurement(${m.id})">
             🔬 Inspect
           </button>
         </td>
@@ -14349,7 +14407,7 @@ Use UP/DOWN arrow keys for command history.
           return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(r.request?.method || 'GET')} ${escapeHtml(r.request?.url || '')}</b><br>&nbsp;&nbsp;Code: <span style="color: #38bdf8;">${escapeHtml(String(code))}</span> • Body: ${bodyLen} bytes</div>`;
         }).join('');
       } else if (tk.received) {
-        httpDetails = `Received: <pre style="font-size: 10px; margin: 2px 0;">${escapeHtml(JSON.stringify(tk.received))}</pre>`;
+        httpDetails = `Received: <pre style="font-size: 11px; margin: 2px 0;">${escapeHtml(JSON.stringify(tk.received))}</pre>`;
       }
       cardsHtml += `
         <div style="background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 6px; padding: 10px;">
@@ -14640,7 +14698,7 @@ Use UP/DOWN arrow keys for command history.
             <td><span class="badge-pill" style="background: rgba(56, 189, 248, 0.12); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 11px;">${safeSec}</span></td>
             <td style="font-family: monospace; font-size: 11.5px; color: #94a3b8;">${safeBssid}</td>
             <td>
-              <button class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="selectScannedGuestWifi('${escapeHtml(n.ssid)}', '${escapeHtml(n.security)}', ${isHidden ? 'true' : 'false'})">
+              <button type="button" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="selectScannedGuestWifi('${escapeHtml(n.ssid)}', '${escapeHtml(n.security)}', ${isHidden ? 'true' : 'false'})">
                 ${t('guest_btn_select', 'Select ➡️')}
               </button>
             </td>
@@ -14775,8 +14833,8 @@ Use UP/DOWN arrow keys for command history.
           <td>${statusBadge}</td>
           <td style="font-family: monospace; font-size: 11px; color: #94a3b8;">${escapeHtml(item.uuid || '--')}</td>
           <td style="display: flex; gap: 6px;">
-            ${!item.in_use ? `<button class="btn-primary" style="font-size: 11px; padding: 3px 8px;" onclick="activateSavedWifi('${escapeHtml(targetId)}')">${t('guest_btn_connect_now', '⚡ Connect')}</button>` : ''}
-            <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="forgetSavedWifi('${escapeHtml(targetId)}')">${t('guest_btn_delete', '🗑️ Delete')}</button>
+            ${!item.in_use ? `<button type="button" class="btn-primary" style="font-size: 11px; padding: 3px 8px;" onclick="activateSavedWifi('${escapeHtml(targetId)}')">${t('guest_btn_connect_now', '⚡ Connect')}</button>` : ''}
+            <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="forgetSavedWifi('${escapeHtml(targetId)}')">${t('guest_btn_delete', '🗑️ Delete')}</button>
           </td>
         </tr>`;
       });
@@ -15259,13 +15317,13 @@ ${pkgList}`;
         <td style="font-size: 12px; white-space: nowrap;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
         <td style="font-size: 12px; white-space: nowrap;">${hsDisplay}</td>
         <td style="display: flex; gap: 6px; white-space: nowrap; flex-wrap: nowrap;">
-          <button class="btn-primary" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="showWireguardQr('${p.id}', '${escapeHtml(p.name)}')">
+          <button type="button" class="btn-primary" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="showWireguardQr('${p.id}', '${escapeHtml(p.name)}')">
             📱 QR
           </button>
           <a href="/api/wireguard/peer/config?id=${p.id}" download="${escapeHtml(p.name)}.conf" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none; white-space: nowrap;">
             📥 .conf
           </a>
-          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteWireguardPeer('${p.id}', '${escapeHtml(p.name)}')">
+          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteWireguardPeer('${p.id}', '${escapeHtml(p.name)}')">
             ✕
           </button>
         </td>
@@ -15294,7 +15352,7 @@ ${pkgList}`;
           <a href="/api/openvpn/client/config?name=${encodeURIComponent(c.name)}" download="${escapeHtml(c.name)}.ovpn" class="btn-primary" style="font-size: 11px; padding: 3px 8px; text-decoration: none; white-space: nowrap;">
             📥 .ovpn
           </a>
-          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
+          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
             ✕
           </button>
         </td>
@@ -15823,10 +15881,10 @@ ${pkgList}`;
           <a href="/api/wireguard/peer/config?id=${p.id}" download="${escapeHtml(p.name)}.conf" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
             📥 .conf
           </a>
-          <button class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="showWireguardQr('${p.id}', '${escapeHtml(p.name)}')">
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="showWireguardQr('${p.id}', '${escapeHtml(p.name)}')">
             📱 QR
           </button>
-          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteWireguardPeer('${p.id}', '${escapeHtml(p.name)}')">
+          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteWireguardPeer('${p.id}', '${escapeHtml(p.name)}')">
             ✕
           </button>
         </td>
@@ -16173,7 +16231,7 @@ ${pkgList}`;
           <a href="/api/openvpn/client/config?name=${encodeURIComponent(c.name)}" download="${escapeHtml(c.name)}.ovpn" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
             📥 .ovpn
           </a>
-          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
+          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
             ✕
           </button>
         </td>
@@ -17212,10 +17270,10 @@ ${pkgList}`;
           </td>
           <td style="padding: 6px 10px; text-align: center; white-space: nowrap;">
             ${isProtected ?
-              '<span style="font-size: 10px; color: #64748b; white-space: nowrap;">(Protected)</span>' :
+              '<span style="font-size: 11px; color: #64748b; white-space: nowrap;">(Protected)</span>' :
               `<div style="display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap;">
-                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3); white-space: nowrap;" onclick="promptKillProcess(${p.pid}, '${p.command}', 15)" title="Graceful SIGTERM">${t('tasks_btn_term', 'Term')}</button>
-                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5); white-space: nowrap;" onclick="promptKillProcess(${p.pid}, '${p.command}', 9)" title="Force SIGKILL">${t('tasks_btn_kill', 'Kill')}</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3); white-space: nowrap;" onclick="promptKillProcess(${p.pid}, '${p.command}', 15)" title="Graceful SIGTERM">${t('tasks_btn_term', 'Term')}</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5); white-space: nowrap;" onclick="promptKillProcess(${p.pid}, '${p.command}', 9)" title="Force SIGKILL">${t('tasks_btn_kill', 'Kill')}</button>
               </div>`
             }
           </td>

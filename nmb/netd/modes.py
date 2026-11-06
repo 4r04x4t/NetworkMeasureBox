@@ -4,6 +4,7 @@ Each mode provides setup() and teardown() ensuring clean, idempotent transitions
 """
 from __future__ import annotations
 
+import ipaddress
 import logging
 import shutil
 import subprocess
@@ -61,6 +62,41 @@ class ModeA(NetworkMode):
             return vlan_iface
         return self.cfg.wan_interface
 
+    def _configure_wan_ip(self, iface: str, proto: str, ip: str, netmask: str, gateway: str) -> None:
+        """Apply the configured static address or request a DHCP lease."""
+        if proto == "static" and ip:
+            prefix = ipaddress.ip_network(f"0.0.0.0/{netmask or '255.255.255.0'}").prefixlen
+            interfaces.flush_ip_addresses(iface)
+            interfaces.add_ip_address(iface, f"{ip}/{prefix}")
+            ip_bin = shutil.which("ip")
+            if gateway and ip_bin:
+                interfaces.run_cmd([ip_bin, "route", "replace", "default", "via", gateway, "dev", iface], check=False)
+        elif proto == "dhcp" and not interfaces.get_ip_addresses(iface):
+            if not interfaces.request_dhcp_lease(iface):
+                log.warning("no DHCP lease obtained on %s", iface)
+
+    def _apply_wan2_routing(self, wan2: str) -> None:
+        """Failover: WAN2 as a higher-metric default. Loadbalance: multipath default route."""
+        mode = getattr(self.cfg, "wan_mode", "single")
+        ip_bin = shutil.which("ip")
+        gw2 = self.cfg.wan2_gateway or interfaces.get_default_gateway(wan2)
+        if mode not in ("failover", "loadbalance") or not ip_bin or not gw2:
+            if mode in ("failover", "loadbalance"):
+                log.warning("WAN mode %s not applied: no gateway found on %s", mode, wan2)
+            return
+        if mode == "failover":
+            interfaces.run_cmd([ip_bin, "route", "replace", "default", "via", gw2, "dev", wan2, "metric", "200"], check=False)
+            return
+        primary = ["nexthop"]
+        gw1 = self.cfg.wan_gateway or interfaces.get_default_gateway(self.active_wan)
+        if gw1 and self.active_wan != "ppp0":
+            primary += ["via", gw1]
+        primary += ["dev", self.active_wan, "weight", "1"]
+        interfaces.run_cmd(
+            [ip_bin, "route", "replace", "default", *primary, "nexthop", "via", gw2, "dev", wan2, "weight", "1"],
+            check=False,
+        )
+
     def setup(self) -> bool:
         log.info("initializing Mode A (Active Gateway / NAT)")
         self.lan_ifaces = []
@@ -77,6 +113,8 @@ class ModeA(NetworkMode):
             log.info("launching PPPoE client on %s", wan)
             self.svc_mgr.start_pppd(wan)
             self.active_wan = "ppp0"
+        else:
+            self._configure_wan_ip(wan, self.cfg.wan_proto, self.cfg.wan_ip, self.cfg.wan_netmask, self.cfg.wan_gateway)
 
         # 2. Configure LAN interfaces (Single LAN or Bridge br-lan for Multi-LAN ports)
         lan_ports = getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]
@@ -128,7 +166,9 @@ class ModeA(NetworkMode):
         if wan2 and interfaces.interface_exists(wan2):
             interfaces.set_link_up(wan2)
             log.info("secondary WAN2 interface %s brought up", wan2)
+            self._configure_wan_ip(wan2, self.cfg.wan2_proto, self.cfg.wan2_ip, self.cfg.wan2_netmask, "")
             firewall.enable_nat_for_wan2(wan2, self.lan_ifaces)
+            self._apply_wan2_routing(wan2)
 
         return True
 
@@ -188,7 +228,7 @@ class ModeB(NetworkMode):
         self.svc_mgr.stop_all()
 
         # 2. Setup transparent bridge br0 with wan + lan interfaces
-        members = [self.cfg.wan_interface, self.cfg.lan_interface]
+        members = self._bridge_members()
         ok = interfaces.setup_bridge(self.cfg.bridge_interface, members)
         if not ok:
             log.error("failed to setup bridge %s", self.cfg.bridge_interface)
@@ -218,6 +258,11 @@ class ModeB(NetworkMode):
             self.wlan_active = True
 
         return True
+
+    def _bridge_members(self) -> List[str]:
+        """WAN plus every physical LAN port; br-lan is only a Mode A device."""
+        lan_ports = getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]
+        return [self.cfg.wan_interface] + [p for p in lan_ports if p != "br-lan"]
 
     def _request_management_ip(self) -> None:
         """Attempt to obtain an IP on br0 using dhclient / udhcpc / dhcpcd if present."""
@@ -250,7 +295,7 @@ class ModeB(NetworkMode):
                 interfaces.flush_ip_addresses(wlan)
             self.wlan_active = False
 
-        members = [self.cfg.wan_interface, self.cfg.lan_interface]
+        members = self._bridge_members()
         return interfaces.teardown_bridge(self.cfg.bridge_interface, members)
 
     def get_status(self) -> dict:

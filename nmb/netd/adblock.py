@@ -342,7 +342,7 @@ def build_dns_response_ip(txid: int, qtype: int, question_slice: bytes, ip_str: 
             answer = b"\xc0\x0c" + struct.pack("!HHIH", QTYPE_AAAA, 1, ttl, 16) + ip_bytes
             return header + question_slice + answer
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     elif ":" not in ip_str and qtype == QTYPE_A:
         try:
             ip_bytes = socket.inet_aton(ip_str)
@@ -350,7 +350,7 @@ def build_dns_response_ip(txid: int, qtype: int, question_slice: bytes, ip_str: 
             answer = b"\xc0\x0c" + struct.pack("!HHIH", QTYPE_A, 1, ttl, 4) + ip_bytes
             return header + question_slice + answer
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # NODATA for unmatched query type (e.g. AAAA requested for IPv4-only local record)
     header = struct.pack("!HHHHHH", txid, 0x8180, 1, 0, 0, 0)
@@ -443,7 +443,7 @@ class AdblockEngine:
                     ADBLOCK_DIR.mkdir(parents=True, exist_ok=True)
                     ADLISTS_FILE.write_text(json.dumps(self.adlists, indent=2), encoding="utf-8")
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
 
             # 4. Custom Local DNS Records (custom.list)
             self.custom_dns = {}
@@ -629,7 +629,7 @@ class AdblockEngine:
                             self.hostname_cache[ip] = parts[1]
                             return parts[1]
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         # Check dnsmasq.leases if present
         for lease_path in (Path("/var/lib/misc/dnsmasq.leases"), Path("/tmp/dnsmasq.leases")):
@@ -641,7 +641,7 @@ class AdblockEngine:
                             self.hostname_cache[ip] = parts[3]
                             return parts[3]
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
         return ip
 
@@ -1000,7 +1000,7 @@ def execute_gravity_update(custom_sources: Optional[List[str]] = None, timeout: 
         with engine.lock:
             _save_adlists(engine.adlists)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # Remove whitelisted domains
     whitelist_count = 0
@@ -1107,7 +1107,7 @@ def query_adblock_ipc(cmd: str, **kwargs) -> Optional[Dict[str, Any]]:
         if data:
             return json.loads(data.decode("utf-8"))
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
     finally:
         if s:
             s.close()
@@ -1415,7 +1415,7 @@ def get_router_dhcp_guide() -> Dict[str, Any]:
         if m:
             gateway_ip = m.group(1)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     steps_hu = [
         f"1. Lépj be a meglévő otthoni/irodai routered admin felületére (általában a böngészőben: http://{gateway_ip}).",
@@ -1559,17 +1559,17 @@ class AdblockDNSServer:
             if IPC_SOCKET_PATH.exists():
                 IPC_SOCKET_PATH.unlink()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
         for s in self.udp_sockets:
             try:
                 s.close()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
         for s in self.tcp_sockets:
             try:
                 s.close()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
         self.udp_sockets.clear()
         self.tcp_sockets.clear()
         self.threads.clear()
@@ -1585,7 +1585,7 @@ class AdblockDNSServer:
             try:
                 os.chmod(str(IPC_SOCKET_PATH), 0o666)
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
             ipc_sock.listen(16)
             while self.running:
                 r, _, _ = select.select([ipc_sock], [], [], 0.5)
@@ -1697,12 +1697,12 @@ class AdblockDNSServer:
 
             conn.sendall(json.dumps(resp).encode("utf-8") + b"\n")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
         finally:
             try:
                 conn.close()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
     def _udp_worker(self, sock: socket.socket) -> None:
         while self.running:
@@ -1754,7 +1754,7 @@ class AdblockDNSServer:
                     resp_with_prefix = struct.pack("!H", len(resp)) + resp
                     client_sock.sendall(resp_with_prefix)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
         finally:
             client_sock.close()
 
@@ -1793,7 +1793,7 @@ def is_adblock_running() -> bool:
             if resp:
                 return True
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     try:
         r = subprocess.run(["systemctl", "is-active", "--quiet", "nmb-adblock"], timeout=1.0)

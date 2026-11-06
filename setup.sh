@@ -139,7 +139,10 @@ EOF
 
     if ! command -v speedtest >/dev/null 2>&1; then
         info "Trying Ookla repository package..."
-        curl -sSL https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash 2>/dev/null || true
+        # Running a remote script as root is opt-in; the built-in engine works without it.
+        if [ "${INSTALL_OOKLA_REPO:-0}" = "1" ]; then
+            curl -sSL https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash 2>/dev/null || true
+        fi
         apt-get install -y speedtest 2>/dev/null || warn "Ookla repository install deferred; native high-speed fallback will be active."
     fi
 
@@ -197,7 +200,9 @@ fi
 
 # Grant full administration rights to NMB in sudoers
 if [ -d /etc/sudoers.d ]; then
-    echo "$NMB_USER ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/020_nmb-net
+    cat > /etc/sudoers.d/020_nmb-net <<SUDOERS
+$NMB_USER ALL=(root) NOPASSWD: /usr/local/bin/nmb-helper, /usr/bin/systemctl reboot, /usr/bin/tee /etc/nmb/nmb.conf, /usr/sbin/ip, /usr/bin/ip, /usr/sbin/iw, /usr/sbin/rfkill, /usr/bin/resolvectl
+SUDOERS
     chmod 0440 /etc/sudoers.d/020_nmb-net
 fi
 
@@ -242,6 +247,9 @@ cp -r "$SCRIPT_DIR/os" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/components" "$INSTALL_DIR/" 2>/dev/null || true
 cp -r "$SCRIPT_DIR/docs" "$INSTALL_DIR/" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/bin/"* "$INSTALL_DIR/os/"*.sh
+# Services run this code as root, so only root may change it.
+chown -R root:root "$INSTALL_DIR"
+chmod -R go-w "$INSTALL_DIR"
 
 # Configuration file
 install -d -m 0775 -o root -g "$NMB_USER" "$CONFIG_DIR"
@@ -250,6 +258,13 @@ if [ ! -f "$CONFIG_FILE" ]; then
         cp "$SCRIPT_DIR/config/nmb.conf.example" "$CONFIG_FILE"
     fi
     info "Created default configuration at $CONFIG_FILE"
+fi
+
+# A shared factory Wi-Fi password would be identical on every box.
+if grep -q "wifi_psk = NetworkMeasureBox123" "$CONFIG_FILE" 2>/dev/null; then
+    WIFI_PSK=$(head -c 16 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)
+    sed -i "s/wifi_psk = NetworkMeasureBox123/wifi_psk = $WIFI_PSK/" "$CONFIG_FILE"
+    info "Generated diagnostic Wi-Fi password: $WIFI_PSK"
 fi
 
 # Read or preserve admin password from config (factory router default: admin / admin)

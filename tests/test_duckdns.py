@@ -194,7 +194,7 @@ class TestDuckDNSTelegram(unittest.TestCase):
         # Should have sent progress + success message
         self.assertGreaterEqual(self.mock_client.send_message.call_count, 2)
         last_msg = self.mock_client.send_message.call_args_list[-1][0][1]
-        self.assertIn("DuckDNS Synced Successfully!", last_msg)
+        self.assertIn("DuckDNS synchronized", last_msg)
         self.assertIn("203.0.113.99", last_msg)
 
     def test_cmd_dyndns_interval(self):
@@ -205,7 +205,7 @@ class TestDuckDNSTelegram(unittest.TestCase):
         self.assertEqual(reloaded.duckdns.update_interval_min, 5)
 
         last_msg = self.mock_client.send_message.call_args[0][1]
-        self.assertIn("DuckDNS Interval Updated!", last_msg)
+        self.assertIn("DuckDNS interval updated", last_msg)
         self.assertIn("5 minutes", last_msg)
 
     def test_cmd_dyndns_toggle(self):

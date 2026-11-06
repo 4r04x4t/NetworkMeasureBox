@@ -82,7 +82,7 @@ def get_factory_mac_address(iface: str) -> str:
             if val:
                 return val
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # Try nmcli GENERAL.HWADDR
     nmcli_bin = shutil.which("nmcli")
@@ -95,10 +95,10 @@ def get_factory_mac_address(iface: str) -> str:
                     factory_file.parent.mkdir(parents=True, exist_ok=True)
                     factory_file.write_text(hw + "\n")
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
                 return hw
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     curr = get_mac_address(iface).lower()
     if curr:
@@ -106,7 +106,7 @@ def get_factory_mac_address(iface: str) -> str:
             factory_file.parent.mkdir(parents=True, exist_ok=True)
             factory_file.write_text(curr + "\n")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     return curr
 
 
@@ -341,7 +341,7 @@ def get_default_gateway_iface() -> Optional[str]:
             if data and len(data) > 0:
                 return data[0].get("dev")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     return None
 
 
@@ -659,7 +659,7 @@ def get_default_gateway(iface: Optional[str] = None) -> Optional[str]:
                     if gw:
                         return gw
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # Fallback to text parsing: ip route show default
     cmd2 = [ip_bin, "route", "show", "default"]

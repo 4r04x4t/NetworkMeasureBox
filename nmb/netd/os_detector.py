@@ -92,7 +92,7 @@ def detect_os_info() -> Dict[str, Any]:
                     if "DISTRIB_RELEASE=" in line:
                         info["distro_version"] = line.split("=", 1)[1].strip("\"'")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # 2. Check for Raspberry Pi model or Embedded Router
     dt_model = Path("/proc/device-tree/model")
@@ -106,7 +106,7 @@ def detect_os_info() -> Dict[str, Any]:
                 if any(x in model_str.lower() for x in ("router", "gl-", "nanopi", "orangepi", "banana pi")):
                     info["is_router"] = True
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     if low_mem:
         info["hardware_model"] += " (512MB Low-RAM Profile)"
@@ -162,7 +162,7 @@ def get_dynamic_interfaces() -> List[Dict[str, Any]]:
             try:
                 iface_info["operstate"] = oper_file.read_text().strip()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
         # MAC Address
         addr_file = iface_dir / "address"
@@ -170,7 +170,7 @@ def get_dynamic_interfaces() -> List[Dict[str, Any]]:
             try:
                 iface_info["mac"] = addr_file.read_text().strip().lower()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
         # MTU
         mtu_file = iface_dir / "mtu"
@@ -178,7 +178,7 @@ def get_dynamic_interfaces() -> List[Dict[str, Any]]:
             try:
                 iface_info["mtu"] = int(mtu_file.read_text().strip())
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
         # Interface type check
         if (iface_dir / "wireless").exists() or (iface_dir / "phy80211").exists():
@@ -199,7 +199,7 @@ def get_dynamic_interfaces() -> List[Dict[str, Any]]:
                 if val > 0:
                     iface_info["speed_mbps"] = val
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
         interfaces.append(iface_info)
 
@@ -376,7 +376,7 @@ def get_upgrade_status() -> Dict[str, Any]:
         try:
             log_text = UPDATE_LOG_FILE.read_text(encoding="utf-8", errors="replace")[-8000:]
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     return {
         "in_progress": _update_in_progress,

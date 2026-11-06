@@ -55,7 +55,8 @@ class NetworkDetector:
 
         # 4. Dynamic Auto-detection
         wan_carrier = interfaces.get_carrier(self.cfg.wan_interface)
-        lan_carrier = interfaces.get_carrier(self.cfg.lan_interface)
+        lan_ports = getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]
+        lan_carrier = any(interfaces.get_carrier(p) for p in lan_ports)
 
         log.debug("detector scan: wan(%s)=%s, lan(%s)=%s",
                   self.cfg.wan_interface, wan_carrier,

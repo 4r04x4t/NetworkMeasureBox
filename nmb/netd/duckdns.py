@@ -481,7 +481,7 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
                             if v6_addrs:
                                 detected_v6 = v6_addrs[0][1]
                         except Exception:
-                            pass
+                            log.debug("suppressed exception", exc_info=True)
 
                 update_duckdns(
                     domain=duck_cfg.domain,

@@ -121,7 +121,7 @@ class CloudflareSpeedResult:
             if not v6:
                 v6 = dual.get("ipv6")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         return SpeedtestResult(
             status=self.status,
@@ -219,7 +219,7 @@ def measure_idle_latency(count: int = 5) -> Tuple[Optional[float], Optional[floa
                 _ = resp.read()
             latencies.append((time.monotonic() - t0) * 1000.0)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
         time.sleep(0.08)
 
     if not latencies:
@@ -242,7 +242,7 @@ def _probe_loaded_latency(stop_event: threading.Event, output_list: List[float])
                 _ = resp.read()
             output_list.append((time.monotonic() - t0) * 1000.0)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
         time.sleep(0.20)
 
 

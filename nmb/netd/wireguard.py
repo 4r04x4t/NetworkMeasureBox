@@ -203,7 +203,7 @@ def _ensure_dir() -> None:
         WG_DIR.mkdir(parents=True, exist_ok=True)
         os.chmod(WG_DIR, 0o700)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
 
 def find_wireguard_bin() -> Optional[str]:
@@ -429,7 +429,7 @@ def get_wireguard_status(
         proc = subprocess.run(["ip", "link", "show", "wg0"], capture_output=True, text=True, timeout=2, check=False)
         is_running = proc.returncode == 0
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     peer_list = []
     now = time.time()

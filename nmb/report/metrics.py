@@ -114,7 +114,9 @@ class ReportData:
     port_checks: List[dict] = field(default_factory=list)
     throttled_ports_count: int = 0
 
+    # NMB's own evaluation against fixed thresholds; not a decision by any authority or ISP.
     sla_verdict: str = "COMPLIANT"  # COMPLIANT, DEGRADED, BREACHED
+    sla_reasons: List[str] = field(default_factory=list)  # uptime, loss, speed, ports
 
 
 def aggregate_report_data(
@@ -315,7 +317,7 @@ def aggregate_report_data(
         from nmb.netd.interfaces import get_dual_stack_ips
         fallback_ips = get_dual_stack_ips()
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     for s in speed_rows:
         d_dict = dict(s)
@@ -339,7 +341,7 @@ def aggregate_report_data(
                 if geo.get("isp") and geo["isp"] != "Unknown ISP":
                     isp_name = geo["isp"]
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
         d_dict["isp_name"] = isp_name or "Unknown ISP"
 
         # Speed percentage achieved compared to contracted (offered) and guaranteed speeds
@@ -348,7 +350,7 @@ def aggregate_report_data(
         d_dict["down_pct_of_guaranteed"] = round((d_mbps / guar_down) * 100.0, 1) if (guar_down > 0 and d_mbps is not None) else None
         d_dict["up_pct_of_guaranteed"] = round((u_mbps / guar_up) * 100.0, 1) if (guar_up > 0 and u_mbps is not None) else None
 
-        # Official NMHH Szélessáv.net Status Code Classification (1–15)
+        # Measurement status code classification (1–15)
         st_val = s["status"]
         conn_tech = (d_dict.get("connection_type") or "").lower()
         if st_val == "ok":
@@ -462,7 +464,17 @@ def aggregate_report_data(
             report.throttled_ports_count += 1
 
     # 5. Determine Overall SLA Verdict
-    # Breach if: Uptime < 99.0%, or Packet Loss > 2.0%, or SLA compliance < 70%, or Port blocked
+    # BREACHED: uptime < 99.0%, packet loss > 2.5%, or under 60% of speed tests met the required speed.
+    # DEGRADED: uptime < 99.8%, packet loss > 0.5%, or a throttled or blocked port.
+    if report.uptime_pct < 99.8:
+        report.sla_reasons.append("uptime")
+    if report.ping_summary.loss_pct > 0.5:
+        report.sla_reasons.append("loss")
+    if report.speed_summary.sla_compliance_pct < 60.0:
+        report.sla_reasons.append("speed")
+    if report.throttled_ports_count > 0:
+        report.sla_reasons.append("ports")
+
     if report.uptime_pct < 99.0 or report.ping_summary.loss_pct > 2.5 or report.speed_summary.sla_compliance_pct < 60.0:
         report.sla_verdict = "BREACHED"
     elif report.uptime_pct < 99.8 or report.ping_summary.loss_pct > 0.5 or report.throttled_ports_count > 0:

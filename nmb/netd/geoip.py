@@ -134,7 +134,7 @@ def get_public_geoip(ip: Optional[str] = None, timeout: float = 2.5) -> Dict[str
                 _geoip_cache[cache_key] = (now, result)
             return result
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     with _geoip_lock:
         _geoip_cache[cache_key] = (now, result)

@@ -28,7 +28,7 @@ wan_interface = eth0
 
 # Secondary WAN Uplink (Multi-WAN / Backup / Dual Measurement)
 # wan2_interface = eth2
-# wan_mode = single               ; single | failover | dual
+# wan_mode = single               ; single | failover | loadbalance
 
 # Multi-LAN Ports & Bridge
 lan_interface = eth1
@@ -135,6 +135,8 @@ host = 0.0.0.0
 port = 80
 auth_enabled = true
 admin_password = admin
+# Runs shell commands as root from the browser. Off unless explicitly enabled.
+# terminal_enabled = false
 
 [wireguard]
 enabled = false

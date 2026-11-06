@@ -18,7 +18,7 @@ from nmb.bot.i18n import (
     get_language_keyboard,
     get_main_keyboard,
     get_menu_aliases,
-    get_nmhh_status,
+    get_measurement_status,
     get_sla_verdict,
     set_chat_lang,
     t,
@@ -145,16 +145,14 @@ class TestTelegramI18n(unittest.TestCase):
         self.assertEqual(aliases["📊 test de débit rapide"], "/test")
         self.assertEqual(aliases["📊 швидкий тест швидкості"], "/test")
 
-        self.assertEqual(aliases["📈 nmhh riport letöltése"], "/report")
-        self.assertEqual(aliases["📈 download nmhh report"], "/report")
-        self.assertEqual(aliases["📈 nmhh-bericht herunterladen"], "/report")
 
+        self.assertEqual(aliases["📈 hálózati riport letöltése"], "/report")
         self.assertEqual(aliases["🌐 nyelv / language"], "/lang")
         self.assertEqual(aliases["🌐 sprache / language"], "/lang")
 
-    def test_nmhh_status_and_sla_verdicts(self):
+    def test_measurement_status_and_sla_verdicts(self):
         for lang in SUPPORTED_LANGUAGES:
-            badge_ok, desc_ok = get_nmhh_status(1, lang)
+            badge_ok, desc_ok = get_measurement_status(1, lang)
             self.assertTrue("MEGFELELŐ" in badge_ok or "COMPLIANT" in badge_ok or "KONFORM" in badge_ok or "CONFORME" in badge_ok or "ВІДПОВІДАЄ" in badge_ok)
 
             v_ok = get_sla_verdict("MEGFELELT", lang)

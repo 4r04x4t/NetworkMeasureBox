@@ -204,9 +204,9 @@ def scan_network_devices(iface: Optional[str] = None, timeout_sec: float = 8.0) 
                             if net.is_private and net.prefixlen >= 24:
                                 subnets_to_sweep.add(net)
                         except Exception:
-                            pass
+                            log.debug("suppressed exception", exc_info=True)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         ips_to_sweep = []
         for net in subnets_to_sweep:
@@ -234,7 +234,7 @@ def scan_network_devices(iface: Optional[str] = None, timeout_sec: float = 8.0) 
                             pkt = build_echo_request(ident, 1, payload_size=32)
                             _sweep_sock.sendto(pkt, (ip, 0))
                         except Exception:
-                            pass
+                            log.debug("suppressed exception", exc_info=True)
                     time.sleep(0.4)
                 finally:
                     _sweep_sock.close()
@@ -248,7 +248,7 @@ def scan_network_devices(iface: Optional[str] = None, timeout_sec: float = 8.0) 
                             check=False,
                         )
                     except Exception:
-                        pass
+                        log.debug("suppressed exception", exc_info=True)
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
                     futures = [executor.submit(_ping_ip, str(ip)) for ip in ips_to_sweep[:40]]
@@ -291,7 +291,7 @@ def get_cached_devices(iface: Optional[str] = None) -> List[Dict[str, Any]]:
     try:
         res.sort(key=lambda d: socket.inet_aton(d["ip"]) if "." in d["ip"] else d["ip"])
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
     return res
 
 

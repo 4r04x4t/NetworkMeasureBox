@@ -129,7 +129,7 @@ def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) 
         try:
             phy_name = phy_link.resolve().name
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # 2. Query iw list / phy info
     if iw_bin:
@@ -146,7 +146,7 @@ def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) 
         try:
             driver_name = driver_link.resolve().name
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # 4. Detect Frequency Bands
     supported_bands: List[str] = []
@@ -472,7 +472,7 @@ def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, D
         from nmb.netd.geoip import set_wifi_regulatory_domain
         set_wifi_regulatory_domain(country)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     ssid = getattr(cfg, "wifi_ssid", "NetworkMeasureBox-AP")
     psk = getattr(cfg, "wifi_psk", "NetworkMeasureBox123")

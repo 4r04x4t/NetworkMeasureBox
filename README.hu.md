@@ -27,7 +27,7 @@
 11. [Beépített DNS Reklámblokkoló és Adatvédelmi Pajzs (Pi-hole Alternatíva)](#11-beépített-dns-reklámblokkoló-és-adatvédelmi-pajzs-pi-hole-alternatíva)
 12. [Haladó Törvényszéki Diagnosztika és Kiváltó Ok Elemzés](#12-haladó-törvényszéki-diagnosztika-és-kiváltó-ok-elemzés)
 13. [Többnyelvű Telegram Bot Érintőmenüvel és QR Kóddal](#13-többnyelvű-telegram-bot-érintőmenüvel-és-qr-kóddal)
-14. [Hatósági Szintű SLA Dosszié és Vektoros SVG Motor](#14-hatósági-szintű-sla-dosszié-és-vektoros-svg-motor)
+14. [SLA Dosszié és Vektoros SVG Motor](#14-sla-dosszié-és-vektoros-svg-motor)
 15. [Valós Idejű Folyamatkezelő (Beágyazott htop Motor)](#15-valós-idejű-folyamatkezelő-beágyazott-htop-motor)
 16. [Önjavító Watchdog és Biztonsági Visszaállás (nmb-heal)](#16-önjavító-watchdog-és-biztonsági-visszaállás-nmb-heal)
 17. [100%-os De-Pythonizáció és Kereskedelmi Router Portolási Terv](#17-100-os-de-pythonizáció-és-kereskedelmi-router-portolási-terv)
@@ -52,7 +52,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 1. **Objektív bizonyítékot gyűjt**: Rögzíti az összes késleltetést, mikroszakadást, jittert és sávszélesség-ingadozást.
 2. **Közvetlenül a vonalon mér**: Képes routerként (Mode A) vagy passzív, láthatatlan inline hídként (Mode B) üzemelni a modem és a router között, így kiküszöböli a belső hálózati zavaró tényezőket.
 3. **Nem zavarja a felhasználót**: A beépített intelligens forgalmi kapu (Traffic Gate) csak akkor indít nagy sávszélességű tesztet, ha a vonal éppen üres (< 500 kbps), így nem szakítja meg a videóhívást vagy az online játékot.
-4. **Hivatalos bizonyító dossziét generál**: Egyetlen gombnyomással jogi/hatósági szintű, önállóan megnyitható HTML jelentést állít elő beágyazott vektoros SVG diagramokkal és az előfizetői szerződéshez viszonyított SLA-megfelelőségi táblázattal, amelyet közvetlenül be lehet nyújtani hibajegyként a szolgáltatónak, vagy vita esetén a Nemzeti Média- és Hírközlési Hatóságnak (NMHH).
+4. **SLA dossziét generál**: Egyetlen gombnyomással önállóan megnyitható HTML jelentést állít elő beágyazott vektoros SVG diagramokkal és az előfizetői szerződéshez viszonyított SLA-megfelelőségi táblázattal, amelyet közvetlenül be lehet nyújtani hibajegyként a szolgáltatónak, vagy vita esetén az illetékes hírközlési hatóságnak.
 
 ---
 
@@ -272,7 +272,7 @@ A beépített webes felület a **szabványos 80-as HTTP router porton** érhető
 6. **SLA Megfelelőség & Szerződés**: A valós mérések összehasonlítása az előfizetői szerződésben garantált és névleges értékekkel.
 7. **Traceroute & Útvonal Elemzés**: Vizuális útvonalkövetés ugrásonkénti késleltetéssel (MTR jellegű analízis).
 8. **Portfojtás (Net-Neutrality)**: Forgalomkorlátozás ellenőrzése portonként.
-9. **RTR-Netztest (RMBT)**: Európai hatósági szabványú nyílt sebességmérés.
+9. **RTR-Netztest (RMBT)**: Nyílt forráskódú sebességmérés.
 10. **Hálózatfelderítő (Device Explorer)**: Csatlakoztatott klienseszközök, ARP leltár, MAC gyártóazonosítás.
 11. **Fejlesztői Mélykonzol**: Valós idejű rendszernapló (Syslog) és belső modul-napló élő streameléssel.
 12. **AI Diagnosztika (LLM Snapshot)**: Egyetlen gombnyomással másolható szanált Markdown diagnosztikai köteg ChatGPT, Claude vagy Gemini mélyelemzéshez.
@@ -386,11 +386,11 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 
 ---
 
-## 14. Hatósági Szintű SLA Dosszié és Vektoros SVG Motor
+## 14. SLA Dosszié és Vektoros SVG Motor
 
 * **Semleges Nemzetközi Megnevezés**:
-  * A riportok független, hivatalos megnevezése: *"Broadband Quality & ISP SLA Performance Dossier"* / *"Szélessávú Hálózati Minőség & Szolgáltatói SLA Vizsgálati Dosszié"*.
-  * Teljes mértékben megfelel az európai BEREC mérési irányelveknek, az NMHH és a nemzetközi hatóságok elvárásainak anélkül, hogy megtévesztő módon állami hatóság hivatalos kiadványaként tüntetné fel magát.
+  * A riportok semleges megnevezése: *"Broadband Quality & ISP SLA Performance Dossier"* / *"Szélessávú Hálózati Minőség & Szolgáltatói SLA Vizsgálati Dosszié"*.
+  * Nem hivatalos és nem hatósági dokumentum. Az SLA eredmény az NMB saját értékelése rögzített küszöbökkel, nem hatóság vagy szolgáltató döntése.
   * **Megtévesztő `0 Mb/s` Értékek Szűrése**: Ha a szerződéses garantált sebesség nincs beállítva vagy 0 Mb/s, a riport nem jelenít meg félrevezető kártyát, hanem tájékoztató szöveggel segíti a hatósági/szolgáltatói összevetést.
   * **Egyértelmű IP Cím és Szolgáltató Megjelenítés**: Minden egyes mérési sor és telemetria blokk kiemelten megjeleníti az észlelt publikus IPv4/IPv6 címet és a hozzá tartozó ISP szolgáltató nevét.
 * **Tiszta Matematikai Vektoros SVG Motor**:

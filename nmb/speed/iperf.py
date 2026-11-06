@@ -478,7 +478,7 @@ def stop_iperf_server() -> Dict[str, Any]:
             subprocess.run(["pkill", "-f", "iperf3 -s"], timeout=2.0)
             stopped_any = True
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     msg = "iPerf3 server stopped." if stopped_any else "iPerf3 server was not running."
     return {"status": "ok", "message": msg, "server": get_iperf_server_status()}

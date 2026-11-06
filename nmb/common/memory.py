@@ -25,14 +25,14 @@ def get_total_ram_mb() -> int:
                     if len(parts) >= 2:
                         return int(parts[1]) // 1024
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     try:
         pages = os.sysconf("SC_PHYS_PAGES")
         page_size = os.sysconf("SC_PAGE_SIZE")
         return (pages * page_size) // (1024 * 1024)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     return 1024  # Fallback default if completely undetectable
 
@@ -48,7 +48,7 @@ def get_available_ram_mb() -> int:
                     if len(parts) >= 2:
                         return int(parts[1]) // 1024
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
     return get_total_ram_mb() // 2
 
 
@@ -103,7 +103,7 @@ def trim_process_memory() -> None:
         if hasattr(libc, "malloc_trim"):
             libc.malloc_trim(0)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
 
 def get_sqlite_pragmas(profile: str = "auto") -> List[str]:

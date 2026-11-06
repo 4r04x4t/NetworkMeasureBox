@@ -49,7 +49,7 @@ def _ensure_backup_dir() -> Path:
         try:
             os.chmod(BACKUP_DIR, 0o750)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
         return BACKUP_DIR
     except (PermissionError, OSError):
         # Fallback to user-local or temp directory when running in non-root environment
@@ -400,7 +400,7 @@ def verify_backup(archive_path: Path) -> Tuple[bool, str, Dict[str, Any]]:
                         try:
                             os.unlink(tmp_db.name)
                         except Exception:
-                            pass
+                            log.debug("suppressed exception", exc_info=True)
 
         return True, "Archive verified successfully: structure and checksums are intact.", manifest
 
@@ -438,7 +438,15 @@ def restore_backup(
     temp_extract = Path(tempfile.mkdtemp(prefix="nmb-restore-"))
     try:
         with tarfile.open(archive_path, "r:gz") as tar:
-            tar.extractall(temp_extract)
+            members = tar.getmembers()
+            root = temp_extract.resolve()
+            for member in members:
+                target = (root / member.name).resolve()
+                if target != root and root not in target.parents:
+                    raise ValueError(f"Unsafe path in backup archive: {member.name}")
+                if not (member.isfile() or member.isdir()):
+                    raise ValueError(f"Unsupported entry in backup archive: {member.name}")
+            tar.extractall(temp_extract, members=members)
 
         restored_items: List[str] = []
 
@@ -636,7 +644,7 @@ def factory_reset(keep_measurements: bool = False) -> Tuple[bool, str]:
             from nmb.config import sync_drive_config
             sync_drive_config(CONFIG_PATH)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         # 3. Stop VPN daemons
         run_helper("wireguard-stop")

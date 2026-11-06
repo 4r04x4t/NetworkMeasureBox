@@ -418,7 +418,7 @@ def run_official_ookla(server_id: Optional[int] = None, interface: Optional[str]
             if not client_ipv6:
                 client_ipv6 = dual.get("ipv6")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         bound_iface_val = interface or iface_data.get("name")
         bound_ip_val = bind_ip or iface_data.get("internalIp")
@@ -488,7 +488,7 @@ def run_speedtest_cli(interface: Optional[str] = None, bind_ip: Optional[str] = 
             if not client_ipv6:
                 client_ipv6 = dual.get("ipv6")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         return SpeedtestResult(
             status="ok",
@@ -556,9 +556,9 @@ def run_native_fallback(server_id: Optional[int] = None, interface: Optional[str
                     srv_host = srv.get("host") or srv_host
                     srv_loc = srv.get("location") or srv_loc
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     try:
         client_ip = None
@@ -569,7 +569,7 @@ def run_native_fallback(server_id: Optional[int] = None, interface: Optional[str
             client_ip = dual.get("ipv4")
             client_ipv6 = dual.get("ipv6")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         def _open(req, timeout=30):
             if bind_ip:
@@ -578,7 +578,7 @@ def run_native_fallback(server_id: Optional[int] = None, interface: Optional[str
                     opener = urllib.request.build_opener(BoundHTTPHandler(bind_ip), BoundHTTPSHandler(bind_ip))
                     return opener.open(req, timeout=timeout)
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
             return urllib.request.urlopen(req, timeout=timeout)
 
         req = urllib.request.Request(test_url, headers={"User-Agent": get_effective_user_agent()})

@@ -71,7 +71,7 @@ def _run_native_rmbt_speedtest(
             try:
                 final_data = json.loads(line)
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
     if not final_data:
         log.warning("native C rmbt-client did not produce FINAL_RESULT (code=%d); falling back to Python", proc.returncode)
@@ -165,8 +165,8 @@ def execute_rtr_speedtest(
 
     # 2. Request test parameters from Control Server
     params = control.request_test(host, client_uuid, VERSION, use_ws=use_ws, debug=False)
-    log.info("allocated RTR test server: %s:%d, token=%s, open_uuid=%s",
-             params.server_addr, params.server_port, params.token[:24], params.open_test_uuid)
+    log.info("allocated RTR test server: %s:%d, open_uuid=%s",
+             params.server_addr, params.server_port, params.open_test_uuid)
 
     protocol = connection.PROTO_WS if (use_ws or params.server_type == "RMBTws") else connection.PROTO_HTTP
     port = params.server_port
@@ -286,7 +286,7 @@ def execute_rtr_speedtest(
         v4 = dual.get("ipv4")
         v6 = dual.get("ipv6")
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     return SpeedtestResult(
         status="ok" if (dl_bytes > 0 or ul_bytes > 0) else "error",

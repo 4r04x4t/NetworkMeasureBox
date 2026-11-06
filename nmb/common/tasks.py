@@ -164,7 +164,7 @@ def get_cpu_telemetry() -> Dict[str, Any]:
                     cpu_temp_c = round(val, 1)
                     break
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
     # CPU Frequency
     freq_mhz = None
@@ -173,7 +173,7 @@ def get_cpu_telemetry() -> Dict[str, Any]:
         try:
             freq_mhz = round(float(freq_path.read_text().strip()) / 1000.0, 0)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     return {
         "total_usage_pct": total_cpu_pct,
@@ -263,7 +263,7 @@ def get_system_summary() -> Dict[str, Any]:
                     running_entities = int(ent_parts[0])
                     total_entities = int(ent_parts[1])
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     # Uptime
     uptime_sec = 0.0
@@ -273,7 +273,7 @@ def get_system_summary() -> Dict[str, Any]:
             if parts:
                 uptime_sec = float(parts[0])
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     return {
         "loadavg_1m": load1,

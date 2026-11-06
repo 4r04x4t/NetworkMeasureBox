@@ -19,7 +19,6 @@ DRIVE_CONFIG_LOCATIONS = [
     Path("/boot/nmb.conf"),           # Bullseye / Armbian / Generic EFI FAT32 partition
     Path("/boot/firmware/nmb.ini"),
     Path("/boot/nmb.ini"),
-    Path("/mnt/boot/nmb.conf"),
 ]
 
 
@@ -28,12 +27,6 @@ def find_drive_config_path() -> Optional[Path]:
     for loc in DRIVE_CONFIG_LOCATIONS:
         if loc.is_file():
             return loc
-    # Check removable USB mounts if present
-    for mount_root in (Path("/media"), Path("/mnt")):
-        if mount_root.is_dir():
-            for p in mount_root.glob("*/*/nmb.conf"):
-                if p.is_file():
-                    return p
     return None
 
 
@@ -281,7 +274,7 @@ class NetworkConfig:
     wan2_netmask: str = "255.255.255.0"
     wan2_gateway: str = ""
     wan2_mac: str = ""
-    wan_mode: str = "single"   # single, failover, dual
+    wan_mode: str = "single"   # single, failover, loadbalance
 
     lan_interface: str = "eth1"
     lan_ports: List[str] = field(default_factory=lambda: ["eth1"])
@@ -394,6 +387,7 @@ class WebConfig:
     auth_enabled: bool = True
     admin_username: str = "admin"
     admin_password: str = "admin"
+    terminal_enabled: bool = False
     language: str = "en"
     theme: str = "default"
     tls_enabled: bool = False
@@ -608,6 +602,8 @@ def load_config(path: Path | None = None) -> Config:
         cfg.network.wan2_gateway = n.get("wan2_gateway", getattr(cfg.network, "wan2_gateway", "")).strip()
         cfg.network.wan2_mac = n.get("wan2_mac", getattr(cfg.network, "wan2_mac", "")).strip()
         cfg.network.wan_mode = n.get("wan_mode", getattr(cfg.network, "wan_mode", "single")).strip().lower()
+        if cfg.network.wan_mode == "dual":
+            cfg.network.wan_mode = "loadbalance"
 
         cfg.network.lan_interface = n.get("lan_interface", cfg.network.lan_interface).strip()
         lp = n.get("lan_ports", "")
@@ -784,6 +780,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.web.auth_enabled = w.getboolean("auth_enabled", fallback=cfg.web.auth_enabled)
         cfg.web.admin_username = w.get("admin_username", getattr(cfg.web, "admin_username", "admin"))
         cfg.web.admin_password = w.get("admin_password", cfg.web.admin_password)
+        cfg.web.terminal_enabled = w.getboolean("terminal_enabled", fallback=False)
         cfg.web.language = w.get("language", getattr(cfg.web, "language", "en"))
         cfg.web.theme = w.get("theme", getattr(cfg.web, "theme", "default")).strip().lower()
         cfg.web.tls_enabled = w.getboolean("tls_enabled", fallback=getattr(cfg.web, "tls_enabled", False))
@@ -1015,6 +1012,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["web"]["auth_enabled"] = str(cfg.web.auth_enabled).lower()
     parser["web"]["admin_username"] = str(getattr(cfg.web, "admin_username", "admin"))
     parser["web"]["admin_password"] = str(cfg.web.admin_password)
+    parser["web"]["terminal_enabled"] = str(cfg.web.terminal_enabled).lower()
     parser["web"]["language"] = str(getattr(cfg.web, "language", "en"))
     parser["web"]["theme"] = str(getattr(cfg.web, "theme", "default"))
     parser["web"]["tls_enabled"] = str(getattr(cfg.web, "tls_enabled", False)).lower()

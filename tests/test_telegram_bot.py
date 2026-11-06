@@ -136,9 +136,9 @@ class TestTelegramBot(unittest.TestCase):
         self.handler.handle_command(999999, "/vpn")
         self.assertEqual(len(self.mock_client.sent_messages), 1)
         _, text, _ = self.mock_client.sent_messages[0]
-        self.assertIn("VPN Server Hub Status", text)
-        self.assertIn("WireGuard High-Performance VPN", text)
-        self.assertIn("OpenVPN Robust Fallback Server", text)
+        self.assertIn("VPN Server Status", text)
+        self.assertIn("1. WireGuard", text)
+        self.assertIn("2. OpenVPN", text)
 
         self.handler.handle_command(999999, "/vpn clients")
         self.assertEqual(len(self.mock_client.sent_messages), 2)
@@ -165,7 +165,7 @@ class TestTelegramBot(unittest.TestCase):
         chat_id, photo_bytes, caption, fname = self.mock_client.sent_photos[0]
         self.assertEqual(chat_id, 999999)
         self.assertEqual(photo_bytes, b"\x89PNG\r\n\x1a\nfake_png_data")
-        self.assertIn("WireGuard Peer Created", caption)
+        self.assertIn("WireGuard client created", caption)
 
         self.assertEqual(len(self.mock_client.sent_documents), 1)
         doc_chat, doc_fname, doc_bytes, doc_cap = self.mock_client.sent_documents[0]
@@ -210,7 +210,7 @@ class TestTelegramBot(unittest.TestCase):
 
         # /adblock guide
         self.handler.handle_command(999999, "/adblock guide")
-        self.assertIn("Router DHCP DNS Configuration Guide", self.mock_client.sent_messages[-1][1])
+        self.assertIn("Router DHCP DNS setup", self.mock_client.sent_messages[-1][1])
 
     @patch("nmb.common.heal.audit_system_health")
     @patch("nmb.common.heal.auto_heal_all")
@@ -230,14 +230,14 @@ class TestTelegramBot(unittest.TestCase):
             "audit_after": {"critical_issues": 0}
         }
         self.handler.handle_command(999999, "/heal fix")
-        self.assertIn("Repairs Executed", self.mock_client.sent_messages[3][1])
+        self.assertIn("Repairs finished", self.mock_client.sent_messages[3][1])
 
     def test_tasks_command(self):
         self.handler.handle_command(999999, "/tasks")
         self.assertEqual(len(self.mock_client.sent_messages), 1)
         _, text, _ = self.mock_client.sent_messages[0]
         self.assertIn("System Resource Load & Process Table", text)
-        self.assertIn("CPU Usage:", text)
+        self.assertIn("<b>CPU:</b>", text)
         self.assertIn("Memory:", text)
 
     @patch("nmb.netd.guest_wifi.scan_wifi_networks")

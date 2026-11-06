@@ -20,7 +20,7 @@
 
 When internet connections experience micro-outages, packet drops, severe evening speed degradations, or bufferbloat, ISP support typically responds with: *"Everything looks good on our end; the issue must be your internal home network or Wi-Fi."*
 
-NMB eliminates this finger-pointing by placing an unbiased, carrier-grade measurement system directly at your network perimeter. It operates either as your **primary high-performance router (Mode A)** or as an **invisible, passive inline bridge (Mode B)** between your modem/ONT and existing router. It continuously gathers forensic telemetry, computes RFC 3550 jitter, verifies net-neutrality throttling, and generates legal-grade HTML dossiers with embedded vector SVGs to prove contractual SLA breaches directly to ISP support or telecommunications regulators (e.g., NMHH, FCC, BEREC, RTR).
+NMB eliminates this finger-pointing by placing an independent measurement system directly at your network perimeter. It operates either as your **primary high-performance router (Mode A)** or as an **invisible, passive inline bridge (Mode B)** between your modem/ONT and existing router. It continuously gathers forensic telemetry, computes RFC 3550 jitter, verifies net-neutrality throttling, and generates legal-grade HTML dossiers with embedded vector SVGs to prove contractual SLA breaches directly to ISP support or your telecommunications regulator.
 
 ---
 
@@ -196,7 +196,7 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 ### 12. Regulatory-Grade Broadband SLA Evidence Dossier & Pure SVG Charts
 * **Neutral International Branding**:
   * Completely neutral title: *"Broadband Quality & ISP SLA Performance Dossier"* / *"Szélessávú Hálózati Minőség & Szolgáltatói SLA Vizsgálati Dosszié"*.
-  * Avoids misleading official regulatory claims while strictly adhering to European BEREC measurement methodologies and national regulatory standards (FCC, RTR, NMHH).
+  * Makes no official or regulatory claim. The SLA result is NMB's own evaluation against fixed thresholds, not a decision by an authority or an ISP.
   * **Accurate Contractual Speed Handling**: Guaranteed speed cards displaying `0 Mb/s` or unspecified parameters are automatically suppressed to avoid deceptive compliance reporting; explicit disclaimers guide SLA verification.
   * **Prominent IP & ISP Attribution**: Every measurement sample and telemetry table prominently highlights the detected client IPv4/IPv6 addresses alongside the verified ISP provider identity.
 * **Pure Mathematical SVG Vector Engine**:
@@ -301,7 +301,7 @@ When `nmb-telegram` is configured, you can manage the entire appliance directly 
 | `/status` | Real-time appliance status: uptime, WAN mode, public IP, ISP name, CPU/RAM load |
 | `/ping` | Instant latency, jitter, and packet loss matrix to 4 reference targets |
 | `/test [engine]` | Runs an on-demand speedtest (`ookla`, `cloudflare`, `rtr`, `iperf`) with bufferbloat rating |
-| `/report [window]` | Generates and sends the official Broadband SLA Dossier (`.html`) directly into the chat |
+| `/report [window]` | Generates and sends the SLA Dossier (`.html`) directly into the chat |
 | `/ai` | Exports the sanitized Markdown diagnostic snapshot for external LLM analysis |
 | `/mode [auto\|a\|b]`| Views or switches operational mode (Active Router vs Passive Bridge) |
 | `/vpn` | PiVPN Hub status: active WireGuard & OpenVPN tunnels, connected client counts |
@@ -311,6 +311,8 @@ When `nmb-telegram` is configured, you can manage the entire appliance directly 
 | `/vpn add <name>` | Creates a new VPN client profile and returns the QR code |
 | `/adblock` | DNS Sinkhole status: total queries today, blocked queries, blocklist domain count |
 | `/adblock on\|off` | Enables or disables the DNS Ad-Blocker sinkhole |
+| `/sla` | Explains what the SLA result means |
+| `/purge [category] confirm` | Shows or deletes stored data (settings, passwords and VPN keys are kept) |
 | `/lang [en\|hu\|de\|fr\|uk]` | Switches the bot's language across 5 supported international languages |
 
 ---

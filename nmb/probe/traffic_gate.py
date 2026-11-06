@@ -67,7 +67,7 @@ def get_interface_capacity_mbps(iface: Optional[str] = None, contract_down_mbps:
                 if val > 0:
                     return float(val)
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
     return 1000.0
 
 

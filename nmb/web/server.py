@@ -342,7 +342,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     qs = parse_qs(parsed.query)
                     q = qs.get("q", [""])[0] or qs.get("search", [""])[0]
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
             servers = get_available_servers(search_query=q, limit=100)
             self._send_json({"servers": servers, "count": len(servers)})
             return
@@ -412,7 +412,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
 
-        if path in ("/export/nmhh_speedtests.csv", "/export/speedtests_nmhh.csv", "/api/export/nmhh"):
+        if path == "/export/speedtests_detailed.csv":
             conn = db.connect(readonly=True)
             now = db.now_ms()
             csv_data = export_nmhh_speedtests_csv(
@@ -477,7 +477,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     if "lang" in qs and qs["lang"][0]:
                         req_lang = qs["lang"][0]
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
             self._send_json({
                 "lang": req_lang,
                 "current_configured": self.server.cfg.web.language,
@@ -622,17 +622,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/iperf/server/toggle":
-            cur_status = get_iperf_server_status()
-            if cur_status.get("is_running") or cur_status.get("server_running"):
-                res = stop_iperf_server()
-                self.server.cfg.iperf.server_enabled = False
-            else:
-                port = int(getattr(self.server.cfg.iperf, "server_port", 5201))
-                res = start_iperf_server(port)
-                self.server.cfg.iperf.server_enabled = (res.get("status") == "ok")
-            save_config(self.server.cfg)
-            self._send_json({"status": "ok", "server": get_iperf_server_status()})
+            self._send_json({"status": "error", "message": "Use POST."}, status=405)
             return
+
 
         # 15b. iPerf3 Public Server Directory
         if path == "/api/iperf/servers":
@@ -884,13 +876,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     res = subprocess.run(["systemctl", "is-active", "nmb-telegram"], capture_output=True, text=True, timeout=3)
                     active = res.stdout.strip() == "active"
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
             pid_file = self.server.cfg.system.run_dir / "telegram.pid"
             if pid_file.exists():
                 try:
                     pid = int(pid_file.read_text().strip())
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
             bot_info = None
             if token:
                 try:
@@ -909,8 +901,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "enabled": getattr(self.server.cfg.telegram, "enabled", False),
                 "token_set": bool(token),
                 "token_masked": masked,
-                "token": token,
-                "bot_token": token,
                 "allowed_chat_ids": allowed_chats,
                 "chat_ids": allowed_chats,
                 "alert_loss_threshold_pct": loss_pct,
@@ -1136,6 +1126,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(self._lan_topology_payload())
             return
 
+        if path == "/api/system/purge":
+            from nmb.common import purge as purge_mod
+            self._send_json({"status": "ok", "summary": purge_mod.get_purge_summary(self.server.cfg)})
+            return
+
         if path == "/api/network/preferred-interface":
             from nmb.netd.interfaces import find_preferred_measurement_interface
             cfg = self.server.cfg if hasattr(self, "server") and hasattr(self.server, "cfg") else load_config()
@@ -1208,7 +1203,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         host = self.headers.get("Host")
         if origin and host:
             origin_parsed = urlparse(origin)
-            if origin_parsed.netloc and origin_parsed.netloc != host:
+            if origin_parsed.netloc != host:
                 log.warning("[CSRF] Blocked cross-origin POST from %s to host %s", origin, host)
                 self.send_error(HTTPStatus.FORBIDDEN, "Cross-Origin Request Blocked")
                 return
@@ -2057,6 +2052,25 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._handle_lan_topology_post(body_json)
             return
 
+        if path == "/api/system/purge":
+            from nmb.common import purge as purge_mod
+            if body_json.get("confirm") != "PURGE":
+                self._send_json({"status": "error", "message": "Confirmation text PURGE is required."}, status=400)
+                return
+            categories = body_json.get("categories")
+            if not isinstance(categories, list) or not set(categories) <= set(purge_mod.CATEGORIES) or not categories:
+                self._send_json({"status": "error", "message": "Invalid categories."}, status=400)
+                return
+            result = purge_mod.purge(self.server.cfg, categories)
+            result["status"] = "error" if result["errors"] else "ok"
+            result["summary"] = purge_mod.get_purge_summary(self.server.cfg)
+            self._send_json(result, status=500 if result["errors"] else 200)
+            return
+
+        if path == "/api/iperf/server/toggle":
+            self._toggle_iperf_server()
+            return
+
         # Interface Role Matrix Configuration
         if path in ("/api/system/interface_roles", "/api/system/ports"):
             cfg = self.server.cfg
@@ -2194,7 +2208,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                                 if v6_addrs:
                                     detected_v6 = v6_addrs[0][1]
                             except Exception:
-                                pass
+                                log.debug("suppressed exception", exc_info=True)
                     detail = update_duckdns(
                         domain=domain,
                         token=self.server.cfg.duckdns.token,
@@ -2251,7 +2265,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                         if v6_addrs:
                             detected_v6 = v6_addrs[0][1]
                     except Exception:
-                        pass
+                        log.debug("suppressed exception", exc_info=True)
             res = update_duckdns(
                 domain=d_cfg.domain,
                 token=d_cfg.token,
@@ -2390,6 +2404,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             tls_enabled = bool(body_json.get("tls_enabled", False))
             listen_ipv6 = bool(body_json.get("listen_ipv6", True))
             dns = str(body_json.get("dns", "")).strip()
+            if enabled and not (auth_enabled and username and password):
+                self._send_json({"status": "error", "message": "The proxy requires a username and password."}, status=400)
+                return
 
             self.server.cfg.proxy.enabled = enabled
             self.server.cfg.proxy.port = port
@@ -2424,6 +2441,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/proxy/start":
             from nmb.netd.proxy import start_proxy_server
             p_cfg = self.server.cfg.proxy
+            if not (p_cfg.auth_enabled and p_cfg.username and p_cfg.password):
+                self._send_json({"status": "error", "message": "The proxy requires a username and password."}, status=400)
+                return
             ok, msg = start_proxy_server(
                 port=p_cfg.port,
                 auth_enabled=p_cfg.auth_enabled,
@@ -2521,7 +2541,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                         if c_str and (c_str.isdigit() or (c_str.startswith("-") and c_str[1:].isdigit())):
                             parsed_chats.append(int(c_str))
                     except Exception:
-                        pass
+                        log.debug("suppressed exception", exc_info=True)
             self.server.cfg.telegram.allowed_chat_ids = parsed_chats
             
             loss_thresh = body_json.get("loss_threshold_pct", body_json.get("alert_loss_threshold_pct", 5.0))
@@ -2717,6 +2737,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/terminal/exec":
+            if not getattr(self.server.cfg.web, "terminal_enabled", False):
+                self._send_json({
+                    "status": "error",
+                    "message": "The web terminal is disabled. Set terminal_enabled = true in the [web] section of nmb.conf to enable it.",
+                }, status=403)
+                return
             cmd = str(body_json.get("command") or body_json.get("cmd") or "").strip()
             if not cmd:
                 self._send_json({"status": "error", "message": "No command provided"}, status=400)
@@ -2938,7 +2964,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.server._last_tx_bytes = curr_tx
             self.server._last_traffic_time = now_time
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         # Live clients breakdown for QoS Bandwidth Monitor
         sniffer = get_sniffer(wan_iface)
@@ -3182,7 +3208,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "guest_wifi_enabled": getattr(cfg.guest_wifi, "enabled", False),
             "guest_wifi_interface": getattr(cfg.guest_wifi, "interface", "wlan0"),
             "guest_wifi_ssid": getattr(cfg.guest_wifi, "ssid", ""),
-            "guest_wifi_password": getattr(cfg.guest_wifi, "password", ""),
+            "guest_wifi_password": "",
+            "guest_wifi_password_set": bool(getattr(cfg.guest_wifi, "password", "")),
             "guest_wifi_security": getattr(cfg.guest_wifi, "security", "auto"),
             "guest_wifi_metric": getattr(cfg.guest_wifi, "metric", 600),
             "guest_wifi_auto_reconnect": getattr(cfg.guest_wifi, "auto_reconnect", True),
@@ -3362,7 +3389,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             cfg.guest_wifi.interface = str(body["guest_wifi_interface"]).strip()
         if "guest_wifi_ssid" in body:
             cfg.guest_wifi.ssid = str(body["guest_wifi_ssid"]).strip()
-        if "guest_wifi_password" in body:
+        if body.get("guest_wifi_password"):
             cfg.guest_wifi.password = str(body["guest_wifi_password"]).strip()
         if "guest_wifi_security" in body:
             cfg.guest_wifi.security = str(body["guest_wifi_security"]).strip().lower()
@@ -3603,6 +3630,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self._notify_daemon_reload()
         self._send_json(self._lan_topology_payload())
 
+    def _toggle_iperf_server(self) -> None:
+        cur_status = get_iperf_server_status()
+        if cur_status.get("is_running") or cur_status.get("server_running"):
+            res = stop_iperf_server()
+            self.server.cfg.iperf.server_enabled = False
+        else:
+            port = int(getattr(self.server.cfg.iperf, "server_port", 5201))
+            res = start_iperf_server(port)
+            self.server.cfg.iperf.server_enabled = (res.get("status") == "ok")
+        save_config(self.server.cfg)
+        self._send_json({"status": "ok", "server": get_iperf_server_status()})
+
     def _notify_daemon_reload(self) -> None:
         """Send SIGHUP to nmb-netd and nmb-telegram if running."""
         # 1. netd SIGHUP via pidfile
@@ -3632,7 +3671,7 @@ def get_hardware_model() -> str:
         try:
             return dt_model.read_text(errors="ignore").strip().replace("\x00", "")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     dmi = Path("/sys/devices/virtual/dmi/id/product_name")
     if dmi.exists():
         try:
@@ -3640,7 +3679,7 @@ def get_hardware_model() -> str:
             if val and val != "None":
                 return val
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     return f"Universal Linux Host ({platform.machine()})"
 
 
@@ -3674,7 +3713,7 @@ class NMBServer(ThreadingHTTPServer):
                 try:
                     self.socket.close()
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
                 self.socket = socket.socket(self.address_family, self.socket_type)
                 if self.allow_reuse_address:
                     self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -3717,7 +3756,7 @@ class WebDaemon:
             from nmb.report.invasive_logger import stop_invasive_background_logger
             stop_invasive_background_logger()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
         if self.server:
             threading.Thread(target=self.server.shutdown).start()
 
@@ -3743,7 +3782,7 @@ class WebDaemon:
             from nmb.netd.interfaces import enforce_wired_default_route_priority
             enforce_wired_default_route_priority()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         # Continuous background invasive diagnostic logger (persists to /var/log/nmb and FAT32 boot drive)
         try:
@@ -3764,7 +3803,11 @@ class WebDaemon:
                 log.debug("duckdns start error: %s", e)
 
         # Synchronize background HTTPS / CONNECT Proxy server if enabled
-        if getattr(self.cfg, "proxy", None) and self.cfg.proxy.enabled:
+        if getattr(self.cfg, "proxy", None) and self.cfg.proxy.enabled and not (
+            self.cfg.proxy.auth_enabled and self.cfg.proxy.username and self.cfg.proxy.password
+        ):
+            log.warning("proxy not started: authentication is not configured")
+        elif getattr(self.cfg, "proxy", None) and self.cfg.proxy.enabled:
             try:
                 from nmb.netd.proxy import start_proxy_server
                 start_proxy_server(
@@ -3802,17 +3845,17 @@ class WebDaemon:
                 from nmb.netd.duckdns import stop_duckdns_service
                 stop_duckdns_service()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
             try:
                 from nmb.netd.proxy import stop_proxy_server
                 stop_proxy_server()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
             try:
                 from nmb.report.invasive_logger import stop_invasive_background_logger
                 stop_invasive_background_logger()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
             self.server.server_close()
             log.info("nmb-web server shutdown complete")
 

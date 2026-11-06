@@ -41,7 +41,7 @@ def _get_ooni_env() -> Dict[str, str]:
     try:
         ooni_dir.mkdir(parents=True, exist_ok=True)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
     env["HOME"] = str(ooni_dir.parent)
     env["OONI_HOME"] = str(ooni_dir)
     return env
@@ -164,7 +164,7 @@ def get_ooni_run_measurements(run_id: int) -> Dict[str, Any]:
                         try:
                             test_keys = json.loads(test_keys_raw)
                         except Exception:
-                            pass
+                            log.debug("suppressed exception", exc_info=True)
                     elif isinstance(test_keys_raw, dict):
                         test_keys = test_keys_raw
 

@@ -112,7 +112,7 @@ def get_ethtool_driver_info(iface: str) -> Dict[str, str]:
         try:
             res["driver"] = driver_link.resolve().name
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # 2. Sysfs firmware version if exposed
     fw_file = SYS_CLASS_NET / iface / "device" / "firmware_version"
@@ -120,7 +120,7 @@ def get_ethtool_driver_info(iface: str) -> Dict[str, str]:
         try:
             res["firmware"] = fw_file.read_text().strip()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # 3. Query ethtool -i
     ethtool_bin = shutil.which("ethtool") or "/usr/sbin/ethtool"
@@ -141,7 +141,7 @@ def get_ethtool_driver_info(iface: str) -> Dict[str, str]:
                         elif k == "bus-info" and v:
                             res["bus_info"] = v
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     return res
 
@@ -170,7 +170,7 @@ def get_supported_link_modes(iface: str) -> List[str]:
             if "10baseT" in text:
                 modes.append("10 Mbps")
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     return modes or ["Standard Ethernet"]
 
@@ -288,7 +288,7 @@ def detect_all_physical_interfaces() -> List[Dict[str, Any]]:
                 if "bcmgenet" in drv_info["driver"]:
                     chipset_name = "Broadcom BCM54213 Gigabit (Raspberry Pi)"
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         if not chipset_name:
             if is_wireless:
@@ -369,7 +369,7 @@ def detect_hardware_controllers() -> List[Dict[str, Any]]:
                         "is_wireless": class_hex.startswith("0x0280"),
                     })
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
     # 2. USB scan
     if SYS_BUS_USB.exists():
@@ -410,7 +410,7 @@ def detect_hardware_controllers() -> List[Dict[str, Any]]:
                         "is_wireless": any(k in (chipset or prod).lower() for k in ("wi-fi", "wireless", "802.11")),
                     })
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
     return controllers
 
@@ -437,7 +437,7 @@ def detect_missing_firmware() -> List[Dict[str, str]]:
                         "error_line": line.strip()
                     })
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     return missing
 

@@ -73,7 +73,7 @@ def test_tcp_port(
             try:
                 s.bind((source_ip, 0))
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
         s.connect((host, port))
         with s:
             t_connect = time.monotonic()
@@ -137,7 +137,7 @@ def run_port_neutrality_check(
             interface = interface or pref_if
             bind_ip = bind_ip or pref_ip
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # 1. Establish baseline on unthrottled port 443
     base_host, _ = TEST_HOSTS.get(baseline_port, ("1.1.1.1", baseline_port))

@@ -96,7 +96,7 @@ class CpuLoadSampler:
                         parts = line.split()
                         res[parts[0]] = [int(x) for x in parts[1:]]
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
         return res
 
     def start(self):
@@ -284,7 +284,7 @@ def _run_single_engine(
         parsed_rj["measurement_cpu"] = cpu_telemetry
         res.raw_json = json.dumps(parsed_rj)
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     conn_type = getattr(cfg.isp, "connection_type", "fiber")
     with db.tx(conn):

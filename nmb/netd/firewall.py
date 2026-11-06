@@ -141,6 +141,6 @@ def disable_nat() -> bool:
         try:
             subprocess.run([ipt_bin, "-t", "nat", "-F"], check=False)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     return success

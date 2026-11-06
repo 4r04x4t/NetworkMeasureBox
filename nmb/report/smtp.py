@@ -147,7 +147,7 @@ def send_isp_ticket_email(
                 )
             conn.close()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         log.info("successfully sent fault ticket email")
         return True

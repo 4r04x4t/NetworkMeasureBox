@@ -125,13 +125,13 @@ def export_nmhh_speedtests_csv(
     guaranteed_up_mbps: float = 50.0,
     default_isp: str = "DIGI Kft.",
 ) -> str:
-    """Generate official NMHH Szélessáv.net semicolon-separated CSV export."""
+    """Generate the detailed semicolon-separated speed test CSV export."""
     out = io.StringIO()
     # Semicolon delimited with UTF-8 BOM
     out.write("\ufeff")
     writer = csv.writer(out, delimiter=";")
     writer.writerow([
-        "Időpont", "IP cím", "Szolgáltató", "Letöltés", "Letöltés %", "Feltöltés", "Feltöltés %", "Válaszidő", "Státusz"
+        "Time", "IP address", "ISP", "Download", "Download %", "Upload", "Upload %", "Latency", "Status"
     ])
 
     rows = conn.execute(
@@ -154,7 +154,7 @@ def export_nmhh_speedtests_csv(
 
         ip_str = r["client_ip"] or r["client_ipv6"] or "--"
 
-        # Determine NMHH Status code (1-15)
+        # Determine status code (1-15)
         st_val = r["status"]
         conn_tech = (r["connection_type"] or "").lower()
         if st_val == "ok":

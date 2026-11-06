@@ -19,12 +19,13 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from nmb.config import Config
+from nmb.bot.messages import LANGUAGE_ORDER, MESSAGES
 from nmb.db import database as db
 
 log = logging.getLogger("nmb.bot.i18n")
 
 SUPPORTED_LANGUAGES = ["hu", "en", "de", "fr", "uk"]
-DEFAULT_LANGUAGE = "hu"
+DEFAULT_LANGUAGE = "en"
 
 LANG_INFO: Dict[str, Dict[str, str]] = {
     "hu": {"flag": "🇭🇺", "name": "Magyar", "english": "Hungarian"},
@@ -45,7 +46,7 @@ def get_chat_lang(chat_id: int, cfg: Optional[Config] = None) -> str:
     Checks:
     1. SQLite kv table: `telegram_lang_{chat_id}`
     2. Configured web / system language in `cfg`
-    3. Falls back to DEFAULT_LANGUAGE ('hu')
+    3. Falls back to DEFAULT_LANGUAGE ('en')
     """
     try:
         conn = db.connect(readonly=True)
@@ -92,13 +93,13 @@ def set_chat_lang(chat_id: int, lang: str) -> bool:
 # 2. Keyboards (Main Reply Keyboard & Language Selection)
 # =============================================================================
 
-def get_main_keyboard(lang: str = "hu") -> Dict[str, Any]:
+def get_main_keyboard(lang: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """Generate localized persistent Telegram reply keyboard."""
     lang = lang if lang in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
 
     keyboards = {
         "hu": [
-            [{"text": "📊 Gyors Sebességmérés"}, {"text": "📈 Szélessávú Riport Letöltése"}],
+            [{"text": "📊 Gyors Sebességmérés"}, {"text": "📈 Hálózati Riport Letöltése"}],
             [{"text": "📡 Ping & Telemetria"}, {"text": "🛡️ Reklámblokkoló"}],
             [{"text": "🦎 Tailscale & VPN"}, {"text": "📶 Wi-Fi Kliensszonda"}],
             [{"text": "⚙️ Rendszerállapot"}, {"text": "ℹ️ Parancsok & Súgó"}],
@@ -135,7 +136,7 @@ def get_main_keyboard(lang: str = "hu") -> Dict[str, Any]:
     }
 
     return {
-        "keyboard": keyboards.get(lang, keyboards["hu"]),
+        "keyboard": keyboards[lang],
         "resize_keyboard": True,
         "persistent": True
     }
@@ -179,6 +180,8 @@ def get_menu_aliases() -> Dict[str, str]:
         "тест швидкості": "/test",
 
         # Broadband / SLA Report
+        "📈 hálózati riport letöltése": "/report",
+        "hálózati riport": "/report",
         "📈 szélessávú riport letöltése": "/report",
         "📈 szélessávú riport": "/report",
         "szélessávú riport": "/report",
@@ -191,19 +194,6 @@ def get_menu_aliases() -> Dict[str, str]:
         "rapport haut débit": "/report",
         "📈 завантажити широкосмуговий звіт": "/report",
         "широкосмуговий звіт": "/report",
-        # Legacy aliases
-        "📈 nmhh riport letöltése": "/report",
-        "📈 nmhh riport": "/report",
-        "nmhh riport": "/report",
-        "📈 download nmhh report": "/report",
-        "download nmhh report": "/report",
-        "nmhh report": "/report",
-        "📈 nmhh-bericht herunterladen": "/report",
-        "nmhh-bericht": "/report",
-        "📈 télécharger le rapport nmhh": "/report",
-        "rapport nmhh": "/report",
-        "📈 завантажити звіт nmhh": "/report",
-        "звіт nmhh": "/report",
 
         # Ping & Telemetry
         "📡 ping & telemetria": "/ping",
@@ -299,11 +289,11 @@ def get_menu_aliases() -> Dict[str, str]:
 
 
 # =============================================================================
-# 3. NMHH Status & Verdict Helpers
+# 3. Measurement Status & Verdict Helpers
 # =============================================================================
 
-def get_nmhh_status(code: int, lang: str = "hu") -> Tuple[str, str]:
-    """Return localized NMHH status badge and description for speed test results."""
+def get_measurement_status(code: int, lang: str = DEFAULT_LANGUAGE) -> Tuple[str, str]:
+    """Return localized measurement status badge and description for speed test results."""
     lang = lang if lang in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
 
     badges = {
@@ -343,37 +333,52 @@ def get_nmhh_status(code: int, lang: str = "hu") -> Tuple[str, str]:
     return lang_dict.get(code, lang_dict.get(1, ("⚪ UNKNOWN", "Unknown SLA state")))
 
 
-def get_sla_verdict(verdict: str, lang: str = "hu") -> str:
-    """Translate SLA regulatory verdict string."""
+def get_sla_verdict(verdict: str, lang: str = DEFAULT_LANGUAGE) -> str:
+    """Translate the SLA verdict computed by NMB."""
     lang = lang if lang in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
     v = (verdict or "").strip().upper()
 
     translations = {
         "hu": {
+            "BREACHED": "SLA ALATT",
+            "DEGRADED": "ROMLÁS",
+            "COMPLIANT": "MEGFELEL",
             "MEGFELELŐ": "MEGFELELŐ",
             "NEM MEGFELELŐ": "NEM MEGFELELŐ",
             "FIGYELMEZTETÉS": "FIGYELMEZTETÉS",
             "UNKNOWN": "ISMERETLEN",
         },
         "en": {
+            "BREACHED": "BELOW TARGETS",
+            "DEGRADED": "DEGRADED",
+            "COMPLIANT": "MEETS TARGETS",
             "MEGFELELŐ": "COMPLIANT",
             "NEM MEGFELELŐ": "NON-COMPLIANT",
             "FIGYELMEZTETÉS": "WARNING",
             "UNKNOWN": "UNKNOWN",
         },
         "de": {
+            "BREACHED": "UNTER DEN ZIELEN",
+            "DEGRADED": "BEEINTRÄCHTIGT",
+            "COMPLIANT": "ZIELE ERFÜLLT",
             "MEGFELELŐ": "KONFORM",
             "NEM MEGFELELŐ": "NICHT KONFORM",
             "FIGYELMEZTETÉS": "WARNUNG",
             "UNKNOWN": "UNBEKANNT",
         },
         "fr": {
+            "BREACHED": "SOUS LES OBJECTIFS",
+            "DEGRADED": "DÉGRADÉ",
+            "COMPLIANT": "OBJECTIFS ATTEINTS",
             "MEGFELELŐ": "CONFORME",
             "NEM MEGFELELŐ": "NON CONFORME",
             "FIGYELMEZTETÉS": "AVERTISSEMENT",
             "UNKNOWN": "INCONNU",
         },
         "uk": {
+            "BREACHED": "НИЖЧЕ ЦІЛЕЙ",
+            "DEGRADED": "ПОГІРШЕНО",
+            "COMPLIANT": "ЦІЛІ ДОСЯГНУТО",
             "MEGFELELŐ": "ВІДПОВІДАЄ",
             "NEM MEGFELELŐ": "НЕ ВІДПОВІДАЄ",
             "FIGYELMEZTETÉS": "ПОПЕРЕДЖЕННЯ",
@@ -406,22 +411,22 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "uptime_24h": "24h Rendelkezésre állás",
         "latency_rtt": "Késleltetés (RTT)",
         "packet_loss": "Csomagvesztés",
-        "sla_verdict": "SLA Hatósági Minősítés",
+        "sla_verdict": "SLA eredmény (NMB értékelés)",
         "compliance": "Megfelelőség",
         "latest_speed": "Legutóbbi Sebesség",
         "services_security": "Szolgáltatások & Biztonság",
         "download": "Letöltés",
         "upload": "Feltöltés",
         "server": "Mérőszerver",
-        "nmhh_verdict": "SLA Minősítés",
+        "speed_result_label": "Eredmény a garantált sebességhez képest",
         "speed_starting": "<i>🚀 Sebességmérés indítása{engine_str}... Kérlek várj kb. 15-25 másodpercet!</i>",
         "speed_error": "⚠️ Sebességmérés hiba: {error}",
         "speed_result_title": "<b>📊 Sebességmérés Eredmény ({engine})</b>",
         "ping_header": "<b>📡 Valós Idejű Válaszidő & Csomagvesztés (Elmúlt 60 mp):</b>\n",
         "ping_no_resp": "Nincs válasz",
         "ping_loss_label": "vesztés",
-        "report_generating": "<i>📊 24 órás szélessávú hálózati minőségi és SLA vizsgálati dosszié generálása...</i>",
-        "report_caption": "<b>📋 Szélessávú Hálózati SLA Vizsgálati Dosszié (24h)</b>\nEszköz: <code>{box_id}</code> | Szolgáltató: <b>{isp}</b>\nMinősítés: <b>{verdict}</b>\nSLA Teljesülés: <b>{sla:.0f}%</b> | Elérhetőség: <b>{uptime:.2f}%</b>",
+        "report_generating": "<i>📊 24 órás hálózati minőségi és SLA vizsgálati dosszié generálása...</i>",
+        "report_caption": "<b>📋 Hálózati SLA Vizsgálati Dosszié (24h)</b>\nEszköz: <code>{box_id}</code> | Szolgáltató: <b>{isp}</b>\nMinősítés: <b>{verdict}</b>\nSLA Teljesülés: <b>{sla:.0f}%</b> | Elérhetőség: <b>{uptime:.2f}%</b>",
         "report_fail": "A jegyzőkönyv elkészült, de a fájlküldés nem sikerült.",
         "tailscale_title": "<b>🦎 Tailscale Mesh VPN Állapot</b>",
         "tailscale_active": "🟢 AKTÍV ÉS CSATLAKOZVA",
@@ -468,7 +473,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /status - Rendszerállapot, Uptime, CPU és SLA megfelelőség
 • /ping - Valós idejű késleltetés és csomagvesztés referencia csomópontok felé
 • /test (vagy /speed) <code>[ookla|cloudflare|rtr]</code> - Sebességmérés futtatása
-• /report - 24 órás szélessávú mérési és SLA megfelelőségi riport letöltése (.html fájl)
+• /report - 24 órás mérési és SLA megfelelőségi riport letöltése (.html fájl)
 • /ai - AI diagnosztikai naplócsomag letöltése LLM-ekhez (.md fájl)
 • /mode <code>[auto|standalone|mode_a|mode_b]</code> - Üzemmód váltás
 
@@ -501,10 +506,12 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /backup - Biztonsági mentések kezelése és letöltése
 • /drivers - Hálózati kártya és vezérlő illesztőprogramok
 • /reboot - Eszköz biztonságos újraindítása
+• /sla - Az SLA eredmény magyarázata
+• /purge - Tárolt adatok törlése
 • /lang - Nyelv megváltoztatása (HU, EN, DE, FR, UK)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Gyorsmérés",
-        "btn_nmhh_report": "📈 SLA Dosszié",
+        "btn_report": "📈 SLA Dosszié",
         "btn_ping_details": "📡 Ping Részletek",
         "btn_top_resources": "⚙️ Erőforrások (Top)",
         "btn_tailscale": "🦎 Tailscale",
@@ -539,14 +546,14 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "uptime_24h": "24h Availability",
         "latency_rtt": "Latency (RTT)",
         "packet_loss": "Packet Loss",
-        "sla_verdict": "Regulatory SLA Verdict",
+        "sla_verdict": "SLA result (NMB evaluation)",
         "compliance": "Compliance",
         "latest_speed": "Latest Speed",
         "services_security": "Services & Security",
         "download": "Download",
         "upload": "Upload",
         "server": "Measurement Server",
-        "nmhh_verdict": "Regulatory Verdict",
+        "speed_result_label": "Result against guaranteed speed",
         "speed_starting": "<i>🚀 Starting speed test{engine_str}... Please wait approximately 15-25 seconds!</i>",
         "speed_error": "⚠️ Speed test error: {error}",
         "speed_result_title": "<b>📊 Speed Test Result ({engine})</b>",
@@ -554,7 +561,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "ping_no_resp": "No response",
         "ping_loss_label": "loss",
         "report_generating": "<i>📊 Generating 24-hour official SLA compliance dossier...</i>",
-        "report_caption": "<b>📋 Official SLA Network Dossier (24h)</b>\nDevice: <code>{box_id}</code> | ISP: <b>{isp}</b>\nRegulatory Verdict: <b>{verdict}</b>\nSLA Compliance: <b>{sla:.0f}%</b> | Uptime: <b>{uptime:.2f}%</b>",
+        "report_caption": "<b>📋 SLA Network Dossier (24h)</b>\nDevice: <code>{box_id}</code> | ISP: <b>{isp}</b>\nSLA result: <b>{verdict}</b>\nSLA Compliance: <b>{sla:.0f}%</b> | Uptime: <b>{uptime:.2f}%</b>",
         "report_fail": "Dossier was generated, but document upload failed.",
         "tailscale_title": "<b>🦎 Tailscale Mesh VPN Status</b>",
         "tailscale_active": "🟢 ACTIVE & CONNECTED",
@@ -634,10 +641,12 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /backup - Manage and download full disaster recovery backups
 • /drivers - Network controllers and hardware drivers
 • /reboot - Safely restart the device host
+• /sla - What the SLA result means
+• /purge - Delete stored data
 • /lang - Change interface language (EN, HU, DE, FR, UK)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Quick Test",
-        "btn_nmhh_report": "📈 SLA Dossier",
+        "btn_report": "📈 SLA Dossier",
         "btn_ping_details": "📡 Ping Details",
         "btn_top_resources": "⚙️ Resources (Top)",
         "btn_tailscale": "🦎 Tailscale",
@@ -672,14 +681,14 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "uptime_24h": "24h Verfügbarkeit",
         "latency_rtt": "Latenz (RTT)",
         "packet_loss": "Paketverlust",
-        "sla_verdict": "Behördliches SLA-Urteil",
+        "sla_verdict": "SLA-Ergebnis (NMB-Bewertung)",
         "compliance": "SLA-Konformität",
         "latest_speed": "Letzte Messung",
         "services_security": "Dienste & Sicherheit",
         "download": "Download",
         "upload": "Upload",
         "server": "Messserver",
-        "nmhh_verdict": "SLA-Bewertung",
+        "speed_result_label": "Ergebnis gegenüber garantierter Geschwindigkeit",
         "speed_starting": "<i>🚀 Starte Speedtest{engine_str}... Bitte ca. 15-25 Sekunden warten!</i>",
         "speed_error": "⚠️ Speedtest-Fehler: {error}",
         "speed_result_title": "<b>📊 Speedtest-Ergebnis ({engine})</b>",
@@ -767,10 +776,12 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /backup - Systemsicherungen verwalten und herunterladen
 • /drivers - Netzwerk-Controller und Treiberstatus
 • /reboot - Gerät sicher neu starten
+• /sla - Bedeutung des SLA-Ergebnisses
+• /purge - Gespeicherte Daten löschen
 • /lang - Sprache ändern (DE, EN, HU, FR, UK)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Schnelltest",
-        "btn_nmhh_report": "📈 SLA-Dossier",
+        "btn_report": "📈 SLA-Dossier",
         "btn_ping_details": "📡 Ping-Details",
         "btn_top_resources": "⚙️ Ressourcen (Top)",
         "btn_tailscale": "🦎 Tailscale",
@@ -805,14 +816,14 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "uptime_24h": "Disponibilité 24h",
         "latency_rtt": "Latence (RTT)",
         "packet_loss": "Perte de paquets",
-        "sla_verdict": "Verdict réglementaire SLA",
+        "sla_verdict": "Résultat SLA (évaluation NMB)",
         "compliance": "Conformité SLA",
         "latest_speed": "Dernier débit",
         "services_security": "Services & Sécurité",
         "download": "Téléchargement",
         "upload": "Téléversement",
         "server": "Serveur de mesure",
-        "nmhh_verdict": "Verdict de conformité",
+        "speed_result_label": "Résultat par rapport au débit garanti",
         "speed_starting": "<i>🚀 Démarrage du test de débit{engine_str}... Veuillez patienter 15 à 25 secondes!</i>",
         "speed_error": "⚠️ Erreur du test de débit: {error}",
         "speed_result_title": "<b>📊 Résultat du test de débit ({engine})</b>",
@@ -900,10 +911,12 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /backup - Gérer et télécharger les sauvegardes complètes
 • /drivers - Contrôleurs réseau et pilotes matériels
 • /reboot - Redémarrer l'appareil en toute sécurité
+• /sla - Signification du résultat SLA
+• /purge - Supprimer les données stockées
 • /lang - Changer la langue (FR, EN, HU, DE, UK)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Test rapide",
-        "btn_nmhh_report": "📈 Dossier SLA",
+        "btn_report": "📈 Dossier SLA",
         "btn_ping_details": "📡 Détails du Ping",
         "btn_top_resources": "⚙️ Ressources (Top)",
         "btn_tailscale": "🦎 Tailscale",
@@ -938,14 +951,14 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "uptime_24h": "Доступність за 24г",
         "latency_rtt": "Затримка (RTT)",
         "packet_loss": "Втрата пакетів",
-        "sla_verdict": "Нормативний вердикт SLA",
+        "sla_verdict": "Результат SLA (оцінка NMB)",
         "compliance": "Відповідність SLA",
         "latest_speed": "Остання швидкість",
         "services_security": "Служби та безпека",
         "download": "Завантаження",
         "upload": "Вивантаження",
         "server": "Сервер тестування",
-        "nmhh_verdict": "Оцінка SLA",
+        "speed_result_label": "Результат щодо гарантованої швидкості",
         "speed_starting": "<i>🚀 Запуск тесту швидкості{engine_str}... Зачекайте приблизно 15-25 секунд!</i>",
         "speed_error": "⚠️ Помилка вимірювання швидкості: {error}",
         "speed_result_title": "<b>📊 Результат тесту швидкості ({engine})</b>",
@@ -1033,10 +1046,12 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /backup - Керування та завантаження резервних копій
 • /drivers - Мережеві контролери та драйвери
 • /reboot - Безпечне перезавантаження пристрою
+• /sla - Що означає результат SLA
+• /purge - Видалення збережених даних
 • /lang - Змінити мову (UK, EN, HU, DE, FR)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Швидкий тест",
-        "btn_nmhh_report": "📈 Досьє SLA",
+        "btn_report": "📈 Досьє SLA",
         "btn_ping_details": "📡 Деталі пінг",
         "btn_top_resources": "⚙️ Ресурси (Top)",
         "btn_tailscale": "🦎 Tailscale",
@@ -1060,14 +1075,19 @@ STRINGS: Dict[str, Dict[str, str]] = {
 }
 
 
-def t(key: str, lang: str = "hu", **kwargs) -> str:
-    """Retrieve translated string by key with fallback to English then Hungarian."""
+for _key, _values in MESSAGES.items():
+    for _lang, _value in zip(LANGUAGE_ORDER, _values):
+        STRINGS[_lang].setdefault(_key, _value)
+
+
+def t(key: str, lang: str = DEFAULT_LANGUAGE, **kwargs) -> str:
+    """Retrieve translated string by key with fallback to English."""
     lang = lang if lang in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
     tmpl = STRINGS.get(lang, {}).get(key)
     if not tmpl:
         tmpl = STRINGS.get("en", {}).get(key)
     if not tmpl:
-        tmpl = STRINGS.get("hu", {}).get(key, key)
+        tmpl = key
     if kwargs:
         try:
             return tmpl.format(**kwargs)
@@ -1154,7 +1174,7 @@ ALERT_TEMPLATES: Dict[str, Dict[str, str]] = {
 }
 
 
-def format_alert(alert_key: str, lang: str = "hu", **kwargs) -> str:
+def format_alert(alert_key: str, lang: str = DEFAULT_LANGUAGE, **kwargs) -> str:
     """Format proactive alert message in the target language."""
     lang = lang if lang in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
     templates = ALERT_TEMPLATES.get(lang, ALERT_TEMPLATES["en"])

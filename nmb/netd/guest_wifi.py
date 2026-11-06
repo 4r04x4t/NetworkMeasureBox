@@ -210,7 +210,7 @@ def get_guest_wifi_status(
                             net = ipaddress.ip_network(v, strict=False)
                             res["subnet"] = str(net)
                         except Exception:
-                            pass
+                            log.debug("suppressed exception", exc_info=True)
                     else:
                         res["ip_address"] = v
                 elif k == "IP4.GATEWAY":
@@ -259,7 +259,7 @@ def get_guest_wifi_status(
                     wan_net = ipaddress.ip_network(wan_cidr, strict=False)
                     res["wan_subnet"] = str(wan_net)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # 4. Determine Subnet Isolation Verdict
     if res["connected"] and res["subnet"] and res["wan_subnet"]:
@@ -294,9 +294,9 @@ def get_guest_wifi_status(
                     try:
                         res["subnet"] = str(ipaddress.ip_network(cidr_val, strict=False))
                     except Exception:
-                        pass
+                        log.debug("suppressed exception", exc_info=True)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # Ensure alias keys exist for consumers querying either naming scheme
     res["ip"] = res.get("ip_address", "")

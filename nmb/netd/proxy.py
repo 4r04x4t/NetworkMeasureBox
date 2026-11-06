@@ -195,7 +195,7 @@ class ProxyServer:
             try:
                 self.sock.close()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
             self.sock = None
         log.info("HTTPS Proxy Server stopped.")
 
@@ -337,7 +337,7 @@ class ProxyServer:
             try:
                 client_sock.close()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
             with _proxy_lock:
                 _proxy_stats["active_connections"] = max(0, _proxy_stats["active_connections"] - 1)
 
@@ -374,7 +374,7 @@ class ProxyServer:
             sock1.close()
             sock2.close()
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
 
 def get_proxy_status() -> Dict[str, Any]:

@@ -147,7 +147,7 @@ class AlertMonitor:
                 if res.stdout.strip() != "active":
                     failed.append(svc)
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
         cur_state = self._get_alert_state(conn, "service_failure")
 
@@ -181,7 +181,7 @@ class AlertMonitor:
                 if raw.isdigit():
                     temp_c = float(raw) / 1000.0
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
         cur_thermal_state = self._get_alert_state(conn, "hardware_overheat")
         if temp_c is not None:
@@ -205,7 +205,7 @@ class AlertMonitor:
                 self._broadcast("low_disk_resolved", free=free_mb)
                 self._set_alert_state(conn, "low_disk", "resolved", f"Disk recovered: {free_mb:.0f} MB")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     # =========================================================================
     # 5. Dual-WAN Failover

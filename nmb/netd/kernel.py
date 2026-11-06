@@ -257,7 +257,7 @@ def get_kernel_network_status() -> Dict[str, Any]:
             try:
                 return p.read_text().strip()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
         return default
 
     def _read_int(path: str, default: int = 0) -> int:
@@ -330,7 +330,7 @@ def get_kernel_network_status() -> Dict[str, Any]:
                                  "rx-checksumming", "tx-checksumming"):
                             offloads_summary[k] = ("on" in v)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
 
     return {
         "status": "ok",

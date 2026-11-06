@@ -10,6 +10,9 @@ No misleading 0 Mb/s guaranteed/contracted thresholds when unconfigured.
 """
 from __future__ import annotations
 
+import dataclasses
+import html as _html
+
 import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -145,7 +148,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "legal_appendix_title": "Hivatalos Szolgáltatói Hibabejelentő és Hatósági Jogszabályi Záradék:",
         "legal_appendix_body": (
             "Ez a dokumentum a helyszínen üzemelő NetworkMeasureBox autonóm hálózati mérőhardver által függetlenül rögzített telemetriai adatokat tartalmazza. "
-            "A mérések az elektronikus hírközlésről szóló <b>2003. évi C. törvény (Eht.)</b>, a <b>13/2011. (XII. 27.) NMHH rendelet</b>, "
+            "A mérések az elektronikus hírközlésről szóló <b>2003. évi C. törvény (Eht.)</b>, "
             "valamint az Európai Unió <b>2015/2120 rendelete (BEREC nyílt internet iránymutatások)</b> előírásainak figyelembevételével készültek. "
             "A sebességmérések kizárólag alacsony helyi háttérforgalom mellett futnak le a vezetékes LAN-torzítások kizárása érdekében. "
             "Amennyiben a mért letöltési vagy feltöltési sebesség nem éri el a szerződésben rögzített garantált minimumot, vagy a szolgáltatáskimaradások mértéke meghaladja a megengedett határértéket, "
@@ -678,10 +681,38 @@ def _format_datetime(ts_ms: int) -> str:
     return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-def generate_html_dossier(report: ReportData, lang: str = "hu") -> str:
+VERDICT_NOTE = {
+    "hu": " (az NMB saját értékelése, nem hatósági döntés)",
+    "en": " (NMB's own evaluation, not a decision by an authority)",
+    "de": " (eigene Bewertung von NMB, keine behördliche Entscheidung)",
+    "fr": " (évaluation propre à NMB, pas une décision d'une autorité)",
+    "uk": " (власна оцінка NMB, а не рішення органу влади)",
+}
+for _lang, _note in VERDICT_NOTE.items():
+    for _key in ("verdict_compliant_desc", "verdict_degraded_desc", "verdict_breached_desc"):
+        DOSSIER_I18N[_lang][_key] += _note
+
+
+def _escape_value(value):
+    """Escape strings inside stored measurement data before they are placed into HTML."""
+    if isinstance(value, str):
+        return _html.escape(value)
+    if isinstance(value, dict):
+        return {k: _escape_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_escape_value(v) for v in value]
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return dataclasses.replace(value, **{
+            f.name: _escape_value(getattr(value, f.name)) for f in dataclasses.fields(value) if f.init
+        })
+    return value
+
+
+def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
     """Generate complete standalone localized HTML document string (neutralized regulatory branding)."""
-    lang_key = lang if lang in DOSSIER_I18N else "hu"
+    lang_key = lang if lang in DOSSIER_I18N else "en"
     tr = DOSSIER_I18N[lang_key]
+    report = _escape_value(report)
 
     has_contract_speeds = bool(report.contract_down_mbps > 0 or report.guaranteed_down_mbps > 0)
     has_guaranteed_down = bool(report.guaranteed_down_mbps > 0)
@@ -1449,7 +1480,7 @@ def generate_html_dossier(report: ReportData, lang: str = "hu") -> str:
     return html
 
 
-def save_html_dossier(report: ReportData, output_path: Path, lang: str = "hu") -> Path:
+def save_html_dossier(report: ReportData, output_path: Path, lang: str = "en") -> Path:
     """Render and save HTML dossier to disk."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     content = generate_html_dossier(report, lang=lang)

@@ -76,7 +76,7 @@ class ManagedProcess:
                 if pid not in pids_to_kill:
                     pids_to_kill.append(pid)
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
 
         for pid in pids_to_kill:
             try:

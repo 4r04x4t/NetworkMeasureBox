@@ -32,7 +32,7 @@ def _ensure_dir() -> None:
             os.chmod(OV_DIR, 0o700)
             os.chmod(PKI_DIR, 0o700)
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     except Exception as e:
         log.debug("OpenVPN _ensure_dir non-fatal error: %s", e)
 
@@ -118,7 +118,7 @@ def init_pki() -> bool:
                     subprocess.run([bin_ov, "--genkey", "secret", str(tls_crypt)], check=True, timeout=5)
                     generated = True
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
             if not generated:
                 raw_hex = os.urandom(256).hex()
                 lines = [
@@ -274,7 +274,7 @@ def get_openvpn_status(
         proc = subprocess.run(["ip", "link", "show", "tun0"], capture_output=True, text=True, timeout=2, check=False)
         is_running = proc.returncode == 0
     except Exception:
-        pass
+        log.debug("suppressed exception", exc_info=True)
 
     clients = load_clients()
 
@@ -395,7 +395,7 @@ def delete_client(name: str) -> bool:
             try:
                 f.unlink()
             except Exception:
-                pass
+                log.debug("suppressed exception", exc_info=True)
     return True
 
 

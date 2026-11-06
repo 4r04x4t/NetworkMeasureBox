@@ -92,7 +92,7 @@ def connect(path: Path | None = None, readonly: bool = False) -> sqlite3.Connect
                     if cur.fetchone()[0] == 0:
                         conn.executescript(SCHEMA.read_text())
                 except Exception:
-                    pass
+                    log.debug("suppressed exception", exc_info=True)
     conn.row_factory = sqlite3.Row
     pragmas = get_sqlite_pragmas()
     for p in pragmas:
@@ -104,7 +104,7 @@ def connect(path: Path | None = None, readonly: bool = False) -> sqlite3.Connect
         try:
             conn.execute("PRAGMA query_only=ON")
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     else:
         ensure_schema_upgrades(conn)
 
@@ -158,7 +158,7 @@ def ensure_schema_upgrades(conn: sqlite3.Connection) -> None:
             if v4:
                 cur.execute("UPDATE speedtest SET client_ip = ? WHERE client_ip LIKE '%:%'", (v4,))
         except Exception:
-            pass
+            log.debug("suppressed exception", exc_info=True)
     except Exception as e:
         log.debug("schema upgrade check exception: %s", e)
 
