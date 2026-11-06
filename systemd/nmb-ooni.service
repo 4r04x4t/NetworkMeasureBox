@@ -10,4 +10,6 @@ Environment=PYTHONPATH=/opt/nmb
 ExecStart=/opt/nmb/bin/nmb-ooni run websites
 # A full website list takes far longer than a typical service start.
 TimeoutStartSec=3600
+# Public resolvers for this service only, so a LAN DNS filter does not appear as ISP blocking.
+BindReadOnlyPaths=/opt/nmb/os/ooni-resolv.conf:/etc/resolv.conf
 

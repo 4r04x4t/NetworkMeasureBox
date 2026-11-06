@@ -34,6 +34,16 @@ def find_native_rmbt_client() -> Optional[str]:
     return shutil.which("rmbt-client")
 
 
+def _output_tail(*streams, limit: int = 400) -> str:
+    """Return the end of the first non-empty process output, for diagnosing client failures."""
+    for stream in streams:
+        if isinstance(stream, bytes):
+            stream = stream.decode("utf-8", "replace")
+        if stream and stream.strip():
+            return stream.strip()[-limit:]
+    return "(no output)"
+
+
 def _run_native_rmbt_speedtest(
     host: str,
     duration_sec: int,
@@ -56,6 +66,12 @@ def _run_native_rmbt_speedtest(
     log.info("invoking native C Open-RMBT binary: %s", " ".join(cmd))
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=duration_sec * 3 + 30)
+    except subprocess.TimeoutExpired as e:
+        log.warning(
+            "native C rmbt-client timed out after %ss; falling back to Python engine; output: %s",
+            e.timeout, _output_tail(e.stderr, e.stdout),
+        )
+        return None
     except Exception as e:
         log.warning("native C rmbt-client execution failed: %s; falling back to Python engine", e)
         return None
@@ -74,7 +90,10 @@ def _run_native_rmbt_speedtest(
                 log.debug("suppressed exception", exc_info=True)
 
     if not final_data:
-        log.warning("native C rmbt-client did not produce FINAL_RESULT (code=%d); falling back to Python", proc.returncode)
+        log.warning(
+            "native C rmbt-client did not produce FINAL_RESULT (code=%d); falling back to Python; output: %s",
+            proc.returncode, _output_tail(proc.stderr, proc.stdout),
+        )
         return None
 
     down_mbps = float(final_data.get("down", 0.0))
