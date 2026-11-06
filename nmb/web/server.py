@@ -350,10 +350,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # 7. Standalone Dossier Download
         if path in ("/dossier", "/dossier.html", "/export/report.html", "/report.html", "/api/export/dossier"):
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            req_lang = qs.get("lang", [None])[0]
+            if not req_lang or req_lang not in ("hu", "en", "de", "fr", "uk"):
+                req_lang = getattr(self.server.cfg.web, "language", "hu") or "hu"
             conn = db.connect(readonly=True)
             report = aggregate_report_data(conn, self.server.cfg, window_hours=24.0)
             conn.close()
-            html = generate_html_dossier(report)
+            html = generate_html_dossier(report, lang=req_lang)
             self._send_html(html)
             return
 

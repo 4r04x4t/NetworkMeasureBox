@@ -2484,28 +2484,36 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       }
       #explorer-guest-banner > div:first-child {
         display: flex !important;
-        flex-direction: row !important;
+        flex-direction: column !important;
         align-items: flex-start !important;
         width: 100% !important;
         flex: none !important;
-        gap: 10px !important;
+        gap: 8px !important;
+      }
+      #explorer-guest-banner > div:first-child > div {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+        gap: 6px !important;
       }
       #explorer-guest-banner [data-i18n="explorer_guest_probe_title"] {
         white-space: nowrap !important;
-        flex-shrink: 0 !important;
-        min-width: max-content !important;
-        display: inline-block !important;
+        font-weight: 700 !important;
+        font-size: 13.5px !important;
+        display: block !important;
+        width: 100% !important;
       }
       #explorer-guest-banner .badge-pill, #explorer-guest-status-text {
-        white-space: normal !important;
-        word-break: break-word !important;
-        display: inline-block !important;
+        white-space: nowrap !important;
+        word-break: normal !important;
+        display: inline-flex !important;
         max-width: 100% !important;
       }
       /* Responsive Charts on Mobile */
       #speed-chart-container {
-        height: 350px !important;
-        min-height: 350px !important;
+        height: 380px !important;
+        min-height: 380px !important;
         width: 100% !important;
       }
       #speed-chart-svg-wrap {
@@ -2961,7 +2969,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="triggerSpeedtest()" data-i18n="btn_measure_now">▶️ Run Speedtest Now</button>
           <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests.csv'" data-i18n="btn_speed_export_csv">📊 Speedtest CSV Export</button>
-          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/nmhh_speedtests.csv'" data-i18n="btn_nmhh_export_csv">📋 Szélessáv.net / NMHH CSV</button>
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/nmhh_speedtests.csv'" data-i18n="btn_nmhh_export_csv">📋 Broadband Speedtest CSV Export</button>
         </div>
       </div>
 
@@ -9002,24 +9010,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         loadAdblockDomains();
         loadAdblockStatus();
       } else {
-        showToast('Érvénytelen reguláris kifejezés');
-      }
-    } catch (e) {
-      showToast('Hiba: ' + e);
-    }
-  }
-
-  async function removeAdblockRegexFilter(pattern, kind) {
-    try {
-      const res = await fetch('/api/adblock/regex/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pattern: pattern, kind: kind })
-      });
-      const data = await res.json();
-      if (data.status === 'ok') {
-        showToast('RegEx szabály törölve');
-        loadAdblockDomains();
+        showToast('Érvén
         loadAdblockStatus();
       }
     } catch (e) {
@@ -10136,11 +10127,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
 
     const W = isMobile ? 480 : 900;
-    const H = isMobile ? 290 : 250;
-    const padL = isMobile ? (mode === 'latency' ? 46 : 44) : 60;
-    const padR = (mode === 'combined') ? (isMobile ? 46 : 60) : (isMobile ? 16 : 25);
-    const padT = isMobile ? 22 : 25;
-    const padB = isMobile ? 38 : 40;
+    const H = isMobile ? 360 : 250;
+    const padL = isMobile ? (mode === 'latency' ? 52 : 50) : 60;
+    const padR = (mode === 'combined') ? (isMobile ? 52 : 60) : (isMobile ? 18 : 25);
+    const padT = isMobile ? 26 : 25;
+    const padB = isMobile ? 44 : 40;
     const chartW = W - padL - padR;
     const chartH = H - padT - padB;
 
@@ -10193,8 +10184,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       const y = padT + chartH - (i / steps) * chartH;
       svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-dasharray="3,3" />`;
       
-      const yFontSize = isMobile ? "12" : "10.5";
-      const yFontWeight = isMobile ? "600" : "normal";
+      const yFontSize = isMobile ? "13.5" : "10.5";
+      const yFontWeight = isMobile ? "700" : "normal";
       if (mode !== 'latency') {
         const valM = Math.round((maxMbps / steps) * i);
         svg += `<text x="${padL - 6}" y="${y + 4}" fill="#38bdf8" font-size="${yFontSize}" font-weight="${yFontWeight}" text-anchor="end" font-family="monospace">${valM}M</text>`;
@@ -10273,8 +10264,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
     svg += `<line id="speed-chart-crosshair" x1="0" y1="${padT}" x2="0" y2="${padT + chartH}" stroke="#64748b" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" pointer-events="none" />`;
 
-    const dotR = isMobile ? "4.5" : "3.5";
-    const dotStrkW = isMobile ? "2" : "1.5";
+    const dotR = isMobile ? "5.5" : "3.5";
+    const dotStrkW = isMobile ? "2.5" : "1.5";
     const labelInterval = isMobile ? Math.max(1, Math.floor(n / 4)) : Math.max(1, Math.floor(n / 6));
 
     list.forEach((item, idx) => {
@@ -10284,10 +10275,10 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       const dateStr = String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
 
       if (idx % labelInterval === 0 || idx === n - 1) {
-        const timeFontSize = isMobile ? "11.5" : "10";
-        const dateFontSize = isMobile ? "9.5" : "8.5";
-        svg += `<text x="${x}" y="${H - 14}" fill="#94a3b8" font-size="${timeFontSize}" font-weight="${isMobile ? '600' : 'normal'}" text-anchor="middle" font-family="monospace">${timeStr}</text>`;
-        svg += `<text x="${x}" y="${H - 3}" fill="#64748b" font-size="${dateFontSize}" text-anchor="middle" font-family="monospace">${dateStr}</text>`;
+        const timeFontSize = isMobile ? "13" : "10";
+        const dateFontSize = isMobile ? "11" : "8.5";
+        svg += `<text x="${x}" y="${H - 16}" fill="#cbd5e1" font-size="${timeFontSize}" font-weight="${isMobile ? '700' : 'normal'}" text-anchor="middle" font-family="monospace">${timeStr}</text>`;
+        svg += `<text x="${x}" y="${H - 3}" fill="#94a3b8" font-size="${dateFontSize}" text-anchor="middle" font-family="monospace">${dateStr}</text>`;
       }
 
       if (mode !== 'latency') {
@@ -14246,12 +14237,17 @@ Use UP/DOWN arrow keys for command history.
         expStatusText.innerHTML = `🟢 ${t('status_connected', 'Connected')}: <b>${escapeHtml(d.ssid)}</b> (${escapeHtml(d.ip_address || 'DHCP')})`;
         if (expDetailsText) {
           let isoBadge = '';
+          let isoDesc = '';
           if (d.is_isolated_subnet === true) {
             isoBadge = `<span style="color:#34d399; font-weight:700;">[${t('guest_iso_verified', 'ISOLATED GUEST SUBNET VERIFIED')}]</span>`;
+            isoDesc = t('guest_iso_verified_desc', 'Guest Wi-Fi client operates on an isolated subnet, completely separated from the wired LAN.');
           } else if (d.is_isolated_subnet === false) {
             isoBadge = `<span style="color:#fbbf24; font-weight:700;">[${t('guest_iso_shared', 'SHARED BROADCAST DOMAIN')}]</span>`;
+            isoDesc = t('guest_iso_shared_desc', 'Both Wi-Fi station and wired LAN share the same subnet. The upstream router does not isolate this guest Wi-Fi from the LAN.');
+          } else {
+            isoDesc = escapeHtml(d.isolation_verdict || '');
           }
-          expDetailsText.innerHTML = `${t('guest_subnet', 'Guest Subnet')}: <b><code style="color:#e9d5ff;">${escapeHtml(d.subnet || '--')}</code></b> (${t('gateway', 'Gateway')}: ${escapeHtml(d.gateway || '--')}) | ${t('wifi_signal', 'Signal')}: <b>${d.signal_percent}%</b>. ${isoBadge} ${escapeHtml(d.isolation_verdict || '')}`;
+          expDetailsText.innerHTML = `${t('guest_subnet', 'Guest Subnet')}: <b><code style="color:#e9d5ff;">${escapeHtml(d.subnet || '--')}</code></b> (${t('gateway', 'Gateway')}: ${escapeHtml(d.gateway || '--')}) | ${t('wifi_signal', 'Signal')}: <b>${d.signal_percent}%</b>. ${isoBadge} ${isoDesc}`;
         }
       } else {
         expStatusText.style.background = 'rgba(148, 163, 184, 0.15)';

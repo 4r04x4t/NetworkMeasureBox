@@ -407,8 +407,8 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "ping_header": "<b>📡 Valós Idejű Válaszidő & Csomagvesztés (Elmúlt 60 mp):</b>\n",
         "ping_no_resp": "Nincs válasz",
         "ping_loss_label": "vesztés",
-        "report_generating": "<i>📊 24 órás NMHH Szélessáv.net hitelesített vizsgálati jegyzőkönyv generálása...</i>",
-        "report_caption": "<b>📋 NMHH Szélessáv.net Vizsgálati Jegyzőkönyv (24h)</b>\nEszköz: <code>{box_id}</code> | Szolgáltató: <b>{isp}</b>\nHatósági minősítés: <b>{verdict}</b>\nSLA Megfelelőség: <b>{sla:.0f}%</b> | Elérhetőség: <b>{uptime:.2f}%</b>",
+        "report_generating": "<i>📊 24 órás szélessávú hálózati minőségi és SLA vizsgálati dosszié generálása...</i>",
+        "report_caption": "<b>📋 Szélessávú Hálózati SLA Vizsgálati Dosszié (24h)</b>\nEszköz: <code>{box_id}</code> | Szolgáltató: <b>{isp}</b>\nMinősítés: <b>{verdict}</b>\nSLA Teljesülés: <b>{sla:.0f}%</b> | Elérhetőség: <b>{uptime:.2f}%</b>",
         "report_fail": "A jegyzőkönyv elkészült, de a fájlküldés nem sikerült.",
         "tailscale_title": "<b>🦎 Tailscale Mesh VPN Állapot</b>",
         "tailscale_active": "🟢 AKTÍV ÉS CSATLAKOZVA",
@@ -491,7 +491,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /lang - Nyelv megváltoztatása (HU, EN, DE, FR, UK)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Gyorsmérés",
-        "btn_nmhh_report": "📈 NMHH Riport",
+        "btn_nmhh_report": "📈 SLA Dosszié",
         "btn_ping_details": "📡 Ping Részletek",
         "btn_top_resources": "⚙️ Erőforrások (Top)",
         "btn_tailscale": "🦎 Tailscale",
@@ -624,7 +624,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /lang - Change interface language (EN, HU, DE, FR, UK)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Quick Test",
-        "btn_nmhh_report": "📈 NMHH Report",
+        "btn_nmhh_report": "📈 SLA Dossier",
         "btn_ping_details": "📡 Ping Details",
         "btn_top_resources": "⚙️ Resources (Top)",
         "btn_tailscale": "🦎 Tailscale",
@@ -757,7 +757,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /lang - Sprache ändern (DE, EN, HU, FR, UK)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Schnelltest",
-        "btn_nmhh_report": "📈 NMHH-Bericht",
+        "btn_nmhh_report": "📈 SLA-Dossier",
         "btn_ping_details": "📡 Ping-Details",
         "btn_top_resources": "⚙️ Ressourcen (Top)",
         "btn_tailscale": "🦎 Tailscale",
@@ -890,7 +890,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /lang - Changer la langue (FR, EN, HU, DE, UK)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Test rapide",
-        "btn_nmhh_report": "📈 Rapport NMHH",
+        "btn_nmhh_report": "📈 Dossier SLA",
         "btn_ping_details": "📡 Détails du Ping",
         "btn_top_resources": "⚙️ Ressources (Top)",
         "btn_tailscale": "🦎 Tailscale",
@@ -1023,7 +1023,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /lang - Змінити мову (UK, EN, HU, DE, FR)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Швидкий тест",
-        "btn_nmhh_report": "📈 Звіт NMHH",
+        "btn_nmhh_report": "📈 Досьє SLA",
         "btn_ping_details": "📡 Деталі пінг",
         "btn_top_resources": "⚙️ Ресурси (Top)",
         "btn_tailscale": "🦎 Tailscale",

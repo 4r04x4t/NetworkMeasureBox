@@ -401,9 +401,9 @@ class CommandHandler:
             report = aggregate_report_data(conn, self.cfg, window_hours=24.0)
             conn.close()
 
-            html_doc = generate_html_dossier(report)
+            html_doc = generate_html_dossier(report, lang=lang)
             date_str = time.strftime('%Y%m%d_%H%M%S')
-            filename = f"NMHH_Szelessav_Riport_{self.cfg.system.box_id}_{date_str}.html"
+            filename = f"Broadband_SLA_Dossier_{self.cfg.system.box_id}_{date_str}.html"
 
             caption = t(
                 "report_caption",
