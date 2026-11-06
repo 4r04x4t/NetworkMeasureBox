@@ -91,6 +91,8 @@ docs/
 
 For resource-constrained embedded routers, OpenWrt CPEs (16MB Flash / 32MB–64MB RAM), and multi-gigabit line-rate throughput without Python runtime overhead, refer to the [De-Pythonization Architecture Blueprint](DEPYTHONIZATION_ROADMAP.md), which details the migration of all core engines and merged ecosystem components into a unified static binary (`nmbd`) in **Go** and **C11**.
 
+For target-specific implementations on commercial router hardware (**ASUS ROG Rapture GT-AXE7800 / RT-AXE7800**, **ASUS RT-N12+**, and **TP-Link TL-WR740N v4.23**), see the [Router Porting & 100% De-Pythonization Specification](ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md).
+
 ## 5. Telegram Bot Integration & Proactive Automation (`nmb-telegram`)
 
 The `nmb-telegram` daemon runs alongside `nmb-web` to provide mobile chat management and proactive incident alerts without external dependencies (pure Python standard library HTTPS multipart/form-data client).

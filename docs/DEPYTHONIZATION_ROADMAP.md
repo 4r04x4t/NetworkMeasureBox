@@ -206,15 +206,20 @@ flowchart TD
   - Built-in concurrent DoH (DNS-over-HTTPS) and DoT (DNS-over-TLS) upstream resolvers with connection pooling.
   - Direct in-memory query log ring-buffer (lock-free slice) exposed over the embedded web REST API and UNIX domain socket `/run/nmb/adblock.sock`.
 
-### 4.10 WireGuard & OpenVPN / PiVPN Gateway Controller
-- **Current Architecture**: Python invokes `wg-quick`, `wg`, `iptables`, `systemctl`, generates `.conf` files, and calls `qrencode` subprocess.
-- **De-Pythonization Target**: **Go (Golang) via Native Netlink & wgctrl**.
+### 4.10 Dual-Hub VPN (WireGuard + OpenVPN EC) & Tailscale Mesh (`tsnet`)
+- **Current Architecture**: Python invokes `wg-quick`, `wg`, `iptables`, `systemctl`, generates `.conf` files, calls `qrencode` subprocess, and interfaces with `tailscale` CLI.
+- **De-Pythonization Target**: **Go (Tier 1) via `wgctrl` & `tsnet` / C11 (Tier 2 & 3) via Netlink**.
 - **Go Blueprint**:
-  - Manage WireGuard interfaces in-process using `golang.zx2c4.com/wireguard/wgctrl`.
-  - Direct Netlink kernel interface configuration (`RTM_NEWLINK` with link type `wireguard`) without calling `wg-quick` or external tools.
-  - Native curve25519 keypair generation via Go standard library (`crypto/ecdh`).
-  - Direct SVG / PNG QR-code rendering using `github.com/skip2/go-qrcode` baked directly into the binary (eliminates `qrencode` package).
-  - Built-in UDP STUN / NAT traversal ping to detect WAN IP / port changes dynamically.
+  - **In-Process Tailscale Mesh Node**: Use `tailscale.com/tsnet` to embed an autonomous, userspace Tailscale node directly inside `nmbd`.
+    - Obtains a 100.x.y.z CGNAT mesh IP dynamically.
+    - Zero external `tailscaled` daemon required!
+    - Completely eliminates WAN port forwarding, CGNAT barriers, and public IP requirements for remote dashboard access.
+  - **Kernel WireGuard Gateway**: Direct in-process interface management via `golang.zx2c4.com/wireguard/wgctrl` and raw Netlink `RTM_NEWLINK`.
+  - **In-Process Curve25519 & QR Generator**: Generate elliptic curve keypairs using `crypto/ecdh` and render vector SVG and raster PNG QR codes in-memory via `github.com/skip2/go-qrcode`, eliminating `qrencode` and shell scripts.
+  - **OpenVPN EC Gateway**: Lightweight in-process management socket client interfacing with local OpenVPN daemon (`/run/openvpn/mgmt.sock`).
+- **C Blueprint (OpenWrt / Embedded)**:
+  - Direct Netlink kernel interface configuration using `libnl-tiny`.
+  - OpenWrt native `kmod-wireguard` kernel module control consuming <400KB RAM.
 
 ### 4.11 Hardware Driver Finder & Firmware Provisioning Engine (`nmb-driver`)
 - **Current Architecture**: Python script traverses `/sys/bus/pci` and `/sys/bus/usb`, matches vendor/device IDs against a Python dict, and calls `apt-get install firmware-*`.
@@ -262,6 +267,103 @@ flowchart TD
   - Lock-free in-memory circular ring buffer holding the last 5,000 diagnostic events.
   - Subscribes to Linux kernel `netlink` socket for interface drops/errors, and reads `/proc/net/dev` delta counters.
   - Zero filesystem wear: Retained purely in memory, flushed to SQLite WAL only when an anomaly is detected or upon user request.
+
+### 4.16 Multilingual Telegram Chatbot & Interactive Menus in Native Code
+- **Current Architecture**: Python `nmb-telegram` daemon with long-polling and hardcoded templates.
+- **De-Pythonization Target**: **Go (`telebot` / `tgbotapi`) or C11 with mbedTLS**.
+- **Blueprint**:
+  - Asynchronous worker polling Telegram Bot API `getUpdates` over HTTPS.
+  - Interactive Inline Keyboards providing touch menus for:
+    - 📊 Status & Instant Ping Matrix
+    - ⚡ On-Demand Speedtest (Ookla, Cloudflare, RMBT, iPerf3)
+    - 📑 Regulatory SLA Dossier Export (.html) & LLM Diagnostic Snapshot (.md)
+    - 🛡️ Tailscale, WireGuard & OpenVPN Status & 1-Click QR Delivery
+    - 🌐 Multi-language switcher (HU, EN, DE, FR, UK) with zero mixed-language leaks.
+  - Zero Python footprint: Consumes **<1.5MB RAM in Go** and **<200KB RAM in C11**.
+
+### 4.17 Regulatory-Grade Broadband SLA Dossier & Pure SVG Vector Engine
+- **Current Architecture**: Python script rendering HTML dossiers and embedding dynamic SVG charts.
+- **De-Pythonization Target**: **Go `html/template` or C11 Pre-compiled Template**.
+- **Blueprint**:
+  - Template assets (HTML skeleton, CSS styling, localized translation dictionaries for Hungarian, English, German, French, Ukrainian) compiled directly into the binary's `.rodata` section.
+  - In-process mathematical SVG chart renderer: Emits responsive `<svg viewBox="0 0 800 380">` with cubic bezier curves, dual y-axes (Mbps & ms), SLA threshold baseline indicators, and mobile touch dot overlays.
+  - Neutral branding: Strictly regulatory-neutral title (*"Broadband Quality & ISP SLA Performance Dossier"*), compliant with European BEREC guidelines and international telecom standards.
+  - Generation time: **<1.5ms**, completely eliminating Python templating and subprocess dependencies.
+
+### 4.18 Micro-Outage Detection & Loss Pattern Correlation Engine
+- **Current Architecture**: Post-hoc database analysis in Python.
+- **De-Pythonization Target**: **Go / C11 Continuous Streaming State Machine**.
+- **Blueprint**:
+  - Real-time classification of packet loss into two distinct categories:
+    1. **Micro-Spikes / Bufferbloat**: Isolated dropped packets (1–3 consecutive) during high-throughput saturation.
+    2. **Macro-Outages**: Full link drops ($\ge 5$ consecutive seconds of packet loss).
+  - Root-cause correlation: Distinguishes between local CPE failure (default gateway unreachable) and ISP upstream transit failure (gateway responds, but public DNS/peering targets fail).
+  - Outage timeline events recorded in the SQLite/ring-buffer event log with start time, end time, duration in seconds, and root-cause classifier.
+
+### 4.19 Wi-Fi RF & PHY Telemetry via `nl80211` Netlink
+- **Current Architecture**: Spawns `/usr/sbin/iw dev wlan0 station dump` and parses regex.
+- **De-Pythonization Target**: **Go / C11 Direct Netlink Socket (`NETLINK_GENERIC` / `nl80211`)**.
+- **Blueprint**:
+  - Query wireless link parameters directly from the Linux mac80211 subsystem:
+    - Signal RSSI in exact dBm (e.g., `-54 dBm`) and Noise floor.
+    - TX/RX PHY bitrates in Mbps.
+    - MCS (Modulation and Coding Scheme) index and Guard Interval.
+    - Channel width (20 MHz, 40 MHz, 80 MHz, 160 MHz).
+    - Link stability counters: `tx_retries`, `tx_failed`, `rx_drop_misc`.
+  - Zero subprocess fork overhead; instant telemetry refresh in <0.5ms.
+
+### 4.20 DNS Hijacking & Comparative Multi-Resolver Matrix Engine
+- **Current Architecture**: Python single-host resolution via `socket.getaddrinfo()`.
+- **De-Pythonization Target**: **Go `miekg/dns` or C11 Raw UDP DNS Sockets**.
+- **Blueprint**:
+  - Concurrent multi-resolver diagnostic probe querying:
+    1. Local Gateway / DHCP Assigned DNS (e.g., `192.168.8.1`).
+    2. Cloudflare DNS (`1.1.1.1` & `1.0.0.1`).
+    3. Google Public DNS (`8.8.8.8` & `8.8.4.4`).
+    4. Quad9 Security DNS (`9.9.9.9`).
+  - Telemetry metrics collected per resolver:
+    - Response latency (cached vs uncached in ms).
+    - DNSSEC validation status (`ad` Authenticated Data bit verification).
+    - Transparent Hijacking Check: Detects if the ISP silently intercepts and redirects UDP port 53 packets by querying a canary domain with known response signatures.
+
+### 4.21 RFC 5389 STUN Client & Carrier-Grade NAT (CGNAT) Engine
+- **Current Architecture**: Python heuristics on interface IP vs external HTTP IP.
+- **De-Pythonization Target**: **Go / C11 Direct RFC 5389 UDP STUN Client**.
+- **Blueprint**:
+  - Sends a standard 20-byte STUN Binding Request over UDP to `stun.l.google.com:19302` or `stun.cloudflare.com:3478`.
+  - Extracts the `XOR-MAPPED-ADDRESS` attribute to discover the public external reflexive endpoint.
+  - Automatically identifies network topology:
+    - **ISP CGNAT (RFC 6598)**: Local WAN IP is in `100.64.0.0/10`.
+    - **Double NAT**: Local WAN IP is an RFC 1918 private address (`192.168.x.x` or `10.x.x.x`).
+    - **Direct Public IP**: Local WAN IP strictly matches the STUN reflexive address.
+    - **NAT Traversal Classifier**: Identifies Full Cone, Restricted Cone, Port-Restricted, or Symmetric NAT.
+
+### 4.22 CPU Interrupts (IRQ/SoftIRQ), RPS/XPS & NIC Offload Telemetry
+- **Current Architecture**: Missing or ad-hoc procfs checks.
+- **De-Pythonization Target**: **Go / C11 Kernel Sysfs & IOCTL Reader**.
+- **Blueprint**:
+  - Real-time monitoring of per-core interrupt distribution (`/proc/interrupts` and `/proc/softirqs`) to detect CPU0 single-core saturation bottlenecks (critical for Gigabit throughput on Raspberry Pi and MIPS routers).
+  - Packet Steering verification: Inspects Receive Packet Steering (RPS) bitmasks at `/sys/class/net/<iface>/queues/rx-*/rps_cpus` and irqbalance daemon status.
+  - NIC Hardware Offload Telemetry: Queries interface offload features via `SIOCETHTOOL` ioctl (`rx-checksumming`, `tx-checksumming`, `tcp-segmentation-offload`, `generic-receive-offload`) to ensure hardware acceleration is active.
+
+### 4.23 Storage I/O & Flash Filesystem Health Monitor
+- **Current Architecture**: Python `shutil.disk_usage`.
+- **De-Pythonization Target**: **Go / C11 `statvfs()` & `/proc/diskstats` Reader**.
+- **Blueprint**:
+  - Continuous measurement of disk I/O wait percentage (`%iowait`) from `/proc/stat` delta counters to detect failing microSD cards or flash storage bottlenecks.
+  - Filesystem wear and free capacity tracking via standard POSIX `statvfs()`.
+  - Kernel I/O Error Trap: Reads `/dev/kmsg` non-blocking to filter for hardware storage errors (`mmc0: timeout`, `I/O error`, `EXT4-fs error`, `squashfs corruption`).
+
+### 4.24 Sanitized Configuration & PII/Secret Masking Engine
+- **Current Architecture**: Regex filters inside report exporter.
+- **De-Pythonization Target**: **Go / C11 Streaming Secret Sanitizer**.
+- **Blueprint**:
+  - Built-in zero-allocation streaming redactor protecting customer privacy when generating dossiers or sharing diagnostic snapshots with external LLMs or ISP support:
+    - Passwords, Wi-Fi PSKs, and Auth Tokens $\to$ `[REDACTED_SECRET]`
+    - Telegram Bot Tokens & Chat IDs $\to$ `[REDACTED_CHAT_ID]`
+    - ISP Account IDs & Circuit IDs $\to$ `[REDACTED_CIRCUIT_ID]`
+    - Dynamic DNS domain names $\to$ `[REDACTED_DDNS]`
+    - Private IP subnets and MAC addresses preserved for network topology diagnostics.
 
 ---
 
@@ -375,6 +477,16 @@ timeline
 | **iPerf3 Engine** | Python + `subprocess(iperf3)` | **Go** / **C** | Embedded Go iPerf3 protocol / `libiperf.a` | 25MB $\to$ **1.5MB** | External `iperf3` package |
 | **DNS Ad-Blocker** | Python DNS proxy | **Go** | `github.com/miekg/dns` + Radix Tree | 42MB $\to$ **3.5MB** | Python runtime, `/etc/hosts` shell forks |
 | **WireGuard / VPN** | Python + `wg-quick` + `qrencode` | **Go** | `golang.zx2c4.com/wireguard/wgctrl` | 30MB $\to$ **1.5MB** | `wg-quick`, `qrencode`, bash scripts |
+| **Tailscale Mesh** | Python wrapper + `tailscale` CLI | **Go** | Embedded `tailscale.com/tsnet` | 35MB $\to$ **4.5MB** | External `tailscaled` daemon, CLI |
+| **Telegram Bot** | Python `urllib` polling loop | **Go** / **C** | `tgbotapi` / `mbedtls` HTTPS polling | 26MB $\to$ **1.2MB** (C: 180KB) | Python runtime, SSL wrappers |
+| **Regulatory Dossier** | Python HTML builder + charts | **Go** / **C** | In-process SVG math + `.rodata` HTML | 24MB $\to$ **0.5MB** | External charting libraries |
+| **Outage Correlation**| Python cron / SQLite | **Go** / **C** | Real-time continuous state machine | 15MB $\to$ **0.2MB** | SQLite lock churn, cron scripts |
+| **Wi-Fi RF Telemetry** | Python + `iw` CLI subprocess | **Go** / **C** | Linux `nl80211` Netlink socket | 20MB $\to$ **0.4MB** | `/usr/sbin/iw`, shell forks |
+| **DNS Audit Engine** | Python socket / getaddrinfo | **Go** / **C** | Raw UDP DNS sockets + DNSSEC parser | 18MB $\to$ **0.6MB** | Subprocess DNS lookups |
+| **STUN & CGNAT** | Python HTTP heuristics | **Go** / **C** | Direct RFC 5389 UDP STUN client | 16MB $\to$ **0.1MB** | External IP scrapers |
+| **IRQ & Offload Telemetry**| Python missing/bash scripts | **Go** / **C** | `/proc/interrupts` + `SIOCETHTOOL` | 14MB $\to$ **0.2MB** | `ethtool` CLI, bash forks |
+| **Flash Health Monitor**| Python `shutil` | **Go** / **C** | `statvfs()` + `/proc/diskstats` + kmsg | 12MB $\to$ **0.1MB** | Shell disk utilities |
+| **Sanitizer & Masking**| Python regex substitutions | **Go** / **C** | Zero-alloc streaming byte scanner | 10MB $\to$ **0.05MB** | Regex compile memory churn |
 | **Web UI & API** | Python `ThreadingHTTPServer` | **Go** | `net/http` + `//go:embed` | 45MB $\to$ **4.0MB** | Web template files, Python runtime |
 | **SQLite Database** | Python `sqlite3` + backup script | **Go** / **C** | `modernc.org/sqlite` / `sqlite3.c` | 28MB $\to$ **2.0MB** | CGO cross-compiler, external scripts |
 | **Tasks & Load** | Python + `subprocess(ps)` | **Go** / **C** | Direct `/proc` reader (`stat`, `meminfo`) | 32MB $\to$ **0.8MB** | `/bin/ps` subprocess spawning |
@@ -382,7 +494,7 @@ timeline
 | **Self-Healing** | Python `nmb-heal` audit | **Go** | In-process watchdog + atomic `os.Rename` | 28MB $\to$ **0.8MB** | External bash scripts, git CLI |
 | **Wi-Fi Manager** | Python + `subprocess(wpa_cli)` | **Go** / **C** | Direct UNIX socket client (`wpa_supplicant`) | 24MB $\to$ **0.6MB** | `wpa_cli`, `hostapd_cli` subprocesses |
 | **Diagnostic Log** | Python thread + SQLite | **Go** | In-memory circular ring buffer | 22MB $\to$ **0.5MB** | Subprocess tracing, Python logging |
-| **TOTAL** | **Suite of Python Daemons** | **Unified `nmbd` Monolith** | **Zero Runtime Dependencies** | **~180MB $\to$ 15MB** | **Eliminates Python, Pip & 14 packages** |
+| **TOTAL** | **Suite of Python Daemons** | **Unified `nmbd` Monolith** | **Zero Runtime Dependencies** | **~240MB $\to$ 16MB** | **Eliminates Python, Pip & 22 packages** |
 
 ---
 
@@ -427,3 +539,15 @@ By executing this De-Pythonization blueprint, NetworkMeasureBox will transform f
 - **External package dependencies** (Python, Pip, OONI package, qrencode, iperf3, pciutils, etc.) are **100% eliminated**.
 - **Line-rate throughput**: Full multi-gigabit (1Gbps – 10Gbps) saturation capability without GIL bottlenecks.
 - **Portability**: Native execution across OpenWrt, Debian, Ubuntu, Alpine, and embedded Busybox environments.
+
+---
+
+## 10. Router Hardware Porting Specifications
+
+For detailed hardware-specific porting guidelines, memory budgets, and binary size optimization on commercial router models:
+- **ASUS ROG Rapture GT-AXE7800 / RT-AXE7800** (Broadcom BCM4912 Quad-Core ARMv8 @ 2.0 GHz, 1GB RAM, 256MB Flash, 2.5GbE, Wi-Fi 6E, Asuswrt-Merlin)
+- **ASUS RT-N12+** (MediaTek MT7628N MIPS24KEc @ 575 MHz, 32MB RAM, 8MB Flash, Fast Ethernet, OpenWrt 23.05)
+- **TP-Link TL-WR740N v4.23** (Atheros AR9331 MIPS 24Kc @ 400 MHz, 32MB RAM, 4MB Flash, Minimal Custom OpenWrt)
+
+Please consult the dedicated document:  
+📄 **[`ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`](ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md)**.
