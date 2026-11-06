@@ -48,6 +48,11 @@ class DashboardIntegrityTests(unittest.TestCase):
                     self.fail(f"en.{key}: {value}")
                 self.assertTrue(value != hu.get(key) or not re.search("[áéíóöúü]", value), f"{lang}.{key}")
 
+    def test_inline_handlers_do_not_quote_html_escaped_values(self):
+        source = Path("nmb/web/assets/dashboard.js").read_text(encoding="utf-8")
+        unsafe = re.findall(r"""on[a-z]+="[^"\n]*'\$\{(?!idx)[^"\n]*escapeHtml[^"\n]*\"""", source)
+        self.assertEqual(unsafe, [])
+
     def test_all_languages_define_the_same_keys(self):
         keys = set(TRANSLATIONS["en"])
         for lang, values in TRANSLATIONS.items():

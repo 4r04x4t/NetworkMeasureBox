@@ -180,6 +180,11 @@
       .replace(/'/g, '&#039;');
   }
 
+  // Value as a JS literal for inline handlers: HTML-escaping alone is decoded before the JS runs.
+  function jsArg(value) {
+    return escapeHtml(JSON.stringify(value === undefined ? null : value));
+  }
+
   function sanitizeUrl(url) {
     if (!url) return '';
     const clean = String(url).trim();
@@ -701,7 +706,7 @@
               <div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">${escapeHtml(pkg.description)}</div>
             </div>
             <div>
-              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="installDrivers('${escapeHtml(pkg.package)}')">📦 Install ${escapeHtml(pkg.package)}</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="installDrivers(${jsArg(pkg.package)})">📦 Install ${escapeHtml(pkg.package)}</button>
             </div>
           </div>`;
         });
@@ -996,7 +1001,7 @@
             <td style="font-size: 11.5px; font-weight: 600; color: #f87171; word-break: break-all;">${escapeHtml(item.domain)}</td>
             <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
             <td style="text-align: center;">
-              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist('${escapeHtml(item.domain)}')">${t('adblock_btn_allow', '✅ Allow')}</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist(${jsArg(item.domain)})">${t('adblock_btn_allow', '✅ Allow')}</button>
             </td>
           </tr>
         `).join('');
@@ -1015,7 +1020,7 @@
             <td style="font-size: 11.5px; font-weight: 600; color: #38bdf8; word-break: break-all;">${escapeHtml(item.domain)}</td>
             <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.count.toLocaleString()}</td>
             <td style="text-align: center;">
-              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist('${escapeHtml(item.domain)}')">${t('adblock_btn_block', '⛔ Block')}</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist(${jsArg(item.domain)})">${t('adblock_btn_block', '⛔ Block')}</button>
             </td>
           </tr>
         `).join('');
@@ -1032,7 +1037,7 @@
         topClientsTbody.innerHTML = topC.map(item => `
           <tr>
             <td style="font-size: 11px;">
-              <div style="font-weight: 700; color: #f1f5f9; cursor: pointer;" onclick="filterLogByClient('${escapeHtml(item.ip)}')">${escapeHtml(item.ip)}</div>
+              <div style="font-weight: 700; color: #f1f5f9; cursor: pointer;" onclick="filterLogByClient(${jsArg(item.ip)})">${escapeHtml(item.ip)}</div>
               <div style="font-size: 11px; color: #94a3b8;">${escapeHtml(item.hostname || item.ip)}</div>
             </td>
             <td style="font-size: 11.5px; font-weight: 700; text-align: right; color: #cbd5e1;">${item.total.toLocaleString()}</td>
@@ -1134,7 +1139,7 @@
       // Transparent hit-target for hover tooltips
       const pct = p.total > 0 ? ((p.blocked / p.total) * 100).toFixed(1) + '%' : '0.0%';
       svgHtml += `<rect x="${x - gap/2}" y="${padT}" width="${colW + gap}" height="${chartH}" fill="transparent" style="cursor: pointer;"
-        onmousemove="showChartTooltip(event, '${escapeHtml(p.time_str)}', ${p.total}, ${p.blocked}, '${pct}')"
+        onmousemove="showChartTooltip(event, ${jsArg(p.time_str)}, ${p.total}, ${p.blocked}, '${pct}')"
         onmouseleave="hideChartTooltip()" />`;
 
       // X-axis time labels every 8 bars (~4 hours)
@@ -1336,8 +1341,8 @@
         <td style="font-size: 11.5px; color: var(--text-muted); font-family: monospace;">${q.latency_ms ? q.latency_ms.toFixed(1) + 'ms' : '<0.1ms'}</td>
         <td style="font-size: 11.5px; font-weight: 600; color: ${q.status === 'BLOCKED' ? '#f87171' : '#f1f5f9'}; word-break: break-all;">${escapeHtml(q.domain || '')}</td>
         <td style="text-align: center; white-space: nowrap;">
-          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171; margin-right: 4px;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist('${escapeHtml(q.domain)}')">${t('adblock_btn_block', '⛔ Block')}</button>
-          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist('${escapeHtml(q.domain)}')">${t('adblock_btn_allow', '✅ Allow')}</button>
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171; margin-right: 4px;" title="${t('adblock_block_title', 'Block (add to blocklist)')}" onclick="quickBlacklist(${jsArg(q.domain)})">${t('adblock_btn_block', '⛔ Block')}</button>
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #34d399;" title="${t('adblock_allow_title', 'Allow (add to allowlist)')}" onclick="quickWhitelist(${jsArg(q.domain)})">${t('adblock_btn_allow', '✅ Allow')}</button>
         </td>
       </tr>`;
     }).join('');
@@ -1425,7 +1430,7 @@
               <tr>
                 <td style="font-size: 12px; font-weight: 600; color: #34d399;">${escapeHtml(d)}</td>
                 <td style="text-align: right; width: 40px;">
-                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockWhitelist('${escapeHtml(d)}')">✕</button>
+                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockWhitelist(${jsArg(d)})">✕</button>
                 </td>
               </tr>
             `).join('');
@@ -1445,7 +1450,7 @@
               <tr>
                 <td style="font-size: 12px; font-weight: 600; color: #f87171;">${escapeHtml(d)}</td>
                 <td style="text-align: right; width: 40px;">
-                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockBlacklist('${escapeHtml(d)}')">✕</button>
+                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockBlacklist(${jsArg(d)})">✕</button>
                 </td>
               </tr>
             `).join('');
@@ -1467,7 +1472,7 @@
               <tr>
                 <td style="font-size: 11.5px; font-weight: 600; color: #34d399; font-family: monospace;">${escapeHtml(it.pattern)}</td>
                 <td style="text-align: right; width: 40px;">
-                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter('${escapeHtml(it.pattern)}', 'white')">✕</button>
+                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter(${jsArg(it.pattern)}, 'white')">✕</button>
                 </td>
               </tr>
             `).join('');
@@ -1484,7 +1489,7 @@
               <tr>
                 <td style="font-size: 11.5px; font-weight: 600; color: #f87171; font-family: monospace;">${escapeHtml(it.pattern)}</td>
                 <td style="text-align: right; width: 40px;">
-                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter('${escapeHtml(it.pattern)}', 'black')">✕</button>
+                  <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockRegexFilter(${jsArg(it.pattern)}, 'black')">✕</button>
                 </td>
               </tr>
             `).join('');
@@ -1623,7 +1628,7 @@
       tbody.innerHTML = lists.map(item => `
         <tr>
           <td style="text-align: center;">
-            <input type="checkbox" ${item.enabled ? 'checked' : ''} onchange="toggleAdblockAdlistSource('${escapeHtml(item.url)}', this.checked)" style="transform: scale(1.2); cursor: pointer;">
+            <input type="checkbox" ${item.enabled ? 'checked' : ''} onchange="toggleAdblockAdlistSource(${jsArg(item.url)}, this.checked)" style="transform: scale(1.2); cursor: pointer;">
           </td>
           <td>
             <div style="font-weight: 700; color: #f1f5f9; font-size: 12px;">${escapeHtml(item.name || 'Blocklist')}</div>
@@ -1636,7 +1641,7 @@
             ${item.updated_at ? escapeHtml(item.updated_at.replace('T', ' ').slice(0, 19)) : t('adblock_list_not_updated', 'Not updated yet')}
           </td>
           <td style="text-align: center;">
-            <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockAdlistSource('${escapeHtml(item.url)}')">✕</button>
+            <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockAdlistSource(${jsArg(item.url)})">✕</button>
           </td>
         </tr>
       `).join('');
@@ -1728,7 +1733,7 @@
             <span class="badge" style="font-size: 11px; background: rgba(255,255,255,0.06); color: #cbd5e1;">${r.ip.includes(':') ? 'AAAA' : 'A'}</span>
           </td>
           <td style="text-align: center;">
-            <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockLocalDnsRecord('${escapeHtml(r.domain)}')">✕</button>
+            <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; color: #f87171;" onclick="removeAdblockLocalDnsRecord(${jsArg(r.domain)})">✕</button>
           </td>
         </tr>
       `).join('');
@@ -3222,8 +3227,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         <td>${s.location || s.name || '--'}</td>
         <td>${s.country || '--'}</td>
         <td style="text-align: center;">
-          <button type="button" class="btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="setDefaultServer(${sid}, '${sName}', '${sHost}')">⭐ ${t('servers_btn_use', 'Use as Target Server')}</button>
-          <button type="button" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="runSingleServerTest(${sid})">${t('server_test_btn', '▶ Test to this server')}</button>
+          <button type="button" class="btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="setDefaultServer(${jsArg(sid)}, ${jsArg(s.name || s.sponsor || 'Unknown')}, ${jsArg(s.host || '')})">⭐ ${t('servers_btn_use', 'Use as Target Server')}</button>
+          <button type="button" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="runSingleServerTest(${jsArg(sid)})">${t('server_test_btn', '▶ Test to this server')}</button>
         </td>
       </tr>`;
     });
@@ -4590,7 +4595,6 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       if (document.getElementById('cfg-guaranteed-up')) document.getElementById('cfg-guaranteed-up').value = d.guaranteed_up_mbps || '';
 
       // System
-      if (document.getElementById('cfg-sqm-algo')) document.getElementById('cfg-sqm-algo').value = d.sqm_algorithm || 'cake';
       if (document.getElementById('cfg-memory-profile')) document.getElementById('cfg-memory-profile').value = d.memory_profile || 'auto';
 
       // Sync active theme highlight
@@ -4678,7 +4682,6 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       contract_up_mbps: parseFloat(document.getElementById('cfg-contract-up').value) || 0,
       guaranteed_up_mbps: parseFloat(document.getElementById('cfg-guaranteed-up').value) || 0,
 
-      sqm_algorithm: document.getElementById('cfg-sqm-algo').value,
       memory_profile: document.getElementById('cfg-memory-profile') ? document.getElementById('cfg-memory-profile').value : 'auto',
       theme: localStorage.getItem('nmb_theme') || document.documentElement.getAttribute('data-theme') || 'default',
     };
@@ -4768,8 +4771,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           <td style="font-size: 12px; color: #cbd5e1;">${commentEsc}</td>
           <td style="text-align: right; white-space: nowrap;">
             <a href="/api/backup/download?file=${encodeURIComponent(b.filename)}" class="btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; display: inline-block; margin-right: 4px;">📥 Download</a>
-            <button type="button" class="btn-primary" style="font-size: 11px; padding: 4px 8px; margin-right: 4px;" onclick="restoreLocalBackup('${filenameEsc}')">${t('backup_action_restore', '🔄 Restore')}</button>
-            <button type="button" class="btn-danger" style="font-size: 11px; padding: 4px 8px; background: #dc2626; border-color: #ef4444; color: white;" onclick="deleteLocalBackup('${filenameEsc}')">🗑️</button>
+            <button type="button" class="btn-primary" style="font-size: 11px; padding: 4px 8px; margin-right: 4px;" onclick="restoreLocalBackup(${jsArg(b.filename)})">${t('backup_action_restore', '🔄 Restore')}</button>
+            <button type="button" class="btn-danger" style="font-size: 11px; padding: 4px 8px; background: #dc2626; border-color: #ef4444; color: white;" onclick="deleteLocalBackup(${jsArg(b.filename)})">🗑️</button>
           </td>
         </tr>`;
       }
@@ -5867,8 +5870,8 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span id="probe-badge-${idx}" style="font-size: 11.5px; color: #94a3b8; min-width: 70px; text-align: right;"></span>
-            <button type="button" class="btn-secondary" style="font-size: 11.5px; padding: 5px 11px;" onclick="probeServerModal('${escapeHtml(s.host)}', ${escapeHtml(s.port)}, 'probe-badge-${idx}', this)">⚡ Ping</button>
-            <button type="button" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="selectPublicServer('${escapeHtml(s.host)}', ${escapeHtml(s.port)}, '${safeProvider}', '${safeSite}', '${s.speed || ''}')">🎯 Select Server</button>
+            <button type="button" class="btn-secondary" style="font-size: 11.5px; padding: 5px 11px;" onclick="probeServerModal(${jsArg(s.host)}, ${jsArg(s.port)}, 'probe-badge-${idx}', this)">⚡ Ping</button>
+            <button type="button" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="selectPublicServer(${jsArg(s.host)}, ${jsArg(s.port)}, ${jsArg(s.provider || '')}, ${jsArg(s.site || s.country || 'Global')}, ${jsArg(s.speed || '')})">🎯 Select Server</button>
           </div>
         </div>
       `;
@@ -6413,7 +6416,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         <td>${item.total_count || 1}</td>
         <td>${verdBadge}</td>
         <td>
-          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="openOoniRunDetails(${escapeHtml(item.id)})">
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="openOoniRunDetails(${jsArg(item.id)})">
             🔍 Details
           </button>
         </td>
@@ -6578,7 +6581,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         <td>${badge}</td>
         <td style="color: var(--text-muted); font-size: 12px;">${runtimeStr}</td>
         <td>
-          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="inspectOoniMeasurement(${escapeHtml(m.id)})">
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="inspectOoniMeasurement(${jsArg(m.id)})">
             🔬 Inspect
           </button>
         </td>
@@ -6995,7 +6998,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
             <td><span class="badge-pill" style="background: rgba(56, 189, 248, 0.12); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 11px;">${safeSec}</span></td>
             <td style="font-family: monospace; font-size: 11.5px; color: #94a3b8;">${safeBssid}</td>
             <td>
-              <button type="button" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="selectScannedGuestWifi('${escapeHtml(n.ssid)}', '${escapeHtml(n.security)}', ${isHidden ? 'true' : 'false'})">
+              <button type="button" class="btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="selectScannedGuestWifi(${jsArg(n.ssid)}, ${jsArg(n.security)}, ${isHidden ? 'true' : 'false'})">
                 ${t('guest_btn_select', 'Select ➡️')}
               </button>
             </td>
@@ -7130,8 +7133,8 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
           <td>${statusBadge}</td>
           <td style="font-family: monospace; font-size: 11px; color: #94a3b8;">${escapeHtml(item.uuid || '--')}</td>
           <td style="display: flex; gap: 6px;">
-            ${!item.in_use ? `<button type="button" class="btn-primary" style="font-size: 11px; padding: 3px 8px;" onclick="activateSavedWifi('${escapeHtml(targetId)}')">${t('guest_btn_connect_now', '⚡ Connect')}</button>` : ''}
-            <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="forgetSavedWifi('${escapeHtml(targetId)}')">${t('guest_btn_delete', '🗑️ Delete')}</button>
+            ${!item.in_use ? `<button type="button" class="btn-primary" style="font-size: 11px; padding: 3px 8px;" onclick="activateSavedWifi(${jsArg(targetId)})">${t('guest_btn_connect_now', '⚡ Connect')}</button>` : ''}
+            <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="forgetSavedWifi(${jsArg(targetId)})">${t('guest_btn_delete', '🗑️ Delete')}</button>
           </td>
         </tr>`;
       });
@@ -7614,13 +7617,13 @@ ${pkgList}`;
         <td style="font-size: 12px; white-space: nowrap;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
         <td style="font-size: 12px; white-space: nowrap;">${hsDisplay}</td>
         <td style="display: flex; gap: 6px; white-space: nowrap; flex-wrap: nowrap;">
-          <button type="button" class="btn-primary" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="showWireguardQr('${escapeHtml(p.id)}', '${escapeHtml(p.name)}')">
+          <button type="button" class="btn-primary" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="showWireguardQr(${jsArg(p.id)}, ${jsArg(p.name)})">
             📱 QR
           </button>
           <a href="/api/wireguard/peer/config?id=${escapeHtml(p.id)}" download="${escapeHtml(p.name)}.conf" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none; white-space: nowrap;">
             📥 .conf
           </a>
-          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteWireguardPeer('${escapeHtml(p.id)}', '${escapeHtml(p.name)}')">
+          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteWireguardPeer(${jsArg(p.id)}, ${jsArg(p.name)})">
             ✕
           </button>
         </td>
@@ -7649,7 +7652,7 @@ ${pkgList}`;
           <a href="/api/openvpn/client/config?name=${encodeURIComponent(c.name)}" download="${escapeHtml(c.name)}.ovpn" class="btn-primary" style="font-size: 11px; padding: 3px 8px; text-decoration: none; white-space: nowrap;">
             📥 .ovpn
           </a>
-          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
+          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteOpenvpnClient(${jsArg(c.name)})">
             ✕
           </button>
         </td>
@@ -8178,10 +8181,10 @@ ${pkgList}`;
           <a href="/api/wireguard/peer/config?id=${escapeHtml(p.id)}" download="${escapeHtml(p.name)}.conf" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
             📥 .conf
           </a>
-          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="showWireguardQr('${escapeHtml(p.id)}', '${escapeHtml(p.name)}')">
+          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="showWireguardQr(${jsArg(p.id)}, ${jsArg(p.name)})">
             📱 QR
           </button>
-          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteWireguardPeer('${escapeHtml(p.id)}', '${escapeHtml(p.name)}')">
+          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteWireguardPeer(${jsArg(p.id)}, ${jsArg(p.name)})">
             ✕
           </button>
         </td>
@@ -8528,7 +8531,7 @@ ${pkgList}`;
           <a href="/api/openvpn/client/config?name=${encodeURIComponent(c.name)}" download="${escapeHtml(c.name)}.ovpn" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
             📥 .ovpn
           </a>
-          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
+          <button type="button" class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteOpenvpnClient(${jsArg(c.name)})">
             ✕
           </button>
         </td>
@@ -9569,8 +9572,8 @@ ${pkgList}`;
             ${isProtected ?
               '<span style="font-size: 11px; color: #64748b; white-space: nowrap;">(Protected)</span>' :
               `<div style="display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap;">
-                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3); white-space: nowrap;" onclick="promptKillProcess(${escapeHtml(p.pid)}, '${escapeHtml(p.command)}', 15)" title="Graceful SIGTERM">${t('tasks_btn_term', 'Term')}</button>
-                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5); white-space: nowrap;" onclick="promptKillProcess(${escapeHtml(p.pid)}, '${escapeHtml(p.command)}', 9)" title="Force SIGKILL">${t('tasks_btn_kill', 'Kill')}</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3); white-space: nowrap;" onclick="promptKillProcess(${jsArg(p.pid)}, ${jsArg(p.command)}, 15)" title="Graceful SIGTERM">${t('tasks_btn_term', 'Term')}</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5); white-space: nowrap;" onclick="promptKillProcess(${jsArg(p.pid)}, ${jsArg(p.command)}, 9)" title="Force SIGKILL">${t('tasks_btn_kill', 'Kill')}</button>
               </div>`
             }
           </td>
