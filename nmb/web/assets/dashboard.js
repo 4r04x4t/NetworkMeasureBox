@@ -507,19 +507,19 @@
         ? `<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">🟢 UP (${iface.speed_mbps ? iface.speed_mbps + ' Mbps' : 'Active'})</span>`
         : `<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;">🔴 DOWN</span>`;
 
-      const ipList = (iface.ipv4 && iface.ipv4.length) ? iface.ipv4.join(', ') : '<span style="color: var(--text-muted);">None</span>';
+      const ipList = (iface.ipv4 && iface.ipv4.length) ? escapeHtml(iface.ipv4.join(', ')) : '<span style="color: var(--text-muted);">None</span>';
       const macStr = iface.mac ? `<code style="font-size: 11px; color: #94a3b8;">${escapeHtml(iface.mac)}</code>` : '--';
 
-      const drvStr = iface.driver ? `<b>${escapeHtml(iface.driver)}</b>${iface.firmware_version ? ' (' + iface.firmware_version + ')' : ''}` : '<span style="color: #ef4444;">No Driver</span>';
+      const drvStr = iface.driver ? `<b>${escapeHtml(iface.driver)}</b>${iface.firmware_version ? ' (' + escapeHtml(iface.firmware_version) + ')' : ''}` : '<span style="color: #ef4444;">No Driver</span>';
 
       const busIcon = iface.bus_type === 'pci' ? '🖥️ PCIe' : iface.bus_type === 'usb' ? '🔌 USB' : '📦 Onboard';
-      const busStr = `${busIcon} <span style="font-size: 11px; color: #94a3b8;">${iface.bus_path || ''}</span>`;
+      const busStr = `${busIcon} <span style="font-size: 11px; color: #94a3b8;">${escapeHtml(iface.bus_path || '')}</span>`;
 
       rowsHtml += `<tr>
         <td style="font-weight: 700; color: #f1f5f9; font-size: 13px;">
-          ${iface.name} ${iface.is_wireless ? '📶' : '🌐'}
+          ${escapeHtml(iface.name)} ${iface.is_wireless ? '📶' : '🌐'}
         </td>
-        <td style="font-size: 12px; color: #cbd5e1;">${iface.chipset || 'Standard Ethernet'}</td>
+        <td style="font-size: 12px; color: #cbd5e1;">${escapeHtml(iface.chipset || 'Standard Ethernet')}</td>
         <td style="font-size: 12px;">${drvStr}</td>
         <td style="font-size: 12px;">${busStr}</td>
         <td>${statusBadge}</td>
@@ -545,7 +545,7 @@
     const curVal = sel.value || 'auto';
     let opts = '<option value="auto">' + t('target_iface_default', '🌐 Default (Routing)') + '</option>';
     interfaces.forEach(i => {
-      opts += `<option value="${escapeHtml(i.name)}">🌐 ${escapeHtml(i.name)} (${i.chipset || i.driver || 'NIC'}${i.role ? ' - ' + i.role.toUpperCase() : ''})</option>`;
+      opts += `<option value="${escapeHtml(i.name)}">🌐 ${escapeHtml(i.name)} (${escapeHtml(i.chipset || i.driver || 'NIC')}${i.role ? ' - ' + escapeHtml(i.role.toUpperCase()) : ''})</option>`;
     });
     sel.innerHTML = opts;
     if (curVal) sel.value = curVal;
@@ -658,7 +658,7 @@
 
       if (data.missing_firmware && data.missing_firmware.length > 0 && missingBox && missingList) {
         missingBox.style.display = 'block';
-        missingList.innerHTML = data.missing_firmware.map(f => `• ${f}`).join('<br>');
+        missingList.innerHTML = data.missing_firmware.map(f => `• ${escapeHtml(f)}`).join('<br>');
       } else if (missingBox) {
         missingBox.style.display = 'none';
       }
@@ -678,13 +678,13 @@
             ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">Ready</span>'
             : '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;">No Driver</span>';
 
-          const hwIds = `<code style="font-size: 11px;">${c.vendor_id || ''}:${c.device_id || ''}</code>`;
+          const hwIds = `<code style="font-size: 11px;">${escapeHtml(c.vendor_id || '')}:${escapeHtml(c.device_id || '')}</code>`;
           ctrlRows += `<tr>
             <td style="font-weight: 600;">${typeIcon}</td>
-            <td style="font-size: 12px; color: #94a3b8;">${c.slot || '--'}</td>
-            <td style="font-size: 12px; font-weight: 600; color: #f1f5f9;">${c.chipset_name || 'Generic Network Controller'}</td>
+            <td style="font-size: 12px; color: #94a3b8;">${escapeHtml(c.slot || '--')}</td>
+            <td style="font-size: 12px; font-weight: 600; color: #f1f5f9;">${escapeHtml(c.chipset_name || 'Generic Network Controller')}</td>
             <td>${hwIds}</td>
-            <td style="font-size: 12px;"><b>${c.driver || 'none'}</b></td>
+            <td style="font-size: 12px;"><b>${escapeHtml(c.driver || 'none')}</b></td>
             <td>${stBadge}</td>
           </tr>`;
         });
@@ -1201,7 +1201,7 @@
       html += `
         <div>
           <div style="display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 4px;">
-            <span style="font-weight: 700; color: ${col}; font-family: monospace;">${k}</span>
+            <span style="font-weight: 700; color: ${col}; font-family: monospace;">${escapeHtml(k)}</span>
             <span style="color: #cbd5e1; font-family: monospace;">${cnt.toLocaleString()} (${pct}%)</span>
           </div>
           <div style="background: rgba(255,255,255,0.06); height: 6px; border-radius: 3px; overflow: hidden;">
@@ -2367,7 +2367,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           const gatePct = (data.idle_threshold_percent !== undefined) ? data.idle_threshold_percent : 2.0;
           const capMbps = (data.contract && data.contract.contract_down_mbps) ? data.contract.contract_down_mbps : 1000.0;
           const limitMbps = ((capMbps * gatePct) / 100.0).toFixed(1);
-          modeBadge.innerHTML = `🟢 <b>${t('mode_scheduled', 'Automated Schedule')}:</b> ${cronDesc} &nbsp;|&nbsp; 🛡️ <b>${t('accuracy_gate', 'Accuracy Gate')}:</b> &lt; ${gatePct.toFixed(1)}% (max ${limitMbps} Mbps)`;
+          modeBadge.innerHTML = `🟢 <b>${t('mode_scheduled', 'Automated Schedule')}:</b> ${escapeHtml(cronDesc)} &nbsp;|&nbsp; 🛡️ <b>${t('accuracy_gate', 'Accuracy Gate')}:</b> &lt; ${gatePct.toFixed(1)}% (max ${limitMbps} Mbps)`;
           modeBadge.style.background = 'rgba(16, 185, 129, 0.15)';
           modeBadge.style.color = '#34d399';
           modeBadge.style.borderColor = '#10b981';
@@ -2510,7 +2510,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         let pHtml = '';
         data.target_stats.forEach(t => {
           pHtml += `<tr>
-            <td><b>${t.label || t.addr}</b> <code style="font-size:11px; color:#94a3b8;">(${escapeHtml(t.addr)})</code></td>
+            <td><b>${escapeHtml(t.label || t.addr)}</b> <code style="font-size:11px; color:#94a3b8;">(${escapeHtml(t.addr)})</code></td>
             <td>${t.sent.toLocaleString()}</td>
             <td>${t.lost.toLocaleString()}</td>
             <td><b>${(t.loss_pct || 0).toFixed(2)}%</b></td>
@@ -2558,7 +2558,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           
           let engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;">OOKLA</span>';
           if (st.engine === 'cloudflare') {
-            engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;">CLOUDFLARE ${st.colo ? '[' + st.colo + ']' : ''}</span>`;
+            engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;">CLOUDFLARE ${st.colo ? '[' + escapeHtml(st.colo) + ']' : ''}</span>`;
           } else if (st.engine === 'rtr' || st.engine === 'rtr-nettest') {
             engineBadge = '<span class="badge" style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;">RTR-NETTEST</span>';
           }
@@ -3001,7 +3001,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
     let engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;font-size: 11px;">OOKLA</span>';
     if (item.engine === 'cloudflare') {
-      engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;font-size: 11px;">CLOUDFLARE ${item.colo ? '[' + item.colo + ']' : ''}</span>`;
+      engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;font-size: 11px;">CLOUDFLARE ${item.colo ? '[' + escapeHtml(item.colo) + ']' : ''}</span>`;
     } else if (item.engine === 'rtr' || item.engine === 'rtr-nettest') {
       engineBadge = '<span class="badge" style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;font-size: 11px;">RTR-NETTEST</span>';
     } else if (item.engine === 'iperf3') {
@@ -3206,7 +3206,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       serverList = data.servers || [];
       renderCatalog(serverList);
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--red);">Error loading servers: ${e}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--red);">Error loading servers: ${escapeHtml(e)}</td></tr>`;
     }
   }
 
@@ -3222,10 +3222,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       const sName = escapeQuotes(s.name || s.sponsor || 'Unknown');
       const sHost = escapeQuotes(s.host || '');
       html += `<tr>
-        <td><code>#${sid}</code></td>
-        <td><b>${s.sponsor || s.name || '--'}</b></td>
-        <td>${s.location || s.name || '--'}</td>
-        <td>${s.country || '--'}</td>
+        <td><code>#${escapeHtml(sid)}</code></td>
+        <td><b>${escapeHtml(s.sponsor || s.name || '--')}</b></td>
+        <td>${escapeHtml(s.location || s.name || '--')}</td>
+        <td>${escapeHtml(s.country || '--')}</td>
         <td style="text-align: center;">
           <button type="button" class="btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="setDefaultServer(${jsArg(sid)}, ${jsArg(s.name || s.sponsor || 'Unknown')}, ${jsArg(s.host || '')})">⭐ ${t('servers_btn_use', 'Use as Target Server')}</button>
           <button type="button" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="runSingleServerTest(${jsArg(sid)})">${t('server_test_btn', '▶ Test to this server')}</button>
@@ -3394,7 +3394,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
     const footer = document.getElementById('syslog-footer-info');
     if (footer) {
-      footer.innerHTML = `Host: <b style="color:#38bdf8;">${escapeHtml(data.hostname || 'speedtest')}</b> &bull; Displaying: <b>${escapeHtml(entries.length)}</b> lines &bull; Kernel: <b style="color:#38bdf8;">${stats.kernel || 0}</b> &bull; Network & PHY: <b style="color:#34d399;">${stats.network || 0}</b> &bull; Link Events: <b style="color:#f59e0b;">${stats.links || 0}</b> &bull; Errors: <b style="color:${stats.errors ? '#f87171' : '#94a3b8'};">${stats.errors || 0}</b> &bull; System Time: <code>${data.system_time || ''}</code>`;
+      footer.innerHTML = `Host: <b style="color:#38bdf8;">${escapeHtml(data.hostname || 'speedtest')}</b> &bull; Displaying: <b>${escapeHtml(entries.length)}</b> lines &bull; Kernel: <b style="color:#38bdf8;">${stats.kernel || 0}</b> &bull; Network & PHY: <b style="color:#34d399;">${stats.network || 0}</b> &bull; Link Events: <b style="color:#f59e0b;">${stats.links || 0}</b> &bull; Errors: <b style="color:${stats.errors ? '#f87171' : '#94a3b8'};">${stats.errors || 0}</b> &bull; System Time: <code>${escapeHtml(data.system_time || '')}</code>`;
     }
 
     if (entries.length === 0) {
@@ -3523,7 +3523,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     // Update status footer
     const footer = document.getElementById('devlog-footer-info');
     if (footer) {
-      footer.innerHTML = `Records: <b>${escapeHtml(records.length)}</b> (Buffer: ${data.total_buffered || 0} / ${data.capacity || 5000}) &bull; Active file: <code style="color:#38bdf8;">${data.log_file || '/var/log/nmb/nmb_developer.log'}</code> &bull; Daemon Level: <b style="color:#f59e0b;">${data.current_level || 'DEBUG'}</b>`;
+      footer.innerHTML = `Records: <b>${escapeHtml(records.length)}</b> (Buffer: ${data.total_buffered || 0} / ${data.capacity || 5000}) &bull; Active file: <code style="color:#38bdf8;">${escapeHtml(data.log_file || '/var/log/nmb/nmb_developer.log')}</code> &bull; Daemon Level: <b style="color:#f59e0b;">${escapeHtml(data.current_level || 'DEBUG')}</b>`;
     }
 
     if (records.length === 0) {
@@ -3547,9 +3547,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       }
 
       html += `<div class="devlog-row">
-        <span class="devlog-ts">${r.ts_iso || ''}</span>
+        <span class="devlog-ts">${escapeHtml(r.ts_iso || '')}</span>
         <span class="devlog-badge ${badgeClass}">${escapeHtml(r.level)}</span>
-        <span class="devlog-meta" title="${escapeHtml(r.logger)} [${loc}]">${escapeHtml(r.logger)}</span>
+        <span class="devlog-meta" title="${escapeHtml(r.logger)} [${escapeHtml(loc)}]">${escapeHtml(r.logger)}</span>
         <span class="devlog-thread" title="${escapeHtml(r.thread)}">[${escapeHtml(r.thread)}]</span>
         <span class="devlog-msg">${escapeHtml(r.message)}${excHtml}</span>
       </div>`;
@@ -3874,9 +3874,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     if (hwBadge) {
       const iface = caps.interface || 'wlan0';
       const phy = caps.phy_name || 'phy0';
-      const drv = caps.driver || 'ismeretlen';
+      const drv = caps.driver || 'unknown';
       const apOk = caps.ap_mode_supported !== false;
-      hwBadge.innerHTML = `<span>${t('device_interface', 'Interface')}: <b>${iface}</b> (${phy}) | Driver: <b>${drv}</b> | AP Mode: ${apOk ? '✅ ' + t('wifi_supported', 'Supported') : '⚠️ ' + t('wifi_limited', 'Limited')}</span>`;
+      hwBadge.innerHTML = `<span>${t('device_interface', 'Interface')}: <b>${escapeHtml(iface)}</b> (${escapeHtml(phy)}) | Driver: <b>${escapeHtml(drv)}</b> | AP Mode: ${apOk ? '✅ ' + t('wifi_supported', 'Supported') : '⚠️ ' + t('wifi_limited', 'Limited')}</span>`;
       hwBadge.style.color = apOk ? '#38bdf8' : '#f59e0b';
       hwBadge.style.borderColor = apOk ? 'rgba(56, 189, 248, 0.4)' : 'rgba(245, 158, 11, 0.4)';
       hwBadge.style.background = apOk ? 'rgba(56, 189, 248, 0.1)' : 'rgba(245, 158, 11, 0.1)';
@@ -3933,7 +3933,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         const style = supported
           ? 'background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4);'
           : 'background: rgba(148, 163, 184, 0.1); color: #64748b; border: 1px solid rgba(148, 163, 184, 0.2);';
-        return `<span class="badge" style="${style}">${supported ? '✓ ' : '✗ '}${w} MHz</span>`;
+        return `<span class="badge" style="${style}">${supported ? '✓ ' : '✗ '}${escapeHtml(w)} MHz</span>`;
       }).join('');
       if (caps.wpa3_supported) {
         html += `<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);">✓ WPA3-SAE & PMF</span>`;
@@ -4254,7 +4254,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       const data = await res.json();
       const srv = (data.servers || []).find(s => String(s.id) === val) || (data.servers || [])[0];
       if (srv) {
-        nameEl.innerHTML = `✅ <b>${srv.sponsor || srv.name}</b> <code style="color:#94a3b8;">(${srv.location || srv.host || ''})</code>`;
+        nameEl.innerHTML = `✅ <b>${escapeHtml(srv.sponsor || srv.name)}</b> <code style="color:#94a3b8;">(${escapeHtml(srv.location || srv.host || '')})</code>`;
       } else {
         nameEl.innerHTML = `⚠️ Server #${val} (engine will attempt target during test)`;
       }
@@ -5190,7 +5190,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
       const msgEl = document.getElementById('heal-update-msg');
       if (msgEl) {
-        let msg = data.message || 'System software is up to date.';
+        let msg = escapeHtml(data.message || 'System software is up to date.');
         if (data.changelog && data.changelog.length) {
           msg += '<br><span style="color: #38bdf8; font-weight: 600;">Recent commits:</span><br>' + data.changelog.slice(0, 3).map(c => '• ' + escapeHtml(c)).join('<br>');
         }
@@ -5920,7 +5920,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const info = document.getElementById('sched-iperf-resolved-info');
       if (h) h.value = host;
       if (p) p.value = port;
-      if (info) info.innerHTML = `🎯 <b>${site || provider || host}</b> <code style="color:#94a3b8;">(${host}:${port})</code> ${speed ? '[' + speed + ']' : ''}`;
+      if (info) info.innerHTML = `🎯 <b>${escapeHtml(site || provider || host)}</b> <code style="color:#94a3b8;">(${escapeHtml(host)}:${escapeHtml(port)})</code> ${speed ? '[' + escapeHtml(speed) + ']' : ''}`;
       markSchedDirty();
       showToast(`Selected scheduled iPerf3 server: ${host}:${port}`);
     } else {
@@ -5931,7 +5931,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       if (p) p.value = port;
       if (badge) {
         badge.style.display = 'block';
-        badge.innerHTML = `🎯 <b>Selected Server:</b> ${site} • ${provider} (<code>${host}:${port}</code>) ${speed ? `[<b>${speed}</b>]` : ''}`;
+        badge.innerHTML = `🎯 <b>Selected Server:</b> ${escapeHtml(site)} • ${escapeHtml(provider)} (<code>${escapeHtml(host)}:${escapeHtml(port)}</code>) ${speed ? `[<b>${escapeHtml(speed)}</b>]` : ''}`;
       }
       showToast(`Selected iPerf3 target: ${host}:${port}`);
     }
@@ -6410,7 +6410,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       html += `<tr>
         <td style="font-weight: 700;">#${escapeHtml(item.id)}</td>
         <td style="font-weight: 600;">${icon} ${escapeHtml(item.name)}</td>
-        <td>AS${item.asn || '--'} (${escapeHtml(item.network_name || 'ISP')})</td>
+        <td>AS${escapeHtml(item.asn || '--')} (${escapeHtml(item.network_name || 'ISP')})</td>
         <td style="color: var(--text-muted); font-size: 12px;">${timeStr}</td>
         <td style="font-weight: 700; color: ${isClean ? '#10b981' : '#ef4444'};">${anom}</td>
         <td>${item.total_count || 1}</td>
@@ -6570,7 +6570,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         badge = `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🟢 Accessible</span>`;
       }
 
-      let urlDisplay = m.url ? `<a href="${escapeHtml(m.url)}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${escapeHtml(m.url)}</a>` : `<span style="color: var(--text-muted);">${escapeHtml(m.test_name || 'Standard Test')}</span>`;
+      let urlDisplay = m.url ? `<a href="${escapeHtml(sanitizeUrl(m.url))}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${escapeHtml(m.url)}</a>` : `<span style="color: var(--text-muted);">${escapeHtml(m.test_name || 'Standard Test')}</span>`;
 
       const runtimeStr = m.runtime ? `${Number(m.runtime).toFixed(2)}s` : '--';
 
@@ -7431,11 +7431,11 @@ ${pkgList}`;
           const xpsStr = (it.xps_cpus && it.xps_cpus !== '0') ? `<span style="color: #a855f7;">Mask 0x${escapeHtml(it.xps_cpus)}</span>` : '--';
           html += `<tr>
             <td style="font-weight: 700; color: #ffffff;">${escapeHtml(it.name)}</td>
-            <td>${speedStr}</td>
+            <td>${escapeHtml(speedStr)}</td>
             <td>${it.mtu || 1500}</td>
             <td>${rpsBadge}</td>
-            <td>${rfsStr}</td>
-            <td>${xpsStr}</td>
+            <td>${escapeHtml(rfsStr)}</td>
+            <td>${escapeHtml(xpsStr)}</td>
             <td><span style="color: #10b981; font-weight: 600;">TSO, GSO, GRO, Checksum</span></td>
           </tr>`;
         });
@@ -7595,9 +7595,9 @@ ${pkgList}`;
       if (hsSec > 0) {
         if (hsSec < 180) {
           isConnected = true;
-          hsDisplay = `<span style="color: #10b981; font-weight: 600;">${t('vpn_active_status', 'Active')} (${p.latest_handshake_ago || hsSec + 's'})</span>`;
+          hsDisplay = `<span style="color: #10b981; font-weight: 600;">${t('vpn_active_status', 'Active')} (${escapeHtml(p.latest_handshake_ago || hsSec + 's')})</span>`;
         } else {
-          hsDisplay = `<span style="color: var(--text-muted);">${p.latest_handshake_ago || Math.floor(hsSec / 60) + 'm'}</span>`;
+          hsDisplay = `<span style="color: var(--text-muted);">${escapeHtml(p.latest_handshake_ago || Math.floor(hsSec / 60) + 'm')}</span>`;
         }
       }
       const statusBadge = isConnected
@@ -8151,9 +8151,9 @@ ${pkgList}`;
       if (hsSec > 0) {
         if (hsSec < 180) {
           isConnected = true;
-          hsDisplay = `<span style="color: #10b981; font-weight: 600;">Active (${p.latest_handshake_ago || hsSec + 's ago'})</span>`;
+          hsDisplay = `<span style="color: #10b981; font-weight: 600;">Active (${escapeHtml(p.latest_handshake_ago || hsSec + 's ago')})</span>`;
         } else {
-          hsDisplay = `<span style="color: var(--text-muted);">${p.latest_handshake_ago || Math.floor(hsSec / 60) + 'm ago'}</span>`;
+          hsDisplay = `<span style="color: var(--text-muted);">${escapeHtml(p.latest_handshake_ago || Math.floor(hsSec / 60) + 'm ago')}</span>`;
         }
       }
 
@@ -8172,7 +8172,7 @@ ${pkgList}`;
 
       html += `<tr>
         <td style="font-weight: 700; color: #38bdf8;">${escapeHtml(p.name)}</td>
-        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1;">${ipDisplay}</td>
+        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1;">${escapeHtml(ipDisplay)}</td>
         <td>${statusBadge}</td>
         <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(p.endpoint || '--')}</td>
         <td style="font-size: 12px;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
@@ -8920,9 +8920,9 @@ ${pkgList}`;
             const name = p.HostName || p.DNSName || '--';
             const os = p.OS || '--';
             return `<tr>
-              <td style="font-weight:600; color:#e2e8f0;">${name}</td>
-              <td><code style="color:#38bdf8;">${pIp}</code></td>
-              <td>${os}</td>
+              <td style="font-weight:600; color:#e2e8f0;">${escapeHtml(name)}</td>
+              <td><code style="color:#38bdf8;">${escapeHtml(pIp)}</code></td>
+              <td>${escapeHtml(os)}</td>
               <td>${statusBadge}</td>
             </tr>`;
           }).join('');
@@ -9558,15 +9558,15 @@ ${pkgList}`;
           <td style="padding: 6px 10px; color: ${p.user === 'root' ? '#f59e0b' : '#94a3b8'}; white-space: nowrap;">${escapeHtml(p.user)}</td>
           <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${p.pri !== undefined ? p.pri : (p.priority || 0)}</td>
           <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${p.ni !== undefined ? p.ni : (p.nice || 0)}</td>
-          <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${p.virt_h || p.vsz_human || '-'}</td>
-          <td style="padding: 6px 10px; color: #94a3b8; white-space: nowrap;">${p.res_h || p.rss_human || '-'}</td>
-          <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${p.shr_h || '-'}</td>
-          <td style="padding: 6px 10px; color: ${(p.stat || p.state || '').startsWith('R') ? '#34d399' : '#94a3b8'}; font-weight: 600; white-space: nowrap;">${p.stat || p.state}</td>
+          <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${escapeHtml(p.virt_h || p.vsz_human || '-')}</td>
+          <td style="padding: 6px 10px; color: #94a3b8; white-space: nowrap;">${escapeHtml(p.res_h || p.rss_human || '-')}</td>
+          <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${escapeHtml(p.shr_h || '-')}</td>
+          <td style="padding: 6px 10px; color: ${(p.stat || p.state || '').startsWith('R') ? '#34d399' : '#94a3b8'}; font-weight: 600; white-space: nowrap;">${escapeHtml(p.stat || p.state)}</td>
           <td style="padding: 6px 10px; color: ${cpuColor}; font-weight: bold; white-space: nowrap;">${cpuVal.toFixed(1)}</td>
           <td style="padding: 6px 10px; color: ${memColor}; white-space: nowrap;">${memVal.toFixed(1)}</td>
           <td style="padding: 6px 10px; color: #94a3b8; white-space: nowrap;">${escapeHtml(p.time)}</td>
-          <td style="padding: 6px 10px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${cmdDisplay}">
-            ${isNmb ? '<span style="color: #38bdf8; font-weight: bold;">[NMB] </span>' : ''}${cmdDisplay}
+          <td style="padding: 6px 10px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(cmdDisplay)}">
+            ${isNmb ? '<span style="color: #38bdf8; font-weight: bold;">[NMB] </span>' : ''}${escapeHtml(cmdDisplay)}
           </td>
           <td style="padding: 6px 10px; text-align: center; white-space: nowrap;">
             ${isProtected ?
