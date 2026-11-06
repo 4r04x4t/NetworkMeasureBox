@@ -854,17 +854,33 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     bot_info = client.get_me()
                 except Exception as e:
                     log.debug("telegram get_me error: %s", e)
+            
+            allowed_chats = getattr(self.server.cfg.telegram, "allowed_chat_ids", [])
+            loss_pct = getattr(self.server.cfg.telegram, "alert_loss_threshold_pct", 5.0)
+            lat_ms = getattr(self.server.cfg.telegram, "alert_latency_threshold_ms", 100.0)
+
             self._send_json({
                 "status": "ok",
+                "ok": True,
                 "enabled": getattr(self.server.cfg.telegram, "enabled", False),
                 "token_set": bool(token),
                 "token_masked": masked,
-                "allowed_chat_ids": getattr(self.server.cfg.telegram, "allowed_chat_ids", []),
-                "alert_loss_threshold_pct": getattr(self.server.cfg.telegram, "alert_loss_threshold_pct", 5.0),
-                "alert_latency_threshold_ms": getattr(self.server.cfg.telegram, "alert_latency_threshold_ms", 100.0),
+                "token": token,
+                "bot_token": token,
+                "allowed_chat_ids": allowed_chats,
+                "chat_ids": allowed_chats,
+                "alert_loss_threshold_pct": loss_pct,
+                "loss_threshold_pct": loss_pct,
+                "alert_latency_threshold_ms": lat_ms,
+                "latency_threshold_ms": lat_ms,
+                "alert_on_loss": getattr(self.server.cfg.telegram, "alert_on_loss", True),
+                "alert_on_latency": getattr(self.server.cfg.telegram, "alert_on_latency", True),
                 "service_active": active,
                 "pid": pid,
                 "bot_info": bot_info,
+                "bot_username": bot_info.get("username", "") if bot_info else "",
+                "bot_first_name": bot_info.get("first_name", "") if bot_info else "",
+                "can_connect": bool(bot_info),
             })
             return
 
@@ -2430,56 +2446,94 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 18d. Telegram Chatbot & Alert Management
         if path == "/api/telegram/save":
             enabled = bool(body_json.get("enabled", False))
-            token_in = str(body_json.get("token", "")).strip()
+            token_in = str(body_json.get("token") or body_json.get("bot_token") or "").strip()
             if token_in and not token_in.startswith("***") and "..." not in token_in:
                 self.server.cfg.telegram.token = token_in
-            chat_ids_raw = body_json.get("allowed_chat_ids", [])
+            elif not token_in and ("token" in body_json or "bot_token" in body_json):
+                self.server.cfg.telegram.token = ""
+
+            chat_ids_raw = body_json.get("allowed_chat_ids", body_json.get("chat_ids", []))
             parsed_chats = []
             if isinstance(chat_ids_raw, str):
                 for c in chat_ids_raw.replace(";", ",").split(","):
                     c_str = c.strip()
                     if c_str and (c_str.isdigit() or (c_str.startswith("-") and c_str[1:].isdigit())):
                         parsed_chats.append(int(c_str))
-            elif isinstance(chat_ids_raw, list):
+            elif isinstance(chat_ids_raw, (list, tuple)):
                 for c in chat_ids_raw:
                     try:
-                        parsed_chats.append(int(c))
+                        c_str = str(c).strip()
+                        if c_str and (c_str.isdigit() or (c_str.startswith("-") and c_str[1:].isdigit())):
+                            parsed_chats.append(int(c_str))
                     except Exception:
                         pass
             self.server.cfg.telegram.allowed_chat_ids = parsed_chats
-            self.server.cfg.telegram.alert_loss_threshold_pct = float(body_json.get("alert_loss_threshold_pct", 5.0))
-            self.server.cfg.telegram.alert_latency_threshold_ms = float(body_json.get("alert_latency_threshold_ms", 100.0))
+            
+            loss_thresh = body_json.get("loss_threshold_pct", body_json.get("alert_loss_threshold_pct", 5.0))
+            self.server.cfg.telegram.alert_loss_threshold_pct = float(loss_thresh)
+            
+            lat_thresh = body_json.get("latency_threshold_ms", body_json.get("alert_latency_threshold_ms", 100.0))
+            self.server.cfg.telegram.alert_latency_threshold_ms = float(lat_thresh)
+            
+            if "alert_on_loss" in body_json:
+                self.server.cfg.telegram.alert_on_loss = bool(body_json.get("alert_on_loss"))
+            if "alert_on_latency" in body_json:
+                self.server.cfg.telegram.alert_on_latency = bool(body_json.get("alert_on_latency"))
             self.server.cfg.telegram.enabled = enabled
             save_config(self.server.cfg)
 
+            svc_started = False
+            svc_err = ""
             if shutil.which("systemctl"):
                 try:
                     if enabled and self.server.cfg.telegram.token:
                         subprocess.run(["systemctl", "enable", "--now", "nmb-telegram"], check=False, timeout=8)
-                        subprocess.run(["systemctl", "restart", "nmb-telegram"], check=False, timeout=8)
+                        r = subprocess.run(["systemctl", "restart", "nmb-telegram"], capture_output=True, text=True, check=False, timeout=8)
+                        if r.returncode == 0:
+                            svc_started = True
+                        else:
+                            svc_err = r.stderr.strip() or r.stdout.strip()
                     else:
                         subprocess.run(["systemctl", "stop", "nmb-telegram"], check=False, timeout=8)
                         subprocess.run(["systemctl", "disable", "nmb-telegram"], check=False, timeout=8)
                 except Exception as e:
+                    svc_err = str(e)
                     log.warning("error managing nmb-telegram service: %s", e)
-            self._send_json({"status": "ok", "message": "Telegram configuration saved."})
+
+            self._send_json({
+                "status": "ok",
+                "ok": True,
+                "message": "Telegram configuration saved.",
+                "service_started": svc_started,
+                "service_error": svc_err,
+            })
             return
 
         if path == "/api/telegram/test":
             from nmb.bot.client import TelegramClient
             token = getattr(self.server.cfg.telegram, "token", "")
             chats = getattr(self.server.cfg.telegram, "allowed_chat_ids", [])
+            req_chat = str(body_json.get("chat_id", "")).strip()
+            if req_chat and (req_chat.isdigit() or (req_chat.startswith("-") and req_chat[1:].isdigit())):
+                target_chats = [int(req_chat)]
+            elif chats:
+                target_chats = chats
+            else:
+                target_chats = []
+
             if not token:
-                self._send_json({"status": "error", "message": "Telegram Bot Token is not configured."}, status=400)
+                self._send_json({"status": "error", "ok": False, "error": "A Telegram Bot Token nincs beállítva.", "message": "Telegram Bot Token is not configured."}, status=400)
                 return
-            if not chats:
-                self._send_json({"status": "error", "message": "No authorized Chat IDs configured to receive test message."}, status=400)
+            if not target_chats:
+                self._send_json({"status": "error", "ok": False, "error": "Nincs megadva engedélyezett Chat ID. Kérlek add meg a saját Chat ID-dat!", "message": "No Chat IDs configured to receive test message."}, status=400)
                 return
+
             client = TelegramClient(token)
             me = client.get_me()
             if not me:
-                self._send_json({"status": "error", "message": "Invalid Bot Token or Telegram API unreachable."}, status=400)
+                self._send_json({"status": "error", "ok": False, "error": "Érvénytelen Bot Token vagy a Telegram API nem érhető el.", "message": "Invalid Bot Token or Telegram API unreachable."}, status=400)
                 return
+
             box_id = getattr(self.server.cfg.system, "box_id", "nmb-01")
             import datetime
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2494,29 +2548,51 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
             success_cnt = 0
             errors = []
-            for chat_id in chats:
+            for chat_id in target_chats:
                 ok = client.send_message(chat_id, test_msg)
                 if ok:
                     success_cnt += 1
                 else:
                     errors.append(str(chat_id))
             if success_cnt > 0:
-                self._send_json({"status": "ok", "message": f"Test message delivered to {success_cnt}/{len(chats)} chat(s).", "delivered": success_cnt})
+                self._send_json({"status": "ok", "ok": True, "message": f"Test message delivered to {success_cnt}/{len(target_chats)} chat(s).", "delivered": success_cnt})
             else:
-                self._send_json({"status": "error", "message": f"Failed to deliver message to chats ({', '.join(errors)}). Ensure you sent /start to your bot first!"}, status=400)
+                self._send_json({"status": "error", "ok": False, "error": f"Nem sikerült elküldeni az üzenetet ({', '.join(errors)}). Kérlek indíts privát csevegést a botoddal és nyomj a /start-ra a Telegramon!", "message": f"Failed to deliver message to chats ({', '.join(errors)})."}, status=400)
             return
 
         if path == "/api/telegram/service":
             action = str(body_json.get("action", "restart")).strip().lower()
             if action not in ("start", "stop", "restart"):
                 action = "restart"
+            token = getattr(self.server.cfg.telegram, "token", "")
+            if action in ("start", "restart") and not token:
+                self._send_json({
+                    "status": "error",
+                    "ok": False,
+                    "error": "A Telegram Bot Token nincs beállítva. Kérlek add meg és mentsd el a tokent az indítás előtt!",
+                    "message": "Telegram Bot Token is not configured."
+                }, status=400)
+                return
+
+            err_msg = ""
             if shutil.which("systemctl"):
                 try:
-                    subprocess.run(["systemctl", action, "nmb-telegram"], check=False, timeout=10)
+                    r = subprocess.run(["systemctl", action, "nmb-telegram"], capture_output=True, text=True, check=False, timeout=10)
+                    if r.returncode != 0:
+                        err_msg = r.stderr.strip() or r.stdout.strip()
                 except Exception as e:
-                    self._send_json({"status": "error", "message": str(e)}, status=500)
+                    self._send_json({"status": "error", "ok": False, "error": str(e), "message": str(e)}, status=500)
                     return
-            self._send_json({"status": "ok", "message": f"Telegram service command '{action}' executed."})
+            if err_msg:
+                self._send_json({
+                    "status": "error",
+                    "ok": False,
+                    "error": f"Nem sikerült {action} állapotba hozni: {err_msg}",
+                    "message": f"systemctl {action} failed: {err_msg}"
+                }, status=500)
+                return
+
+            self._send_json({"status": "ok", "ok": True, "message": f"Telegram service command '{action}' executed."})
             return
 
         # 19. Backup & Disaster Recovery POST APIs

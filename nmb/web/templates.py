@@ -28,7 +28,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     window.__INITIAL_LANG__ = "__NMB_INITIAL_LANG__";
     window.__INITIAL_TRANSLATIONS__ = __NMB_INITIAL_TRANSLATIONS__;
   </script>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
   <title>NetworkMeasureBox - Universal Network Telemetry & Benchmark Probe</title>
   <style>
     :root {
@@ -48,6 +48,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      max-width: 100vw;
+      overflow-x: hidden;
+      width: 100%;
+    }
     body {
       background: var(--bg);
       color: var(--text);
@@ -56,7 +61,13 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       padding: 16px 20px 40px;
       min-height: 100vh;
     }
-    .container { max-width: 1200px; margin: 0 auto; }
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
 
     /* Main Header */
     .app-header {
@@ -299,56 +310,71 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
     .btn-danger:hover { background: #b91c1c; }
 
-    /* Tables */
-    .data-table-wrap {
-      overflow-x: auto;
+    /* Tables & Responsive Wrappers */
+    .data-table-wrap, .table-wrap, .table-container, .tasks-table-wrap {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
       margin-top: 12px;
       border: 1px solid #1e293b;
       border-radius: 6px;
+      display: block !important;
+      box-sizing: border-box !important;
+      scrollbar-width: thin;
     }
-    table.data-table {
+    table.data-table, table.router-table, table.tasks-table {
       width: 100%;
+      min-width: 620px;
       border-collapse: collapse;
       font-size: 13px;
       text-align: left;
     }
-    table.data-table thead th {
+    table.data-table thead th, table.router-table thead th, table.tasks-table thead th {
       background: #172554;
       color: #ffffff;
       padding: 10px 14px;
       font-weight: 600;
       border-right: 1px solid rgba(255,255,255,0.1);
-      white-space: nowrap;
+      white-space: nowrap !important;
     }
-    table.data-table thead th:last-child { border-right: none; }
-    table.data-table tbody td {
+    table.data-table thead th:last-child, table.router-table thead th:last-child { border-right: none; }
+    table.data-table tbody td, table.router-table tbody td, table.tasks-table tbody td {
       padding: 10px 14px;
       border-bottom: 1px solid #1e293b;
       border-right: 1px solid #1e293b;
       color: #cbd5e1;
+      white-space: nowrap !important;
     }
-    table.data-table tbody td:last-child { border-right: none; }
-    table.data-table tbody tr:nth-child(even) { background: rgba(30, 41, 59, 0.4); }
-    table.data-table tbody tr:hover { background: rgba(56, 189, 248, 0.08); }
-    table.data-table tfoot td {
+    table.data-table tbody td:last-child, table.router-table tbody td:last-child { border-right: none; }
+    table.data-table tbody tr:nth-child(even), table.router-table tbody tr:nth-child(even) { background: rgba(30, 41, 59, 0.4); }
+    table.data-table tbody tr:hover, table.router-table tbody tr:hover { background: rgba(56, 189, 248, 0.08); }
+    table.data-table tfoot td, table.router-table tfoot td {
       padding: 10px 14px;
       background: #0f172a;
       color: #f1f5f9;
       font-weight: 600;
       border-top: 2px solid var(--brand-blue);
       border-right: 1px solid #1e293b;
+      white-space: nowrap !important;
     }
-    table.data-table tfoot td:last-child { border-right: none; }
+    table.data-table tfoot td:last-child, table.router-table tfoot td:last-child { border-right: none; }
 
-    /* Badges */
-    .badge {
-      display: inline-block;
+    /* Badges & Pills */
+    .badge, .badge-pill, .status-badge, .lvl-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
       padding: 2px 8px;
       border-radius: 4px;
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.3px;
+      white-space: nowrap !important;
+      word-break: normal !important;
+      line-height: 1.4 !important;
+      flex-shrink: 0 !important;
     }
     .badge-ok { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
     .badge-warn { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
@@ -692,7 +718,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
     }
     .devlog-level-pills {
       display: flex;
-      gap: 3px;
+      flex-wrap: wrap;
+      gap: 4px;
       background: #0d1527;
       padding: 3px;
       border-radius: 5px;
@@ -704,9 +731,11 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       color: #94a3b8;
       font-size: 11px;
       font-weight: 700;
-      padding: 3px 8px;
+      padding: 4px 8px;
       border-radius: 4px;
       cursor: pointer;
+      white-space: nowrap !important;
+      word-break: normal !important;
       transition: all 0.15s ease;
     }
     .devlog-level-pills .lvl-btn:hover {
@@ -1333,10 +1362,20 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border: 1px solid #1a2228 !important;
       border-radius: 4px !important;
     }
-    [data-theme="asuswrt"] table.data-table {
+    [data-theme="asuswrt"] table.data-table,
+    [data-theme="asuswrt"] table.router-table,
+    [data-theme="asuswrt"] table.tasks-table {
       border-collapse: collapse !important;
       width: 100% !important;
-      min-width: 0 !important;
+      min-width: 600px !important;
+    }
+    [data-theme="asuswrt"] table.data-table th,
+    [data-theme="asuswrt"] table.data-table td,
+    [data-theme="asuswrt"] table.router-table th,
+    [data-theme="asuswrt"] table.router-table td,
+    [data-theme="asuswrt"] table.tasks-table th,
+    [data-theme="asuswrt"] table.tasks-table td {
+      white-space: nowrap !important;
     }
     [data-theme="asuswrt"] table.data-table thead th {
       background: #1f2d35 !important;
@@ -1667,10 +1706,20 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       border: 1px solid #d97706 !important;
       border-radius: 2px !important;
     }
-    [data-theme="asus_camo"] table.data-table {
+    [data-theme="asus_camo"] table.data-table,
+    [data-theme="asus_camo"] table.router-table,
+    [data-theme="asus_camo"] table.tasks-table {
       border-collapse: collapse !important;
       width: 100% !important;
-      min-width: 0 !important;
+      min-width: 600px !important;
+    }
+    [data-theme="asus_camo"] table.data-table th,
+    [data-theme="asus_camo"] table.data-table td,
+    [data-theme="asus_camo"] table.router-table th,
+    [data-theme="asus_camo"] table.router-table td,
+    [data-theme="asus_camo"] table.tasks-table th,
+    [data-theme="asus_camo"] table.tasks-table td {
+      white-space: nowrap !important;
     }
     [data-theme="asus_camo"] table.data-table thead th {
       background: #231c13 !important;
@@ -2374,6 +2423,89 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         font-size: 10.5px;
         padding: 4px 8px;
       }
+
+      /* Mobile Table Responsiveness & Layout Preservation */
+      .data-table-wrap, .table-wrap, .table-container, .tasks-table-wrap {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        display: block !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        box-sizing: border-box !important;
+      }
+      table.data-table, table.router-table {
+        min-width: 580px !important;
+      }
+      .tasks-table {
+        min-width: 820px !important;
+      }
+      table th, table td {
+        white-space: nowrap !important;
+      }
+      .badge, .badge-pill, .status-badge {
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        word-break: normal !important;
+      }
+      .devlog-toolbar-left {
+        width: 100% !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+      }
+      .devlog-level-pills {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        width: 100% !important;
+      }
+      .devlog-level-pills .lvl-btn {
+        flex: 1 1 auto !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+        font-size: 11px !important;
+        padding: 5px 8px !important;
+      }
+      #syslog-severity-select, #syslog-lines-select, #syslog-search-input {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      .devlog-toolbar-right {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+      }
+      .devlog-toolbar-right button {
+        flex: 1 1 auto !important;
+      }
+      .app-tabs, .router-subnav {
+        display: flex !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        scrollbar-width: none !important;
+      }
+      .app-tab-btn, .router-subtab-btn {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+      }
+      .remote-subtab, #subtab-content-vpnhub {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      .card {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+      }
     }
 
     /* Screen width <= 480px (Compact Mobile) */
@@ -2749,29 +2881,29 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <div class="data-table-wrap">
-        <table class="data-table">
+        <table class="data-table" style="min-width: 680px;">
           <thead>
             <tr>
-              <th data-i18n="speed_col_time">Timestamp</th>
-              <th data-i18n="speed_col_engine">Engine</th>
-              <th data-i18n="speed_col_down">Download</th>
-              <th data-i18n="speed_col_up">Upload</th>
-              <th data-i18n="speed_col_lat">Latency</th>
-              <th data-i18n="speed_col_bb">Bufferbloat</th>
-              <th data-i18n="speed_col_client_ip">Client IP</th>
-              <th data-i18n="speed_col_server">Server / Report Link</th>
+              <th data-i18n="speed_col_time" style="white-space: nowrap;">Timestamp</th>
+              <th data-i18n="speed_col_engine" style="white-space: nowrap;">Engine</th>
+              <th data-i18n="speed_col_down" style="white-space: nowrap;">Download</th>
+              <th data-i18n="speed_col_up" style="white-space: nowrap;">Upload</th>
+              <th data-i18n="speed_col_lat" style="white-space: nowrap;">Latency</th>
+              <th data-i18n="speed_col_bb" style="white-space: nowrap;">Bufferbloat</th>
+              <th data-i18n="speed_col_client_ip" style="white-space: nowrap;">Client IP</th>
+              <th data-i18n="speed_col_server" style="white-space: nowrap;">Server / Report Link</th>
             </tr>
           </thead>
           <tbody id="speed-table-body">
-            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Loading benchmark results...</td></tr>
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); white-space: nowrap;">Loading benchmark results...</td></tr>
           </tbody>
           <tfoot id="speed-table-tfoot">
             <tr>
-              <td><b>Average</b></td>
-              <td>--</td>
-              <td id="avg-down-display"><b>-- Mbps</b></td>
-              <td id="avg-up-display"><b>-- Mbps</b></td>
-              <td id="avg-lat-display"><b>-- ms</b></td>
+              <td style="white-space: nowrap;"><b>Average</b></td>
+              <td style="white-space: nowrap;">--</td>
+              <td id="avg-down-display" style="white-space: nowrap;"><b>-- Mbps</b></td>
+              <td id="avg-up-display" style="white-space: nowrap;"><b>-- Mbps</b></td>
+              <td id="avg-lat-display" style="white-space: nowrap;"><b>-- ms</b></td>
               <td colspan="3"></td>
             </tr>
           </tfoot>
@@ -3604,8 +3736,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <span data-i18n="ooni_history_title">📜 Recent Censorship Test History</span>
           <span id="ooni-network-label" style="font-size: 12px; font-weight: normal; color: var(--text-muted);">--</span>
         </div>
-        <div class="table-wrap">
-          <table class="data-table">
+        <div class="data-table-wrap">
+          <table class="data-table" style="min-width: 680px;">
             <thead>
               <tr>
                 <th data-i18n="ooni_col_id">ID</th>
@@ -3821,8 +3953,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           <span style="color: #f1f5f9;">👥 All Configured VPN Clients (WireGuard & OpenVPN)</span>
           <span id="pivpn-total-clients-badge" class="badge-pill" style="font-size: 11px;">0 Clients</span>
         </div>
-        <div class="table-wrap">
-          <table class="data-table">
+        <div class="data-table-wrap">
+          <table class="data-table" style="min-width: 680px;">
             <thead>
               <tr>
                 <th>Type</th>
@@ -4172,8 +4304,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
         <!-- WireGuard Peers Table -->
         <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px;" data-i18n="wireguard_peers_title">Configured WireGuard Client Peers</div>
-        <div class="table-wrap">
-          <table class="data-table">
+        <div class="data-table-wrap">
+          <table class="data-table" style="min-width: 680px;">
             <thead>
               <tr>
                 <th data-i18n="wireguard_col_name">Client Name</th>
@@ -4256,8 +4388,8 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
 
         <!-- OpenVPN Clients Table -->
         <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px;" data-i18n="openvpn_clients_title">Configured OpenVPN Clients</div>
-        <div class="table-wrap">
-          <table class="data-table">
+        <div class="data-table-wrap">
+          <table class="data-table" style="min-width: 680px;">
             <thead>
               <tr>
                 <th data-i18n="openvpn_col_name">Client Name</th>
@@ -4570,19 +4702,19 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <div class="data-table-wrap">
-        <table class="data-table">
+        <table class="data-table" style="min-width: 680px;">
           <thead>
             <tr>
-              <th>IP Address</th>
-              <th>MAC Address</th>
-              <th>Hardware Vendor (OUI)</th>
-              <th>Hostname</th>
-              <th>Interface</th>
-              <th>Status</th>
+              <th style="white-space: nowrap;">IP Address</th>
+              <th style="white-space: nowrap;">MAC Address</th>
+              <th style="white-space: nowrap;">Hardware Vendor (OUI)</th>
+              <th style="white-space: nowrap;">Hostname</th>
+              <th style="white-space: nowrap;">Interface</th>
+              <th style="white-space: nowrap;">Status</th>
             </tr>
           </thead>
           <tbody id="explorer-table-body">
-            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Loading discovered network devices...</td></tr>
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted); white-space: nowrap;">Loading discovered network devices...</td></tr>
           </tbody>
         </table>
       </div>
@@ -7242,23 +7374,23 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <!-- Process Table -->
-      <div style="overflow-x: auto; background: rgba(10, 15, 29, 0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
-        <table style="width: 100%; border-collapse: collapse; font-family: monospace; font-size: 11.5px; text-align: left;">
+      <div class="data-table-wrap tasks-table-wrap" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; max-width: 100%; background: rgba(10, 15, 29, 0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+        <table class="tasks-table" style="width: 100%; min-width: 840px; border-collapse: collapse; font-family: monospace; font-size: 11.5px; text-align: left;">
           <thead>
             <tr style="background: rgba(30, 41, 59, 0.8); border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8; user-select: none;">
-              <th style="padding: 8px 10px; cursor: pointer;" onclick="sortTasksTable('pid')" data-i18n="tasks_col_pid">PID ⬍</th>
-              <th style="padding: 8px 10px; cursor: pointer;" onclick="sortTasksTable('user')" data-i18n="tasks_col_user">USER ⬍</th>
-              <th style="padding: 8px 10px;" data-i18n="tasks_col_pri">PRI</th>
-              <th style="padding: 8px 10px;" data-i18n="tasks_col_ni">NI</th>
-              <th style="padding: 8px 10px;" data-i18n="tasks_col_virt">VIRT</th>
-              <th style="padding: 8px 10px;" data-i18n="tasks_col_res">RES</th>
-              <th style="padding: 8px 10px;" data-i18n="tasks_col_shr">SHR</th>
-              <th style="padding: 8px 10px;" data-i18n="tasks_col_state">STAT</th>
-              <th style="padding: 8px 10px; cursor: pointer; color: #38bdf8;" onclick="sortTasksTable('cpu_percent')" data-i18n="tasks_col_cpu">CPU% ▼</th>
-              <th style="padding: 8px 10px; cursor: pointer; color: #a855f7;" onclick="sortTasksTable('mem_percent')" data-i18n="tasks_col_mem">MEM% ⬍</th>
-              <th style="padding: 8px 10px;" data-i18n="tasks_col_time">TIME+</th>
-              <th style="padding: 8px 10px; cursor: pointer;" onclick="sortTasksTable('command')" data-i18n="tasks_col_command">COMMAND ⬍</th>
-              <th style="padding: 8px 10px; text-align: center;" data-i18n="tasks_col_actions">ACTIONS</th>
+              <th style="padding: 8px 10px; cursor: pointer; white-space: nowrap;" onclick="sortTasksTable('pid')" data-i18n="tasks_col_pid">PID ⬍</th>
+              <th style="padding: 8px 10px; cursor: pointer; white-space: nowrap;" onclick="sortTasksTable('user')" data-i18n="tasks_col_user">USER ⬍</th>
+              <th style="padding: 8px 10px; white-space: nowrap;" data-i18n="tasks_col_pri">PRI</th>
+              <th style="padding: 8px 10px; white-space: nowrap;" data-i18n="tasks_col_ni">NI</th>
+              <th style="padding: 8px 10px; white-space: nowrap;" data-i18n="tasks_col_virt">VIRT</th>
+              <th style="padding: 8px 10px; white-space: nowrap;" data-i18n="tasks_col_res">RES</th>
+              <th style="padding: 8px 10px; white-space: nowrap;" data-i18n="tasks_col_shr">SHR</th>
+              <th style="padding: 8px 10px; white-space: nowrap;" data-i18n="tasks_col_state">STAT</th>
+              <th style="padding: 8px 10px; cursor: pointer; color: #38bdf8; white-space: nowrap;" onclick="sortTasksTable('cpu_percent')" data-i18n="tasks_col_cpu">CPU% ▼</th>
+              <th style="padding: 8px 10px; cursor: pointer; color: #a855f7; white-space: nowrap;" onclick="sortTasksTable('mem_percent')" data-i18n="tasks_col_mem">MEM% ⬍</th>
+              <th style="padding: 8px 10px; white-space: nowrap;" data-i18n="tasks_col_time">TIME+</th>
+              <th style="padding: 8px 10px; cursor: pointer; white-space: nowrap;" onclick="sortTasksTable('command')" data-i18n="tasks_col_command">COMMAND ⬍</th>
+              <th style="padding: 8px 10px; text-align: center; white-space: nowrap;" data-i18n="tasks_col_actions">ACTIONS</th>
             </tr>
           </thead>
           <tbody id="tasks-procs-tbody">
@@ -9684,14 +9816,14 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
           }
 
           sHtml += `<tr>
-            <td>${dtStr}</td>
-            <td>${engineBadge}</td>
-            <td><b>${dMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(dPct)}</td>
-            <td><b>${uMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(uPct)}</td>
-            <td>${lat.toFixed(2)} ms</td>
-            <td>${bb}</td>
-            <td>${clientIpCell}</td>
-            <td>${link}</td>
+            <td style="white-space: nowrap;">${dtStr}</td>
+            <td style="white-space: nowrap;">${engineBadge}</td>
+            <td style="white-space: nowrap;"><b>${dMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(dPct)}</td>
+            <td style="white-space: nowrap;"><b>${uMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(uPct)}</td>
+            <td style="white-space: nowrap;">${lat.toFixed(2)} ms</td>
+            <td style="white-space: nowrap;">${bb}</td>
+            <td style="white-space: nowrap;">${clientIpCell}</td>
+            <td style="white-space: nowrap;">${link}</td>
           </tr>`;
         });
         document.getElementById('speed-table-body').innerHTML = sHtml;
@@ -13886,12 +14018,12 @@ Use UP/DOWN arrow keys for command history.
         : `<span class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px;">Seen</span>`;
 
       html += `<tr>
-        <td style="font-family: monospace; font-weight: 700; color: #f1f5f9;">${safeIp}</td>
-        <td style="font-family: monospace; color: #cbd5e1;">${safeMac}</td>
-        <td>${vendorBadge}</td>
-        <td style="color: #38bdf8; font-weight: 500;">${safeHostname}</td>
-        <td>${ifaceBadge}</td>
-        <td>${stateBadge}</td>
+        <td style="font-family: monospace; font-weight: 700; color: #f1f5f9; white-space: nowrap;">${safeIp}</td>
+        <td style="font-family: monospace; color: #cbd5e1; white-space: nowrap;">${safeMac}</td>
+        <td style="white-space: nowrap;">${vendorBadge}</td>
+        <td style="color: #38bdf8; font-weight: 500; white-space: nowrap;">${safeHostname}</td>
+        <td style="white-space: nowrap;">${ifaceBadge}</td>
+        <td style="white-space: nowrap;">${stateBadge}</td>
       </tr>`;
     });
     tbody.innerHTML = html;
@@ -14636,21 +14768,21 @@ ${pkgList}`;
       let ipDisplay = p.allowed_ips || p.client_ip || '--';
 
       html += `<tr>
-        <td><span class="badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 11px; font-weight: 700;">🛡️ WireGuard</span></td>
-        <td style="font-weight: 700; color: #f1f5f9;">${escapeHtml(p.name)}</td>
-        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1;">${escapeHtml(ipDisplay)}</td>
-        <td>${statusBadge}</td>
-        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(p.endpoint || '--')}</td>
-        <td style="font-size: 12px;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
-        <td style="font-size: 12px;">${hsDisplay}</td>
-        <td style="display: flex; gap: 6px;">
-          <button class="btn-primary" style="font-size: 11px; padding: 3px 8px;" onclick="showWireguardQr('${p.id}', '${escapeHtml(p.name)}')">
+        <td style="white-space: nowrap;"><span class="badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 11px; font-weight: 700; white-space: nowrap;">🛡️ WireGuard</span></td>
+        <td style="font-weight: 700; color: #f1f5f9; white-space: nowrap;">${escapeHtml(p.name)}</td>
+        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1; white-space: nowrap;">${escapeHtml(ipDisplay)}</td>
+        <td style="white-space: nowrap;">${statusBadge}</td>
+        <td style="font-size: 12px; color: var(--text-muted); white-space: nowrap;">${escapeHtml(p.endpoint || '--')}</td>
+        <td style="font-size: 12px; white-space: nowrap;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
+        <td style="font-size: 12px; white-space: nowrap;">${hsDisplay}</td>
+        <td style="display: flex; gap: 6px; white-space: nowrap; flex-wrap: nowrap;">
+          <button class="btn-primary" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="showWireguardQr('${p.id}', '${escapeHtml(p.name)}')">
             📱 QR
           </button>
-          <a href="/api/wireguard/peer/config?id=${p.id}" download="${escapeHtml(p.name)}.conf" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
+          <a href="/api/wireguard/peer/config?id=${p.id}" download="${escapeHtml(p.name)}.conf" class="btn-secondary" style="font-size: 11px; padding: 3px 8px; text-decoration: none; white-space: nowrap;">
             📥 .conf
           </a>
-          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteWireguardPeer('${p.id}', '${escapeHtml(p.name)}')">
+          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteWireguardPeer('${p.id}', '${escapeHtml(p.name)}')">
             ✕
           </button>
         </td>
@@ -14668,18 +14800,18 @@ ${pkgList}`;
       const txFormatted = formatBytes(c.bytes_sent || 0);
 
       html += `<tr>
-        <td><span class="badge-pill" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); font-size: 11px; font-weight: 700;">🔒 OpenVPN</span></td>
-        <td style="font-weight: 700; color: #f1f5f9;">${escapeHtml(c.name)}</td>
-        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1;">(Dinamikus PKI)</td>
-        <td>${statusBadge}</td>
-        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(c.real_address || '--')}</td>
-        <td style="font-size: 12px;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
-        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(c.connected_since || '--')}</td>
-        <td style="display: flex; gap: 6px;">
-          <a href="/api/openvpn/client/config?name=${encodeURIComponent(c.name)}" download="${escapeHtml(c.name)}.ovpn" class="btn-primary" style="font-size: 11px; padding: 3px 8px; text-decoration: none;">
+        <td style="white-space: nowrap;"><span class="badge-pill" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); font-size: 11px; font-weight: 700; white-space: nowrap;">🔒 OpenVPN</span></td>
+        <td style="font-weight: 700; color: #f1f5f9; white-space: nowrap;">${escapeHtml(c.name)}</td>
+        <td style="font-family: monospace; font-size: 12px; color: #cbd5e1; white-space: nowrap;">(Dinamikus PKI)</td>
+        <td style="white-space: nowrap;">${statusBadge}</td>
+        <td style="font-size: 12px; color: var(--text-muted); white-space: nowrap;">${escapeHtml(c.real_address || '--')}</td>
+        <td style="font-size: 12px; white-space: nowrap;">↓ ${rxFormatted} / ↑ ${txFormatted}</td>
+        <td style="font-size: 12px; color: var(--text-muted); white-space: nowrap;">${escapeHtml(c.connected_since || '--')}</td>
+        <td style="display: flex; gap: 6px; white-space: nowrap; flex-wrap: nowrap;">
+          <a href="/api/openvpn/client/config?name=${encodeURIComponent(c.name)}" download="${escapeHtml(c.name)}.ovpn" class="btn-primary" style="font-size: 11px; padding: 3px 8px; text-decoration: none; white-space: nowrap;">
             📥 .ovpn
           </a>
-          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
+          <button class="btn-danger" style="font-size: 11px; padding: 3px 8px; white-space: nowrap;" onclick="deleteOpenvpnClient('${escapeHtml(c.name)}')">
             ✕
           </button>
         </td>
@@ -16182,19 +16314,23 @@ ${pkgList}`;
         body: JSON.stringify({
           enabled: enabled,
           bot_token: botToken,
+          token: botToken,
           chat_ids: chatIds,
+          allowed_chat_ids: chatIds,
           alert_on_loss: alertOnLoss,
           loss_threshold_pct: lossThreshold,
+          alert_loss_threshold_pct: lossThreshold,
           alert_on_latency: alertOnLatency,
-          latency_threshold_ms: latencyThreshold
+          latency_threshold_ms: latencyThreshold,
+          alert_latency_threshold_ms: latencyThreshold
         })
       });
       const data = await res.json();
-      if (data.ok) {
+      if (data.ok || data.status === 'ok') {
         showToast('Telegram beállítások sikeresen mentve!');
         setTimeout(loadTelegramStatus, 1000);
       } else {
-        showToast('Hiba: ' + (data.error || 'Failed to save'));
+        showToast('Hiba: ' + (data.error || data.message || 'Failed to save'));
       }
     } catch (e) {
       showToast('Hálózati hiba: ' + e);
@@ -16218,7 +16354,7 @@ ${pkgList}`;
         body: JSON.stringify({ chat_id: chatId })
       });
       const data = await res.json();
-      if (data.ok) {
+      if (data.ok || data.status === 'ok') {
         if (resBox) {
           resBox.style.background = 'rgba(16, 185, 129, 0.15)';
           resBox.style.color = '#10b981';
@@ -16229,7 +16365,7 @@ ${pkgList}`;
         if (resBox) {
           resBox.style.background = 'rgba(239, 68, 68, 0.15)';
           resBox.style.color = '#f87171';
-          resBox.textContent = '❌ Sikertelen küldés: ' + (data.error || 'Unknown error');
+          resBox.textContent = '❌ Sikertelen küldés: ' + (data.error || data.message || 'Unknown error');
         }
         showToast('Teszt üzenet sikertelen!');
       }
@@ -16252,10 +16388,10 @@ ${pkgList}`;
         body: JSON.stringify({ action: action })
       });
       const data = await res.json();
-      if (data.ok) {
+      if (data.ok || data.status === 'ok') {
         showToast(`Telegram démon sikeresen módosítva: ${action}`);
       } else {
-        showToast('Hiba: ' + (data.error || 'Failed'));
+        showToast('Hiba: ' + (data.error || data.message || 'Failed'));
       }
       setTimeout(loadTelegramStatus, 1500);
     } catch (e) {
@@ -16506,26 +16642,26 @@ ${pkgList}`;
 
       return `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); background: ${rowBg};">
-          <td style="padding: 6px 10px; color: #f8fafc; font-weight: bold;">${p.pid}</td>
-          <td style="padding: 6px 10px; color: ${p.user === 'root' ? '#f59e0b' : '#94a3b8'};">${p.user}</td>
-          <td style="padding: 6px 10px; color: #64748b;">${p.pri !== undefined ? p.pri : (p.priority || 0)}</td>
-          <td style="padding: 6px 10px; color: #64748b;">${p.ni !== undefined ? p.ni : (p.nice || 0)}</td>
-          <td style="padding: 6px 10px; color: #64748b;">${p.virt_h || p.vsz_human || '-'}</td>
-          <td style="padding: 6px 10px; color: #94a3b8;">${p.res_h || p.rss_human || '-'}</td>
-          <td style="padding: 6px 10px; color: #64748b;">${p.shr_h || '-'}</td>
-          <td style="padding: 6px 10px; color: ${(p.stat || p.state || '').startsWith('R') ? '#34d399' : '#94a3b8'}; font-weight: 600;">${p.stat || p.state}</td>
-          <td style="padding: 6px 10px; color: ${cpuColor}; font-weight: bold;">${cpuVal.toFixed(1)}</td>
-          <td style="padding: 6px 10px; color: ${memColor};">${memVal.toFixed(1)}</td>
-          <td style="padding: 6px 10px; color: #94a3b8;">${p.time}</td>
+          <td style="padding: 6px 10px; color: #f8fafc; font-weight: bold; white-space: nowrap;">${p.pid}</td>
+          <td style="padding: 6px 10px; color: ${p.user === 'root' ? '#f59e0b' : '#94a3b8'}; white-space: nowrap;">${p.user}</td>
+          <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${p.pri !== undefined ? p.pri : (p.priority || 0)}</td>
+          <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${p.ni !== undefined ? p.ni : (p.nice || 0)}</td>
+          <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${p.virt_h || p.vsz_human || '-'}</td>
+          <td style="padding: 6px 10px; color: #94a3b8; white-space: nowrap;">${p.res_h || p.rss_human || '-'}</td>
+          <td style="padding: 6px 10px; color: #64748b; white-space: nowrap;">${p.shr_h || '-'}</td>
+          <td style="padding: 6px 10px; color: ${(p.stat || p.state || '').startsWith('R') ? '#34d399' : '#94a3b8'}; font-weight: 600; white-space: nowrap;">${p.stat || p.state}</td>
+          <td style="padding: 6px 10px; color: ${cpuColor}; font-weight: bold; white-space: nowrap;">${cpuVal.toFixed(1)}</td>
+          <td style="padding: 6px 10px; color: ${memColor}; white-space: nowrap;">${memVal.toFixed(1)}</td>
+          <td style="padding: 6px 10px; color: #94a3b8; white-space: nowrap;">${p.time}</td>
           <td style="padding: 6px 10px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${cmdDisplay}">
             ${isNmb ? '<span style="color: #38bdf8; font-weight: bold;">[NMB] </span>' : ''}${cmdDisplay}
           </td>
-          <td style="padding: 6px 10px; text-align: center;">
+          <td style="padding: 6px 10px; text-align: center; white-space: nowrap;">
             ${isProtected ?
-              '<span style="font-size: 10px; color: #64748b;">(Protected)</span>' :
-              `<div style="display: flex; gap: 4px; justify-content: center;">
-                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3);" onclick="promptKillProcess(${p.pid}, '${p.command}', 15)" title="Graceful SIGTERM">${t('tasks_btn_term', 'Term')}</button>
-                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5);" onclick="promptKillProcess(${p.pid}, '${p.command}', 9)" title="Force SIGKILL">${t('tasks_btn_kill', 'Kill')}</button>
+              '<span style="font-size: 10px; color: #64748b; white-space: nowrap;">(Protected)</span>' :
+              `<div style="display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap;">
+                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3); white-space: nowrap;" onclick="promptKillProcess(${p.pid}, '${p.command}', 15)" title="Graceful SIGTERM">${t('tasks_btn_term', 'Term')}</button>
+                <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5); white-space: nowrap;" onclick="promptKillProcess(${p.pid}, '${p.command}', 9)" title="Force SIGKILL">${t('tasks_btn_kill', 'Kill')}</button>
               </div>`
             }
           </td>

@@ -128,6 +128,43 @@ class TestTailscaleAndTelegramUI(unittest.TestCase):
         self.assertIn("--ssh", cmd)
         self.assertIn("--authkey=tskey-auth-123", cmd)
 
+    def test_telegram_config_persistence(self):
+        """Verify telegram alert flags serialize and deserialize properly."""
+        import tempfile
+        from pathlib import Path
+        cfg = Config()
+        cfg.telegram.enabled = True
+        cfg.telegram.token = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+        cfg.telegram.allowed_chat_ids = [987654321, -100123456789]
+        cfg.telegram.alert_loss_threshold_pct = 7.5
+        cfg.telegram.alert_latency_threshold_ms = 125.0
+        cfg.telegram.alert_on_loss = False
+        cfg.telegram.alert_on_latency = True
+
+        with tempfile.TemporaryDirectory() as td:
+            conf_path = Path(td) / "test.conf"
+            saved = save_config(cfg, conf_path)
+            self.assertTrue(saved)
+
+            loaded = load_config(conf_path)
+            self.assertTrue(loaded.telegram.enabled)
+            self.assertEqual(loaded.telegram.token, "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11")
+            self.assertEqual(loaded.telegram.allowed_chat_ids, [987654321, -100123456789])
+            self.assertEqual(loaded.telegram.alert_loss_threshold_pct, 7.5)
+            self.assertEqual(loaded.telegram.alert_latency_threshold_ms, 125.0)
+            self.assertFalse(loaded.telegram.alert_on_loss)
+            self.assertTrue(loaded.telegram.alert_on_latency)
+
+    def test_mobile_responsive_css_rules(self):
+        """Verify dashboard HTML has required mobile responsive styles and meta viewport."""
+        html = get_dashboard_html()
+        self.assertIn('name="viewport"', html)
+        self.assertIn('viewport-fit=cover', html)
+        self.assertIn('.data-table-wrap, .table-wrap, .table-container, .tasks-table-wrap', html)
+        self.assertIn('overflow-x: auto !important', html)
+        self.assertIn('white-space: nowrap !important', html)
+        self.assertIn('max-width: 100vw', html)
+
 
 if __name__ == "__main__":
     unittest.main()
