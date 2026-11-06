@@ -594,16 +594,22 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       z-index: 9999;
     }
 
-    /* Router Sub-Navigation & Cards */
-    .router-subnav {
+    /* Router & Remote & Adblock Sub-Navigation & Cards */
+    .router-subnav, .remote-subnav, .adblock-subnav {
       display: flex;
       gap: 8px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       margin-bottom: 20px;
       border-bottom: 1px solid #1e293b;
       padding-bottom: 12px;
+      scrollbar-width: none;
     }
-    .router-subtab-btn {
+    .router-subnav::-webkit-scrollbar, .remote-subnav::-webkit-scrollbar, .adblock-subnav::-webkit-scrollbar {
+      display: none;
+    }
+    .router-subtab-btn, .remote-subtab-btn, .adblock-subtab-btn {
       background: #0f172a;
       border: 1px solid #334155;
       color: #94a3b8;
@@ -613,13 +619,21 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s ease;
+      flex-shrink: 0 !important;
+      white-space: nowrap !important;
+      min-width: max-content !important;
+      height: auto !important;
+      min-height: 36px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
     }
-    .router-subtab-btn:hover {
+    .router-subtab-btn:hover, .remote-subtab-btn:hover, .adblock-subtab-btn:hover {
       background: #1e293b;
       color: #ffffff;
       border-color: #475569;
     }
-    .router-subtab-btn.active {
+    .router-subtab-btn.active, .remote-subtab-btn.active, .adblock-subtab-btn.active {
       background: rgba(2, 132, 199, 0.2);
       border-color: #38bdf8;
       color: #ffffff;
@@ -2571,7 +2585,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       .devlog-toolbar-right button {
         flex: 1 1 auto !important;
       }
-      .app-tabs, .router-subnav, .remote-subnav {
+      .app-tabs, .router-subnav, .remote-subnav, .adblock-subnav {
         display: flex !important;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
@@ -2580,9 +2594,23 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         max-width: 100% !important;
         scrollbar-width: none !important;
       }
-      .app-tab-btn, .router-subtab-btn, .remote-subtab-btn {
+      .app-tabs > button,
+      .router-subnav > button,
+      .remote-subnav > button,
+      .adblock-subnav > button,
+      .app-tab-btn,
+      .router-subtab-btn,
+      .remote-subtab-btn,
+      .adblock-subtab-btn {
         flex-shrink: 0 !important;
         white-space: nowrap !important;
+        min-width: max-content !important;
+        height: auto !important;
+        min-height: 36px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
       }
       .remote-subtab, #subtab-content-vpnhub {
         width: 100% !important;
@@ -3348,13 +3376,13 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <!-- Navigation Subtabs Bar -->
-      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap;">
-        <button id="btn-adblock-subtab-dash" class="btn-primary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('dash')" data-i18n="adblock_subtab_dash">📊 Áttekintés & Statisztikák</button>
-        <button id="btn-adblock-subtab-log" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('log')" data-i18n="adblock_subtab_log">📋 Lekérdezési Napló</button>
-        <button id="btn-adblock-subtab-domains" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('domains')" data-i18n="adblock_subtab_domains">🛡️ Tartományok & RegEx</button>
-        <button id="btn-adblock-subtab-adlists" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('adlists')" data-i18n="adblock_subtab_adlists">🌐 Blokklisták (Gravity)</button>
-        <button id="btn-adblock-subtab-localdns" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('localdns')" data-i18n="adblock_subtab_localdns">🏠 Helyi DNS Rekordok</button>
-        <button id="btn-adblock-subtab-guide" class="btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('guide')" data-i18n="adblock_subtab_guide">📖 Router Útmutató</button>
+      <div class="adblock-subnav" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap;">
+        <button id="btn-adblock-subtab-dash" class="btn-primary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('dash')" data-i18n="adblock_subtab_dash">📊 Áttekintés & Statisztikák</button>
+        <button id="btn-adblock-subtab-log" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('log')" data-i18n="adblock_subtab_log">📋 Lekérdezési Napló</button>
+        <button id="btn-adblock-subtab-domains" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('domains')" data-i18n="adblock_subtab_domains">🛡️ Tartományok & RegEx</button>
+        <button id="btn-adblock-subtab-adlists" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('adlists')" data-i18n="adblock_subtab_adlists">🌐 Blokklisták (Gravity)</button>
+        <button id="btn-adblock-subtab-localdns" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('localdns')" data-i18n="adblock_subtab_localdns">🏠 Helyi DNS Rekordok</button>
+        <button id="btn-adblock-subtab-guide" class="btn-secondary adblock-subtab-btn" style="font-size: 12px; padding: 6px 14px;" onclick="switchAdblockSubtab('guide')" data-i18n="adblock_subtab_guide">📖 Router Útmutató</button>
       </div>
 
       <!-- SUBTAB 1: OVERVIEW & TELEMETRY DASHBOARD -->
@@ -3939,7 +3967,7 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       </div>
 
       <!-- Remote Subtabs -->
-      <div class="remote-subnav" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap;">
+      <div class="remote-subnav" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap;">
         <button id="btn-subtab-vpnhub" class="btn-primary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('vpnhub')" data-i18n="subtab_vpnhub">🛡️ PiVPN Hub</button>
         <button id="btn-subtab-tailscale" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('tailscale')" data-i18n="subtab_tailscale">🦎 Tailscale (Mesh)</button>
         <button id="btn-subtab-guide" class="btn-secondary remote-subtab-btn" style="font-size: 12.5px; padding: 7px 16px;" onclick="switchRemoteSubtab('guide')" data-i18n="subtab_guide">🌐 Port Forwarding Guide</button>
@@ -8172,9 +8200,9 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
       if (pane) pane.style.display = (id === subtabId) ? 'block' : 'none';
       if (btn) {
         if (id === subtabId) {
-          btn.className = 'btn-primary';
+          btn.className = 'btn-primary adblock-subtab-btn active';
         } else {
-          btn.className = 'btn-secondary';
+          btn.className = 'btn-secondary adblock-subtab-btn';
         }
       }
     });
@@ -14783,7 +14811,7 @@ ${pkgList}`;
     ['vpnhub', 'tailscale', 'guide', 'wireguard', 'openvpn', 'duckdns', 'proxy'].forEach(t => {
       const btn = document.getElementById('btn-subtab-' + t);
       const pane = document.getElementById('subtab-content-' + t);
-      if (btn) btn.className = (t === tabName) ? 'btn-primary' : 'btn-secondary';
+      if (btn) btn.className = (t === tabName) ? 'btn-primary remote-subtab-btn active' : 'btn-secondary remote-subtab-btn';
       if (pane) pane.style.display = (t === tabName) ? 'block' : 'none';
     });
 
