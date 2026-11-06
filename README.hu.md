@@ -5,7 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%28Debian%20%7C%20Alpine%20%7C%20OpenWrt%20%7C%20Arch%29-green.svg)](https://kernel.org)
 [![Python: 3.9+](https://img.shields.io/badge/Python-3.9%2B%20%28Zero%20External%20Pip%20Deps%29-yellow.svg)](https://python.org)
+[![VPN: WireGuard & Tailscale](https://img.shields.io/badge/VPN-WireGuard%20%7C%20OpenVPN%20%7C%20Tailscale-blueviolet.svg)](#10-univerzális-távoli-elérés-pivpn-hub-és-tailscale-mesh)
 [![Hardware: 512MB+ RAM](https://img.shields.io/badge/RAM-512MB%20to%2064GB-purple.svg)](#6-alacsony-memóriájú-és-beágyazott-architektúra-512-mb-ram-optimalizáció)
+[![Natív Port: Go & C11](https://img.shields.io/badge/Nat%C3%ADv%20Port-ASUS%20%7C%20TP--Link%20%28Go%20%26%20C11%29-teal.svg)](#17-100-os-de-pythonizáció-és-kereskedelmi-router-portolási-terv)
 [![Languages: EN HU DE UK FR](https://img.shields.io/badge/Languages-EN%20%7C%20HU%20%7C%20DE%20%7C%20UK%20%7C%20FR-orange.svg)](#8-beépített-webes-felület-webgui-és-többnyelvűség)
 
 ---
@@ -21,9 +23,17 @@
 7. [Hardver- és Flash-Védelem (microSD Longevity)](#7-hardver--és-flash-védelem-microsd-longevity)
 8. [Beépített Webes Felület (WebGUI) és Többnyelvűség](#8-beépített-webes-felület-webgui-és-többnyelvűség)
 9. [Hálózatfelderítő (Device Explorer) & Vendég Wi-Fi Kliens Szonda](#9-hálózatfelderítő-device-explorer--vendég-wi-fi-kliens-szonda)
-10. [Hivatalos Dosszié (Bizonyító Riport) és Távfelügyelet](#10-hivatalos-dosszié-bizonyító-riport-és-távfelügyelet)
-11. [Parancssori Eszközök (CLI) és Szolgáltatások](#11-parancssori-eszközök-cli-és-szolgáltatások)
-12. [Telepítés és Beüzemelés (Quickstart)](#12-telepítés-és-beüzemelés-quickstart)
+10. [Univerzális Távoli Elérés, PiVPN Hub és Tailscale Mesh](#10-univerzális-távoli-elérés-pivpn-hub-és-tailscale-mesh)
+11. [Beépített DNS Reklámblokkoló és Adatvédelmi Pajzs (Pi-hole Alternatíva)](#11-beépített-dns-reklámblokkoló-és-adatvédelmi-pajzs-pi-hole-alternatíva)
+12. [Haladó Törvényszéki Diagnosztika és Kiváltó Ok Elemzés](#12-haladó-törvényszéki-diagnosztika-és-kiváltó-ok-elemzés)
+13. [Többnyelvű Telegram Bot Érintőmenüvel és QR Kóddal](#13-többnyelvű-telegram-bot-érintőmenüvel-és-qr-kóddal)
+14. [Hatósági Szintű SLA Dosszié és Vektoros SVG Motor](#14-hatósági-szintű-sla-dosszié-és-vektoros-svg-motor)
+15. [Valós Idejű Folyamatkezelő (Beágyazott htop Motor)](#15-valós-idejű-folyamatkezelő-beágyazott-htop-motor)
+16. [Önjavító Watchdog és Biztonsági Visszaállás (nmb-heal)](#16-önjavító-watchdog-és-biztonsági-visszaállás-nmb-heal)
+17. [100%-os De-Pythonizáció és Kereskedelmi Router Portolási Terv](#17-100-os-de-pythonizáció-és-kereskedelmi-router-portolási-terv)
+18. [Parancssori Eszközök (CLI) és Szolgáltatások](#18-parancssori-eszközök-cli-és-szolgáltatások)
+19. [Interaktív Telegram Távvezérlő Parancsok](#19-interaktív-telegram-távvezérlő-parancsok)
+20. [Telepítés és Beüzemelés (Quickstart)](#20-telepítés-és-beüzemelés-quickstart)
 
 ---
 
@@ -297,40 +307,137 @@ Sok router rendelkezik elkülönített vendéghálózattal (Guest Network), amel
 
 ---
 
-## 10. Hivatalos Dosszié (Bizonyító Riport) és Távfelügyelet
+## 10. Univerzális Távoli Elérés, PiVPN Hub és Tailscale Mesh
 
-### Hivatalos Hibajegy Dosszié (HTML/SVG Dossier)
-A WebGUI-ból a `📄 Export Official Report (Dossier)` gombbal vagy parancssorból (`nmb-report --html dossier.html`) bármikor legenerálható egy független, offline működő HTML dokumentum:
-* **Önmagában álló**: Nem igényel internetkapcsolatot vagy külső JavaScript könyvtárakat; minden CSS stílus és vektoros SVG diagram közvetlenül be van ágyazva a HTML fájlba.
-* **SLA Összehasonlítás**: Táblázatba foglalja a szerződés szerinti maximális és garantált letöltési/feltöltési sebességet, és vörössel kiemeli a szerződésszegő méréseket.
-* **Késleltetési & Szakadási Statisztika**: Havi/heti/napi bontásban mutatja a mikroszakadások idejét, a csomagvesztést és a jittert.
-* **Közvetlenül csatolható**: E-mailben azonnal továbbítható a szolgáltató ügyfélszolgálatának vagy a hírközlési hatóságnak.
+A távoli elérés elengedhetetlen, ha a mérődoboz telephelyen, nyaralóban vagy szerverszobában üzemel:
 
-### E-mail (SMTP) Automatikus Értesítés
-A konfigurációban megadott SMTP szerveren keresztül az NMB képes automatikusan elküldeni a napi/heti összefoglaló jelentést a felhasználónak, vagy előre megfogalmazott sablon alapján közvetlenül a szolgáltató hibabejelentő e-mail címére.
+### 1. PiVPN Gyors Kliensgenerátor (WireGuard & OpenVPN Hub)
+* **Kétprotokollos VPN Szerver**:
+  * **WireGuard** (UDP 51820): Korszerű, alacsony késleltetésű, akkumulátorkímélő protokoll modern mobilokhoz és laptopokhoz.
+  * **OpenVPN Elliptic Curve** (UDP 1194): Elliptikus görbén alapuló (`prime256v1` / Curve25519) titkosítású biztonsági csatorna.
+* **Dual-Stack IPv4 & IPv6 Alagutak**: Teljes IPv4 alhálózatok (`10.8.0.0/24`, `10.9.0.0/24`) és közvetlen IPv6 ULA tartományok (`fd42:42:42::/64`, `fd42:42:43::/64`) kiosztása.
+* **1-Kattintásos Kliens Párosítás**: Adja meg a kliens nevét $\to$ az NMB azonnal legenerálja a konfigurációs fájlt és a közvetlenül leolvasható QR kódot a WebGUI-ban és a Telegramon!
+* **Kliens Leltár és Menedzsment**: Valós idejű táblázat a csatlakoztatott kliensek IP címével, legutóbbi kézfogásával, adatforgalmával (RX/TX) és azonnali visszavonási kapcsolóval.
 
-### Telegram Távfelügyelet (`nmb-telegram`)
-A beépített Telegram bot daemon segítségével a felhasználó bárhonnan értesül a hálózat állapotáról:
-* **Azonnali riasztások**: Push üzenetet küld, amint a kapcsolat megszakad, vagy ha a csomagvesztés meghaladja az 5%-ot.
-* **Távvezérlő parancsok**:
-  * `/status`: Jelenlegi hálózati mód, IP címek, utolsó mérés eredménye.
-  * `/ping`: Azonnali ICMP válaszidő és csomagvesztés lekérdezése.
-  * `/test`: Sebességmérés azonnali indítása távolról.
-  * `/report`: Friss SLA megfelelőségi összefoglaló lekérése.
-  * `/mode [auto|mode_a|mode_b]`: Működési mód távoli átkapcsolása.
+### 2. Tailscale Secure Mesh Távoli Hozzáférés
+* **Management-Plane Izoláció**: Közvetlen, titkosított hozzáférés a WebGUI felülethez a világ bármely pontjáról anélkül, hogy a tűzfalon nyilvános portot kellene nyitni vagy DynDNS-t kellene konfigurálni.
+* Teljesen áthidalja a szolgáltatói CGNAT korlátozásokat és a többszörös router-kaszkádokat.
+* Valós idejű MagicDNS azonosító, Tailscale IPv4/IPv6 cím kijelzés, és egykattintásos Csatlakozás / Leválasztás vezérlés.
+
+### 3. DynDNS & Beépített HTTPS Fordított Proxy
+* Integrált DuckDNS dinamikus DNS frissítő kliens.
+* Beágyazott HTTPS reverse proxy az eszköz LAN-on belüli TLS titkosításához.
 
 ---
 
-## 11. Parancssori Eszközök (CLI) és Szolgáltatások
+## 11. Beépített DNS Reklámblokkoló és Adatvédelmi Pajzs (Pi-hole Alternatíva)
+
+* **Nagy Teljesítményű Memóriabeli Sinkhole**:
+  * Kiszűri a nyomkövető, reklám-, telemetria- és malware tartományokat még azelőtt, hogy azok elérnék az otthoni eszközöket.
+  * Előre konfigurált blokkolólisták (StevenBlack unified hosts, AdAway stb.) automatikus háttérbeli Gravity frissítésekkel.
+* **Egyéni Szabályok és Élő Napló**:
+  * Rendszerstatisztikák: Mai összes kérés, blokkolt kérések, szűrési arány (%) és aktív Gravity doménszám.
+  * Egyéni feketelista, fehérlista és joker Regular Expression (RegEx) szabályok hozzáadása.
+  * Valós idejű DNS lekérdezési napló a WebGUI-ban.
+
+---
+
+## 12. Haladó Törvényszéki Diagnosztika és Kiváltó Ok Elemzés
+
+* **Wi-Fi RF & PHY Telemetria (`nl80211`)**:
+  * Valós idejű jelerősség pontos dBm-ben (pl. `-52 dBm`) és zajszint (Noise floor).
+  * RX/TX PHY elméleti bitráták, MCS modulációs index, csatornaszélesség (20/40/80/160 MHz) és hardveres újraküldési hiba-számlálók (`tx_retries`, `tx_failed`).
+* **DNS Hijacking & Összehasonlító Feloldó Mátrix**:
+  * Párhuzamosan ellenőriz 4 független DNS szervert: Helyi átjáró/DHCP, Cloudflare (`1.1.1.1`), Google (`8.8.8.8`), Quad9 (`9.9.9.9`).
+  * Ellenőrzi a DNSSEC hitelesítést (`ad` Authenticated Data bit) és a gyorsítótárazott vs natív válaszidőket.
+  * Detektálja, ha a szolgáltató észrevétlenül átirányítja (hijackeli) az 53-as UDP portot.
+* **RFC 5389 STUN Kliens & CGNAT Elemzés**:
+  * Automatikusan kategorizálja a felső hálózati réteget:
+    * **Valódi Publikus IP**: A helyi WAN IP megegyezik a külső reflexív STUN IP-vel.
+    * **Szolgáltatói CGNAT**: A WAN IP a dedikált RFC 6598 tartományba esik (`100.64.0.0/10`).
+    * **Dupla NAT**: A WAN IP RFC 1918 szerinti belső cím (`192.168.x.x` vagy `10.x.x.x`).
+    * **NAT Viselkedés**: Full Cone, Restricted, Port-Restricted vagy Symmetric NAT azonosítás.
+* **CPU Megszakítás (IRQ/SoftIRQ) & Hálózati Offload Vizsgálat**:
+  * Méri a magonkénti megszakítási és SoftIRQ terhelést a CPU0 szűk keresztmetszetek kiszűrésére (a Gigabit sebesség klasszikus akadálya Raspberry Pi-n és MIPS routereken).
+  * RPS/XPS elosztási maszkok (`/sys/class/net/<iface>/queues/rx-*/rps_cpus`) és hálózati kártya gyorsítások (checksum offload, TSO, GRO) auditálása.
+* **Mikro-Szakadások & Csomagvesztési Mintázat Korreláció**:
+  * Különválasztja a pár ezredmásodperces puffer-torlódási tüskéket a valós link-szakadásoktól ($\ge 5\text{s}$).
+  * Automatikusan megállapítja, hogy a hiba a helyi berendezés (CPE/router) vagy a szolgáltatói hálózat (peering) kimaradásából ered-e.
+* **Flash Tároló I/O és Rendszer-Egészség**:
+  * Folyamatos `%iowait` mérés a memóriakártya vagy flash memória lassulásának felderítésére.
+  * Flash-kopás és szabad tárhely ellenőrzés (`statvfs()`), valamint kernel hiba-csapda a `dmesg`/`kmsg` fájlrendszer-hibák azonnali elcsípésére.
+* **Szanált Konfiguráció és Adatvédelmi Maszkolás**:
+  * Beépített adatvédelmi redaktor: automatikusan kitakarja a bot tokeneket, chat ID-kat, Wi-Fi jelszavakat, előfizetői azonosítókat és áramköri azonosítókat, mielőtt a jelentést külső LLM-nek vagy szolgáltatónak továbbítaná.
+
+---
+
+## 13. Többnyelvű Telegram Bot Érintőmenüvel és QR Kóddal
+
+A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böngésző nélkül, mobilról is teljes körűen irányítható:
+* **Interaktív Érintőmenük (Inline Keyboards)**: Gombnyomással elérhető állapotfelmérés, sebességmérés, SLA dosszié és VPN QR lekérés.
+* **100%-os Többnyelvűség**: Váltható **Magyar (HU)**, **Angol (EN)**, **Német (DE)**, **Francia (FR)** és **Ukrán (UK)** nyelvek között hiba és nyelvkeveredés nélkül.
+* **Azonnali SLA Dosszié Küldés**: A friss `.html` dosszié közvetlenül megérkezik a Telegram csevegésbe, így azonnal továbbítható a technikusnak.
+* **Proaktív Riasztások**: Azonnali push értesítés szakadás, >5% csomagvesztés vagy magas jitter esetén.
+
+---
+
+## 14. Hatósági Szintű SLA Dosszié és Vektoros SVG Motor
+
+* **Semleges Nemzetközi Megnevezés**:
+  * A riportok független és hivatalos megnevezése: *"Broadband Quality & ISP SLA Performance Dossier"* / *"Szélessávú Hálózati Minőség & Szolgáltatói SLA Vizsgálati Dosszié"*.
+  * Teljes mértékben megfelel az európai BEREC irányelveknek, az NMHH és a nemzetközi hatóságok elvárásainak.
+* **Tiszta Matematikai Vektoros SVG Motor**:
+  * Külső diagramkönyvtárak nélkül generál reszponzív, retina-éles `<svg viewBox="0 0 800 380">` grafikonokat Bézier-görbékkel, kettős Y-tengellyel (Mbps és ms) és érintőpontokkal.
+  * Generálási idő: **< 1.5 ezredmásodperc**.
+  * Közvetlenül letölthető 5 nyelven a `/dossier?lang=...` végponton vagy Telegramon.
+
+---
+
+## 15. Valós Idejű Folyamatkezelő (Beágyazott htop Motor)
+
+* Közvetlenül a Linux kernel `/proc` fájlrendszeréből olvassa az állapotot, megszüntetve a nehézkes `ps` folyamatindításokat.
+* Valós idejű lista: PID, Felhasználó, Prioritás, Nice, VIRT, RES, CPU%, MEM%, futásidő és parancssori argumentumok.
+* Kategóriaszűrés: Rendszerfolyamatok vs Felhasználói alkalmazások vs NMB komponensek.
+* Közvetlen szignálküldés (SIGTERM / SIGKILL) elszabadult folyamatok leállításához a WebGUI-ból.
+
+---
+
+## 16. Önjavító Watchdog és Biztonsági Visszaállás (`nmb-heal`)
+
+* Autonóm háttérbeli audit: ellenőrzi a binárisok épségét, az adatbázist, a jogosultságokat és az internetkapcsolatot.
+* Kriptográfiai aláírás-ellenőrzés és atomi fájlcsere (`os.Rename`).
+* **Automatikus Biztonsági Visszaállás**: Ha egy frissítés hibás vagy a tesztek elhasalnak, a watchdog automatikusan visszaállítja a korábbi működő állapotot.
+* Hardveres Watchdog támogatás (`/dev/watchdog`) távoli, felügyelet nélküli eszközök lefagyásának megakadályozására.
+
+---
+
+## 17. 100%-os De-Pythonizáció és Kereskedelmi Router Portolási Terv
+
+A NetworkMeasureBox beágyazott kereskedelmi routereken történő futtatásához (akár **4 MB Flash és 32 MB RAM** mellett) elkészült a teljes, 100%-ban Python-mentes portolási specifikáció:
+* **Egységes Statikus Bináris (`nmbd`)**: **Go 1.23+** (Tier 1) és **C11 musl-libc** (Tier 2 & 3) alapon, zéró külső csomagfüggőséggel.
+* **Célhardver Portolási Kézikönyvek**:
+  * **ASUS ROG Rapture GT-AXE7800 / RT-AXE7800** (Broadcom BCM4912 4 mag @ 2.0 GHz, 1 GB RAM, 256 MB Flash, 2.5GbE, Wi-Fi 6E, Asuswrt-Merlin): 2.5 Gbps vonali sebességteszt, Flow Cache gyorsításkezelés, többmagos CAKE SQM és beágyazott `tsnet` Tailscale.
+  * **ASUS RT-N12+** (MediaTek MT7628N 575 MHz, 32 MB RAM, 8 MB Flash, 100M Ethernet, OpenWrt 23.05): 850 KB C11 bináris (320 KB UPX), 2.8 MB RAM RSS, 100 Mbps mérés <14% CPU terheléssel.
+  * **TP-Link TL-WR740N v4.23** (Atheros AR9331 400 MHz, 32 MB RAM, **4 MB Flash**, Minimal OpenWrt): **178 KB UPX-LZMA bináris**, 1.4 MB RAM RSS, 100% memóriabeli körkörös puffer a flash-kopás megakadályozására!
+* Részletes műszaki tervek:
+  * 📄 **[`docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`](docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md)**
+  * 📄 **[`docs/DEPYTHONIZATION_ROADMAP.md`](docs/DEPYTHONIZATION_ROADMAP.md)**
+
+---
+
+## 18. Parancssori Eszközök (CLI) és Szolgáltatások
 
 A szoftver moduláris felépítésű, az egyes feladatokat különálló, jól tesztelhető démonok látják el:
 
 | Parancs / Bináris | Leírás | Gyakori Használat |
 |---|---|---|
-| `nmb-netd` | Hálózati üzemmód démon (Mode A / Mode B / Failover) | `nmb-netd --status`<br>`nmb-netd --switch mode_a` |
-| `nmb-probe` | Nagyfrekvenciás ICMP ping és jitter szonda | `nmb-probe --verbose` |
-| `nmb-speed` | Sebességmérő és forgalomkorlátozás-ellenőrző | `nmb-speed --trigger manual`<br>`nmb-speed --interface eth0`<br>`nmb-speed --engine cloudflare` |
-| `nmb-report` | Riport generátor (HTML dosszié, CSV, JSON) | `nmb-report --window 24h --html dossier.html`<br>`nmb-report --json-summary` |
+| `nmb-netd` | Hálózati üzemmód démon (Mode A / Mode B / Failover) | `nmb-netd --status`<br>`nmb-netd --switch auto\|mode_a\|mode_b`<br>`nmb-netd --matrix` |
+| `nmb-probe` | Nagyfrekvenciás ICMP ping és jitter szonda | `nmb-probe --verbose`<br>`nmb-probe --target 1.1.1.1` |
+| `nmb-speed` | Sebességmérő és forgalomkorlátozás-ellenőrző | `nmb-speed --trigger manual`<br>`nmb-speed --interface eth0`<br>`nmb-speed --engine ookla\|cloudflare\|rtr\|iperf` |
+| `nmb-report` | Riport generátor (HTML dosszié, CSV, JSON) | `nmb-report --window 24h --html dossier.html --lang hu\|en\|de\|fr\|uk`<br>`nmb-report --json-summary` |
+| `nmb-adblock` | Beépített DNS reklámblokkoló sinkhole | `nmb-adblock --status`<br>`nmb-adblock --update-gravity`<br>`nmb-adblock --block domain.hu` |
+| `nmb-heal` | Önjavító watchdog és biztonsági visszaállás | `nmb-heal --audit`<br>`nmb-heal --verify`<br>`nmb-heal --rollback` |
+| `nmb-driver` | Hardveres driver és firmware felderítő | `nmb-driver --scan`<br>`sudo nmb-driver --install-missing` |
 | `nmb-telegram` | Telegram menedzsment és riasztási bot | `nmb-telegram` |
 | `nmb-web` | Beépített kezelőfelület és REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Emelt szintű hálózati és driver műveletek segédprogramja | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
@@ -353,7 +460,31 @@ sudo journalctl -u nmb-web -f
 
 ---
 
-## 12. Telepítés és Beüzemelés (Quickstart)
+## 19. Interaktív Telegram Távvezérlő Parancsok
+
+Ha beállította az `nmb-telegram` szolgáltatást, a dobozt közvetlenül a Telegramból is irányíthatja érintőgombokkal:
+
+| Parancs | Leírás |
+|---|---|
+| `/menu` | Megnyitja a fő interaktív érintőmenüt (Inline billentyűzet) |
+| `/status` | Valós idejű rendszerállapot: üzemidő, hálózati mód, IP címek, szolgáltató, CPU/RAM |
+| `/ping` | Azonnali ICMP válaszidő és csomagvesztési mátrix a 4 referencia-célpontra |
+| `/test [motor]` | Sebességmérés indítása (`ookla`, `cloudflare`, `rtr`, `iperf`) bufferbloat osztályzattal |
+| `/report [ablak]` | Legenerálja és közvetlenül elküldi a hivatalos SLA dossziét (`.html`) a csevegésbe |
+| `/ai` | Szanált Markdown diagnosztikai állapotcsomag külső LLM elemzéshez |
+| `/mode [auto\|a\|b]`| Megjeleníti vagy átkapcsolja a működési módot (Router vs Transzparens Híd) |
+| `/vpn` | PiVPN Hub állapot: aktív WireGuard & OpenVPN alagutak, kliensek száma |
+| `/vpn clients` | Csatlakoztatott kliensek listája, legutóbbi kézfogás és RX/TX forgalom |
+| `/vpn qr <név>` | Kamera segítségével leolvasható QR kódot küld az azonnali mobil párosításhoz |
+| `/vpn conf <név>` | Letölthető `.conf` profilt küld a csevegésbe |
+| `/vpn add <név>` | Új VPN kliens profilt hoz létre és visszaküldi a beállításokat |
+| `/adblock` | DNS Sinkhole státusz: mai kérések, blokkolt kérések, szűrési arány, doménszám |
+| `/adblock on\|off` | Be- vagy kikapcsolja a DNS reklámszűrőt |
+| `/lang [hu\|en\|de\|fr\|uk]` | Átkapcsolja a bot nyelvét a támogatott 5 nyelv valamelyikére |
+
+---
+
+## 20. Telepítés és Beüzemelés (Quickstart)
 
 ### Hardverkövetelmények
 * **Minimális**: Bármilyen 64-bites vagy 32-bites Linux hardver legalább **512 MB RAM-mal** és 1 Ethernet interfésszel (Mode B méréshez vagy router mögötti teszthez).

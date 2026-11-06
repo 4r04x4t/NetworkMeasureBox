@@ -5,7 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20%28Debian%20%7C%20Alpine%20%7C%20OpenWrt%20%7C%20Arch%29-green.svg)](https://kernel.org)
 [![Python: 3.9+](https://img.shields.io/badge/Python-3.9%2B%20%28Zero%20External%20Pip%20Deps%29-yellow.svg)](https://python.org)
+[![VPN: WireGuard & Tailscale](https://img.shields.io/badge/VPN-WireGuard%20%7C%20OpenVPN%20%7C%20Tailscale-blueviolet.svg)](#8-universal-remote-access-vpn-hub--tailscale-mesh)
 [![Hardware: 512MB+ RAM](https://img.shields.io/badge/RAM-512MB%20to%2064GB-purple.svg)](#embedded--low-memory-optimization-512-mb-ram-support)
+[![Native: Go & C11 Roadmap](https://img.shields.io/badge/Native%20Port-ASUS%20%7C%20TP--Link%20%28Go%20%26%20C11%29-teal.svg)](#15-100-de-pythonization-architecture--commercial-router-porting)
 [![Languages: EN HU DE UK FR](https://img.shields.io/badge/Languages-EN%20%7C%20HU%20%7C%20DE%20%7C%20UK%20%7C%20FR-orange.svg)](#responsive-webgui--rest-api)
 
 > 📖 **[Kattints ide a részletes magyar nyelvű leíráshoz / Read the comprehensive Hungarian Guide](README.hu.md)**
@@ -129,9 +131,94 @@ Specially engineered to run seamlessly on resource-constrained **512 MB RAM rout
   * 🇫🇷 French (FR)
 * HTTP Basic Authentication with dedicated secure Logout functionality.
 
-### 8. Official HTML Dossier & Telegram Bot
-* **Standalone Evidence Dossier**: Generates an offline HTML report with embedded vector SVGs, SLA contract breach analysis tables, and micro-outage audits that can be submitted to ISP support or legal authorities.
-* **Telegram Bot (`nmb-telegram`)**: Real-time push alerts on outages or packet loss > 5%, plus remote command execution (`/status`, `/ping`, `/test`, `/report`, `/mode`).
+### 8. Universal Remote Access, VPN Hub & Tailscale Mesh
+* **PiVPN 1-Click Client Generator**:
+  * Dual-Protocol VPN Server: **WireGuard** (UDP 51820, high-speed, battery efficient) and **OpenVPN** (UDP 1194, Elliptic Curve `prime256v1` / Curve25519).
+  * Dual-Stack Tunneling: Full IPv4 (`10.8.0.0/24`, `10.9.0.0/24`) and direct IPv6 ULA (`fd42:42:42::/64`, `fd42:42:43::/64`).
+  * Instant Client Pairing: Enter client name $\to$ automatically generates configuration profile and interactive camera-scannable QR code directly on the WebUI and in Telegram!
+  * Peer Management: Real-time connected peer roster with endpoint IPs, latest handshake, RX/TX transfer statistics, and revocation toggles.
+* **Tailscale Secure Mesh Remote Access**:
+  * **Management-Plane Isolation**: Direct encrypted access to the WebUI dashboard from anywhere in the world without public port forwarding, dynamic DNS, or firewall opening.
+  * Completely bypasses Carrier-Grade NAT (CGNAT) and multi-router cascades.
+  * Real-time MagicDNS domain, Tailscale IPv4/IPv6 status, and one-click Connect / Disconnect controls directly from the WebUI.
+* **DynDNS & Embedded HTTPS Reverse Proxy**:
+  * Integrated DuckDNS dynamic DNS updater.
+  * Embedded HTTPS reverse proxy for secure TLS-encrypted LAN access.
+
+### 9. Embedded DNS Ad-Blocker & Privacy Shield (Pi-hole Alternative)
+* **High-Performance In-Memory Sinkhole**:
+  * Blocks tracking, intrusive telemetry, malware, and advertisement domains before they ever reach customer LAN devices.
+  * Pre-configured blocklist subscriptions (StevenBlack unified hosts, AdAway, etc.) with automatic background Gravity updates.
+* **Custom Control & Live Audit**:
+  * Real-time DNS query statistics: Total queries today, blocked queries, sinkhole percentage, and active Gravity domain count.
+  * Custom domain blacklist, whitelist, and wildcard RegEx filtering (`/api/adblock/regex/add`).
+  * Live DNS query log inspection streaming directly in the WebUI.
+
+### 10. Advanced Forensic Diagnostics & Root-Cause Telemetry
+* **Wi-Fi RF & PHY Telemetry (`nl80211`)**:
+  * Real-time RSSI signal strength in exact dBm (e.g. `-52 dBm`) and Noise floor.
+  * RX/TX PHY bitrates, MCS (Modulation and Coding Scheme) index, channel width (20/40/80/160 MHz), and hardware retry/fail counters (`tx_retries`, `tx_failed`).
+* **DNS Hijacking & Comparative Resolver Matrix**:
+  * Concurrently audits 4 independent resolver tiers: Local Gateway/DHCP, Cloudflare (`1.1.1.1`), Google (`8.8.8.8`), and Quad9 (`9.9.9.9`).
+  * Verifies DNSSEC validation (`ad` Authenticated Data bit) and compares cached vs uncached response times.
+  * Tests for transparent ISP UDP port 53 interception/hijacking.
+* **RFC 5389 STUN Client & Carrier-Grade NAT (CGNAT) Detection**:
+  * Classifies upstream topology into:
+    * **Direct Public IP**: Local WAN IP matches external STUN reflexive IP.
+    * **Carrier-Grade NAT (ISP CGNAT)**: Upstream WAN IP falls within RFC 6598 (`100.64.0.0/10`).
+    * **Double NAT**: Local WAN IP is an RFC 1918 private address (`192.168.x.x` or `10.x.x.x`).
+    * **NAT Mapping Reflexivity**: Classifies Full Cone, Restricted, Port-Restricted, or Symmetric NAT.
+* **CPU Interrupt (IRQ/SoftIRQ) & NIC Offload Telemetry**:
+  * Tracks per-core interrupt and SoftIRQ distribution to catch CPU0 saturation bottlenecks (the classic Gigabit bottleneck on Raspberry Pi and MIPS routers).
+  * Inspects Receive Packet Steering (RPS/XPS) bitmasks (`/sys/class/net/<iface>/queues/rx-*/rps_cpus`) and NIC hardware offloads (checksumming, TSO, GRO via `ethtool`).
+* **Micro-Outage & Loss Pattern Correlation**:
+  * Continuously classifies dropped packets: isolates micro-burst jitter from catastrophic macro-outages ($\ge 5\text{s}$).
+  * Root-cause correlation: Automatically identifies whether an outage is local CPE/gateway failure or upstream ISP transit peering failure.
+* **Storage I/O & Flash Filesystem Health**:
+  * `%iowait` CPU tracking to detect failing or saturated microSD / flash storage.
+  * Filesystem wear and free capacity tracking via standard POSIX `statvfs()`.
+  * Kernel `dmesg`/`kmsg` ring-buffer traps catching hardware I/O and ext4/squashfs corruptions.
+* **Sanitized Configuration & PII Masking**:
+  * Built-in redactor protecting customer privacy: automatically masks bot tokens, chat IDs, Wi-Fi PSKs, ISP account numbers, and circuit IDs before generating dossiers or exporting diagnostic snapshots.
+
+### 11. Multilingual Telegram Chatbot with Interactive Touch Menus
+* Fully autonomous chatbot (`nmb-telegram`) providing mobile management without browser access:
+  * **Interactive Touch Menus**: Inline keyboards for 1-click status audits, instant ping matrix, on-demand speed tests, and VPN QR generation.
+  * **100% Internationalization (i18n)**: Seamless switching between **English (EN)**, **Hungarian (HU)**, **German (DE)**, **French (FR)**, and **Ukrainian (UK)** with zero mixed-language leaks.
+  * **Instant SLA Dossier Delivery**: Sends complete `.html` reports directly into the chat for forwarding to ISP technicians.
+  * **Proactive Push Alerts**: Immediate alerts on link down, loss $>5\%$, high jitter, or service degradation.
+
+### 12. Regulatory-Grade Broadband SLA Evidence Dossier & Pure SVG Charts
+* **Neutral International Branding**:
+  * Completely neutral title: *"Broadband Quality & ISP SLA Performance Dossier"* / *"Szélessávú Hálózati Minőség & Szolgáltatói SLA Vizsgálati Dosszié"*.
+  * Fully compliant with European BEREC guidelines and international telecom regulatory standards (FCC, RTR, NMHH).
+* **Pure Mathematical SVG Vector Engine**:
+  * Zero external charting dependencies: emits responsive `<svg viewBox="0 0 800 380">` with cubic bezier curves, dual y-axes (Mbps & ms), SLA threshold baselines, and touch dot overlays.
+  * Rendered in sub-millisecond execution time.
+  * Exportable directly in 5 languages via `/dossier?lang=...` or Telegram `/report`.
+
+### 13. Real-Time Task Manager (Embedded htop Engine)
+* Direct `/proc` virtual filesystem reader replacing heavy `ps` process spawning.
+* Real-time process monitoring: PID, User, Priority, Nice, VIRT, RES, CPU%, MEM%, runtime, and command arguments.
+* Interactive filtering: System Services vs User Apps vs NMB Daemons.
+* In-line signal management: Send SIGTERM or SIGKILL to rogue processes directly from the WebUI.
+
+### 14. Autonomous Self-Healing & Safety Rollback Watchdog (`nmb-heal`)
+* Automated background health audits verifying binary integrity, database health, permissions, and network connectivity.
+* Cryptographic signature verification and atomic executable replacement (`os.Rename`).
+* **Automated Safety Rollback**: If a software update fails integrity checks or breaks critical services, the watchdog automatically reverts to the previous snapshot.
+* Hardware Watchdog Timer support (`/dev/watchdog`) to prevent system lockups on remote unattended installations.
+
+### 15. 100% De-Pythonization Architecture & Commercial Router Porting
+To run NetworkMeasureBox directly on commercial embedded routers with as little as **4MB Flash and 32MB RAM**, a complete 100% de-pythonization roadmap and implementation specification has been engineered:
+* **Unified Single Binary (`nmbd`)**: Written in **Go 1.23+** (Tier 1) and **C11 with Musl libc** (Tier 2 & 3), completely eliminating Python 3, pip, and all runtime packages.
+* **Target Hardware Porting Specifications**:
+  * **ASUS ROG Rapture GT-AXE7800 / RT-AXE7800** (Broadcom BCM4912 Quad-Core ARMv8 @ 2.0GHz, 1GB RAM, 256MB Flash, 2.5GbE, Wi-Fi 6E, Asuswrt-Merlin): 2.5 Gbps line-rate testing, Flow Cache acceleration bypass, multi-threaded CAKE SQM, and in-process `tsnet` Tailscale.
+  * **ASUS RT-N12+** (MediaTek MT7628N MIPS24KEc @ 575MHz, 32MB RAM, 8MB Flash, Fast Ethernet, OpenWrt 23.05): 850 KB C11 binary (320 KB UPX), 2.8 MB RAM RSS, 100 Mbps line-rate testing at <14% CPU.
+  * **TP-Link TL-WR740N v4.23** (Atheros AR9331 MIPS 24Kc @ 400MHz, 32MB RAM, **4MB Flash**, Minimal Stripped OpenWrt): **178 KB UPX-LZMA compressed binary**, 1.4 MB RAM RSS, 100% RAM-only circular ring-buffer to prevent flash wear!
+* Full technical blueprints available in:
+  * 📄 **[`docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`](docs/ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md)**
+  * 📄 **[`docs/DEPYTHONIZATION_ROADMAP.md`](docs/DEPYTHONIZATION_ROADMAP.md)**
 
 ---
 
@@ -164,13 +251,40 @@ http://<appliance-ip>/
 
 | Binary | Description | Key Commands |
 |---|---|---|
-| `nmb-netd` | Network daemon (Router / Bridge / Multi-WAN) | `nmb-netd --status`<br>`nmb-netd --switch auto\|mode_a\|mode_b` |
-| `nmb-probe` | Continuous latency/jitter ICMP engine | `nmb-probe --verbose` |
-| `nmb-speed` | Speedtest & net-neutrality runner | `nmb-speed --trigger manual`<br>`nmb-speed --engine cloudflare`<br>`nmb-speed --interface eth0` |
-| `nmb-report` | HTML dossier & CSV generator | `nmb-report --window 24h --html dossier.html`<br>`nmb-report --json-summary`<br>`nmb-report --send-email` |
+| `nmb-netd` | Network daemon (Router / Bridge / Multi-WAN) | `nmb-netd --status`<br>`nmb-netd --switch auto\|mode_a\|mode_b`<br>`nmb-netd --matrix` |
+| `nmb-probe` | Continuous latency/jitter ICMP engine | `nmb-probe --verbose`<br>`nmb-probe --target 1.1.1.1` |
+| `nmb-speed` | Speedtest & net-neutrality runner | `nmb-speed --trigger manual`<br>`nmb-speed --engine ookla\|cloudflare\|rtr\|iperf`<br>`nmb-speed --interface eth0` |
+| `nmb-report` | HTML dossier & CSV generator | `nmb-report --window 24h --html dossier.html --lang en\|hu\|de\|fr\|uk`<br>`nmb-report --json-summary`<br>`nmb-report --send-email` |
+| `nmb-adblock` | High-performance DNS sinkhole | `nmb-adblock --status`<br>`nmb-adblock --update-gravity`<br>`nmb-adblock --block domain.com` |
+| `nmb-heal` | Self-healing watchdog & safety rollback | `nmb-heal --audit`<br>`nmb-heal --verify`<br>`nmb-heal --rollback` |
+| `nmb-driver` | Hardware driver & firmware autodiscovery | `nmb-driver --scan`<br>`sudo nmb-driver --install-missing` |
 | `nmb-telegram` | Management Telegram Bot daemon | `nmb-telegram` |
 | `nmb-web` | Embedded management web UI & REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Privileged helper utility (drivers, routing) | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
+
+---
+
+## Interactive Telegram Bot Commands
+
+When `nmb-telegram` is configured, you can manage the entire appliance directly from Telegram with interactive touch menus:
+
+| Command | Description |
+|---|---|
+| `/menu` | Opens the main interactive Touch Menu (Inline Keyboards) |
+| `/status` | Real-time appliance status: uptime, WAN mode, public IP, ISP name, CPU/RAM load |
+| `/ping` | Instant latency, jitter, and packet loss matrix to 4 reference targets |
+| `/test [engine]` | Runs an on-demand speedtest (`ookla`, `cloudflare`, `rtr`, `iperf`) with bufferbloat rating |
+| `/report [window]` | Generates and sends the official Broadband SLA Dossier (`.html`) directly into the chat |
+| `/ai` | Exports the sanitized Markdown diagnostic snapshot for external LLM analysis |
+| `/mode [auto\|a\|b]`| Views or switches operational mode (Active Router vs Passive Bridge) |
+| `/vpn` | PiVPN Hub status: active WireGuard & OpenVPN tunnels, connected client counts |
+| `/vpn clients` | Displays connected peer roster with handshake times, endpoints, and RX/TX traffic |
+| `/vpn qr <name>` | Generates and dispatches a camera-scannable QR code PNG for instant device pairing |
+| `/vpn conf <name>`| Dispatches the downloadable `.conf` profile for WireGuard or OpenVPN |
+| `/vpn add <name>` | Creates a new VPN client profile and returns the QR code |
+| `/adblock` | DNS Sinkhole status: total queries today, blocked queries, blocklist domain count |
+| `/adblock on\|off` | Enables or disables the DNS Ad-Blocker sinkhole |
+| `/lang [en\|hu\|de\|fr\|uk]` | Switches the bot's language across 5 supported international languages |
 
 ---
 
