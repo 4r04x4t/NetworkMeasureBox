@@ -5,6 +5,7 @@ Wants=nmb-db.service
 Before=network.target
 
 [Service]
+ExecReload=/bin/kill -HUP $MAINPID
 Type=simple
 User=root
 Group=root

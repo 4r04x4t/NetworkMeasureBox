@@ -146,7 +146,9 @@ class ModeA(NetworkMode):
         lan_ports = getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]
         lan_ports = [p.strip() for p in lan_ports if p.strip() and interfaces.interface_exists(p.strip())]
 
-        if len(lan_ports) > 1:
+        # Wi-Fi clients share the LAN subnet through the bridge, so a Wi-Fi failure cannot take down wired DHCP.
+        wifi_ap = self.cfg.wifi_enabled and interfaces.interface_exists(self.cfg.wlan_interface)
+        if len(lan_ports) > 1 or wifi_ap:
             br_name = "br-lan"
             log.info("multi-LAN detected (%s): establishing bridge %s", lan_ports, br_name)
             for p in lan_ports:
@@ -177,8 +179,8 @@ class ModeA(NetworkMode):
             from nmb.netd.wifi import unblock_wifi
             unblock_wifi()
             interfaces.set_link_up(self.cfg.wlan_interface)
-            self.svc_mgr.start_hostapd(self.cfg.wlan_interface)
-            self.lan_ifaces.append(self.cfg.wlan_interface)
+            if not self.svc_mgr.start_hostapd(self.cfg.wlan_interface, bridge="br-lan"):
+                log.error("Wi-Fi access point failed to start on %s; wired LAN stays available", self.cfg.wlan_interface)
 
         # 4. Start dnsmasq for LAN interfaces
         if self.lan_ifaces:

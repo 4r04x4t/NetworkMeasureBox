@@ -549,6 +549,7 @@ def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, D
             "ieee80211w=2",
             "sae_pwe=2",
             f"wpa_passphrase={psk}",
+            "rsn_pairwise=CCMP",
         ])
     elif security == "mixed":
         lines.extend([

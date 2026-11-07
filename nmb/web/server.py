@@ -3707,8 +3707,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if netd_pid_file.exists():
             try:
                 pid = int(netd_pid_file.read_text().strip())
-                os.kill(pid, signal.SIGHUP)
-                log.info("sent SIGHUP to nmb-netd (pid %d)", pid)
+                # nmb-netd runs as root, and this server does not, so systemd delivers the signal.
+                reload_run = subprocess.run(["systemctl", "reload", "nmb-netd.service"], capture_output=True, timeout=15, check=False)
+                if reload_run.returncode != 0:
+                    os.kill(pid, signal.SIGHUP)
+                log.info("asked nmb-netd (pid %d) to reload its settings", pid)
             except Exception as e:
                 log.debug("could not signal nmb-netd: %s", e)
 

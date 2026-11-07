@@ -4,6 +4,7 @@ Manages runtime config generation in /run/nmb and clean subprocess lifecycle.
 """
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
 import shutil
@@ -16,6 +17,13 @@ from typing import Dict, List, Optional
 from nmb.config import NetworkConfig
 
 log = logging.getLogger("nmb.netd.services")
+
+HOSTAPD_ATTEMPTS = (
+    {},
+    {"wifi_standard": "ax", "wifi_channel_width": "80"},
+    {"wifi_standard": "ac", "wifi_channel_width": "80"},
+    {"wifi_standard": "n", "wifi_channel_width": "20"},
+)
 
 
 class ManagedProcess:
@@ -165,7 +173,13 @@ pid-file={pid_file}
             self.processes["dnsmasq"].stop()
             del self.processes["dnsmasq"]
 
-    def start_hostapd(self, iface: str) -> bool:
+    def _release_from_network_manager(self, iface: str) -> None:
+        """NetworkManager would otherwise keep using the radio as a Wi-Fi client."""
+        nmcli = shutil.which("nmcli")
+        if nmcli:
+            subprocess.run([nmcli, "device", "set", iface, "managed", "no"], capture_output=True, timeout=10, check=False)
+
+    def start_hostapd(self, iface: str, bridge: Optional[str] = None) -> bool:
         hostapd_bin = shutil.which("hostapd")
         if not hostapd_bin:
             log.warning("hostapd binary not found; skipping Wi-Fi AP")
@@ -175,17 +189,25 @@ pid-file={pid_file}
         pid_file = self.run_dir / "hostapd.pid"
 
         from nmb.netd.wifi import generate_hostapd_config
-        conf_content, meta = generate_hostapd_config(self.cfg, iface, self.run_dir)
-        log.info("generated hostapd config for %s: Standard=%s, Band=%s, Ch=%s, Width=%s MHz",
-                 iface, meta.get("effective_standard", "").upper(), meta.get("effective_band"),
-                 meta.get("effective_channel"), meta.get("effective_width_mhz"))
-
+        self._release_from_network_manager(iface)
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        conf_file.write_text(conf_content)
-
-        proc = ManagedProcess("hostapd", [hostapd_bin, str(conf_file)], pid_file)
-        self.processes["hostapd"] = proc
-        return proc.start()
+        # The radio may report features the installed hostapd cannot use, so step down until one starts.
+        for overrides in HOSTAPD_ATTEMPTS:
+            cfg = dataclasses.replace(self.cfg, **overrides)
+            conf_content, meta = generate_hostapd_config(cfg, iface, self.run_dir)
+            if bridge:
+                conf_content = conf_content.rstrip("\n") + f"\nbridge={bridge}\n"
+            log.info("generated hostapd config for %s: Standard=%s, Band=%s, Ch=%s, Width=%s MHz",
+                     iface, meta.get("effective_standard", "").upper(), meta.get("effective_band"),
+                     meta.get("effective_channel"), meta.get("effective_width_mhz"))
+            conf_file.write_text(conf_content)
+            os.chmod(conf_file, 0o600)
+            proc = ManagedProcess("hostapd", [hostapd_bin, str(conf_file)], pid_file)
+            if proc.start():
+                self.processes["hostapd"] = proc
+                return True
+            log.warning("hostapd did not start with Standard=%s; trying a simpler setup", meta.get("effective_standard"))
+        return False
 
     def stop_hostapd(self) -> None:
         if "hostapd" in self.processes:

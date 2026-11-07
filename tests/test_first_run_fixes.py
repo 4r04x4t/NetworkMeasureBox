@@ -156,6 +156,17 @@ class BootPartitionSecretsTest(unittest.TestCase):
         self.assertNotIn(SECRET_MARK, merge_drive_config(masked, ""))
 
 
+class WirelessRouterTest(unittest.TestCase):
+    def test_hostapd_steps_down_to_a_simple_setup(self):
+        from nmb.netd.services import HOSTAPD_ATTEMPTS
+        self.assertEqual(HOSTAPD_ATTEMPTS[0], {})
+        self.assertEqual(HOSTAPD_ATTEMPTS[-1]["wifi_channel_width"], "20")
+
+    def test_netd_reload_goes_through_systemd(self):
+        self.assertIn("ExecReload=/bin/kill -HUP", (ROOT / "systemd/nmb-netd.service").read_text())
+        self.assertIn('"reload", "nmb-netd.service"', (ROOT / "nmb/web/server.py").read_text())
+
+
 class ServiceHardeningTest(unittest.TestCase):
     def test_web_server_does_not_run_as_root(self):
         unit = (ROOT / "systemd/nmb-web.service").read_text()
