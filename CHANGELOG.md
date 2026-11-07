@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - This changelog, covering the project from its first commit.
 - A plan for a separate Keep a Changelog file for the native rewrite, kept from its first commit.
+- A daily data limit for scheduled tests, for mobile and other metered connections.
 - Clean code rules in the native rewrite plans, to avoid spaghetti code.
 - The `nmb-cli` terminal interface and the changelog rule in the architecture document.
 
@@ -24,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Wireless router mode now works: Wi-Fi and LAN share a bridge, a Wi-Fi failure no longer stops wired DHCP, and `hostapd` steps down to an older standard if it rejects a setting.
+- If the main config file is lost, restoring it from the boot partition no longer writes the `__KEEP_CURRENT__` marks as values or brings back the shared factory Wi-Fi password. Passwords and tokens must then be entered again.
+- PPPoE redials after the line drops, instead of staying offline.
+- `dnsmasq` no longer conflicts with the built-in DNS filter in router mode, which could leave clients without DHCP.
 - WPA3 access points connect, because the cipher setting was missing.
 - Network settings saved in the Web UI take effect again without a restart. This was broken when the web server stopped running as root.
 - The diagnostic snapshot no longer copies thousands of lines into the system journal, and is written to the boot drive at most once an hour.

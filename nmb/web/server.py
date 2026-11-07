@@ -3275,6 +3275,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "schedule_cron": getattr(cfg.speedtest, "schedule_cron", "0 * * * *"),
             "automated_engine": getattr(cfg.speedtest, "automated_engine", "ookla"),
             "idle_threshold_mode": getattr(cfg.speedtest, "idle_threshold_mode", "percent"),
+            "daily_data_limit_mb": cfg.speedtest.daily_data_limit_mb,
             "idle_threshold_percent": getattr(cfg.speedtest, "idle_threshold_percent", 2.0),
             "idle_threshold_kbps": getattr(cfg.speedtest, "idle_threshold_kbps", 500),
             "idle_check_kbps": getattr(cfg.speedtest, "idle_threshold_kbps", 500),
@@ -3514,6 +3515,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             ae = str(body["automated_engine"]).strip().lower()
             if ae in ("ookla", "cloudflare", "rtr", "iperf3", "all"):
                 cfg.speedtest.automated_engine = ae
+        if "daily_data_limit_mb" in body:
+            try:
+                cfg.speedtest.daily_data_limit_mb = max(0.0, float(body["daily_data_limit_mb"]))
+            except (TypeError, ValueError):
+                pass
         if "idle_threshold_mode" in body:
             tm = str(body["idle_threshold_mode"]).strip().lower()
             if tm in ("percent", "fixed"):

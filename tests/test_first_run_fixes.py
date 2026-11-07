@@ -156,6 +156,21 @@ class BootPartitionSecretsTest(unittest.TestCase):
         self.assertNotIn(SECRET_MARK, merge_drive_config(masked, ""))
 
 
+class DataBudgetTest(unittest.TestCase):
+    def test_limit_counts_only_today_and_zero_means_off(self):
+        import sqlite3
+        from nmb.speed import data_budget
+        conn = sqlite3.connect(":memory:")
+        conn.executescript((ROOT / "nmb/db/schema.sql").read_text())
+        self.assertEqual(data_budget.limit_reached(conn, 0), (False, 0.0))
+        data_budget.add_usage_mb(conn, 600)
+        data_budget.add_usage_mb(conn, 500)
+        self.assertEqual(data_budget.limit_reached(conn, 1000), (True, 1100.0))
+        self.assertFalse(data_budget.limit_reached(conn, 2000)[0])
+        conn.execute("UPDATE kv SET v = '2000-01-01|9999' WHERE k = ?", (data_budget.KV_KEY,))
+        self.assertEqual(data_budget.used_today_mb(conn), 0.0)
+
+
 class WirelessRouterTest(unittest.TestCase):
     def test_hostapd_steps_down_to_a_simple_setup(self):
         from nmb.netd.services import HOSTAPD_ATTEMPTS
@@ -177,6 +192,16 @@ class ServiceHardeningTest(unittest.TestCase):
         rules = (ROOT / "os/nmb-guard.nft").read_text()
         self.assertIn("{ 53, 80, 5201 } ip saddr", rules)
         self.assertIn("{ 53, 80, 5201 } ip6 saddr", rules)
+
+
+class LostConfigTest(unittest.TestCase):
+    def test_restoring_from_the_boot_copy_never_keeps_marks_or_the_shared_password(self):
+        from nmb.config import SECRET_MARK, mask_secrets, merge_drive_config
+        restored = merge_drive_config(mask_secrets("[network]\nwifi_psk = mine\n[web]\nport = 80\n"), "")
+        self.assertNotIn(SECRET_MARK, restored)
+        self.assertNotIn("mine", restored)
+        default_only = merge_drive_config("[network]\nwifi_psk = NetworkMeasureBox123\n", "")
+        self.assertNotIn("NetworkMeasureBox123", default_only)
 
 
 class OoklaChecksumTest(unittest.TestCase):

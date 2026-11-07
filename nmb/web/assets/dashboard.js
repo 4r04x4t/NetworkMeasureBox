@@ -2422,6 +2422,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           }
         }
 
+        const dataLimitInput = document.getElementById('daily-data-limit');
+        if (dataLimitInput && data.daily_data_limit_mb !== undefined && document.activeElement !== dataLimitInput) {
+          dataLimitInput.value = data.daily_data_limit_mb;
+        }
         if (data.idle_threshold_mode && document.getElementById('sched-gate-mode')) {
           document.getElementById('sched-gate-mode').value = data.idle_threshold_mode;
           onSchedGateModeChange(data.idle_threshold_mode);
@@ -4279,6 +4283,19 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
   let globalContractDownMbps = 1000.0;
 
   let globalTrafficStop = false;
+
+  async function saveDailyDataLimit(value) {
+    try {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ daily_data_limit_mb: Number(value) || 0 })
+      });
+      if (!res.ok) throw new Error(res.status);
+    } catch (e) {
+      showToast(t('error_prefix', 'Error: ') + e);
+    }
+  }
 
   async function toggleTrafficStop(enabled) {
     try {

@@ -17,7 +17,7 @@ from nmb.config import Config, load_config
 from nmb.db import database as db
 from nmb.probe import cross_traffic
 from nmb.probe.traffic_gate import TrafficGate
-from nmb.speed import cancel
+from nmb.speed import cancel, data_budget
 from nmb.speed.ookla import SpeedtestResult, execute_speedtest
 from nmb.speed.cloudflare import execute_cloudflare_speedtest
 from nmb.speed.rtr import execute_rtr_speedtest
@@ -578,6 +578,26 @@ def run_measurement_cycle(
         conn.close()
         return True
 
+    # 0b. A metered line must not run out of data because of scheduled tests.
+    limit_mb = float(getattr(cfg.speedtest, "daily_data_limit_mb", 0) or 0)
+    if trigger == "schedule" and limit_mb > 0:
+        budget_conn = db.connect()
+        try:
+            over_limit, used_mb = data_budget.limit_reached(budget_conn, limit_mb)
+            if over_limit:
+                reason = f"skipped: daily data limit reached ({used_mb:.0f} of {limit_mb:.0f} MB used today)"
+                log.warning("speed test %s", reason)
+                if outcome is not None:
+                    outcome["data_limit"] = True
+                with db.tx(budget_conn):
+                    budget_conn.execute(
+                        "INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
+                        (now_ms, trigger, reason, engine),
+                    )
+                return False
+        finally:
+            budget_conn.close()
+
     # 1. Enforce Traffic Gate (Idle check with < 2% network load condition)
     tg_mode = getattr(cfg.speedtest, "idle_threshold_mode", "percent")
     thresh_pct = getattr(cfg.speedtest, "idle_threshold_percent", 2.0)
@@ -684,6 +704,8 @@ def run_measurement_cycle(
             log.debug("dns fallback check exception: %s", e)
 
     # 3. Execute Speedtest Engine(s)
+    usage_iface = check_gate_iface
+    usage_start = data_budget.interface_bytes(usage_iface)
     target_server_id = server_id if server_id is not None else getattr(cfg.speedtest, "server_id", None)
     conn = db.connect()
     engines_to_run = ["ookla", "cloudflare", "rtr"] if engine == "all" else [engine or "ookla"]
@@ -709,6 +731,7 @@ def run_measurement_cycle(
                     break
     finally:
         stop_watch.set()
+        data_budget.add_usage_mb(conn, (data_budget.interface_bytes(usage_iface) - usage_start) / 1_000_000.0)
 
     if token.is_set():
         if outcome is not None:

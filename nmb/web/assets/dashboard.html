@@ -2597,6 +2597,10 @@
             </span>
           </div>
           <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-bottom: 12px;">
+            <span data-i18n="daily_data_limit">Daily data limit for scheduled tests (MB, 0 = none):</span>
+            <input type="number" id="daily-data-limit" min="0" step="100" class="form-input" style="width: 110px;" onchange="saveDailyDataLimit(this.value)">
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-bottom: 12px;">
             <input type="checkbox" id="traffic-stop-toggle" onchange="toggleTrafficStop(this.checked)">
             <span data-i18n="traffic_stop_toggle">Experimental: stop speed tests when the network is busy (ping keeps running)</span>
           </label>

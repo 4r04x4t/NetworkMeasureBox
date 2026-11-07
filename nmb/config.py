@@ -92,6 +92,12 @@ def mask_secrets(text: str) -> str:
     return "\n".join(out) + "\n"
 
 
+def unique_wifi_password(text: str) -> str:
+    """Replace the shared factory Wi-Fi password, which would be the same on every box."""
+    import secrets
+    return re.sub(r"(?m)^(wifi_psk\s*=\s*)NetworkMeasureBox123\s*$", lambda m: m.group(1) + secrets.token_urlsafe(12), text)
+
+
 def merge_drive_config(drive_text: str, current_text: str) -> str:
     """Apply an edited drive file, keeping current secrets wherever it still has the mark."""
     current = _TolerantParser()
@@ -112,7 +118,8 @@ def merge_drive_config(drive_text: str, current_text: str) -> str:
                 continue
             line = f"{match.group(1)}{key}{match.group(3)}{current.get(section, key)}"
         out.append(line)
-    return "\n".join(out) + "\n"
+    # With no current file the marked secrets are gone, so at least avoid the shared default.
+    return unique_wifi_password("\n".join(out) + "\n")
 
 
 def sync_drive_config(source_path: Path = DEFAULT_CONFIG_PATH) -> Optional[Path]:
@@ -224,6 +231,8 @@ experimental_stop = false
 
 [speedtest]
 schedule_cron = 0 * * * *
+# Stop scheduled tests for the day at this much test traffic, for mobile data. 0 = no limit
+daily_data_limit_mb = 0
 idle_wait_max_sec = 1800
 idle_threshold_mode = percent
 idle_threshold_percent = 2.0
@@ -513,6 +522,7 @@ class SpeedtestConfig:
     idle_threshold_mode: str = "percent"      # "percent" (< 2% network load) or "fixed" (custom kbps)
     idle_threshold_percent: float = 2.0       # dynamic network load threshold (e.g. 2.0%)
     idle_threshold_kbps: int = 500            # fallback fixed kbps
+    daily_data_limit_mb: float = 0.0          # Scheduled tests stop for the day at this usage; 0 = no limit
     traffic_stop_enabled: bool = False        # Experimental: strict idle check and stop on foreign traffic
     server_id: Optional[int] = None           # Manually selected server ID for automated measurements!
     server_name: str = ""
@@ -790,6 +800,7 @@ def load_config(path: Path | None = None) -> Config:
         st = parser["speedtest"]
         cfg.speedtest.schedule_mode = st.get("schedule_mode", getattr(cfg.speedtest, "schedule_mode", "scheduled")).lower().strip()
         cfg.speedtest.schedule_cron = st.get("schedule_cron", cfg.speedtest.schedule_cron)
+        cfg.speedtest.daily_data_limit_mb = st.getfloat("daily_data_limit_mb", fallback=cfg.speedtest.daily_data_limit_mb)
         cfg.speedtest.automated_engine = st.get("automated_engine", getattr(cfg.speedtest, "automated_engine", "ookla")).lower().strip()
         cfg.speedtest.idle_wait_max_sec = st.getfloat("idle_wait_max_sec", fallback=cfg.speedtest.idle_wait_max_sec)
         cfg.speedtest.idle_threshold_mode = st.get("idle_threshold_mode", getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower().strip()
@@ -1059,6 +1070,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     # Speedtest (Automated measurements configuration)
     parser["speedtest"]["schedule_mode"] = str(getattr(cfg.speedtest, "schedule_mode", "scheduled")).lower()
     parser["speedtest"]["schedule_cron"] = str(cfg.speedtest.schedule_cron)
+    parser["speedtest"]["daily_data_limit_mb"] = str(cfg.speedtest.daily_data_limit_mb)
     parser["speedtest"]["automated_engine"] = str(getattr(cfg.speedtest, "automated_engine", "ookla")).lower()
     parser["speedtest"]["idle_wait_max_sec"] = str(cfg.speedtest.idle_wait_max_sec)
     parser["speedtest"]["idle_threshold_mode"] = str(getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower()

@@ -99,6 +99,8 @@ experimental_stop = false
 [speedtest]
 # Scheduled Ookla Speedtest
 schedule_cron = 0 * * * *
+# Stop scheduled tests for the day at this much test traffic, for mobile data. 0 = no limit
+daily_data_limit_mb = 0
 # Maximum seconds to wait for network to become idle before delaying test
 idle_wait_max_sec = 1800
 # Target ports to check for net-neutrality throttling

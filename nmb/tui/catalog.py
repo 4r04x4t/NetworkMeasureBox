@@ -70,7 +70,7 @@ def A(action_id: str, label: str, path: str, fields: str = "", method: str = "PO
 
 
 NET_ADDR = "wan_proto:choice(dhcp|static|pppoe) wan_ip wan_netmask wan_gateway wan_mac dns_mode dns_primary dns_secondary"
-SCHEDULE = ("schedule_mode:choice(scheduled|manual) schedule_cron automated_engine:choice(ookla|cloudflare|rtr|iperf3|all) "
+SCHEDULE = ("schedule_mode:choice(scheduled|manual) schedule_cron daily_data_limit_mb:float automated_engine:choice(ookla|cloudflare|rtr|iperf3|all) "
             "idle_threshold_mode:choice(percent|fixed) idle_threshold_percent:float idle_threshold_kbps:int")
 
 CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {

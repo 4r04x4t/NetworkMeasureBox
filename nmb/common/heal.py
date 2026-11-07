@@ -637,7 +637,9 @@ def _repair_config_file() -> List[str]:
             if mirror.exists() and mirror.stat().st_size > 0:
                 try:
                     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(mirror, CONFIG_PATH)
+                    # The boot copy has marks instead of secrets; never copy them in as values.
+                    from nmb.config import merge_drive_config
+                    CONFIG_PATH.write_text(merge_drive_config(mirror.read_text(encoding="utf-8"), ""), encoding="utf-8")
                     os.chmod(CONFIG_PATH, 0o640)
                     actions.append(f"Recovered configuration file from mirror: {mirror}")
                     restored = True

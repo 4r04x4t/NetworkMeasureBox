@@ -400,6 +400,9 @@ class AutonomousScheduler(threading.Thread):
                 if ok:
                     self.last_outcome = "completed"
                     self.last_detail = f"Measurement completed ({engine})"
+                elif outcome.get("data_limit"):
+                    self.last_outcome = "skipped_busy"
+                    self.last_detail = "No speed test: daily data limit reached"
                 elif outcome.get("blind"):
                     self.last_outcome = "skipped_busy"
                     self.last_detail = "No speed test: other devices' traffic is not visible to the box"
