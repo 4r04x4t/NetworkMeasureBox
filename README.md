@@ -287,6 +287,7 @@ http://<appliance-ip>/
 | `nmb-heal` | Self-healing watchdog & safety rollback | `nmb-heal audit`<br>`nmb-heal status`<br>`nmb-heal fix` |
 | `nmb-driver` | Hardware driver & firmware autodiscovery | `nmb-driver scan`<br>`nmb-driver missing`<br>`sudo nmb-driver install` |
 | `nmb-telegram` | Management Telegram Bot daemon | `nmb-telegram` |
+| `nmb-cli` | WebGUI menus in the terminal (SSH, mouse, hotkeys) and JSON commands | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli logs dev -n 50 --level warning` |
 | `nmb-web` | Embedded management web UI & REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Privileged helper utility (drivers, routing) | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
 

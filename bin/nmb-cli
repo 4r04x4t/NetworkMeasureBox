@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""NetworkMeasureBox terminal interface: the WebGUI menus over SSH, and JSON commands for scripts."""
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root))
+
+from nmb.tui.cli import main
+
+sys.exit(main())

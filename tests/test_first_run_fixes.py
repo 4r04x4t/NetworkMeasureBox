@@ -93,6 +93,21 @@ class SkippedTestDisplayTest(unittest.TestCase):
         self.assertIn(tests[-1], shown)
 
 
+class IperfPortCheckTest(unittest.TestCase):
+    def test_listening_port_is_found_without_connecting(self):
+        import socket
+        from nmb.speed.iperf import is_iperf_port_listening
+        with socket.socket() as server:
+            server.bind(("127.0.0.1", 0))
+            port = server.getsockname()[1]
+            self.assertFalse(is_iperf_port_listening(port))
+            server.listen(1)
+            self.assertTrue(is_iperf_port_listening(port))
+            server.setblocking(False)
+            with self.assertRaises(BlockingIOError):
+                server.accept()
+
+
 class WebApiTest(unittest.TestCase):
     def test_post_handler_rejects_non_object_bodies(self):
         self.assertIn("must be a JSON object", (ROOT / "nmb/web/server.py").read_text())

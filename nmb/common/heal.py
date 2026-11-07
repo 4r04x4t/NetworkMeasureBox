@@ -62,6 +62,7 @@ CORE_SYMLINKS = [
     "nmb-ooni",
     "nmb-invasive-log",
     "nmb-factory-reset",
+    "nmb-cli",
     "nmb-driver",
     "nmb-adblock",
     "pivpn",

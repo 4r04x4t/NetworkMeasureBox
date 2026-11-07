@@ -329,7 +329,7 @@ if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
 fi
 
 # Symlink executables into /usr/local/bin
-for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper nmb-vpn nmb-wifi nmb-iperf nmb-ooni nmb-invasive-log nmb-factory-reset nmb-driver nmb-adblock nmb-heal; do
+for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper nmb-vpn nmb-wifi nmb-iperf nmb-ooni nmb-invasive-log nmb-factory-reset nmb-driver nmb-adblock nmb-heal nmb-cli; do
     if [ -f "$INSTALL_DIR/bin/$b" ]; then
         ln -sf "$INSTALL_DIR/bin/$b" "/usr/local/bin/$b"
     fi
@@ -447,6 +447,7 @@ cat <<EOF
     nmb-factory-reset- Factory reset utility
     nmb-driver       - Hardware network adapter & kernel firmware scanner/installer
     nmb-adblock/pihole- Built-in OS-independent DNS ad-blocker & sinkhole engine
+    nmb-cli          - WebGUI menus in the terminal (SSH, mouse and hotkeys) and JSON commands
     nmb-heal         - Automated self-healing engine & stable updates with rollback
 
   Next Steps:

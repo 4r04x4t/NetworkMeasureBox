@@ -449,15 +449,19 @@ def start_iperf_server(port: int = 5201) -> Dict[str, Any]:
 
 
 def is_iperf_port_listening(port: int = 5201) -> bool:
-    """Quickly check if port is currently open and accepting connections on localhost."""
-    import socket
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(0.2)
-            return s.connect_ex(("127.0.0.1", port)) == 0
-    except Exception:
-        log.debug("suppressed exception", exc_info=True)
-        return False
+    """Read the socket table; connecting would make iperf3 log a failed test each time."""
+    wanted = f"{int(port):04X}"
+    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
+        try:
+            with open(table, encoding="ascii") as handle:
+                next(handle, None)
+                for line in handle:
+                    fields = line.split()
+                    if len(fields) > 3 and fields[3] == "0A" and fields[1].rsplit(":", 1)[-1] == wanted:
+                        return True
+        except OSError:
+            continue
+    return False
 
 
 def stop_iperf_server() -> Dict[str, Any]:

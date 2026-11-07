@@ -476,6 +476,7 @@ A szoftver moduláris felépítésű, az egyes feladatokat különálló, jól t
 | `nmb-heal` | Önjavító watchdog és biztonsági visszaállás | `nmb-heal audit`<br>`nmb-heal status`<br>`nmb-heal fix` |
 | `nmb-driver` | Hardveres driver és firmware felderítő | `nmb-driver scan`<br>`nmb-driver missing`<br>`sudo nmb-driver install` |
 | `nmb-telegram` | Telegram menedzsment és riasztási bot | `nmb-telegram` |
+| `nmb-cli` | A WebGUI menüi terminálban (SSH, egér, gyorsbillentyűk) és JSON-parancsok | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli logs dev -n 50 --level warning` |
 | `nmb-web` | Beépített kezelőfelület és REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Emelt szintű hálózati és driver műveletek segédprogramja | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
 
