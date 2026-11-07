@@ -17,7 +17,7 @@ from nmb.db import database as db
 
 log = logging.getLogger("nmb.speed.neutrality")
 
-DEFAULT_PORTS = [80, 443, 8080, 8443, 53]
+DEFAULT_PORTS = [80, 443, 8080, 8443, 53, 22, 5060, 6881]
 
 # Reference test hosts providing responsive endpoints on diverse ports
 TEST_HOSTS = {
@@ -26,6 +26,10 @@ TEST_HOSTS = {
     8080: ("portquiz.net", 8080),
     8443: ("1.1.1.1", 8443),
     53: ("8.8.8.8", 53),
+    # portquiz.net answers on every TCP port, so it can stand in for SSH, SIP and BitTorrent.
+    22: ("portquiz.net", 22),
+    5060: ("portquiz.net", 5060),
+    6881: ("portquiz.net", 6881),
 }
 
 

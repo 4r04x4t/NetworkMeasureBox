@@ -28,7 +28,7 @@ def _set_sysctl_forward(enable: bool) -> bool:
         return res.returncode == 0
 
 
-def enable_nat_mode_a(wan_iface: str, lan_ifaces: List[str], block_public_wan: bool = True) -> bool:
+def enable_nat_mode_a(wan_iface: str, lan_ifaces: List[str], block_public_wan: bool = True, dmz_iface: str = "") -> bool:
     """Setup NAT and forwarding rules for Mode A (Active Gateway).
     If block_public_wan is True, drops incoming web UI access from non-private public Internet IPs only.
     Local RFC1918 subnets (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) are always allowed.
@@ -45,11 +45,21 @@ def enable_nat_mode_a(wan_iface: str, lan_ifaces: List[str], block_public_wan: b
     if nft_bin:
         log.info("applying Mode A NAT and WAN protection via nftables on WAN iface %s", wan_iface)
         lan_set = "{" + ", ".join(f'"{i}"' for i in lan_ifaces) + "}" if lan_ifaces else '""'
+        # A DMZ host may reach the internet, but neither the LAN nor the box beyond DHCP and DNS.
+        dmz_input = dmz_forward = ""
+        if dmz_iface:
+            dmz_input = (f'iifname "{dmz_iface}" udp dport {{ 53, 67 }} accept\n'
+                         f'        iifname "{dmz_iface}" tcp dport 53 accept\n'
+                         f'        iifname "{dmz_iface}" ct state established,related accept\n'
+                         f'        iifname "{dmz_iface}" drop')
+            dmz_forward = (f'iifname "{dmz_iface}" oifname "{wan_iface}" accept\n'
+                           f'        iifname "{dmz_iface}" drop')
         nft_rules = f"""
 table inet {NFT_TABLE} {{
     chain input {{
         type filter hook input priority filter; policy accept;
         {wan_drop_rule}
+        {dmz_input}
     }}
     chain postrouting {{
         type nat hook postrouting priority srcnat; policy accept;
@@ -58,6 +68,7 @@ table inet {NFT_TABLE} {{
     chain forward {{
         type filter hook forward priority filter; policy accept;
         ct state established,related accept
+        {dmz_forward}
         iifname {lan_set} oifname "{wan_iface}" accept
     }}
 }}

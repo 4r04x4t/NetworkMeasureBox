@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - This changelog, covering the project from its first commit.
 - A plan for a separate Keep a Changelog file for the native rewrite, kept from its first commit.
+- A real DMZ in router mode: its own subnet and DHCP, internet access, and no access to the LAN or the box beyond DHCP and DNS.
+- A DNS interception test and a NAT mapping check (endpoint-independent or symmetric) in the diagnostic bundle.
+- Port checks for 22, 5060 and 6881.
+- Telegram alerts for high latency and high jitter. Latency alerts were documented but did not exist.
 - A daily data limit for scheduled tests, for mobile and other metered connections.
 - Clean code rules in the native rewrite plans, to avoid spaghetti code.
 - The `nmb-cli` terminal interface and the changelog rule in the architecture document.
@@ -20,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CLI Terminal and the task manager no longer act as root, because the web server runs as `nmb`.
 - Editing the boot partition copy of the config now uses `__KEEP_CURRENT__` for passwords and tokens.
 - The diagnostic bundle runs fewer MTR cycles, so it finishes faster without root.
+- READMEs now state what has been tested, and describe features as they work, for example the bridge needing an IP address and the self-update needing a Git checkout.
 - Documentation describes the security model and which services run as root.
 
 ### Fixed

@@ -1,12 +1,11 @@
 # NetworkMeasureBox (NMB) — Részletes Rendszerdokumentáció
 
-> **Ipari szintű, autonóm hálózati minőségmérő, SLA-hitelesítő, szolgáltatói hibabizonyító és intelligens router célszoftver.**
+> **Autonóm hálózatminőség-mérő és SLA-riport szoftver Linuxra, opcionális router és híd móddal. Raspberry Pi 4-en fejlesztve és futtatva.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Linux](https://img.shields.io/badge/Fejleszt%C3%A9si%20platform-Raspberry%20Pi%204-green.svg)](https://kernel.org)
 [![Python: 3.9+](https://img.shields.io/badge/Python-3.9%2B%20%28Zero%20External%20Pip%20Deps%29-yellow.svg)](https://python.org)
 [![VPN: WireGuard & Tailscale](https://img.shields.io/badge/VPN-WireGuard%20%7C%20OpenVPN%20%7C%20Tailscale-blueviolet.svg)](#10-univerzális-távoli-elérés-pivpn-hub-és-tailscale-mesh)
-[![Hardware: 512MB+ RAM](https://img.shields.io/badge/RAM-512MB%20to%2064GB-purple.svg)](#6-alacsony-memóriájú-és-beágyazott-architektúra-512-mb-ram-optimalizáció)
 [![Router portok: tervezett](https://img.shields.io/badge/Router%20portok-Tervezett%2C%20nincs%20k%C3%A9sz-lightgrey.svg)](#17-100-os-de-pythonizáció-és-kereskedelmi-router-portolási-terv)
 [![Languages: EN HU DE UK FR](https://img.shields.io/badge/Languages-EN%20%7C%20HU%20%7C%20DE%20%7C%20UK%20%7C%20FR-orange.svg)](#8-beépített-webes-felület-webgui-és-többnyelvűség)
 
@@ -50,7 +49,7 @@ Egyedi, manuálisan futtatott böngészős sebességtesztekkel a felhasználó t
 ### A megoldás
 A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspberry Pi 4-en fejlesztve és futtatva) a nap 24 órájában, az év 365 napján automatikusan felügyeli és dokumentálja az internetkapcsolatot:
 1. **Objektív bizonyítékot gyűjt**: Rögzíti az összes késleltetést, mikroszakadást, jittert és sávszélesség-ingadozást.
-2. **Közvetlenül a vonalon mér**: Képes routerként (Mode A) vagy passzív, láthatatlan inline hídként (Mode B) üzemelni a modem és a router között, így kiküszöböli a belső hálózati zavaró tényezőket.
+2. **A hálózat szélén mér**: Futhat a router mögött (`standalone`), routerként (Mode A), vagy transzparens hídként (Mode B) a modem és a router között. Csak a rajta áthaladó forgalmat látja, ezért a bekötés befolyásolja, mit tud mérni.
 3. **Nem zavarja a felhasználót**: A beépített forgalmi kapu (Traffic Gate) csak akkor indít nagy sávszélességű tesztet, ha a doboz által látható forgalom a küszöb alatt van. Hogy mit lát, az a bekötéstől függ. Kísérleti, alapból kikapcsolt funkcióként a futó mérés is leállítható (lásd: Leállás hálózati forgalomra).
 4. **SLA dossziét generál**: Egyetlen gombnyomással önállóan megnyitható HTML jelentést állít elő beágyazott vektoros SVG diagramokkal és az előfizetői szerződéshez viszonyított SLA-megfelelőségi táblázattal, amelyet közvetlenül be lehet nyújtani hibajegyként a szolgáltatónak, vagy vita esetén az illetékes hírközlési hatóságnak.
 
@@ -61,7 +60,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 * **Zéró Külső Python Függőség (Zero Pip Dependencies)**: A teljes kód kizárólag a Python 3 szabványos könyvtáraira (`sqlite3`, `http.server`, `urllib`, `socket`, `ctypes`) és natív Linux segédprogramokra épül. Nincs szükség `pip install`-ra, így korlátozott beágyazott rendszereken is azonnal indul.
 * **Kettős Működési Mód**:
   * **Mode A (Aktív Router / Gateway)**: Teljes értékű router PPPoE tárcsázással, VLAN tageléssel, NAT masquerade-del, DHCP kiszolgálóval (`dnsmasq`).
-  * **Mode B (Passzív Transzparens Híd / Inline Bridge)**: Két fizikai interfész közötti transzparens híd (`br0`), zéró IP interferenciával, teljesen láthatatlanul a hálózat számára.
+  * **Mode B (Transzparens Híd / Inline Bridge)**: Két fizikai interfész közötti Layer 2 híd (`br0`). A doboz DHCP-vel saját címet kér a méréshez, így a szolgáltatói oldalnak ezt biztosítania kell. Ha a doboz leáll, megszakad a kapcsolat.
 * **LAN Passthrough és Link Aggregation** (routerhez csatlakoztatott, önálló mérőeszköz; WebGUI: Portok és Illesztőprogramok):
   * **Passthrough**: a kiválasztott portok 2. rétegben az uplinkre hidalódnak, így a doboz mögötti eszközök a router alhálózatán maradnak.
   * **Link aggregation**: két vagy több vezetékes port vagy kártya bejelölhető és `bond0`-ba vonható össze (802.3ad LACP, balance-rr, balance-xor, balance-tlb, balance-alb, active-backup), passthrough-val vagy anélkül.
@@ -70,23 +69,23 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
   * Tetszőleges számú fizikai hálózati kártya (PCIe, USB, alaplapi) kezelése.
   * **Multi-WAN**: Elsődleges WAN és Másodlagos WAN (WAN2) támogatás failover (tartalék) vagy loadbalance (terheléselosztás) módban.
   * **Multi-LAN Híd (`br-lan`)**: Több fizikai LAN port automatikus összefogása egységes Linux hálózati híddá.
-  * Dedikált DMZ, Vendég Wi-Fi szonda és interfész-specifikus sebességmérés.
+  * DMZ-port, Vendég Wi-Fi szonda és interfész-specifikus sebességmérés.
 * **Automatikus Driver- és Firmware-Kezelés**:
   * Hardveres vezérlőfelismerés (Realtek, Intel, Broadcom, MediaTek, Qualcomm Atheros, Aquantia, ASIX stb.).
   * Kernel `dmesg` figyelése hiányzó firmware-ek azonnali észleléséhez.
   * Egykattintásos driver/firmware telepítő (Debian `apt`, OpenWrt `opkg`, Alpine `apk`, Arch `pacman`, Fedora `dnf`) élő terminálablakkal a WebGUI-ban.
-* **5 Párhuzamos Sebességmérő Motor**:
+* **Sebességmérő Motorok és Ellenőrzések**:
   1. **Ookla Speedtest CLI**: Hivatalos Ookla mérőmotor automatikus szerverválasztással vagy testreszabott szerverazonosítóval.
   2. **Cloudflare Speed Engine**: Időalapú, 4 szálas le- és feltöltés a Cloudflare felé (gigabites vonalon futásonként kb. 1,2 GB).
   3. **RTR-Netztest (RMBT)**: Az Osztrák Szabályozó Hatóság (RTR) és az európai BEREC szabványos RMBT mérőmotorja.
   4. **iPerf3 Kliens és Szerver**: Helyi és távoli iPerf3 audit TCP/UDP protokollal, állítható szálakkal.
-  5. **Net-Neutrality Portfojtás-Ellenőrző**: Célzott tesztek specifikus portokon (HTTP 80, HTTPS 443, Alt-HTTP 8080, SSH 22, BitTorrent, SIP/VoIP).
-* **Sub-second ICMP Ping Szonda (`nmb-probe`)**: 500 ms-os folyamatos mintavételezés, RFC 3550 jitter számítás, p95/p99 késleltetés, több referencia-célpont (ISP átjáró, Cloudflare 1.1.1.1, Google 8.8.8.8, Quad9 9.9.9.9) és kimaradási ablakok naplózása.
-* **512 MB RAM Beágyazott Rendszer Optimalizáció**: Dinamikus memóriaprofilok (`embedded`, `standard`, `performance`), szigorú SQLite live méretkorlátok (48 MB), periodikus és kézi `malloc_trim(0)` memóriafelszabadítás router platformokon.
-* **Flash- és SD-Kártya Élettartam Védelem**: Élő adatbázis memóriában futó tmpfs-en, 15 percenkénti és leállításkori atomi pillanatképek SD-re, ext4 `noatime,commit=600`, swap tiltás.
+  5. **Portfojtás-Ellenőrző**: TCP-átvitel összehasonlítása gyakori portokon (alapból 80, 443, 8080, 8443, 53, SSH 22, SIP 5060 és BitTorrent 6881) egy 443-as alapértékkel. Különbséget mutathat, de nem bizonyítja, hogy a szolgáltató okozta.
+* **Sub-second ICMP Ping Szonda (`nmb-probe`)**: 500 ms-os folyamatos mintavételezés, RFC 3550 jitter számítás, p95/p99 késleltetés, az átjáró és nyilvános célpontok (alapból 1.1.1.1, 8.8.8.8, 9.9.9.9, 185.222.222.222) és kimaradási ablakok naplózása.
+* **Alacsony memóriás profilok (512 MB-on nincs tesztelve)**: Dinamikus memóriaprofilok (`low`, `standard`, `performance`), szigorú SQLite live méretkorlátok (48 MB), periodikus és kézi `malloc_trim(0)` memóriafelszabadítás router platformokon.
+* **Flash- és SD-Kártya Élettartam Védelem**: Élő adatbázis memóriában futó tmpfs-en, 15 percenkénti és leállításkori atomi pillanatképek SD-re, ext4 `noatime,commit=600`.
 * **Hálózatfelderítő (Device Explorer)**: Beépített ARP sweep és MAC OUI vendor felismerés (Apple, Samsung, Intel, Xiaomi stb.) a helyi és a vendéghálózaton.
 * **Dedikált Vendég Wi-Fi Kliens Szonda**: Másodlagos vezeték nélküli interfésszel automatikusan felkapcsolódik a router vendég Wi-Fi hálózatára, és ellenőrzi annak sávszélességét, stabilitását és izolációját.
-* **Többnyelvű Reszponzív WebGUI**: Sötét módú irányítópult, 14+ kategória, valós idejű SVG diagramok, jelszavas védelem, Logout funkció és 100%-os kulcsparitású fordítás 5 nyelven (magyar, angol, német, ukrán, francia).
+* **Többnyelvű Reszponzív WebGUI**: Sötét módú irányítópult, több fül és alfül, valós idejű SVG diagramok, jelszavas védelem, Logout funkció és azonos kulcskészletű fordítás 5 nyelven (magyar, angol, német, ukrán, francia).
 * **Telegram Távfelügyelet**: Valós idejű push riasztások szakadás vagy >5% csomagvesztés esetén, távoli parancsok (`/status`, `/ping`, `/test`, `/report`, `/mode`).
 
 ---
@@ -113,7 +112,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Forgalomfüggő Sebességmérő (nmb-speed)       │          │ Elemző és Dosszié-Generátor (nmb-report)         │  │
 │  │ • /proc/net/dev üresjárati kapu (küszöbbel) │          │ • Önmagában álló HTML jelentés vektoros SVG-vel  │  │
-│  │ • 5 motor: Ookla, Cloudflare, RTR, iPerf, FW │          │ • RFC 4180 CSV telemetria exportáló              │  │
+│  │ • Motorok: Ookla, Cloudflare, RTR, iPerf3     │          │ • RFC 4180 CSV telemetria exportáló              │  │
 │  │ • Net-neutrality portfojtás-ellenőrző        │          │ • Automatikus SMTP hibajegy-továbbítás           │  │
 │  └──────────────────────┬───────────────────────┘          └────────────────────────┬─────────────────────────┘  │
 │                         │                                                           │                            │
@@ -146,7 +145,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 | **IP cím a hálózatban** | Igen (Gateway: `192.168.100.1` vagy egyedi) | Nincs (csak mérési felügyelet a fizikai portokon) |
 | **PPPoE tárcsázás & VLAN** | Támogatott (beépített kliens) | Átengedi a csomagokat érintetlenül |
 | **DHCP & DNS kiszolgálás** | Igen (`dnsmasq` integráció) | Nincs (a meglévő router oszt IP-t) |
-| **Láthatóság a hálózaton** | Routerként látható | Teljesen láthatatlan (Layer 2 bridge) |
+| **Láthatóság a hálózaton** | Routerként látható | Layer 2 híd, de a doboz saját IP-címet kér a méréshez |
 | **Üzemszünet-kockázat** | Ha leáll, nincs net | Szoftveres hiba esetén szoftverhíd, bypass hardverrel átenged |
 
 ---
@@ -158,10 +157,10 @@ A NetworkMeasureBox rugalmas hálózati architektúrával rendelkezik, amely ké
 ### 1. Interfész Szerepkör Mátrix (Port Role Matrix)
 A WebGUI **Beállítások ➔ 🔀 Portok és Illesztőprogramok** menüpontjában egy interaktív mátrix jelenik meg, ahol a felhasználó közvetlenül kioszthatja a portok szerepköreit:
 * **🌐 WAN 1 (Elsődleges Internet)**: A fő internetkapcsolat (DHCP, PPPoE vagy Statikus IP).
-* **🌐 WAN 2 (Másodlagos Internet)**: Tartalék (Failover) vagy Kettős aktív terheléselosztású (Load Balancing) kapcsolat. Külön állítható DHCP vagy statikus IP paraméterekkel.
+* **🌐 WAN 2 (Másodlagos Internet)**: Tartalék (Failover) vagy terheléselosztás többutas alapútvonallal, külön DHCP vagy statikus beállítással. Valódi vonalon nincs tesztelve.
 * **🏠 LAN (br-lan Híd)**: Bármennyi fizikai Ethernet port kijelölhető belső hálózatként. Az NMB automatikusan létrehozza a Linux hálózati hidat (`br-lan`), hozzáadja a kiválasztott portokat, és a hídra köti a DHCP kiszolgálót (`192.168.100.1/24`) és a NAT masquerade-et.
 * **📶 Vendég Wi-Fi Kliens**: Dedikált Wi-Fi interfész a fő router vendéghálózatának ellenőrzésére.
-* **🛡️ DMZ (Izolált port)**: Külön alhálózat izolált eszközök számára.
+* **🛡️ DMZ**: Mode A-ban a DMZ-port saját alhálózatot (`192.168.200.0/24`) és DHCP-t kap. Az eszközei elérik az internetet, a LAN-t viszont nem, a dobozt pedig csak DHCP-re és DNS-re.
 * **⚪ Nincs kiosztva / Inaktív**: Szabadon hagyott portok.
 
 ### 2. Hardveres Illesztőprogram- és Firmware-Kezelés
@@ -205,7 +204,7 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 
 ### 6. Net-Neutrality Portfojtás-Ellenőrző (Traffic Shaping Checker)
 * Ellenőrzi, hogy a szolgáltató mesterségesen fojtja-e a sávszélességet vagy blokkol-e bizonyos típusú forgalmat.
-* Párhuzamosan teszteli a HTTP (80), HTTPS (443), Alt-HTTP (8080), SSH (22), BitTorrent és VoIP portokat.
+* TCP-átvitelt hasonlít össze gyakori portokon (alapból 80, 443, 8080, 8443, 53, SSH 22, SIP 5060 és BitTorrent 6881) egy 443-as alapértékkel.
 
 ### 7. Traffic Gate (Forgalmi Kapu)
 * Az automatikus mérések előtt az NMB megvizsgálja a `/proc/net/dev` számlálóit.
@@ -236,10 +235,10 @@ A konfigurációban vagy a WebGUI-ban három profil választható:
 
 ```ini
 [system]
-memory_profile = auto   # auto, embedded, standard, performance
+memory_profile = auto   # auto, low, standard, performance
 ```
 
-1. **`embedded` profil (< 768 MB RAM, kifejezetten 512 MB routerekre)**:
+1. **`low` profil (< 768 MB RAM, 512 MB-on nincs tesztelve)**:
    * **SQLite memória korlát**: A forró adatbázis mérete RAM-ban szigorúan 48 MB-ra van korlátozva. A legrégebbi ping rekordok automatikusan ritkításra kerülnek.
    * **SQLite cache és mmap**: `cache_size = -2000` (2 MB cache), `mmap_size = 2097152` (2 MB mmap).
    * **TCP socket pufferek**: Csökkentett 8 MB-os pufferhatár a socket memóriaterhelés megelőzésére.
@@ -267,7 +266,7 @@ A legtöbb Raspberry Pi és beágyazott SBC a microSD kártya tönkremenetele mi
 1. **Élő adatbázis a RAM-ban**: A folyamatos ping- és sebességadatok a `/var/lib/nmb/live/` tmpfs RAM partícióra íródnak SQLite WAL (Write-Ahead Logging) módban. Zéró írási terhelés éri az SD kártyát másodpercenként.
 2. **Atomi pillanatkép mentés (`nmb-snapshot`)**: Az SQLite Online Backup API segítségével 15 percenként egyetlen konzisztens, szekvenciális írással menti el az állapotot a fizikai SD kártyára (`/var/lib/nmb/persist/nmb.db`), valamint a rendszer szabályos leállításakor (`SIGTERM`).
 3. **ext4 fájlrendszer finomhangolás**: `noatime,commit=600` csatolási opciók (a kernel 10 percig késleltetheti a naplóbejegyzéseket).
-4. **Naplózás és Swap**: A swap kikapcsolásra kerül; a `systemd-journald` kizárólag illékony memóriába (`Storage=volatile`) naplóz, a `/var/log` és `/tmp` könyvtárak tmpfs-en futnak.
+4. **Naplózás**: A `/var/log`, a `/var/tmp` és a `/tmp` tmpfs-en fut, ezért a naplók újraindításkor elvesznek. A swapot az NMB nem kapcsolja ki.
 
 ---
 
@@ -293,12 +292,12 @@ A beépített webes felület a **szabványos 80-as HTTP router porton** érhető
     * LAN beállítások (Gateway IP, DHCP tartomány, bérleti idő).
     * Wi-Fi 6/6E/7 beállítások (SSID, jelszó, 2.4/5/6 GHz, csatornaszélesség, WPA2/WPA3).
     * **🔀 Portok és Illesztőprogramok**: Multi-NIC szerepkör mátrix, WAN2 failover/loadbalance, LAN bridge (`br-lan`), hardveres driver detektálás és egykattintásos telepítés.
-    * Működési mód (Mode A / Mode B / Auto-Failover).
-    * Memóriaprofilok (`embedded` 512MB, `standard`, `performance`) és RAM karbantartás.
+    * Működési mód (Mode A / Mode B / automatikus).
+    * Memóriaprofilok (`low`, `standard`, `performance`) és RAM karbantartás.
     * Adminisztrátori hitelesítés és jelszókezelés.
 14. **Kijelentkezés (Logout)**: Biztonsági kijelentkezés a böngésző hitelesítési gyorsítótárának törlésével.
 
-### 5 Támogatott Nyelv (100%-os Kulcsparitással)
+### 5 Támogatott Nyelv (néhány kifejezés angolul marad)
 A felület jobb felső sarkában egyetlen kattintással váltható a nyelv. Az összes felirat, magyarázat és mérési státusz teljesen le van fordítva:
 * 🇭🇺 **Magyar (HU)**
 * 🇬🇧 **Angol (EN)**
@@ -330,7 +329,7 @@ A távoli elérés elengedhetetlen, ha a mérődoboz telephelyen, nyaralóban va
 ### 1. PiVPN Gyors Kliensgenerátor (WireGuard & OpenVPN Hub)
 * **Kétprotokollos VPN Szerver**:
   * **WireGuard** (UDP 51820): Korszerű, alacsony késleltetésű, akkumulátorkímélő protokoll modern mobilokhoz és laptopokhoz.
-  * **OpenVPN Elliptic Curve** (UDP 1194): Elliptikus görbén alapuló (`prime256v1` / Curve25519) titkosítású biztonsági csatorna.
+  * **OpenVPN Elliptic Curve** (UDP 1194): Elliptikus görbén alapuló (`prime256v1`) titkosítású biztonsági csatorna.
 * **Dual-Stack IPv4 & IPv6 Alagutak**: Teljes IPv4 alhálózatok (`10.8.0.0/24`, `10.9.0.0/24`) és közvetlen IPv6 ULA tartományok (`fd42:42:42::/64`, `fd42:42:43::/64`) kiosztása.
 * **1-Kattintásos Kliens Párosítás**: Adja meg a kliens nevét $\to$ az NMB azonnal legenerálja a konfigurációs fájlt és a közvetlenül leolvasható QR kódot a WebGUI-ban és a Telegramon!
 * **Kliens Leltár és Menedzsment**: Valós idejű táblázat a csatlakoztatott kliensek IP címével, legutóbbi kézfogásával, adatforgalmával (RX/TX) és azonnali visszavonási kapcsolóval.
@@ -360,19 +359,19 @@ A távoli elérés elengedhetetlen, ha a mérődoboz telephelyen, nyaralóban va
 
 ## 12. Haladó Törvényszéki Diagnosztika és Kiváltó Ok Elemzés
 
-* **Wi-Fi RF & PHY Telemetria (`nl80211`)**:
+* **Wi-Fi RF & PHY Telemetria (`iw` segítségével)**:
   * Valós idejű jelerősség pontos dBm-ben (pl. `-52 dBm`) és zajszint (Noise floor).
   * RX/TX PHY elméleti bitráták, MCS modulációs index, csatornaszélesség (20/40/80/160 MHz) és hardveres újraküldési hiba-számlálók (`tx_retries`, `tx_failed`).
-* **DNS Hijacking & Összehasonlító Feloldó Mátrix**:
+* **DNS-eltérítés teszt és összehasonlító feloldó mátrix**: olyan címre küld DNS-kérést, ahol nincs szerver; ha válasz jön, valami eltéríti a 53-as portot.
   * Párhuzamosan ellenőriz 4 független DNS szervert: Helyi átjáró/DHCP, Cloudflare (`1.1.1.1`), Google (`8.8.8.8`), Quad9 (`9.9.9.9`).
   * Ellenőrzi a DNSSEC hitelesítést (`ad` Authenticated Data bit) és a gyorsítótárazott vs natív válaszidőket.
   * Detektálja, ha a szolgáltató észrevétlenül átirányítja (hijackeli) az 53-as UDP portot.
 * **RFC 5389 STUN Kliens & CGNAT Elemzés**:
+    * **NAT-leképezés**: végponttól független (két STUN-szerver felé ugyanaz a nyilvános port) vagy szimmetrikus. A full cone és a restricted típust nem különbözteti meg.
   * Automatikusan kategorizálja a felső hálózati réteget:
     * **Valódi Publikus IP**: A helyi WAN IP megegyezik a külső reflexív STUN IP-vel.
     * **Szolgáltatói CGNAT**: A WAN IP a dedikált RFC 6598 tartományba esik (`100.64.0.0/10`).
     * **Dupla NAT**: A WAN IP RFC 1918 szerinti belső cím (`192.168.x.x` vagy `10.x.x.x`).
-    * **NAT Viselkedés**: Full Cone, Restricted, Port-Restricted vagy Symmetric NAT azonosítás.
 * **CPU Megszakítás (IRQ/SoftIRQ) & Hálózati Offload Vizsgálat**:
   * Méri a magonkénti megszakítási és SoftIRQ terhelést a CPU0 szűk keresztmetszetek kiszűrésére (a Gigabit sebesség klasszikus akadálya Raspberry Pi-n és MIPS routereken).
   * RPS/XPS elosztási maszkok (`/sys/class/net/<iface>/queues/rx-*/rps_cpus`) és hálózati kártya gyorsítások (checksum offload, TSO, GRO) auditálása.
@@ -391,9 +390,9 @@ A távoli elérés elengedhetetlen, ha a mérődoboz telephelyen, nyaralóban va
 
 A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böngésző nélkül, mobilról is teljes körűen irányítható:
 * **Interaktív Érintőmenük (Inline Keyboards)**: Gombnyomással elérhető állapotfelmérés, sebességmérés, SLA dosszié és VPN QR lekérés.
-* **100%-os Többnyelvűség**: Váltható **Magyar (HU)**, **Angol (EN)**, **Német (DE)**, **Francia (FR)** és **Ukrán (UK)** nyelvek között hiba és nyelvkeveredés nélkül.
+* **Többnyelvűség**: Váltható **magyar**, **angol**, **német**, **francia** és **ukrán** nyelv között.
 * **Azonnali SLA Dosszié Küldés**: A friss `.html` dosszié közvetlenül megérkezik a Telegram csevegésbe, így azonnal továbbítható a technikusnak.
-* **Proaktív Riasztások**: Azonnali push értesítés szakadás, >5% csomagvesztés vagy magas jitter esetén.
+* **Proaktív Riasztások**: Értesítés szakadásról, és ha a csomagvesztés, a késleltetés vagy a jitter 5 percen át a küszöb felett marad.
 
 ---
 
@@ -423,7 +422,7 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 ## 16. Önjavító Watchdog és Biztonsági Visszaállás (`nmb-heal`)
 
 * Autonóm háttérbeli audit: ellenőrzi a binárisok épségét, az adatbázist, a jogosultságokat és az internetkapcsolatot.
-* **Automatikus Biztonsági Visszaállás**: Ha egy frissítés hibás vagy a tesztek elhasalnak, a watchdog automatikusan visszaállítja a korábbi működő állapotot.
+* **Frissítés visszaállítása**: Csak Git-es példányon: sikertelen ellenőrzésnél visszaáll az előző commitra. A szabványos `/opt/nmb` telepítés nem tartalmaz Git-adatot, így ott nem frissíti magát.
 
 ---
 
@@ -524,11 +523,11 @@ Ha beállította az `nmb-telegram` szolgáltatást, a dobozt közvetlenül a Tel
 ## 20. Telepítés és Beüzemelés (Quickstart)
 
 ### Hardverkövetelmények
-* **Minimális**: Bármilyen 64-bites vagy 32-bites Linux hardver legalább **512 MB RAM-mal** és 1 Ethernet interfésszel (Mode B méréshez vagy router mögötti teszthez).
+* **Kipróbált**: Raspberry Pi 4 (Debian 13). A kevesebb memóriájú vagy 32 bites hardver nincs tesztelve.
 * **Ajánlott (Teljes Router Módhoz)**: Raspberry Pi 4 / 5, vagy x86-64 mini PC (pl. Intel N100) legalább **2 fizikai Ethernet porttal** (1x WAN, 1x LAN) és Wi-Fi csatolóval.
 
 ### Automatikus Telepítés
-Egy frissen telepített Debian, Ubuntu, Raspberry Pi OS vagy Alpine Linux rendszeren futtassa a felügyelet nélküli telepítőt:
+Futtassa a telepítőt. Debian 13-on tesztelt (lásd: Tesztelési Állapot), az Ubuntu, a Raspberry Pi OS változatai és az Alpine kódútja létezik, de nincs igazolva:
 
 ```bash
 # Klónozza a tárolót
@@ -560,6 +559,27 @@ http://<az-eszköz-ip-címe>/
 
 ## Licenc
 A projekt az **MIT Licenc** alatt érhető el — szabadon használható, módosítható és beépíthető mind magáncélú, mind kereskedelmi környezetben.
+
+---
+
+## Tesztelési Állapot
+
+Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz:
+
+| Terület | Állapot |
+|---|---|
+| Raspberry Pi 4, Debian 13, `standalone` mód | Napi használatban |
+| Tiszta telepítés Debian 13 x86-64-en | Virtuális gépen tesztelve |
+| `mode_a` router és `mode_b` híd | Virtuális gépeken tesztelve, DHCP-vel, NAT-tal, DMZ-izolációval és kliensforgalommal. Raspberry Pi hardveren nem |
+| Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. Valódi Wi-Fi hardveren nem |
+| Wi-Fi 7, 6 GHz, 160/320 MHz | Nincs igazolva. A Debian 13 hostapd-ja elutasította a Wi-Fi 7 beállításokat, ezért az NMB régebbi szabványra lép vissza |
+| PPPoE | Tárcsázás és vonalszakadás utáni újratárcsázás szimulált szolgáltatóval tesztelve. Valódi vonalon nem |
+| VLAN, Multi-WAN terheléselosztás, link aggregáció | A kód megvan, valódi vonalon nincs tesztelve |
+| Ubuntu, Alpine és más disztribúciók, 32 bites rendszerek | Nincs tesztelve |
+| 512 MB RAM-os eszközök | Nincs tesztelve, a memóriaprofilok csak Raspberry Pi 4-en futottak |
+| Telegram, SMTP, Tailscale, DynDNS, VPN valódi kliensekkel | A fejlesztő eszközén használva, vagy automata teszt nem fedi |
+
+Az NMB személyes projekt, nem hitelesített mérőeszköz. Az eredményei alátámaszthatnak egy panaszt, de nem helyettesítik a hatóság vagy a szolgáltató saját mérését.
 
 ---
 

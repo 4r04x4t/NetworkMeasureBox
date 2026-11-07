@@ -268,6 +268,7 @@ token =
 allowed_chat_ids = 
 alert_loss_threshold_pct = 5.0
 alert_latency_threshold_ms = 100.0
+alert_jitter_threshold_ms = 30.0
 
 [guest_wifi]
 enabled = false
@@ -471,6 +472,7 @@ class TelegramConfig:
     allowed_chat_ids: List[int] = field(default_factory=list)
     alert_loss_threshold_pct: float = 5.0
     alert_latency_threshold_ms: float = 100.0
+    alert_jitter_threshold_ms: float = 30.0
     alert_on_loss: bool = True
     alert_on_latency: bool = True
 
@@ -861,6 +863,7 @@ def load_config(path: Path | None = None) -> Config:
                 pass
         cfg.telegram.alert_loss_threshold_pct = tg.getfloat("alert_loss_threshold_pct", fallback=cfg.telegram.alert_loss_threshold_pct)
         cfg.telegram.alert_latency_threshold_ms = tg.getfloat("alert_latency_threshold_ms", fallback=cfg.telegram.alert_latency_threshold_ms)
+        cfg.telegram.alert_jitter_threshold_ms = tg.getfloat("alert_jitter_threshold_ms", fallback=cfg.telegram.alert_jitter_threshold_ms)
         cfg.telegram.alert_on_loss = tg.getboolean("alert_on_loss", fallback=cfg.telegram.alert_on_loss)
         cfg.telegram.alert_on_latency = tg.getboolean("alert_on_latency", fallback=cfg.telegram.alert_on_latency)
 
@@ -1109,6 +1112,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["telegram"]["allowed_chat_ids"] = ",".join(str(c) for c in cfg.telegram.allowed_chat_ids)
     parser["telegram"]["alert_loss_threshold_pct"] = str(cfg.telegram.alert_loss_threshold_pct)
     parser["telegram"]["alert_latency_threshold_ms"] = str(cfg.telegram.alert_latency_threshold_ms)
+    parser["telegram"]["alert_jitter_threshold_ms"] = str(cfg.telegram.alert_jitter_threshold_ms)
     parser["telegram"]["alert_on_loss"] = str(cfg.telegram.alert_on_loss).lower()
     parser["telegram"]["alert_on_latency"] = str(cfg.telegram.alert_on_latency).lower()
 

@@ -1,12 +1,11 @@
 # NetworkMeasureBox (NMB)
 
-**Production-grade, autonomous network quality measurement, SLA verification, ISP fault escalation appliance, and high-performance intelligent Linux router.**
+**Autonomous network quality measurement and SLA reporting software for Linux, with optional router and bridge modes. Developed and run on the Raspberry Pi 4.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Linux](https://img.shields.io/badge/Developed%20on-Raspberry%20Pi%204-green.svg)](https://kernel.org)
 [![Python: 3.9+](https://img.shields.io/badge/Python-3.9%2B%20%28Zero%20External%20Pip%20Deps%29-yellow.svg)](https://python.org)
 [![VPN: WireGuard & Tailscale](https://img.shields.io/badge/VPN-WireGuard%20%7C%20OpenVPN%20%7C%20Tailscale-blueviolet.svg)](#8-universal-remote-access-vpn-hub--tailscale-mesh)
-[![Hardware: 512MB+ RAM](https://img.shields.io/badge/RAM-512MB%20to%2064GB-purple.svg)](#embedded--low-memory-optimization-512-mb-ram-support)
 [![Router ports: planned](https://img.shields.io/badge/Router%20Ports-Planned%2C%20not%20implemented-lightgrey.svg)](#15-100-de-pythonization-architecture--commercial-router-porting)
 [![Languages: EN HU DE UK FR](https://img.shields.io/badge/Languages-EN%20%7C%20HU%20%7C%20DE%20%7C%20UK%20%7C%20FR-orange.svg)](#responsive-webgui--rest-api)
 
@@ -16,11 +15,11 @@
 
 ## What is NetworkMeasureBox?
 
-**NetworkMeasureBox (NMB)** is an autonomous, 24/7 network intelligence appliance engineered to settle disputes between broadband consumers/enterprises and Internet Service Providers (ISPs).
+**NetworkMeasureBox (NMB)** runs 24/7 and records your connection quality, to give you evidence when you dispute a problem with your Internet Service Provider (ISP).
 
 When internet connections experience micro-outages, packet drops, severe evening speed degradations, or bufferbloat, ISP support typically responds with: *"Everything looks good on our end; the issue must be your internal home network or Wi-Fi."*
 
-NMB eliminates this finger-pointing by placing an independent measurement system directly at your network perimeter. It operates either as your **primary high-performance router (Mode A)** or as an **invisible, passive inline bridge (Mode B)** between your modem/ONT and existing router. It continuously gathers forensic telemetry, computes RFC 3550 jitter, verifies net-neutrality throttling, and generates legal-grade HTML dossiers with embedded vector SVGs to prove contractual SLA breaches directly to ISP support or your telecommunications regulator.
+NMB records independent measurements at your network edge. It can run behind your router (`standalone`), as a router (Mode A), or as a transparent bridge between modem and router (Mode B), and it keeps latency, jitter, packet loss, outage and speed data for reports. Only traffic passing through the box is visible to it, so where you connect it affects what it can measure.
 
 ---
 
@@ -33,7 +32,7 @@ NMB eliminates this finger-pointing by placing an independent measurement system
                                                            │
                                                            ▼
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ NetworkMeasureBox Appliance (SBC, x86 Mini PC, 512MB Router)                                                     │
+│ NetworkMeasureBox on a Raspberry Pi 4 or Linux PC                                                               │
 │                                                                                                                  │
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Dual-Mode Network Daemon (nmb-netd)          │          │ High-Frequency Probe Engine (nmb-probe)          │  │
@@ -46,8 +45,8 @@ NMB eliminates this finger-pointing by placing an independent measurement system
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Traffic-Gated Measurement Engine (nmb-speed) │          │ Data Analytics & Report Generator (nmb-report)   │  │
 │  │ • /proc/net/dev idle gate (2% of capacity)    │          │ • Standalone HTML dossier with embedded SVGs     │  │
-│  │ • 5 Engines: Ookla, Cloudflare, RTR, iPerf,FW│          │ • Raw RFC 4180 CSV telemetry exporter            │  │
-│  │ • Net-neutrality TCP/UDP port throttle check │          │ • Automated SMTP dispatch for ISP fault tickets  │  │
+│  │ • Engines: Ookla, Cloudflare, RTR, iPerf3    │          │ • Raw RFC 4180 CSV telemetry exporter            │  │
+│  │ • TCP port throttling check                  │          │ • Automated SMTP dispatch for ISP fault tickets  │  │
 │  └──────────────────────┬───────────────────────┘          └────────────────────────┬─────────────────────────┘  │
 │                         │                                                           │                            │
 │                         ▼                                                           ▼                            │
@@ -61,7 +60,7 @@ NMB eliminates this finger-pointing by placing an independent measurement system
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Telegram Management Bot (nmb-telegram)       │          │ Embedded Web Management UI & API (nmb-web)       │  │
 │  │ • /status, /ping, /test, /report, /mode      │          │ • Standard router Port 80 dashboard (dev 8080)   │  │
-│  │ • Proactive push alerts (outages & loss >5%) │          │ • 14+ subtabs, 5 languages (100% parity), Logout │  │
+│  │ • Proactive push alerts (outages & loss >5%) │          │ • Tabs and subtabs in 5 languages, Logout        │  │
 │  └──────────────────────────────────────────────┘          └──────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
                                                            │
@@ -77,20 +76,20 @@ NMB eliminates this finger-pointing by placing an independent measurement system
 
 ### 1. Dual Operating Modes
 * **Mode A (Active Gateway / Router)**:
-  * Full router replacement with PPPoE client (including 802.1Q VLAN tagging), dynamic DHCP or static IP WAN.
+  * Router with DHCP or static IP WAN. A PPPoE client (with 802.1Q VLAN tagging) redials after a dropped line; it is tested against a simulated ISP only.
   * Local gateway services: `dnsmasq` DHCP server, DNS caching, and iptables/nftables NAT masquerading.
-  * Integrated Wi-Fi Access Point (`hostapd`) supporting IEEE 802.11 b/g/n/ac/ax/be across 2.4 GHz, 5 GHz, and 6 GHz bands.
+  * Wi-Fi access point (`hostapd`) on the LAN bridge. It adapts to the radio and steps down if `hostapd` rejects a setting. See Tested Status.
 * **Mode B (Passive Transparent Inline Bridge)**:
-  * Inserts invisibly between an existing modem/ONT and router without taking an IP address on the customer subnet.
-  * Operates as a stealth Layer 2 bridge (`br0`) to audit line telemetry with zero interference.
-* **Auto-Failover**: Automatically detects carrier loss and can switch operational states.
+  * Bridges an existing modem/ONT and router at Layer 2. The box itself requests an IP address through DHCP so it can measure, so the upstream connection must offer it one.
+  * Measures on the bridge (`br0`). If the box stops, the connection stops too. PPPoE or single-address connections are not handled yet.
+* **WAN failover**: With WAN2 configured, Mode A moves the default route to WAN2 after failed connectivity checks.
 
 ### 2. Multi-NIC, Multi-WAN & Multi-LAN Architecture
 * **Port Role Assignment Matrix**: Interactive WebGUI matrix mapping physical network cards (PCIe, USB, onboard) to:
   * **WAN 1 (Primary)**: Main uplink.
-  * **WAN 2 (Secondary)**: Failover backup or active-active load-balancing uplink with independent DHCP/static settings.
+  * **WAN 2 (Secondary)**: Failover backup, or load balancing through a multipath default route, with independent DHCP/static settings. Not tested on real lines.
   * **LAN (br-lan Bridge)**: Any number of physical Ethernet ports automatically grouped into unified Linux network bridge `br-lan` (`192.168.100.1/24`).
-  * **DMZ**: Isolated physical port.
+  * **DMZ**: In Mode A, the DMZ port gets its own subnet (`192.168.200.0/24`) with DHCP. Its devices reach the internet, but not the LAN, and the box only for DHCP and DNS.
   * **Guest Wi-Fi Client Probe**: Dedicated wireless card for client probe testing.
 * **LAN Passthrough & Link Aggregation** (standalone probe behind a router, WebGUI: Ports & Drivers):
   * **Passthrough**: selected ports are bridged to the uplink at Layer 2, so devices behind the box stay on the router's subnet.
@@ -104,12 +103,12 @@ NMB eliminates this finger-pointing by placing an independent measurement system
 * Built-in one-click package installer via `nmb-helper install-drivers`, tested on Raspberry Pi OS (`apt`); code paths for `opkg`, `apk`, `pacman` and `dnf` exist but are untested, with real-time WebGUI terminal logging.
 
 ### 4. Measurement Engines & Checks
-1. **High-Frequency ICMP Probe (`nmb-probe`)**: 500ms continuous sampling to 4 independent reference targets (ISP Gateway, Cloudflare `1.1.1.1`, Google `8.8.8.8`, Quad9 `9.9.9.9`), RFC 3550 jitter calculation, p95/p99 latency tracking, and exact outage duration logging.
+1. **High-Frequency ICMP Probe (`nmb-probe`)**: 500ms continuous sampling to the gateway and public targets (by default `1.1.1.1`, `8.8.8.8`, `9.9.9.9`, `185.222.222.222`), RFC 3550 jitter calculation, p95/p99 latency tracking, and exact outage duration logging.
 2. **Ookla Speedtest CLI**: Official Ookla binary runner with automatic server detection or custom server targeting.
 3. **Cloudflare Speed Engine**: Timed 4-stream download and upload against the Cloudflare edge (about 1.2 GB per run at gigabit speed).
 4. **RTR-Netztest (RMBT)**: Open-source benchmark from the Austrian regulator RTR.
 5. **iPerf3 Client & Managed Server**: Local LAN and public WAN throughput benchmarking across TCP and UDP with parallel threads.
-6. **Net-Neutrality Port Throttle Checker**: Audits whether the ISP throttles specific ports (HTTP 80, HTTPS 443, Alt-HTTP 8080, SSH 22, BitTorrent, VoIP).
+6. **Port Throttling Check**: Compares TCP throughput on common ports (80, 443, 8080, 8443, 53, SSH 22, SIP 5060 and BitTorrent 6881 by default) against a port 443 baseline. It can show a difference, but cannot prove the ISP caused it.
 7. **Traffic Gate**: Monitors `/proc/net/dev` and postpones a test if the box sees traffic above the threshold (2% of capacity by default). In plain `standalone` mode the box only sees its own traffic, so other devices do not count; other traffic only reaches its counters when it passes through the box.
 8. **Stop on Network Traffic (experimental, off by default)**: Enabled with `experimental_stop = true` under `[traffic_gate]` or the Web UI switch. Scheduled tests then need a limit of at most 500 kbps, retry every 5 minutes after a deferral, and stop without saving partial results if other traffic appears. Ping keeps running and manual tests are not stopped. A voice call fits under the limit; video and torrents do not. The box reads other devices' traffic from client-side ports (bridge, gateway, or its own access point) or the router's UPnP counters. If neither is available, no scheduled speed tests run. For a full view, wire the box as a bridge between the ISP endpoint and the router, which needs two Ethernet ports (on a Raspberry Pi 4, a USB 3 gigabit adapter as the second). This has not yet been tried on a real bridge.
 9. **OONI Probe (optional, off by default)**: Weekly censorship and net-neutrality run, enabled in the Web UI or with `enabled = true` under `[ooni]`. It does not use the Traffic Gate.
@@ -118,20 +117,20 @@ NMB eliminates this finger-pointing by placing an independent measurement system
 
 ### 5. Embedded & Low-Memory Optimization (512 MB RAM Support)
 Memory-saving profiles for constrained Linux systems. These have only been run on the Raspberry Pi 4, not on routers:
-* **`embedded` profile**: Restricts hot SQLite RAM DB to 48 MB, trims SQLite cache to 2 MB, limits TCP buffers to 8 MB.
+* **`low` profile**: Restricts hot SQLite RAM DB to 48 MB, trims SQLite cache to 2 MB, limits TCP buffers to 8 MB.
 * **Native Heap Reclaim**: Proactively invokes `libc.malloc_trim(0)` and Python garbage collection to immediately release unmapped heap memory back to the Linux kernel.
 * **`standard` (1-2GB) & `performance` (4GB+) profiles**: Scalable buffer tuning for multi-gigabit workloads.
 
 ### 6. Storage Protection & microSD Longevity
-* **Hot RAM Database**: Live telemetry runs in tmpfs (`/var/lib/nmb/live/`) using SQLite Write-Ahead Logging (WAL). Zero constant disk writes to flash memory.
+* **Hot RAM Database**: Live telemetry runs in tmpfs (`/var/lib/nmb/live/`) using SQLite Write-Ahead Logging (WAL). This keeps most writes away from flash.
 * **Atomic Snapshots**: The SQLite Online Backup API copies a consistent snapshot to persistent flash storage (`/var/lib/nmb/persist/nmb.db`) every 15 minutes and upon system shutdown.
-* **Filesystem Optimizations**: ext4 mounted with `noatime,commit=600`, swap disabled, journald set to `Storage=volatile`.
+* **Filesystem Optimizations**: ext4 with `noatime,commit=600`, and `/tmp`, `/var/tmp` and `/var/log` in RAM, so logs are lost on restart.
 
 ### 7. Responsive WebGUI & REST API
 * Modern dark-themed router dashboard on **standard HTTP port 80** (with automatic unprivileged fallback to port 8080 for development).
 * **Mobile-First Ergonomics**: Sub-navigation bars (`.router-subnav`, `.remote-subnav`, `.adblock-subnav`) are styled as resilient horizontal swipe ribbons (`flex: 0 0 auto`, `nowrap`) with container-relative `scrollTo`, eliminating vertical pill squeezing and letter-wrapping on small smartphone screens (360px–420px).
 * Live inline SVG graphs, historical speed records, network device explorer (ARP sweep & MAC vendor lookup), real-time syslog inspector, and one-click diagnostic LLM bundle generation.
-* **100% Internationalization (i18n)**: Fully translated into 5 languages with complete key parity:
+* **Translations**: The Web UI has the same text keys in 5 languages, but some terms stay in English. Action names in `nmb-cli` are English:
   * 🇬🇧 English (EN)
   * 🇭🇺 Hungarian (HU)
   * 🇩🇪 German (DE)
@@ -141,7 +140,7 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 
 ### 8. Universal Remote Access, VPN Hub & Tailscale Mesh
 * **PiVPN 1-Click Client Generator**:
-  * Dual-Protocol VPN Server: **WireGuard** (UDP 51820, high-speed, battery efficient) and **OpenVPN** (UDP 1194, Elliptic Curve `prime256v1` / Curve25519).
+  * Dual-Protocol VPN Server: **WireGuard** (UDP 51820, high-speed, battery efficient) and **OpenVPN** (UDP 1194, Elliptic Curve `prime256v1`).
   * Dual-Stack Tunneling: Full IPv4 (`10.8.0.0/24`, `10.9.0.0/24`) and direct IPv6 ULA (`fd42:42:42::/64`, `fd42:42:43::/64`).
   * Instant Client Pairing: Enter client name $\to$ automatically generates configuration profile and interactive camera-scannable QR code directly on the WebUI and in Telegram!
   * Peer Management: Real-time connected peer roster with endpoint IPs, latest handshake, RX/TX transfer statistics, and revocation toggles.
@@ -160,28 +159,28 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 * **Custom Control & Live Audit**:
   * Real-time DNS query statistics: Total queries today, blocked queries, sinkhole percentage, and active Gravity domain count.
   * Custom domain blacklist, whitelist, and wildcard RegEx filtering (`/api/adblock/regex/add`).
-  * Live DNS query log inspection streaming directly in the WebUI.
+  * DNS query log inspection in the WebUI.
 
 ### 10. Advanced Forensic Diagnostics & Root-Cause Telemetry
-* **Wi-Fi RF & PHY Telemetry (`nl80211`)**:
-  * Real-time RSSI signal strength in exact dBm (e.g. `-52 dBm`) and Noise floor.
+* **Wi-Fi RF & PHY Telemetry (read through `iw`)**:
+  * RSSI signal strength in dBm, where the driver reports it.
   * RX/TX PHY bitrates, MCS (Modulation and Coding Scheme) index, channel width (20/40/80/160 MHz), and hardware retry/fail counters (`tx_retries`, `tx_failed`).
 * **DNS Hijacking & Comparative Resolver Matrix**:
   * Concurrently audits 4 independent resolver tiers: Local Gateway/DHCP, Cloudflare (`1.1.1.1`), Google (`8.8.8.8`), and Quad9 (`9.9.9.9`).
   * Verifies DNSSEC validation (`ad` Authenticated Data bit) and compares cached vs uncached response times.
-  * Tests for transparent ISP UDP port 53 interception/hijacking.
+  * Tests for DNS interception by asking an address where no DNS server exists; any answer means port 53 is intercepted.
 * **RFC 5389 STUN Client & Carrier-Grade NAT (CGNAT) Detection**:
   * Classifies upstream topology into:
     * **Direct Public IP**: Local WAN IP matches external STUN reflexive IP.
     * **Carrier-Grade NAT (ISP CGNAT)**: Upstream WAN IP falls within RFC 6598 (`100.64.0.0/10`).
     * **Double NAT**: Local WAN IP is an RFC 1918 private address (`192.168.x.x` or `10.x.x.x`).
-    * **NAT Mapping Reflexivity**: Classifies Full Cone, Restricted, Port-Restricted, or Symmetric NAT.
+    * **NAT mapping**: Endpoint-independent (same public port towards two STUN servers) or symmetric. Full cone and restricted types are not distinguished.
 * **CPU Interrupt (IRQ/SoftIRQ) & NIC Offload Telemetry**:
   * Tracks per-core interrupt and SoftIRQ distribution to catch CPU0 saturation bottlenecks (the classic Gigabit bottleneck on Raspberry Pi and MIPS routers).
   * Inspects Receive Packet Steering (RPS/XPS) bitmasks (`/sys/class/net/<iface>/queues/rx-*/rps_cpus`) and NIC hardware offloads (checksumming, TSO, GRO via `ethtool`).
 * **Micro-Outage & Loss Pattern Correlation**:
   * Continuously classifies dropped packets: isolates micro-burst jitter from catastrophic macro-outages ($\ge 5\text{s}$).
-  * Root-cause correlation: Automatically identifies whether an outage is local CPE/gateway failure or upstream ISP transit peering failure.
+  * Compares loss at the gateway and on public targets, to suggest whether a problem is local or further upstream. This is an indication, not proof.
 * **Storage I/O & Flash Filesystem Health**:
   * `%iowait` CPU tracking to detect failing or saturated microSD / flash storage.
   * Free filesystem capacity tracking.
@@ -192,9 +191,9 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 ### 11. Multilingual Telegram Chatbot with Interactive Touch Menus
 * Fully autonomous chatbot (`nmb-telegram`) providing mobile management without browser access:
   * **Interactive Touch Menus**: Inline keyboards for 1-click status audits, instant ping matrix, on-demand speed tests, and VPN QR generation.
-  * **100% Internationalization (i18n)**: Seamless switching between **English (EN)**, **Hungarian (HU)**, **German (DE)**, **French (FR)**, and **Ukrainian (UK)** with zero mixed-language leaks.
+  * **Languages**: Switches between **English**, **Hungarian**, **German**, **French** and **Ukrainian**.
   * **Instant SLA Dossier Delivery**: Sends complete `.html` reports directly into the chat for forwarding to ISP technicians.
-  * **Proactive Push Alerts**: Immediate alerts on link down, loss $>5\%$, high jitter, or service degradation.
+  * **Proactive Push Alerts**: Alerts on outages, and when packet loss, latency or jitter stays above its threshold for 5 minutes.
 
 ### 12. SLA Dossier & Pure SVG Charts
 * **Neutral International Branding**:
@@ -210,11 +209,11 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 * Direct `/proc` virtual filesystem reader replacing heavy `ps` process spawning.
 * Real-time process monitoring: PID, User, Priority, Nice, VIRT, RES, CPU%, MEM%, runtime, and command arguments.
 * Interactive filtering: System Services vs User Apps vs NMB Daemons.
-* In-line signal management: Send SIGTERM or SIGKILL to rogue processes directly from the WebUI.
+* In-line signal management: SIGTERM or SIGKILL from the WebUI, limited to processes the `nmb` user may signal.
 
 ### 14. Autonomous Self-Healing & Safety Rollback Watchdog (`nmb-heal`)
-* Automated background health audits verifying binary integrity, database health, permissions, and network connectivity.
-* **Automated Safety Rollback**: If a software update fails integrity checks or breaks critical services, the watchdog automatically reverts to the previous snapshot.
+* Automated background health audits of binaries, database, permissions and connectivity, with repairs.
+* **Update rollback**: Only for a Git checkout of the code: a failed update check resets to the previous commit. The standard install in `/opt/nmb` has no Git data, so there it does not update itself.
 
 ### 15. Planned De-Pythonization & Router Porting
 > **Status: planned only.** NMB is developed and run on the Raspberry Pi 4. No router software or firmware exists yet; the figures below are design targets, not measurements.
@@ -249,9 +248,30 @@ The plan for running NetworkMeasureBox on commercial routers with as little as *
 
 ---
 
+## Tested Status
+
+What has actually been run, so you can judge what to rely on:
+
+| Area | Status |
+|---|---|
+| Raspberry Pi 4, Debian 13, `standalone` mode | In daily use |
+| Clean install on Debian 13 x86-64 | Tested in a virtual machine |
+| `mode_a` router and `mode_b` bridge | Tested in virtual machines, with DHCP, NAT, DMZ isolation and client traffic. Not on Raspberry Pi hardware |
+| Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. Not on real Wi-Fi hardware |
+| Wi-Fi 7, 6 GHz, 160/320 MHz | Not verified. The hostapd in Debian 13 rejected the Wi-Fi 7 settings, so NMB steps down to an older standard |
+| PPPoE | Dial-in and redial after a dropped line tested against a simulated ISP. Not on a real line |
+| VLAN, multi-WAN load balancing, link aggregation | Code exists, not tested on a real line |
+| Ubuntu, Alpine and other distributions, 32-bit systems | Not tested |
+| Devices with 512 MB RAM | Not tested; memory profiles have only run on the Raspberry Pi 4 |
+| Telegram, SMTP, Tailscale, DynDNS, VPN with real clients | Used on the developer's box, or not covered by automated tests |
+
+NMB is a personal project, not a certified measuring instrument. Its results can support a complaint, but they do not replace a regulator's or ISP's own measurement.
+
+---
+
 ## Quickstart / Automated Installation
 
-Run the unattended one-line installer on a fresh Debian, Ubuntu, Raspberry Pi OS, or Alpine Linux system:
+Run the installer. It has been tested on Debian 13 (see Tested Status); Ubuntu, Raspberry Pi OS variants and Alpine have code paths but are not verified:
 
 ```bash
 git clone https://github.com/4r04x4t/NetworkMeasureBox.git
@@ -301,7 +321,7 @@ When `nmb-telegram` is configured, you can manage the entire appliance directly 
 |---|---|
 | `/menu` | Opens the main interactive Touch Menu (Inline Keyboards) |
 | `/status` | Real-time appliance status: uptime, WAN mode, public IP, ISP name, CPU/RAM load |
-| `/ping` | Instant latency, jitter, and packet loss matrix to 4 reference targets |
+| `/ping` | Instant latency, jitter, and packet loss matrix to the reference targets |
 | `/test [engine]` | Runs an on-demand speedtest (`ookla`, `cloudflare`, `rtr`, `iperf`) with bufferbloat rating |
 | `/report [window]` | Generates and sends the SLA Dossier (`.html`) directly into the chat |
 | `/ai` | Exports the sanitized Markdown diagnostic snapshot for external LLM analysis |

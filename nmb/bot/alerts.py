@@ -128,6 +128,30 @@ class AlertMonitor:
             self._broadcast("packet_loss_resolved", loss=loss_pct)
             self._set_alert_state(conn, "packet_loss", "resolved", f"Loss recovered {loss_pct:.1f}%")
 
+    def check_latency_and_jitter(self, conn: sqlite3.Connection) -> None:
+        """Alert when the 5-minute average latency or jitter stays above its threshold."""
+        now = int(time.time() * 1000)
+        row = conn.execute(
+            "SELECT AVG(rtt_avg), AVG(jitter_us), SUM(sent) FROM ping_minute WHERE ts >= ? AND rtt_avg IS NOT NULL",
+            (now - 300_000,),
+        ).fetchone()
+        if not row or not row[2] or row[2] < 20:
+            return
+        checks = (
+            ("latency", (row[0] or 0) / 1000.0, self.cfg.telegram.alert_latency_threshold_ms),
+            ("jitter", (row[1] or 0) / 1000.0, getattr(self.cfg.telegram, "alert_jitter_threshold_ms", 30.0)),
+        )
+        for name, value, threshold in checks:
+            if threshold <= 0:
+                continue
+            state = self._get_alert_state(conn, name)
+            if value >= threshold and state != "firing":
+                self._broadcast(f"{name}_firing", value=value, threshold=threshold, box_id=self.cfg.system.box_id)
+                self._set_alert_state(conn, name, "firing", f"{name} {value:.1f} ms")
+            elif value < threshold * 0.7 and state == "firing":
+                self._broadcast(f"{name}_resolved", value=value)
+                self._set_alert_state(conn, name, "resolved", f"{name} recovered {value:.1f} ms")
+
     # =========================================================================
     # 3. Core Daemon Health & Self-Healing
     # =========================================================================
@@ -235,6 +259,7 @@ class AlertMonitor:
             conn = db.connect()
             self.check_outages(conn)
             self.check_packet_loss(conn)
+            self.check_latency_and_jitter(conn)
             self.check_service_health(conn)
             self.check_system_resources(conn)
             self.check_wan_failover(conn)

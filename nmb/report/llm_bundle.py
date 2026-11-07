@@ -411,11 +411,14 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
     mapped_ip = None
     mapped_port = None
     stun_server_used = None
+    # One socket for both servers: if the mapped port changes per destination, the NAT is symmetric.
+    shared_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    ports_seen: List[int] = []
 
     for server, port in (("stun.cloudflare.com", 3478), ("stun.l.google.com", 19302)):
         sock = None
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock = shared_sock
             sock.settimeout(1.5)
             # STUN Binding Request (RFC 5389 / RFC 3489)
             tx_id = os.urandom(12)
@@ -436,6 +439,7 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
                             mapped_ip = socket.inet_ntoa(struct.pack("!I", xip ^ magic))
                             mapped_port = p_mapped
                             stun_server_used = server
+                            ports_seen.append(p_mapped)
                             break
                     elif attr_type == 0x0001 and len(attr_val) >= 8:  # MAPPED-ADDRESS
                         _, family, p_mapped = struct.unpack("!BBH", attr_val[:4])
@@ -445,16 +449,16 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
                             stun_server_used = server
                             break
                     idx += 4 + attr_len
-            if mapped_ip:
-                break
         except Exception:
             log.debug("suppressed exception", exc_info=True)
-        finally:
-            if sock:
-                try:
-                    sock.close()
-                except Exception:
-                    log.debug("suppressed exception", exc_info=True)
+    try:
+        shared_sock.close()
+    except OSError:
+        pass
+    if len(ports_seen) >= 2:
+        nat_mapping = "endpoint-independent" if ports_seen[0] == ports_seen[1] else "endpoint-dependent (symmetric)"
+    else:
+        nat_mapping = "unknown"
 
     def is_rfc1918(ip_s: Optional[str]) -> bool:
         if not ip_s or ip_s in ("*", "???"):
@@ -500,11 +504,30 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
     return {
         "mapped_ip": mapped_ip,
         "mapped_port": mapped_port,
+        "nat_mapping": nat_mapping,
         "stun_server": stun_server_used,
         "is_cgnat": is_cgnat,
         "is_double_nat": is_double_nat,
         "verdict": verdict,
     }
+
+
+def _detect_dns_interception(timeout: float = 1.5) -> Dict[str, Any]:
+    """Ask an address where no DNS server exists; any answer means something on the path intercepts port 53."""
+    query = b"\x4e\x4d\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07example\x03com\x00\x00\x01\x00\x01"
+    target = "192.0.2.53"  # TEST-NET-1 (RFC 5737): never a real server
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    try:
+        sock.sendto(query, (target, 53))
+        data, _ = sock.recvfrom(512)
+        return {"intercepted": len(data) >= 12, "target": target}
+    except (socket.timeout, TimeoutError):
+        return {"intercepted": False, "target": target}
+    except OSError as e:
+        return {"intercepted": None, "target": target, "error": str(e)}
+    finally:
+        sock.close()
 
 
 def _get_dns_telemetry_matrix(gateway_ip: str = "") -> List[Dict[str, Any]]:
@@ -1348,6 +1371,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         f"- **PPPoE Encapsulation Detected**: {'⚠️ YES (PPPoE 8-byte overhead confirmed)' if pmtu_info.get('is_pppoe') else 'No (Standard Ethernet / IPoE)'}",
         f"- **PMTU Diagnostic Analysis**: {pmtu_info.get('note')}",
         f"- **NAT Topology Verdict**: {nat_telemetry.get('verdict')}",
+f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same public port towards two STUN servers means endpoint-independent; a different port means symmetric NAT).",
         f"- **UDP STUN Probe (`{nat_telemetry.get('stun_server') or 'stun.cloudflare.com'}`)**: Mapped IP: `{nat_telemetry.get('mapped_ip') or 'N/A'}:{nat_telemetry.get('mapped_port') or 'N/A'}` (Matches Public Egress: `{'YES' if nat_telemetry.get('mapped_ip') == pub_ip_hdr else 'NO / Transformed'}`)",
         f"- **Carrier-Grade NAT (CGNAT RFC 6598)**: `{'⚠️ YES (Detected)' if nat_telemetry.get('is_cgnat') else 'No (Public IP Assigned)'}` | **Double NAT**: `{'⚠️ YES (Detected)' if nat_telemetry.get('is_double_nat') else 'No'}`",
         "",
@@ -1411,6 +1435,12 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
 
     supervisor_status_str = "true (Periodic isolation scans active)" if getattr(cfg.guest_wifi, "enabled", False) else "false (Periodic isolation daemon idle in nmb.conf)"
 
+    interception = _detect_dns_interception()
+    lines.append("- **DNS Interception Test** (query to `192.0.2.53`, where no server exists): " + (
+        "⚠️ an answer came back, so a device or the ISP intercepts DNS on port 53." if interception.get("intercepted")
+        else ("no answer, so plain DNS is not intercepted." if interception.get("intercepted") is False
+              else f"could not run ({interception.get('error')})."))
+    )
     lines.extend([
         "",
         "### 4.1 Standalone Guest Wi-Fi Client Probe (Isolation Sniffer)",

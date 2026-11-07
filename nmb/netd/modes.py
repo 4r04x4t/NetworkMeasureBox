@@ -182,12 +182,24 @@ class ModeA(NetworkMode):
             if not self.svc_mgr.start_hostapd(self.cfg.wlan_interface, bridge="br-lan"):
                 log.error("Wi-Fi access point failed to start on %s; wired LAN stays available", self.cfg.wlan_interface)
 
+        # 3b. DMZ port: its own subnet, isolated from the LAN by the firewall rules below
+        self.dmz_iface = ""
+        dmz = getattr(self.cfg, "dmz_interface", "")
+        if dmz and interfaces.interface_exists(dmz) and dmz not in lan_ports and dmz != self.cfg.wan_interface:
+            from nmb.netd.services import DMZ_GATEWAY
+            interfaces.flush_ip_addresses(dmz)
+            interfaces.set_link_up(dmz)
+            interfaces.add_ip_address(dmz, f"{DMZ_GATEWAY}/24")
+            self.dmz_iface = dmz
+        elif dmz:
+            log.warning("DMZ port %s is missing or also used as LAN or WAN; DMZ not set up", dmz)
+
         # 4. Start dnsmasq for LAN interfaces
-        if self.lan_ifaces:
-            self.svc_mgr.start_dnsmasq(self.lan_ifaces)
+        if self.lan_ifaces or self.dmz_iface:
+            self.svc_mgr.start_dnsmasq(self.lan_ifaces, dmz_iface=self.dmz_iface)
 
         # 5. Enable NAT and IPv4 forwarding
-        firewall.enable_nat_mode_a(self.active_wan, self.lan_ifaces)
+        firewall.enable_nat_mode_a(self.active_wan, self.lan_ifaces, dmz_iface=self.dmz_iface)
 
         # 6. Bring up Secondary WAN2 if configured
         wan2 = getattr(self.cfg, "wan2_interface", "")
@@ -201,6 +213,9 @@ class ModeA(NetworkMode):
         return True
 
     def teardown(self) -> bool:
+        if getattr(self, "dmz_iface", ""):
+            interfaces.flush_ip_addresses(self.dmz_iface)
+            self.dmz_iface = ""
         log.info("tearing down Mode A")
         firewall.disable_nat()
         self.svc_mgr.stop_all()

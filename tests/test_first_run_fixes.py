@@ -204,6 +204,43 @@ class LostConfigTest(unittest.TestCase):
         self.assertNotIn("NetworkMeasureBox123", default_only)
 
 
+class NewChecksTest(unittest.TestCase):
+    def test_dmz_rules_isolate_the_lan_and_the_box(self):
+        from unittest.mock import patch
+        from nmb.netd import firewall
+        with patch.object(firewall.shutil, "which", side_effect=lambda b: "/usr/sbin/nft" if b == "nft" else None), \
+             patch.object(firewall, "_set_sysctl_forward"), \
+             patch.object(firewall.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            firewall.enable_nat_mode_a("eth0", ["br-lan"], dmz_iface="eth2")
+        rules = run.call_args.kwargs["input"]
+        self.assertIn('iifname "eth2" oifname "eth0" accept', rules)
+        self.assertIn('iifname "eth2" drop', rules)
+        self.assertLess(rules.index('iifname "eth2" oifname "eth0" accept'), rules.index('iifname {"br-lan"}'))
+
+    def test_dns_interception_detection(self):
+        from unittest.mock import patch
+        from nmb.report import llm_bundle
+        with patch.object(llm_bundle.socket, "socket") as sock:
+            sock.return_value.recvfrom.side_effect = TimeoutError
+            self.assertFalse(llm_bundle._detect_dns_interception()["intercepted"])
+            sock.return_value.recvfrom.side_effect = None
+            sock.return_value.recvfrom.return_value = (b"x" * 40, ("192.0.2.53", 53))
+            self.assertTrue(llm_bundle._detect_dns_interception()["intercepted"])
+
+    def test_alert_texts_exist_in_all_languages(self):
+        from nmb.bot.i18n import ALERT_TEMPLATES
+        for lang in ("en", "hu", "de", "fr", "uk"):
+            for key in ("latency_firing", "latency_resolved", "jitter_firing", "jitter_resolved"):
+                self.assertIn(key, ALERT_TEMPLATES[lang])
+
+    def test_more_ports_are_checked(self):
+        from nmb.speed.port_checker import DEFAULT_PORTS, TEST_HOSTS
+        for port in (22, 5060, 6881):
+            self.assertIn(port, DEFAULT_PORTS)
+            self.assertIn(port, TEST_HOSTS)
+
+
 class OoklaChecksumTest(unittest.TestCase):
     def test_setup_and_engine_share_the_pinned_hashes(self):
         from nmb.speed.ookla import OOKLA_SHA256
