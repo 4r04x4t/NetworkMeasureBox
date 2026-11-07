@@ -130,6 +130,17 @@ def _json_on_error(handler):
     return wrapper
 
 
+def has_control_characters(value: Any) -> bool:
+    """Return True if a string anywhere in a JSON value contains a control character."""
+    if isinstance(value, str):
+        return any(ord(c) < 32 or ord(c) == 127 for c in value)
+    if isinstance(value, dict):
+        return any(has_control_characters(k) or has_control_characters(v) for k, v in value.items())
+    if isinstance(value, list):
+        return any(has_control_characters(v) for v in value)
+    return False
+
+
 class WebRequestHandler(BaseHTTPRequestHandler):
     server: NMBServer  # type hint
 
@@ -148,7 +159,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return True
 
         req_path = urlparse(self.path).path
-        if req_path in ("/logout", "/api/auth/logout", "/api/i18n"):
+        # Reading translations is public, but changing the language writes the config.
+        if req_path in ("/logout", "/api/auth/logout") or (req_path == "/api/i18n" and self.command == "GET"):
             return True
 
         client_ip = self.client_address[0] if hasattr(self, "client_address") else self.address_string()
@@ -1272,6 +1284,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             body_json = {}
         if not isinstance(body_json, dict):
             self._send_json({"status": "error", "message": "The request body must be a JSON object."}, status=400)
+            return
+        # Settings end up in hostapd, dnsmasq and VPN files, where a line break adds a new directive.
+        if path != "/api/terminal/exec" and has_control_characters(body_json):
+            self._send_json({"status": "error", "message": "Values must not contain control characters."}, status=400)
             return
 
         # 1. Trigger Speedtest (Asynchronous with state tracking)

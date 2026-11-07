@@ -743,7 +743,6 @@ def _repair_missing_binary(bin_name: str, tier: int) -> List[str]:
         src_dirs = [
             INSTALL_DIR / "components" / "open-rmbt",
             Path(__file__).resolve().parent.parent.parent / "components" / "open-rmbt",
-            Path("/tmp/nmb-install/components/open-rmbt"),
         ]
         src_dir = None
         for d in src_dirs:
@@ -999,7 +998,6 @@ def _find_repo_dir() -> Optional[Path]:
     candidates = [
         Path(__file__).resolve().parent.parent.parent,
         INSTALL_DIR,
-        Path("/tmp/nmb-install"),
     ]
     for c in candidates:
         if (c / ".git").exists():
@@ -1133,6 +1131,9 @@ def apply_stable_update(target_ref: Optional[str] = None) -> Dict[str, Any]:
             "version": backup.APP_VERSION,
         }
 
+    # A value starting with "-" would be read by git as an option.
+    if target_ref and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,127}", str(target_ref)):
+        return {"status": "error", "message": "Invalid update reference."}
     ref_to_apply = target_ref or check["target_ref"]
 
     # 2. Pre-Update Safety Checkpoint

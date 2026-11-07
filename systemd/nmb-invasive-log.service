@@ -12,5 +12,6 @@ Environment=PYTHONPATH=/opt/nmb:.
 Nice=15
 IOSchedulingClass=idle
 ExecStart=/opt/nmb/bin/nmb-invasive-log
-StandardOutput=journal
+# The snapshot goes to a file; printing it would copy thousands of lines into the journal.
+StandardOutput=null
 StandardError=journal

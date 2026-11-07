@@ -274,14 +274,11 @@ def find_or_install_ookla_binary() -> Optional[str]:
     if p and os.path.isfile(p) and os.access(p, os.X_OK):
         return p
 
-    # 2. Check standard install locations
+    # 2. Check standard install locations; root runs this binary, so only root-owned folders count
     candidates = [
         "/usr/local/bin/speedtest",
         "/usr/bin/speedtest",
         "/opt/nmb/bin/speedtest",
-        "/var/lib/nmb/bin/speedtest",
-        str(Path.home() / ".local" / "bin" / "speedtest"),
-        "/tmp/nmb-bin/speedtest",
     ]
     for c in candidates:
         if os.path.isfile(c) and os.access(c, os.X_OK):
@@ -309,9 +306,6 @@ def find_or_install_ookla_binary() -> Optional[str]:
     dest_dirs = [
         Path("/opt/nmb/bin"),
         Path("/usr/local/bin"),
-        Path("/var/lib/nmb/bin"),
-        Path.home() / ".local" / "bin",
-        Path("/tmp/nmb-bin"),
     ]
     target_dir: Optional[Path] = None
     for d in dest_dirs:

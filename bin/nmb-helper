@@ -3,6 +3,15 @@
 # Provides strictly parameterized, non-arbitrary root commands for nmb services.
 set -eu
 
+# wg-quick and OpenVPN run commands from these lines as root, and the files are written by the nmb user.
+reject_unsafe_vpn_config() {
+    if grep -Eiq '^[[:space:]]*(PreUp|PostUp|PreDown|PostDown)[[:space:]]*=' "$1" 2>/dev/null ||
+       grep -Eiq '^[[:space:]]*(up|down|script-security|plugin|client-connect|client-disconnect|learn-address|auth-user-pass-verify|tls-verify|ipchange|route-up|route-pre-down|iproute)([[:space:]]|$)' "$1" 2>/dev/null; then
+        echo "Refusing VPN config with command lines: $1" >&2
+        exit 1
+    fi
+}
+
 case "${1:-}" in
     upgrade)
         if command -v systemd-run >/dev/null 2>&1; then
@@ -32,6 +41,7 @@ case "${1:-}" in
             python3 -c "import sys; sys.path.insert(0, '/opt/nmb'); from nmb.netd.wireguard import generate_server_config, WG_CONF, _ensure_dir; _ensure_dir(); WG_CONF.write_text(generate_server_config())" 2>/dev/null || true
         fi
         if [ -f /var/lib/nmb/wireguard/wg0.conf ]; then
+            reject_unsafe_vpn_config /var/lib/nmb/wireguard/wg0.conf
             cp /var/lib/nmb/wireguard/wg0.conf /etc/wireguard/wg0.conf
             chmod 600 /etc/wireguard/wg0.conf
             chown root:root /etc/wireguard/wg0.conf
@@ -47,6 +57,7 @@ case "${1:-}" in
             python3 -c "import sys; sys.path.insert(0, '/opt/nmb'); from nmb.netd.wireguard import generate_server_config, WG_CONF, _ensure_dir; _ensure_dir(); WG_CONF.write_text(generate_server_config())" 2>/dev/null || true
         fi
         if [ -f /var/lib/nmb/wireguard/wg0.conf ]; then
+            reject_unsafe_vpn_config /var/lib/nmb/wireguard/wg0.conf
             cp /var/lib/nmb/wireguard/wg0.conf /etc/wireguard/wg0.conf
             chmod 600 /etc/wireguard/wg0.conf
             chown root:root /etc/wireguard/wg0.conf
@@ -68,6 +79,7 @@ case "${1:-}" in
             python3 -c "import sys; sys.path.insert(0, '/opt/nmb'); from nmb.netd.openvpn import init_pki, generate_server_config, OV_CONF, _ensure_dir; _ensure_dir(); init_pki(); OV_CONF.write_text(generate_server_config())" 2>/dev/null || true
         fi
         if [ -f /var/lib/nmb/openvpn/server.conf ]; then
+            reject_unsafe_vpn_config /var/lib/nmb/openvpn/server.conf
             cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server.conf
             cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
             chmod 600 /etc/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
@@ -86,6 +98,7 @@ case "${1:-}" in
             python3 -c "import sys; sys.path.insert(0, '/opt/nmb'); from nmb.netd.openvpn import init_pki, generate_server_config, OV_CONF, _ensure_dir; _ensure_dir(); init_pki(); OV_CONF.write_text(generate_server_config())" 2>/dev/null || true
         fi
         if [ -f /var/lib/nmb/openvpn/server.conf ]; then
+            reject_unsafe_vpn_config /var/lib/nmb/openvpn/server.conf
             cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server.conf
             cp /var/lib/nmb/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
             chmod 600 /etc/openvpn/server.conf /etc/openvpn/server/server.conf 2>/dev/null || true
@@ -178,6 +191,11 @@ case "${1:-}" in
     install-drivers)
         # Parameterized installation of network driver and firmware packages
         PKG="${2:-all}"
+        # A name starting with "-" would be read as a package manager option, which can run commands.
+        if ! printf '%s' "$PKG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+.:_-]*$'; then
+            echo "Invalid package name." >&2
+            exit 1
+        fi
         if command -v apt-get >/dev/null 2>&1; then
             export DEBIAN_FRONTEND=noninteractive
             # Enable non-free and non-free-firmware components across deb822 sources and classic sources.list

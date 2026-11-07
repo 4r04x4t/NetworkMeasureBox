@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A plan for a separate Keep a Changelog file for the native rewrite, kept from its first commit.
 - The `nmb-cli` terminal interface and the changelog rule in the architecture document.
 
+### Fixed
+
+- The diagnostic snapshot no longer copies thousands of lines into the system journal, and is written to the boot drive at most once an hour.
+
+### Security
+
+- Removed a way for local users to gain root: self-repair and speed test code could run files from `/tmp`.
+- The `nmb` user can no longer run `ip` through sudo, which allowed root access.
+- The privileged helper refuses VPN configs with command lines, and package names that look like options.
+- The language setting can no longer be changed without logging in.
+- The DNS filter's control socket is limited to the box's own services.
+- API values with control characters are refused, which prevented adding lines to service config files.
+- Update references that git could read as options are refused.
+
 ## [2.5.0] - 2026-11-07
 
 First entry of this changelog. It summarizes all work since the first commit on 2026-10-26, when no releases or tags existed.

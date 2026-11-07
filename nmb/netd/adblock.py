@@ -1585,7 +1585,12 @@ class AdblockDNSServer:
             ipc_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             ipc_sock.bind(str(IPC_SOCKET_PATH))
             try:
-                os.chmod(str(IPC_SOCKET_PATH), 0o666)
+                # Only the box's own services may change DNS filtering.
+                os.chmod(str(IPC_SOCKET_PATH), 0o660)
+                try:
+                    shutil.chown(str(IPC_SOCKET_PATH), group="nmb")
+                except (LookupError, PermissionError):
+                    log.debug("could not give the adblock socket to the nmb group")
             except Exception:
                 log.debug("suppressed exception", exc_info=True)
             ipc_sock.listen(16)

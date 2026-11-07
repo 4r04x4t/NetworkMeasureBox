@@ -108,6 +108,37 @@ class IperfPortCheckTest(unittest.TestCase):
                 server.accept()
 
 
+class SecurityRegressionTest(unittest.TestCase):
+    def test_no_code_runs_from_world_writable_paths(self):
+        self.assertNotIn("/tmp/nmb-install", (ROOT / "nmb/common/heal.py").read_text())
+        self.assertNotIn("/tmp/nmb-bin", (ROOT / "nmb/speed/ookla.py").read_text())
+
+    def test_sudoers_does_not_allow_ip(self):
+        self.assertNotIn("/usr/sbin/ip,", (ROOT / "setup.sh").read_text())
+
+    def test_control_characters_are_detected(self):
+        from nmb.web.server import has_control_characters
+        self.assertTrue(has_control_characters({"wifi_ssid": "x\nctrl_interface=/tmp"}))
+        self.assertTrue(has_control_characters({"a": [{"b": "x\ry"}]}))
+        self.assertFalse(has_control_characters({"wifi_ssid": "Árvíz % net", "n": 1}))
+
+    def test_helper_refuses_option_like_packages_and_vpn_commands(self):
+        import subprocess
+        import tempfile
+        helper = ROOT / "bin/nmb-helper"
+        bad = subprocess.run(["sh", str(helper), "install-drivers", "-oAPT::Update::Pre-Invoke::=id"],
+                             capture_output=True, text=True)
+        self.assertEqual(bad.returncode, 1)
+        self.assertIn("Invalid package", bad.stderr)
+        source = helper.read_text().split("case ")[0]
+        for line, code in (("PostUp = id", 1), ("up /tmp/x", 1), ("port 1194", 0)):
+            with tempfile.NamedTemporaryFile("w", suffix=".conf") as conf:
+                conf.write(line + "\n")
+                conf.flush()
+                run = subprocess.run(["sh", "-c", source + f'reject_unsafe_vpn_config "{conf.name}"'], capture_output=True)
+                self.assertEqual(run.returncode, code, line)
+
+
 class WebApiTest(unittest.TestCase):
     def test_post_handler_rejects_non_object_bodies(self):
         self.assertIn("must be a JSON object", (ROOT / "nmb/web/server.py").read_text())

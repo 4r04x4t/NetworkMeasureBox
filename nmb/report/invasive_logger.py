@@ -38,6 +38,8 @@ from nmb.netd.interfaces import get_dual_stack_ips
 
 log = logging.getLogger("nmb.report.invasive")
 
+BOOT_MIRROR_MIN_SEC = 3600.0
+
 PRIMARY_SNAPSHOT_PATH = Path("/var/log/nmb/invasive_dev_snapshot.md")
 PRIMARY_JSON_PATH = Path("/var/log/nmb/invasive_dev_snapshot.json")
 RUN_SNAPSHOT_PATH = Path("/run/nmb/invasive_dev_snapshot.md")
@@ -787,6 +789,9 @@ def _persist_snapshot(markdown_content: str, metadata: Dict[str, Any]) -> None:
     # 3. FAT32 Boot Partition / Removable Drive (The crucial physical recovery channel)
     try:
         boot_target = get_boot_drive_snapshot_target()
+        # The timer runs every 3 minutes, and the SD card should not be written that often.
+        if boot_target and boot_target.is_file() and time.time() - boot_target.stat().st_mtime < BOOT_MIRROR_MIN_SEC:
+            boot_target = None
         if boot_target:
             if boot_target.is_file():
                 try:
