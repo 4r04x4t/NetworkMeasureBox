@@ -564,7 +564,7 @@ A projekt az **MIT Licenc** alatt érhető el — szabadon használható, módos
 
 ## Tesztelési Állapot
 
-Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz:
+Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz. A részletes jegyzőkönyv (hol, mit, hogyan, milyen eredménnyel): [docs/TESTING.hu.md](docs/TESTING.hu.md).
 
 | Terület | Állapot |
 |---|---|
@@ -577,7 +577,11 @@ Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz:
 | VLAN, Multi-WAN terheléselosztás, link aggregáció | A kód megvan, valódi vonalon nincs tesztelve |
 | Más disztribúciók (például Raspberry Pi OS, Fedora, Arch), 32 bites rendszerek | Nincs tesztelve; a telepítő csak Debian-alapú rendszert és Alpine-t támogat |
 | 512 MB RAM-os eszközök | Nincs tesztelve, a memóriaprofilok csak Raspberry Pi 4-en futottak |
-| Telegram, SMTP, Tailscale, DynDNS, VPN valódi kliensekkel | A fejlesztő eszközén használva, vagy automata teszt nem fedi |
+| WireGuard és OpenVPN szerver, HTTPS-proxy | Virtuális gépen tesztelve valódi klienssel: alagút, internet és webes felület az alagúton át |
+| Vendég Wi-Fi kliens | Virtuális gépen tesztelve szimulált hálózattal. NetworkManager kell hozzá |
+| Önfrissítés visszaállítással | Git-checkoutból virtuális gépen tesztelve: a jó frissítés települ, a hibás visszaáll |
+| DuckDNS | Csak rossz tokennel tesztelve (elutasítja) |
+| Telegram, SMTP, Tailscale, OONI | Valódi fiókkal nincs tesztelve |
 
 Az NMB személyes projekt, nem hitelesített mérőeszköz. Az eredményei alátámaszthatnak egy panaszt, de nem helyettesítik a hatóság vagy a szolgáltató saját mérését.
 

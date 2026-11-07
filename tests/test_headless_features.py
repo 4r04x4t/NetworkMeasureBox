@@ -8,7 +8,7 @@ import unittest
 import unittest.mock as mock
 from pathlib import Path
 
-from nmb.config import load_config
+from nmb.config import Config
 from nmb.common.user_agent import (
     generate_fresh_user_agent,
     get_effective_user_agent,
@@ -65,7 +65,7 @@ class TestHeadlessFeatures(unittest.TestCase):
         self.assertFalse(is_wired_interface("lo"))
         self.assertFalse(is_wired_interface("docker0"))
 
-        cfg = load_config()
+        cfg = Config()  # defaults, not the box's own nmb.conf
 
         # When wired Ethernet cable is connected, it MUST override wireless/config
         cfg.network.wan_interface = "wlan0"  # Even if config points to wlan0
@@ -78,7 +78,9 @@ class TestHeadlessFeatures(unittest.TestCase):
         # When no wired cable is connected, uses configured/wireless interface
         with mock.patch("nmb.netd.interfaces.find_active_wired_interface", return_value=None):
             with mock.patch("nmb.netd.interfaces.interface_exists", side_effect=lambda x: x == "wlan0"):
-                with mock.patch("nmb.netd.interfaces.get_ip_addresses", return_value=["192.168.4.10/24"]):
+                # On a router the real wlan0 sits in a bridge; this test is about a plain one.
+                with mock.patch("nmb.netd.interfaces.get_ip_addresses", return_value=["192.168.4.10/24"]), \
+                     mock.patch("nmb.netd.interfaces.bridge_master", return_value=None):
                     iface, ip, is_wired = find_preferred_measurement_interface(cfg)
                     self.assertEqual(iface, "wlan0")
                     self.assertEqual(ip, "192.168.4.10")
@@ -271,7 +273,8 @@ class TestHeadlessFeatures(unittest.TestCase):
                     ok, msg = connect_guest_wifi("HiddenNet", password="pass", hidden=True)
                     self.assertTrue(ok)
                     # Verify 'hidden yes' was passed in initial connect command
-                    first_call_args = mock_cmd.call_args_list[0][0][0]
+                    # A stale profile is deleted first; the connect command follows.
+                    first_call_args = next(c[0][0] for c in mock_cmd.call_args_list if "connect" in c[0][0])
                     self.assertIn("hidden", first_call_args)
                     self.assertIn("yes", first_call_args)
 

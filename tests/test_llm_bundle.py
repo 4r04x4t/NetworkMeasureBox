@@ -2,12 +2,14 @@
 Unit tests for nmb.report.llm_bundle.
 """
 
+import os
 import unittest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 import tempfile
 
 from nmb.config import Config
+from nmb.db import database as db
 from nmb.report.llm_bundle import (
     _get_cpu_and_thermal_telemetry,
     _get_phy_and_ethtool,
@@ -134,7 +136,14 @@ class TestLLMBundle(unittest.TestCase):
             "cycles": 30,
         }
         cfg = Config()
-        bundle = generate_llm_diagnostic_bundle(cfg, force_refresh=True)
+        # Use a fresh database with the schema, never the box's own one.
+        with tempfile.TemporaryDirectory() as tmp:
+            live = Path(tmp) / "live.db"
+            conn = db.connect(live)
+            db.init(conn)
+            conn.close()
+            with patch.dict(os.environ, {"NMB_LIVE_DB": str(live), "NMB_PERSIST_DB": str(Path(tmp) / "persist.db")}):
+                bundle = generate_llm_diagnostic_bundle(cfg, force_refresh=True)
         self.assertIn("# NetworkMeasureBox - Comprehensive AI Diagnostic Bundle", bundle)
         self.assertIn("## 1. Operating System, Hardware & Thermal Telemetry", bundle)
         self.assertIn("## 2. Physical Link Layer & Interface Error Telemetry", bundle)

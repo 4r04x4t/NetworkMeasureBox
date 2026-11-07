@@ -250,7 +250,7 @@ The plan for running NetworkMeasureBox on commercial routers with as little as *
 
 ## Tested Status
 
-What has actually been run, so you can judge what to rely on:
+What has actually been run, so you can judge what to rely on. The full record (where, what, how, with what result): [docs/TESTING.md](docs/TESTING.md).
 
 | Area | Status |
 |---|---|
@@ -263,7 +263,11 @@ What has actually been run, so you can judge what to rely on:
 | VLAN, multi-WAN load balancing, link aggregation | Code exists, not tested on a real line |
 | Other distributions (such as Raspberry Pi OS, Fedora, Arch), 32-bit systems | Not tested; setup only supports Debian-based systems and Alpine |
 | Devices with 512 MB RAM | Not tested; memory profiles have only run on the Raspberry Pi 4 |
-| Telegram, SMTP, Tailscale, DynDNS, VPN with real clients | Used on the developer's box, or not covered by automated tests |
+| WireGuard and OpenVPN server, HTTPS proxy | Tested in a VM with a real client: tunnel, internet and Web UI through the tunnel |
+| Guest Wi-Fi client | Tested in a VM against a simulated network. Needs NetworkManager |
+| Self-update with rollback | Tested from a Git checkout in a VM: a good update is applied, a broken one rolled back |
+| DuckDNS | Only tested with a wrong token (rejected) |
+| Telegram, SMTP, Tailscale, OONI | Not tested with real accounts |
 
 NMB is a personal project, not a certified measuring instrument. Its results can support a complaint, but they do not replace a regulator's or ISP's own measurement.
 

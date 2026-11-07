@@ -75,6 +75,38 @@ def run_helper(cmd: str) -> Tuple[int, str]:
         return 1, str(e)
 
 
+
+_USAGE = {
+    "serverAuth": "keyUsage = critical, digitalSignature, keyAgreement\nextendedKeyUsage = serverAuth\n",
+    "clientAuth": "keyUsage = critical, digitalSignature, keyAgreement\nextendedKeyUsage = clientAuth\n",
+}
+
+
+def _sign_csr(csr: Path, out: Path, ca_crt: Path, ca_key: Path, usage: str) -> None:
+    """Sign a CSR with the CA, adding the key usage OpenVPN checks for."""
+    ext = csr.with_suffix(".ext")
+    ext.write_text("basicConstraints = CA:FALSE\n" + _USAGE[usage])
+    try:
+        subprocess.run(
+            ["openssl", "x509", "-req", "-days", "3650", "-in", str(csr), "-CA", str(ca_crt), "-CAkey", str(ca_key),
+             "-CAcreateserial", "-out", str(out), "-extfile", str(ext)],
+            check=True,
+        )
+    finally:
+        ext.unlink(missing_ok=True)
+
+
+def _has_server_usage(crt: Path) -> bool:
+    """True when the certificate allows TLS server authentication."""
+    try:
+        res = subprocess.run(["openssl", "x509", "-in", str(crt), "-noout", "-ext", "extendedKeyUsage"],
+                             capture_output=True, text=True, timeout=10, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return True  # cannot tell; leave the certificate alone
+    if res.returncode != 0 and not res.stdout:
+        return True  # this openssl cannot print the extension; leave it alone
+    return "Server Authentication" in res.stdout
+
 def init_pki() -> bool:
     """Initialize ultra-fast, secure Elliptic Curve (prime256v1) PKI and tls-crypt."""
     _ensure_dir()
@@ -83,6 +115,13 @@ def init_pki() -> bool:
     server_crt = PKI_DIR / "server.crt"
     server_key = PKI_DIR / "server.key"
     tls_crypt = PKI_DIR / "tls-crypt.key"
+
+    if server_crt.exists() and not _has_server_usage(server_crt):
+        # Clients use "remote-cert-tls server", which rejects a certificate without
+        # key usage. Older boxes issued one, so reissue it from the same CA.
+        log.warning("OpenVPN server certificate lacks TLS server usage; reissuing it")
+        server_crt.unlink()
+        server_key.unlink(missing_ok=True)
 
     if ca_crt.exists() and ca_key.exists() and server_crt.exists() and server_key.exists() and tls_crypt.exists():
         return True
@@ -102,10 +141,7 @@ def init_pki() -> bool:
             csr_path = PKI_DIR / "server.csr"
             subprocess.run(["openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", str(server_key)], check=True)
             subprocess.run(["openssl", "req", "-new", "-key", str(server_key), "-out", str(csr_path), "-subj", "/CN=nmb-vpn-server"], check=True)
-            subprocess.run(
-                ["openssl", "x509", "-req", "-days", "3650", "-in", str(csr_path), "-CA", str(ca_crt), "-CAkey", str(ca_key), "-CAcreateserial", "-out", str(server_crt)],
-                check=True,
-            )
+            _sign_csr(csr_path, server_crt, ca_crt, ca_key, "serverAuth")
             if csr_path.exists():
                 csr_path.unlink()
 
@@ -361,10 +397,7 @@ def add_client(name: str) -> Dict[str, Any]:
     try:
         subprocess.run(["openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", str(client_key)], check=True)
         subprocess.run(["openssl", "req", "-new", "-key", str(client_key), "-out", str(client_csr), "-subj", f"/CN={clean_name}"], check=True)
-        subprocess.run(
-            ["openssl", "x509", "-req", "-days", "3650", "-in", str(client_csr), "-CA", str(ca_crt), "-CAkey", str(ca_key), "-CAcreateserial", "-out", str(client_crt)],
-            check=True,
-        )
+        _sign_csr(client_csr, client_crt, ca_crt, ca_key, "clientAuth")
         if client_csr.exists():
             client_csr.unlink()
         os.chmod(client_key, 0o600)

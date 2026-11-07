@@ -64,7 +64,7 @@ if [ "$OS_TYPE" = "debian" ]; then
     apt-get update -y
     apt-get install -y --no-install-recommends \
         python3 iproute2 nftables iptables ethtool pciutils usbutils polkitd \
-        dnsmasq hostapd ppp pppoe udhcpc curl ca-certificates procps libcap2-bin \
+        dnsmasq hostapd iw wireless-regdb ppp pppoe udhcpc curl ca-certificates procps libcap2-bin \
         wireguard-tools openvpn easy-rsa python3-qrcode qrencode \
         traceroute iputils-tracepath mtr-tiny iperf3 sqlite3 gnupg dirmngr \
         gcc make libc-dev libssl-dev libcurl4-openssl-dev pkg-config
@@ -162,7 +162,7 @@ EOF
 elif [ "$OS_TYPE" = "alpine" ]; then
     apk update
     apk add --no-cache \
-        python3 iproute2 nftables iptables ethtool dnsmasq hostapd ppp \
+        python3 iproute2 nftables iptables ethtool dnsmasq hostapd iw wireless-regdb ppp \
         curl ca-certificates busybox-extras libcap traceroute iputils mtr \
         iperf3 sqlite openvpn wireguard-tools build-base gcc make openssl-dev curl-dev pkgconfig
 

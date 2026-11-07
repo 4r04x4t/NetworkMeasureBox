@@ -5209,10 +5209,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       const data = await res.json();
 
       const curEl = document.getElementById('heal-cur-ver');
-      if (curEl) curEl.textContent = data.current_version || '2.4.0';
+      if (curEl) curEl.textContent = data.current_version || '2.5.0';
 
       const availEl = document.getElementById('heal-avail-ver');
-      if (availEl) availEl.textContent = data.available_version || data.current_version || '2.4.0';
+      if (availEl) availEl.textContent = data.available_version || data.current_version || '2.5.0';
 
       const tagEl = document.getElementById('heal-stability-tag');
       if (tagEl) {

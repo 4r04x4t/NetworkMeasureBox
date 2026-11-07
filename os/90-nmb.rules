@@ -9,6 +9,10 @@ polkit.addRule(function(action, subject) {
             return polkit.Result.YES;
         }
     }
+    // Guest Wi-Fi (the box as a Wi-Fi client) runs nmcli as nmb.
+    if (/^org\.freedesktop\.NetworkManager\.(network-control|wifi\.scan|enable-disable-wifi|settings\.modify\.system|settings\.modify\.own)$/.test(action.id)) {
+        return polkit.Result.YES;
+    }
     if (action.id == "org.freedesktop.login1.reboot" || action.id == "org.freedesktop.login1.reboot-multiple-sessions") {
         return polkit.Result.YES;
     }

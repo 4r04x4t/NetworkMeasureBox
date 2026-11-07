@@ -31,25 +31,17 @@ _cached_networks: List[Dict[str, Any]] = []
 
 
 def _run_cmd(cmd: List[str], timeout: float = 15.0) -> Tuple[int, str, str]:
-    """Execute command with optional sudo fallback."""
+    """Run a command and return its own result, so the caller can show the real error.
+
+    nmcli needs no sudo: polkit lets the nmb user control NetworkManager.
+    """
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-        if proc.returncode == 0:
-            return proc.returncode, proc.stdout, proc.stderr
-    except Exception as e:
-        log.debug("command failed %s: %s", cmd, e)
-
-    # Try with sudo if not already root
-    if os.geteuid() != 0 and cmd[0] != "sudo":
-        sudo_cmd = ["sudo", "-n"] + cmd
-        try:
-            proc = subprocess.run(sudo_cmd, capture_output=True, text=True, timeout=timeout)
-            return proc.returncode, proc.stdout, proc.stderr
-        except Exception as e:
-            log.debug("sudo command failed %s: %s", sudo_cmd, e)
-            return -1, "", str(e)
-
-    return -1, "", "Command failed or timed out"
+        return proc.returncode, proc.stdout, proc.stderr
+    except subprocess.TimeoutExpired:
+        return -1, "", f"{os.path.basename(cmd[0])} timed out after {timeout:.0f}s"
+    except OSError as e:
+        return -1, "", str(e)
 
 
 def scan_wifi_networks(iface: str = "wlan0", force_rescan: bool = True) -> List[Dict[str, Any]]:
@@ -182,6 +174,7 @@ def get_guest_wifi_status(
     }
 
     # 1. Parse dev show via nmcli
+    state_known = False
     nmcli_bin = shutil.which("nmcli")
     if nmcli_bin:
         ret, stdout, _ = _run_cmd([nmcli_bin, "dev", "show", iface], timeout=5.0)
@@ -197,7 +190,9 @@ def get_guest_wifi_status(
                     if m:
                         state_code = int(m.group(1))
                         res["state"] = m.group(2).lower()
-                        res["connected"] = (state_code == 100 or "connected" in res["state"])
+                        # NetworkManager state 100 is "connected"; the text test also matched "disconnected".
+                        res["connected"] = state_code == 100
+                        state_known = True
                 elif k == "GENERAL.CONNECTION":
                     res["connection_name"] = v if v != "--" else ""
                 elif k == "GENERAL.HWADDR":
@@ -230,7 +225,8 @@ def get_guest_wifi_status(
     # 2. Get active Wi-Fi BSSID, SSID, Signal and Security
     active_nets = scan_wifi_networks(iface=iface, force_rescan=False)
     for n in active_nets:
-        if n["in_use"]:
+        # A cached scan can still mark the old network in use after a disconnect.
+        if n["in_use"] and not (state_known and not res["connected"]):
             res["ssid"] = n["ssid"]
             res["bssid"] = n["bssid"]
             res["channel"] = n["channel"]
@@ -331,6 +327,12 @@ def connect_guest_wifi(
         return False, "nmcli utility not found on system"
 
     log.info("Connecting Guest Wi-Fi client (%s) to SSID: %s (hidden: %s, metric: %d)", iface, ssid, hidden, metric)
+
+    # A profile left by an earlier attempt makes "dev wifi connect" fail with
+    # "key-mgmt: property is missing", so start from a fresh one.
+    # Without a new password the saved profile is what connects, so keep it then.
+    if password:
+        _run_cmd([nmcli_bin, "connection", "delete", "id", ssid], timeout=8.0)
 
     # 1. Connect using nmcli with hidden network support
     cmd = [nmcli_bin, "dev", "wifi", "connect", ssid]

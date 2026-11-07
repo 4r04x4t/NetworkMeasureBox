@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A testing record, `docs/TESTING.md` (and `docs/TESTING.hu.md`): where each feature was tested, how, and with what result.
 - This changelog, covering the project from its first commit.
 - A plan for a separate Keep a Changelog file for the native rewrite, kept from its first commit.
 - A real DMZ in router mode: its own subnet and DHCP, internet access, and no access to the LAN or the box beyond DHCP and DNS.
@@ -30,6 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- OpenVPN rejected every client: the server certificate had no TLS server usage, which clients check. New certificates carry it, and an old one is reissued from the same CA, so issued profiles keep working.
+- The HTTPS proxy took 20 seconds per request on networks with a broken IPv6 route; it now tries IPv6 and IPv4 addresses side by side. Stopping it now frees its port, and it no longer forwards to the box's own loopback or link-local addresses.
+- Guest Wi-Fi: the `nmb` user may now control NetworkManager (polkit), reconnecting no longer fails on a stale profile, errors show NetworkManager's own message, and a disconnected client is no longer reported as connected.
+- 5 GHz Wi-Fi never started on systems without the regulatory database. `setup.sh` installs `wireless-regdb` and `iw`, and the access point falls back to 2.4 GHz rather than none.
+- Router mode answers a client's DHCP renewal at once after the box restarts (`dhcp-authoritative`).
+- Self-update rolled back every update on a real box, because three tests depended on the machine's interfaces, config and network; they are now independent of it. `nmb-heal update --json` and `nmb-heal fix --json` print only JSON.
+- The software reported version 2.4.0 instead of 2.5.0.
 - Ookla results no longer claim a server they did not use. When Ookla refused a test, the box used to run a one-second Cloudflare download, store it as an Ookla result under the chosen server's name, and report far lower speeds. That fallback is removed; a fallback test is now stored and logged under its own engine (RTR-NetTest or Cloudflare).
 - An Ookla rate limit ("Limit reached: Too many requests") now pauses Ookla for the whole box (30 min, doubling up to 4 h) instead of quarantining one server after another. The chosen server is no longer silently swapped, and a result from a different server is flagged with `requested_server_id`.
 

@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger("nmb.common.backup")
 
-APP_VERSION = "2.4.0"
+APP_VERSION = "2.5.0"
 BACKUP_DIR = Path(os.environ.get("NMB_BACKUP_DIR", "/var/lib/nmb/backups"))
 CONFIG_PATH = Path(os.environ.get("NMB_CONFIG", "/etc/nmb/nmb.conf"))
 PERSIST_DB_PATH = Path(os.environ.get("NMB_PERSIST_DB", "/var/lib/nmb/persist/nmb.db"))

@@ -11,13 +11,14 @@ Embedded, multi-threaded forward proxy supporting:
 from __future__ import annotations
 
 import base64
+import ipaddress
 import logging
 import select
 import socket
 import ssl
 import threading
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger("nmb.netd.proxy")
 
@@ -110,6 +111,74 @@ def query_manual_dns(name: str, nameserver: str, qtype: int = 1, timeout: float 
         return []
 
 
+ATTEMPT_DELAY_SEC = 0.25  # RFC 8305 "Happy Eyeballs" connection attempt delay
+
+
+def _is_forbidden_target(ip: str) -> bool:
+    """The proxy must not reach the box's own loopback or link-local services."""
+    try:
+        addr = ipaddress.ip_address(ip.split("%", 1)[0])
+    except ValueError:
+        return True
+    if getattr(addr, "ipv4_mapped", None):
+        addr = addr.ipv4_mapped
+    return addr.is_loopback or addr.is_link_local or addr.is_unspecified or addr.is_multicast
+
+
+def _interleave(addresses: List[str]) -> List[str]:
+    """Alternate IPv6 and IPv4 addresses, IPv6 first, as RFC 8305 suggests."""
+    v6 = [a for a in addresses if ":" in a]
+    v4 = [a for a in addresses if ":" not in a]
+    out: List[str] = []
+    for i in range(max(len(v6), len(v4))):
+        out.extend(x[i] for x in (v6, v4) if i < len(x))
+    return out
+
+
+def connect_first(addresses: List[str], port: int, timeout: float = 10.0) -> socket.socket:
+    """Start a connection to each address 250 ms apart and keep the first that succeeds.
+
+    A network with a broken IPv6 route no longer costs the full timeout per address.
+    """
+    candidates = [a for a in dict.fromkeys(_interleave(addresses)) if not _is_forbidden_target(a)]
+    if not candidates:
+        raise OSError("no permitted address to connect to")
+    winner: List[socket.socket] = []
+    errors: List[str] = []
+    done = threading.Event()
+    lock = threading.Lock()
+    pending = [len(candidates)]
+
+    def attempt(ip: str) -> None:
+        try:
+            sock = socket.create_connection((ip, port), timeout=timeout)
+        except OSError as e:
+            with lock:
+                errors.append(f"{ip}: {e}")
+                pending[0] -= 1
+                if pending[0] == 0:
+                    done.set()
+            return
+        with lock:
+            pending[0] -= 1
+            if winner:
+                sock.close()
+                return
+            winner.append(sock)
+            done.set()
+
+    for ip in candidates:
+        threading.Thread(target=attempt, args=(ip,), daemon=True).start()
+        if done.wait(ATTEMPT_DELAY_SEC):
+            break
+    done.wait(timeout)
+    with lock:
+        if winner:
+            winner[0].settimeout(None)
+            return winner[0]
+    raise OSError("; ".join(errors) or "connection timed out")
+
+
 class ProxyServer:
     def __init__(
         self,
@@ -193,6 +262,11 @@ class ProxyServer:
         self.running = False
         if self.sock:
             try:
+                # close() alone does not wake a thread blocked in accept(), which keeps the port.
+                self.sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
                 self.sock.close()
             except Exception:
                 log.debug("suppressed exception", exc_info=True)
@@ -214,39 +288,21 @@ class ProxyServer:
                 break
 
     def _connect_remote(self, host: str, port: int, timeout: float = 10.0) -> socket.socket:
-        """Connect to remote target with dual-stack IPv4/IPv6 and manual DNS resolvers."""
-        # 1. Check if host is already an IP address literal
+        """Resolve host (with the configured DNS servers, if any) and connect to it."""
         try:
-            socket.inet_pton(socket.AF_INET, host)
-            return socket.create_connection((host, port), timeout=timeout)
-        except OSError:
-            try:
-                socket.inet_pton(socket.AF_INET6, host)
-                return socket.create_connection((host, port), timeout=timeout)
-            except OSError:
-                pass
-
-        # 2. Host is a domain name. If custom manual DNS resolvers configured, query them:
-        dns_servers = [d.strip() for d in self.dns.split(",") if d.strip()] if self.dns else []
-        if dns_servers:
-            candidate_ips: List[str] = []
-            for ns in dns_servers:
-                aaaa_ips = query_manual_dns(host, ns, qtype=28, timeout=2.0)
-                a_ips = query_manual_dns(host, ns, qtype=1, timeout=2.0)
-                candidate_ips.extend(aaaa_ips)
-                candidate_ips.extend(a_ips)
-                if candidate_ips:
-                    break
-
-            for cand_ip in candidate_ips:
-                try:
-                    return socket.create_connection((cand_ip, port), timeout=timeout)
-                except Exception:
-                    log.debug("suppressed exception", exc_info=True)
-                    continue
-
-        # 3. Fallback to standard system resolver
-        return socket.create_connection((host, port), timeout=timeout)
+            ipaddress.ip_address(host)
+            return connect_first([host], port, timeout)
+        except ValueError:
+            pass
+        addresses: List[str] = []
+        for ns in [d.strip() for d in self.dns.split(",") if d.strip()]:
+            addresses = query_manual_dns(host, ns, qtype=28, timeout=2.0) + query_manual_dns(host, ns, qtype=1, timeout=2.0)
+            if addresses:
+                break
+        if not addresses:
+            infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+            addresses = [info[4][0] for info in infos]
+        return connect_first(addresses, port, timeout)
 
     def _handle_client(self, client_sock: socket.socket, client_addr: Tuple[str, int]) -> None:
         with _proxy_lock:

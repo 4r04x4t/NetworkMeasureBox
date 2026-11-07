@@ -119,8 +119,10 @@ class TestDuckDNS(unittest.TestCase):
         self.assertEqual(st["domain"], "my-test-box")
         self.assertEqual(st["fqdn"], "my-test-box.duckdns.org")
 
+    # IPv6 detection can take seconds on a real network; the test waits only 0.15 s.
+    @patch("nmb.netd.duckdns.detect_public_ipv6", return_value=None)
     @patch("nmb.netd.duckdns.update_duckdns")
-    def test_wake_daemon_on_interval_change(self, mock_update):
+    def test_wake_daemon_on_interval_change(self, mock_update, _mock_v6):
         mock_update.return_value = {"status": "ok", "success": True, "ip": "1.2.3.4", "message": "OK"}
 
         # Start daemon with 60 min interval

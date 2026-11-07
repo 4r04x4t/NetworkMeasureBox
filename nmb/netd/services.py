@@ -27,6 +27,9 @@ HOSTAPD_ATTEMPTS = (
     {"wifi_standard": "ax", "wifi_channel_width": "80"},
     {"wifi_standard": "ac", "wifi_channel_width": "80"},
     {"wifi_standard": "n", "wifi_channel_width": "20"},
+    # Last resort: without a regulatory database the kernel allows no 5/6 GHz
+    # channels, so a 2.4 GHz network beats having no Wi-Fi at all.
+    {"wifi_band": "2.4ghz", "wifi_channel": 6, "wifi_standard": "n", "wifi_channel_width": "20"},
 )
 
 
@@ -173,6 +176,9 @@ server=1.1.1.1
 server=8.8.8.8
 server=9.9.9.9
 bind-interfaces
+# The lease file lives in /run and is lost on reboot; as the only DHCP server on
+# its LAN, answer a client's renewal at once instead of making it start over.
+dhcp-authoritative
 {iface_lines}
 dhcp-range=set:lan,{start},{end},{mask},{self.cfg.dhcp_lease_time}
 dhcp-option=tag:lan,option:router,{gw_ip}
