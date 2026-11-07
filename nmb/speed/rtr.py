@@ -309,7 +309,7 @@ def execute_rtr_speedtest(
     except Exception:
         log.debug("suppressed exception", exc_info=True)
 
-    return SpeedtestResult(
+    res = SpeedtestResult(
         status="ok" if (dl_bytes > 0 or ul_bytes > 0) else "error",
         down_bps=int(dl_mbps * 1_000_000),
         up_bps=int(ul_mbps * 1_000_000),

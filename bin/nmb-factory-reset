@@ -7,7 +7,13 @@ PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "
 import sys
 from nmb.common.backup import factory_reset
 
-keep_db = '--keep-db' in sys.argv or '--keep-measurements' in sys.argv
+args = sys.argv[1:]
+known = {'--yes', '--keep-db', '--keep-measurements'}
+if '--yes' not in args or set(args) - known:
+    print('Usage: nmb-factory-reset --yes [--keep-db]')
+    print('Erases all settings, and measurements unless --keep-db is given. A safety backup is made first.')
+    sys.exit(0 if '--help' in args or '-h' in args else 2)
+keep_db = '--keep-db' in args or '--keep-measurements' in args
 print(f'=== NetworkMeasureBox Factory Reset ===')
 print(f'Preserve measurement database: {keep_db}')
 ok, msg = factory_reset(keep_measurements=keep_db)

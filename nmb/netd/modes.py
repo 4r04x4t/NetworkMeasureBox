@@ -293,7 +293,8 @@ class ModeB(NetworkMode):
     def _request_management_ip(self) -> None:
         """Attempt to obtain an IP on br0 using dhclient / udhcpc / dhcpcd if present."""
         br = self.cfg.bridge_interface
-        current_addrs = interfaces.get_ip_addresses(br)
+        # A bridge always gets an IPv6 link-local address, which gives no route to the internet.
+        current_addrs = [a for a in interfaces.get_ip_addresses(br) if "." in a]
         if current_addrs:
             log.info("bridge %s already has address: %s", br, current_addrs)
             return

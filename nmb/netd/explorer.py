@@ -9,6 +9,7 @@ from __future__ import annotations
 import concurrent.futures
 import ipaddress
 import logging
+import os
 import re
 import socket
 import subprocess
@@ -289,7 +290,7 @@ def get_cached_devices(iface: Optional[str] = None) -> List[Dict[str, Any]]:
     if iface and iface != "any":
         res = [d for d in res if d.get("interface") == iface]
     try:
-        res.sort(key=lambda d: socket.inet_aton(d["ip"]) if "." in d["ip"] else d["ip"])
+        res.sort(key=lambda d: (":" in d["ip"], socket.inet_aton(d["ip"]) if "." in d["ip"] else d["ip"].encode()))
     except Exception:
         log.debug("suppressed exception", exc_info=True)
     return res

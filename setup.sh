@@ -86,6 +86,8 @@ if [ "$OS_TYPE" = "debian" ]; then
 
     # Stop and disable OS-packaged dnsmasq & hostapd so nmb-netd has exclusive control
     systemctl disable --now dnsmasq hostapd 2>/dev/null || true
+    # dnsmasq often fails when installed next to another DNS service; do not leave the system degraded.
+    systemctl reset-failed dnsmasq hostapd 2>/dev/null || true
     systemctl mask hostapd 2>/dev/null || true
 
     NMB_MODE="${NMB_MODE:-standalone}"
@@ -375,6 +377,7 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
         systemctl enable --now openvpn.service 2>/dev/null || true
     fi
 
+    systemctl start nmb.target
     systemctl restart nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service nmb-adblock.service
     # Restart, not start, so an upgrade applies changed timer schedules.
     systemctl restart nmb-maintain.timer nmb-snapshot.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer

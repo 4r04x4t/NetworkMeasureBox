@@ -467,14 +467,14 @@ A szoftver moduláris felépítésű, az egyes feladatokat különálló, jól t
 
 | Parancs / Bináris | Leírás | Gyakori Használat |
 |---|---|---|
-| `nmb-netd` | Hálózati üzemmód démon (Mode A / Mode B / Failover) | `nmb-netd --status`<br>`nmb-netd --switch auto\|mode_a\|mode_b`<br>`nmb-netd --matrix` |
-| `nmb-probe` | Nagyfrekvenciás ICMP ping és jitter szonda | `nmb-probe --verbose`<br>`nmb-probe --target 1.1.1.1` |
-| `nmb-speed` | Sebességmérő és forgalomkorlátozás-ellenőrző | `nmb-speed --trigger manual`<br>`nmb-speed --interface eth0`<br>`nmb-speed --engine ookla\|cloudflare\|rtr\|iperf` |
+| `nmb-netd` | Hálózati üzemmód démon (Mode A / Mode B / Failover) | `nmb-netd --status`<br>`nmb-netd --switch auto\|standalone\|mode_a\|mode_b` |
+| `nmb-probe` | Nagyfrekvenciás ICMP ping és jitter szonda | `nmb-probe --verbose` |
+| `nmb-speed` | Sebességmérő és forgalomkorlátozás-ellenőrző | `nmb-speed --trigger manual`<br>`nmb-speed --engine ookla\|cloudflare\|rtr\|iperf3\|all`<br>`nmb-speed --interface eth0` |
 | `nmb-ooni` | Opcionális OONI Probe kiegészítő | `nmb-ooni status`<br>`nmb-ooni run websites` |
-| `nmb-report` | Riport generátor (HTML dosszié, CSV, JSON) | `nmb-report --window 24h --html dossier.html --lang hu\|en\|de\|fr\|uk`<br>`nmb-report --json-summary` |
-| `nmb-adblock` | Beépített DNS reklámblokkoló sinkhole | `nmb-adblock --status`<br>`nmb-adblock --update-gravity`<br>`nmb-adblock --block domain.hu` |
-| `nmb-heal` | Önjavító watchdog és biztonsági visszaállás | `nmb-heal --audit`<br>`nmb-heal --verify`<br>`nmb-heal --rollback` |
-| `nmb-driver` | Hardveres driver és firmware felderítő | `nmb-driver --scan`<br>`sudo nmb-driver --install-missing` |
+| `nmb-report` | Riport generátor (HTML dosszié, CSV, JSON) | `nmb-report --window 24h --html dossier.html`<br>`nmb-report --json-summary`<br>`nmb-report --send-email` |
+| `nmb-adblock` | Beépített DNS reklámblokkoló sinkhole | `nmb-adblock status`<br>`nmb-adblock update`<br>`nmb-adblock -b domain.com` |
+| `nmb-heal` | Önjavító watchdog és biztonsági visszaállás | `nmb-heal audit`<br>`nmb-heal status`<br>`nmb-heal fix` |
+| `nmb-driver` | Hardveres driver és firmware felderítő | `nmb-driver scan`<br>`nmb-driver missing`<br>`sudo nmb-driver install` |
 | `nmb-telegram` | Telegram menedzsment és riasztási bot | `nmb-telegram` |
 | `nmb-web` | Beépített kezelőfelület és REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Emelt szintű hálózati és driver műveletek segédprogramja | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
@@ -550,7 +550,7 @@ A telepítés befejeztével nyissa meg a böngészőjében a WebGUI-t közvetlen
 ```
 http://<az-eszköz-ip-címe>/
 ```
-* **Bejelentkezési adatok**: `admin` / a telepítéskor dinamikusan generált jelszó (automatikusan mentve a `/boot/firmware/nmb_credentials.txt` és `/var/lib/nmb/credentials.txt` fájlokba).
+* **Bejelentkezési adatok**: `admin` / `admin`, kivéve ha `RANDOM_ADMIN_PASSWORD=1` értékkel telepíted (automatikusan mentve a `/boot/firmware/nmb_credentials.txt` és `/var/lib/nmb/credentials.txt` fájlokba).
   * Felhasználónév: `admin`
   * Jelszó: `admin` (a Beállítások fülön azonnal megváltoztatható!)
 * Állítsa be az előfizetői szerződésében szereplő adatokat (névleges és garantált letöltés/feltöltés), válassza ki a hálózati kártyák szerepköreit, és az eszköz máris megkezdi a folyamatos mérést és adatgyűjtést!

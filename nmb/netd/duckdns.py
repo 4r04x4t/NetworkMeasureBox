@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import socket
 import threading
 import time
 import urllib.error

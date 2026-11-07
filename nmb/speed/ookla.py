@@ -517,15 +517,6 @@ def run_speedtest_cli(interface: Optional[str] = None, bind_ip: Optional[str] = 
         return None
 
 
-def detect_engine() -> str:
-    """Return the detected best available speedtest engine name."""
-    if is_official_ookla_available():
-        return "official_ookla"
-    if is_speedtest_cli_available():
-        return "speedtest_cli"
-    return "native_stream"
-
-
 def run_native_fallback(server_id: Optional[int] = None, interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
     """Native standard library HTTP streaming speed probe.
 
@@ -552,7 +543,7 @@ def run_native_fallback(server_id: Optional[int] = None, interface: Optional[str
             srv_loc = cached.get("location") or srv_loc
         elif not _cached_servers_map:
             try:
-                found = search_servers("hungary", limit=3)
+                found = get_available_servers("hungary", limit=3)
                 if found:
                     srv = found[0]
                     srv_id = srv.get("id", srv_id)

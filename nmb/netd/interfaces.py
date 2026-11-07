@@ -353,6 +353,12 @@ def is_wired_interface(iface: str) -> bool:
     return name.startswith(("eth", "en", "end", "eno", "ens", "enp")) and not name.startswith(("wl", "ww", "br", "lo", "docker", "tun", "wg"))
 
 
+def bridge_master(iface: str) -> Optional[str]:
+    """Return the bridge an interface belongs to; its addresses live on the bridge."""
+    master = SYS_CLASS_NET / iface / "master"
+    return master.resolve().name if master.exists() and (SYS_CLASS_NET / iface / "brport").exists() else None
+
+
 def find_active_wired_interface() -> Optional[Tuple[str, str]]:
     """Check if an Ethernet cable is physically connected with carrier and IP.
 
@@ -367,7 +373,9 @@ def find_active_wired_interface() -> Optional[Tuple[str, str]]:
         if is_wired_interface(name) and get_carrier(name):
             oper = get_operstate(name)
             if oper != "down":
-                addrs = get_ip_addresses(name)
+                if bridge_master(name):
+                    continue
+                addrs = [a for a in get_ip_addresses(name) if not a.lower().startswith("fe80:")]
                 if addrs:
                     ip_only = addrs[0].split("/")[0]
                     wired_candidates.append((name, ip_only))
@@ -407,6 +415,7 @@ def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface
                 return cand, ip, is_wired_interface(cand)
 
         wan = getattr(cfg.network, "wan_interface", "eth0")
+        wan = bridge_master(wan) or wan
         if wan and interface_exists(wan):
             addrs = get_ip_addresses(wan)
             ip = addrs[0].split("/")[0] if addrs else None

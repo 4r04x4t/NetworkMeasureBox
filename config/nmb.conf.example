@@ -95,8 +95,6 @@ threshold_kbps = 500
 # Experimental: no scheduled speed test unless the network is provably idle (at most 500 kbps);
 # a running test stops when other traffic appears. Needs a view of other devices' traffic.
 experimental_stop = false
-sample_window_sec = 3
-cooldown_sec = 10
 
 [speedtest]
 # Scheduled Ookla Speedtest

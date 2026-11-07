@@ -270,7 +270,7 @@ After installation, open the web dashboard directly in your browser without ente
 ```
 http://<appliance-ip>/
 ```
-* **Default credentials**: `admin` / dynamically generated on setup (mirrored to `/boot/firmware/nmb_credentials.txt` and `/var/lib/nmb/credentials.txt`). Change immediately in the Settings tab.
+* **Default credentials**: `admin` / `admin` unless installed with `RANDOM_ADMIN_PASSWORD=1` (mirrored to `/boot/firmware/nmb_credentials.txt` and `/var/lib/nmb/credentials.txt`). Change immediately in the Settings tab.
 
 ---
 
@@ -278,14 +278,14 @@ http://<appliance-ip>/
 
 | Binary | Description | Key Commands |
 |---|---|---|
-| `nmb-netd` | Network daemon (Router / Bridge / Multi-WAN) | `nmb-netd --status`<br>`nmb-netd --switch auto\|mode_a\|mode_b`<br>`nmb-netd --matrix` |
-| `nmb-probe` | Continuous latency/jitter ICMP engine | `nmb-probe --verbose`<br>`nmb-probe --target 1.1.1.1` |
-| `nmb-speed` | Speedtest & net-neutrality runner | `nmb-speed --trigger manual`<br>`nmb-speed --engine ookla\|cloudflare\|rtr\|iperf`<br>`nmb-speed --interface eth0` |
+| `nmb-netd` | Network daemon (Router / Bridge / Multi-WAN) | `nmb-netd --status`<br>`nmb-netd --switch auto\|standalone\|mode_a\|mode_b` |
+| `nmb-probe` | Continuous latency/jitter ICMP engine | `nmb-probe --verbose` |
+| `nmb-speed` | Speedtest & net-neutrality runner | `nmb-speed --trigger manual`<br>`nmb-speed --engine ookla\|cloudflare\|rtr\|iperf3\|all`<br>`nmb-speed --interface eth0` |
 | `nmb-ooni` | Optional OONI Probe add-on | `nmb-ooni status`<br>`nmb-ooni run websites` |
-| `nmb-report` | HTML dossier & CSV generator | `nmb-report --window 24h --html dossier.html --lang en\|hu\|de\|fr\|uk`<br>`nmb-report --json-summary`<br>`nmb-report --send-email` |
-| `nmb-adblock` | High-performance DNS sinkhole | `nmb-adblock --status`<br>`nmb-adblock --update-gravity`<br>`nmb-adblock --block domain.com` |
-| `nmb-heal` | Self-healing watchdog & safety rollback | `nmb-heal --audit`<br>`nmb-heal --verify`<br>`nmb-heal --rollback` |
-| `nmb-driver` | Hardware driver & firmware autodiscovery | `nmb-driver --scan`<br>`sudo nmb-driver --install-missing` |
+| `nmb-report` | HTML dossier & CSV generator | `nmb-report --window 24h --html dossier.html`<br>`nmb-report --json-summary`<br>`nmb-report --send-email` |
+| `nmb-adblock` | High-performance DNS sinkhole | `nmb-adblock status`<br>`nmb-adblock update`<br>`nmb-adblock -b domain.com` |
+| `nmb-heal` | Self-healing watchdog & safety rollback | `nmb-heal audit`<br>`nmb-heal status`<br>`nmb-heal fix` |
+| `nmb-driver` | Hardware driver & firmware autodiscovery | `nmb-driver scan`<br>`nmb-driver missing`<br>`sudo nmb-driver install` |
 | `nmb-telegram` | Management Telegram Bot daemon | `nmb-telegram` |
 | `nmb-web` | Embedded management web UI & REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Privileged helper utility (drivers, routing) | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |

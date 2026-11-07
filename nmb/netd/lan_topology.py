@@ -69,11 +69,20 @@ def resolve_topology(cfg) -> Topology:
     return Topology(tuple(uplink), tuple(downstream), lag_enabled, passthrough_enabled)
 
 
+def interfaces_bridge_master(iface: str) -> str:
+    from nmb.netd.interfaces import bridge_master
+    return bridge_master(iface) or ""
+
+
 def traffic_monitor_device(cfg, iface: str) -> str:
     """Return the device to read traffic counters from when measuring on iface."""
     topo = resolve_topology(cfg)
     if topo.active and iface == topo.ip_device:
         return topo.monitor_device
+    # A bridge's own counters leave out the traffic it forwards; the WAN port has all of it.
+    wan = getattr(cfg, "wan_interface", "")
+    if wan and interfaces_bridge_master(wan) == iface:
+        return wan
     return iface
 
 

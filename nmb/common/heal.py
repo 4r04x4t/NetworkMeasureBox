@@ -451,7 +451,7 @@ def audit_system_health() -> Dict[str, Any]:
             add_issue("config", "cfg:nmb.conf", "Main Configuration", "critical", f"Configuration file {CONFIG_PATH} is missing and no boot mirror found")
     else:
         try:
-            cfg = configparser.ConfigParser()
+            cfg = configparser.ConfigParser(interpolation=None)
             cfg.read(CONFIG_PATH, encoding="utf-8")
             if not cfg.sections():
                 add_issue("config", "cfg:nmb.conf", "Main Configuration", "warning", "Configuration file is empty or contains no valid INI sections")

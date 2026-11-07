@@ -172,7 +172,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 user, password = decoded.split(":", 1)
                 configured_user = getattr(self.server.cfg.web, "admin_username", "admin")
                 configured_pass = getattr(self.server.cfg.web, "admin_password", "admin")
-                if secrets.compare_digest(user, configured_user) and secrets.compare_digest(password, configured_pass):
+                if secrets.compare_digest(user.encode(), str(configured_user).encode()) and secrets.compare_digest(password.encode(), str(configured_pass).encode()):
                     _record_auth_success(client_ip)
                     return True
                 else:
@@ -1269,6 +1269,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             body_json = json.loads(raw_body.decode("utf-8")) if raw_body else {}
         except Exception:
             body_json = {}
+        if not isinstance(body_json, dict):
+            self._send_json({"status": "error", "message": "The request body must be a JSON object."}, status=400)
+            return
 
         # 1. Trigger Speedtest (Asynchronous with state tracking)
         if path == "/api/speedtest":
@@ -2423,7 +2426,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             password = str(body_json.get("password", "")).strip()
             tls_enabled = bool(body_json.get("tls_enabled", False))
             listen_ipv6 = bool(body_json.get("listen_ipv6", True))
-            dns = str(body_json.get("dns", "")).strip()
+            proxy_dns = str(body_json.get("dns", "")).strip()
             if enabled and not (auth_enabled and username and password):
                 self._send_json({"status": "error", "message": "The proxy requires a username and password."}, status=400)
                 return
@@ -2436,8 +2439,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self.server.cfg.proxy.password = password
             self.server.cfg.proxy.tls_enabled = tls_enabled
             self.server.cfg.proxy.listen_ipv6 = listen_ipv6
-            if dns or "dns" in body_json:
-                self.server.cfg.proxy.dns = dns
+            if proxy_dns or "dns" in body_json:
+                self.server.cfg.proxy.dns = proxy_dns
             save_config(self.server.cfg)
 
             if enabled:
@@ -2724,6 +2727,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             ok, msg = restore_backup(target_path, restore_db=restore_db, restore_vpn=restore_vpn, create_safety_snapshot=True)
             if ok:
                 self.server.cfg = load_config()
+                if getattr(self.server, "scheduler", None):
+                    self.server.scheduler.cfg = self.server.cfg
                 self._send_json({"status": "ok", "message": msg})
             else:
                 self._send_json({"status": "error", "message": msg}, status=500)
@@ -2737,11 +2742,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         if path in ("/api/backup/reset", "/api/factory-reset", "/api/system/factory-reset"):
+            if body_json.get("confirm") != "RESET":
+                self._send_json({"status": "error", "message": "Confirmation text RESET is required."}, status=400)
+                return
             from nmb.common.backup import factory_reset
             keep_measurements = bool(body_json.get("keep_measurements", False))
             ok, msg = factory_reset(keep_measurements=keep_measurements)
             if ok:
                 self.server.cfg = load_config()
+                if getattr(self.server, "scheduler", None):
+                    self.server.scheduler.cfg = self.server.cfg
                 self._send_json({"status": "ok", "message": msg})
             else:
                 self._send_json({"status": "error", "message": msg}, status=500)
@@ -3513,8 +3523,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             cfg.speedtest.user_agent_mode = str(body["user_agent_mode"]).strip().lower()
         if "memory_profile" in body:
             cfg.system.memory_profile = str(body["memory_profile"]).strip().lower()
-        if "admin_username" in body and str(body["admin_username"]).strip():
-            cfg.web.admin_username = str(body["admin_username"]).strip()
+        if isinstance(body.get("admin_username"), str) and re.fullmatch(r"[a-zA-Z0-9_.-]{1,64}", body["admin_username"].strip()):
+            cfg.web.admin_username = body["admin_username"].strip()
         if "admin_password" in body and body["admin_password"]:
             cfg.web.admin_password = str(body["admin_password"])
         if "language" in body and str(body["language"]).strip() in TRANSLATIONS:
@@ -3740,6 +3750,16 @@ class NMBServer(ThreadingHTTPServer):
                     self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 self.server_address = (target_host, fallback_port)
                 self.cfg.web.port = fallback_port
+                self.server_bind()
+                self.server_activate()
+            elif target_host not in ("0.0.0.0", "::", ""):
+                # The dashboard is the way to correct a wrong address, so it must stay reachable.
+                log.warning("cannot listen on %s (%s); listening on all addresses", target_host, e)
+                self.socket.close()
+                self.socket = socket.socket(self.address_family, self.socket_type)
+                if self.allow_reuse_address:
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self.server_address = ("0.0.0.0", target_port)
                 self.server_bind()
                 self.server_activate()
             else:

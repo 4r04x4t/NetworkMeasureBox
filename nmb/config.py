@@ -6,10 +6,40 @@ Uses configparser (standard library).
 from __future__ import annotations
 
 import configparser
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
+
+log = logging.getLogger("nmb.config")
+
+
+class _TolerantParser(configparser.ConfigParser):
+    """One bad value must not stop every service, and % is ordinary text in values such as passwords."""
+
+    def __init__(self) -> None:
+        super().__init__(interpolation=None)
+
+    def _convert(self, getter, section, option, **kwargs):
+        try:
+            return getter(section, option, **kwargs)
+        except ValueError:
+            log.warning("ignoring invalid value for [%s] %s; using the default", section, option)
+            if "fallback" in kwargs and kwargs["fallback"] is not configparser._UNSET:
+                return kwargs["fallback"]
+            defaults = _TolerantParser()
+            defaults.read_string(DEFAULT_CONFIG_TEXT)
+            return getattr(defaults, getter.__name__)(section, option)
+
+    def getint(self, section, option, **kwargs):
+        return self._convert(super().getint, section, option, **kwargs)
+
+    def getfloat(self, section, option, **kwargs):
+        return self._convert(super().getfloat, section, option, **kwargs)
+
+    def getboolean(self, section, option, **kwargs):
+        return self._convert(super().getboolean, section, option, **kwargs)
 
 DEFAULT_CONFIG_PATH = Path(os.environ.get("NMB_CONFIG", "/etc/nmb/nmb.conf"))
 FALLBACK_CONFIG_PATH = Path("/opt/nmb/config/nmb.conf")
@@ -143,8 +173,6 @@ threshold_percent = 2.0
 threshold_kbps = 500
 # Experimental: only run speed tests on a provably idle network, and stop them when traffic appears.
 experimental_stop = false
-sample_window_sec = 3
-cooldown_sec = 10
 
 [speedtest]
 schedule_cron = 0 * * * *
@@ -542,11 +570,21 @@ class Config:
     openvpn: OpenVPNConfig = field(default_factory=OpenVPNConfig)
     proxy: ProxyConfig = field(default_factory=ProxyConfig)
     tailscale: TailscaleConfig = field(default_factory=TailscaleConfig)
-    raw_parser: configparser.ConfigParser = field(default_factory=configparser.ConfigParser)
+    raw_parser: configparser.ConfigParser = field(default_factory=_TolerantParser)
+
+
+def _clamp_settings(cfg: "Config") -> None:
+    """Keep values that would stop a service inside their working range."""
+    if not 1 <= cfg.web.port <= 65535:
+        log.warning("invalid web port %s; using 80", cfg.web.port)
+        cfg.web.port = 80
+    if not 10 <= cfg.probe.ping_interval_ms <= 60000:
+        log.warning("invalid ping interval %s ms; using 500", cfg.probe.ping_interval_ms)
+        cfg.probe.ping_interval_ms = 500
 
 
 def load_config(path: Path | None = None) -> Config:
-    parser = configparser.ConfigParser()
+    parser = _TolerantParser()
     parser.read_string(DEFAULT_CONFIG_TEXT)
 
     # 1. Check for drive-editable config updates
@@ -862,13 +900,14 @@ def load_config(path: Path | None = None) -> Config:
         cfg.tailscale.advertise_exit_node = ts.getboolean("advertise_exit_node", fallback=cfg.tailscale.advertise_exit_node)
         cfg.tailscale.accept_dns = ts.getboolean("accept_dns", fallback=cfg.tailscale.accept_dns)
 
+    _clamp_settings(cfg)
     return cfg
 
 
 def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     """Atomically write Config back to nmb.conf preserving structure."""
     path = Path(target_path) if target_path else Path(getattr(cfg.system, "config_path", DEFAULT_CONFIG_PATH) or DEFAULT_CONFIG_PATH)
-    parser = configparser.ConfigParser()
+    parser = _TolerantParser()
     if path.exists():
         try:
             parser.read(path)

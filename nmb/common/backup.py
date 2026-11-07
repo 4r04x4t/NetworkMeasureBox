@@ -18,6 +18,7 @@ import io
 import json
 import logging
 import os
+import re
 import shutil
 import socket
 import sqlite3
@@ -377,7 +378,7 @@ def verify_backup(archive_path: Path) -> Tuple[bool, str, Dict[str, Any]]:
                 f = tar.extractfile("config/nmb.conf")
                 if f:
                     cfg_text = f.read().decode("utf-8", errors="replace")
-                    parser = configparser.ConfigParser()
+                    parser = configparser.ConfigParser(interpolation=None)
                     try:
                         parser.read_string(cfg_text)
                     except Exception as e:
@@ -606,14 +607,30 @@ def delete_backup(filename: str, backup_dir: Optional[Path] = None) -> Tuple[boo
         return False, f"Failed to delete backup: {e}"
 
 
+def _factory_config_text() -> str:
+    """Return default settings with a Wi-Fi password unique to this box."""
+    import secrets
+    from nmb.config import DEFAULT_CONFIG_TEXT
+    return DEFAULT_CONFIG_TEXT.replace("wifi_psk = NetworkMeasureBox123", f"wifi_psk = {secrets.token_urlsafe(12)}")
+
+
+def _reset_credentials_files() -> None:
+    """Keep the saved login notes in step with the restored admin password."""
+    for path in (Path("/var/lib/nmb/credentials.txt"), Path("/boot/firmware/nmb_credentials.txt"), Path("/boot/nmb_credentials.txt")):
+        try:
+            if path.exists():
+                path.write_text(re.sub(r"(?m)^(\s*Password\s*:).*$", r"\1 admin", path.read_text()))
+        except OSError as e:
+            log.warning("could not update %s: %s", path, e)
+
+
 def factory_reset(keep_measurements: bool = False) -> Tuple[bool, str]:
     """Reset system to pristine factory defaults.
 
     Creates safety backup before wiping configurations.
     """
-    from nmb.config import DEFAULT_CONFIG_TEXT
-
     try:
+        config_text = _factory_config_text()
         # 1. Safety snapshot
         create_backup(
             backup_type="full",
@@ -625,19 +642,26 @@ def factory_reset(keep_measurements: bool = False) -> Tuple[bool, str]:
         try:
             CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
             tmp = CONFIG_PATH.with_suffix(".tmp")
-            tmp.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8")
-            os.chmod(tmp, 0o600)
+            tmp.write_text(config_text, encoding="utf-8")
+            # Services run as the nmb user and must be able to read their settings.
+            os.chmod(tmp, 0o640)
+            try:
+                shutil.chown(tmp, user="nmb", group="nmb")
+            except (LookupError, PermissionError):
+                log.debug("could not hand %s to the nmb user", tmp)
             tmp.replace(CONFIG_PATH)
         except (PermissionError, OSError) as e:
             log.warning("direct write to %s failed (%s), attempting via helper/sudo", CONFIG_PATH, e)
             import tempfile, subprocess
             with tempfile.NamedTemporaryFile("w", delete=False) as tf:
-                tf.write(DEFAULT_CONFIG_TEXT)
+                tf.write(config_text)
                 tf_name = tf.name
             try:
-                subprocess.run(["sudo", "-n", "install", "-m", "0600", tf_name, str(CONFIG_PATH)], capture_output=True, check=False)
+                subprocess.run(["sudo", "-n", "install", "-m", "0640", "-o", "nmb", "-g", "nmb", tf_name, str(CONFIG_PATH)], capture_output=True, check=False)
             finally:
                 Path(tf_name).unlink(missing_ok=True)
+
+        _reset_credentials_files()
 
         # Sync pristine default configuration to drive-editable boot partition
         try:
