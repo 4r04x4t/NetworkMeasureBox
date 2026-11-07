@@ -1200,7 +1200,7 @@ class CommandHandler:
         tier_msg = t("heal_tier", lang, tier=tier) if tier else t("heal_adaptive", lang)
         self._say(chat_id, "heal_running", tier=tier_msg)
         try:
-            res = heal.auto_heal_all(self.cfg, tier=tier)
+            res = heal.auto_heal_all(force_tier=tier)
             repairs = res.get("repairs_executed", [])
             remaining = res.get("audit_after", {}).get("critical_issues", 0)
 

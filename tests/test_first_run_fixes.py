@@ -61,6 +61,17 @@ class FactoryResetSafetyTest(unittest.TestCase):
         self.assertIn('body_json.get("confirm") != "RESET"', (ROOT / "nmb/web/server.py").read_text())
 
 
+class LogFindingsTest(unittest.TestCase):
+    def test_self_heal_callers_use_the_real_signature(self):
+        for path in ("nmb/bot/commands.py", "nmb/bot/alerts.py"):
+            self.assertNotIn("auto_heal_all(self.cfg", (ROOT / path).read_text())
+
+    def test_update_verification_is_isolated_and_has_time(self):
+        source = (ROOT / "nmb/common/heal.py").read_text()
+        self.assertIn("NMB_LIVE_DB=", source)
+        self.assertIn("timeout=300", source)
+
+
 class WebApiTest(unittest.TestCase):
     def test_post_handler_rejects_non_object_bodies(self):
         self.assertIn("must be a JSON object", (ROOT / "nmb/web/server.py").read_text())

@@ -158,7 +158,7 @@ class AlertMonitor:
 
             # Trigger automated repair
             try:
-                heal.auto_heal_all(self.cfg, tier=1)
+                heal.auto_heal_all(force_tier=1)
             except Exception as e:
                 log.warning("automated self-heal invocation error: %s", e)
 

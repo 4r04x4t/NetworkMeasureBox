@@ -259,7 +259,7 @@ def save_heal_state(state: Dict[str, Any]) -> None:
         log.warning("Failed to save self-healing state to %s: %s", path, e)
 
 
-def _run_cmd(cmd: List[str], timeout: int = 15) -> Tuple[int, str, str]:
+def _run_cmd(cmd: List[str], timeout: int = 15, cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None) -> Tuple[int, str, str]:
     """Execute command safely and capture exit code, stdout, and stderr."""
     try:
         proc = subprocess.run(
@@ -268,6 +268,8 @@ def _run_cmd(cmd: List[str], timeout: int = 15) -> Tuple[int, str, str]:
             text=True,
             timeout=timeout,
             check=False,
+            cwd=cwd,
+            env=env,
         )
         return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
     except subprocess.TimeoutExpired:
@@ -1205,10 +1207,14 @@ def apply_stable_update(target_ref: Optional[str] = None) -> Dict[str, Any]:
 
     # 4. Automated Test Suite & Health Verification
     log.info("Running automated verification test suite...")
-    rc_tests, out_tests, err_tests = _run_cmd(
-        ["python3", "-m", "unittest", "discover", "tests"],
-        timeout=45,
-    )
+    # Tests must never write to the live database.
+    with tempfile.TemporaryDirectory(prefix="nmb-verify-") as verify_dir:
+        rc_tests, out_tests, err_tests = _run_cmd(
+            ["python3", "-m", "unittest", "discover", "tests"],
+            timeout=300,
+            cwd=str(repo_dir),
+            env=dict(os.environ, NMB_LIVE_DB=f"{verify_dir}/live.db", NMB_PERSIST_DB=f"{verify_dir}/persist.db"),
+        )
     health_check = audit_system_health()
 
     test_passed = (rc_tests == 0) and (health_check["critical_count"] == 0)
