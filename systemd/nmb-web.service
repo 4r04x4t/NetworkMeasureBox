@@ -5,10 +5,13 @@ Wants=nmb-db.service
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=nmb
+Group=nmb
+# Port 80 and network changes; anything else goes through polkit rules or nmb-helper.
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_ADMIN CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_ADMIN CAP_NET_RAW CAP_SETUID CAP_SETGID CAP_AUDIT_WRITE CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_SYS_ADMIN CAP_SYS_RESOURCE CAP_KILL CAP_SYS_PTRACE
 UMask=0002
-SupplementaryGroups=nmb
+SupplementaryGroups=adm systemd-journal
 Environment=PYTHONPATH=/opt/nmb MALLOC_ARENA_MAX=2 PYTHONUNBUFFERED=1
 ExecStart=/opt/nmb/bin/nmb-web
 Restart=always

@@ -1,0 +1,13 @@
+[Unit]
+Description=NetworkMeasureBox: Block Public Access to Local Services
+After=network-pre.target
+Before=network.target nmb-web.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /opt/nmb/os/nmb-guard.nft
+ExecStop=/usr/sbin/nft delete table inet nmb_guard
+
+[Install]
+WantedBy=multi-user.target

@@ -16,6 +16,24 @@ info()  { printf '\033[1;36m[NMB-INSTALL]\033[0m %s\n' "$*"; }
 warn()  { printf '\033[1;33m[NMB-WARNING]\033[0m %s\n' "$*"; }
 error() { printf '\033[1;31m[NMB-ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
 
+ookla_sha256() {
+    case "$1" in
+        x86_64) echo 5690596c54ff9bed63fa3732f818a05dbc2db19ad36ed68f21ca5f64d5cfeeb7 ;;
+        aarch64) echo 3953d231da3783e2bf8904b6dd72767c5c6e533e163d3742fd0437affa431bd3 ;;
+        armhf) echo e45fcdebbd8a185553535533dd032d6b10bc8c64eee4139b1147b9c09835d08d ;;
+    esac
+}
+
+# Download the Ookla archive into $2 and accept it only with the expected checksum.
+fetch_ookla() {
+    curl -fsSL "https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-$1.tgz" -o "$2/ookla.tgz" || return 1
+    if [ "$(sha256sum "$2/ookla.tgz" | cut -d' ' -f1)" != "$(ookla_sha256 "$1")" ]; then
+        warn "Ookla download failed its checksum; not installing it."
+        return 1
+    fi
+    tar -xzf "$2/ookla.tgz" -C "$2"
+}
+
 [ "$(id -u)" -eq 0 ] || error "setup.sh must be executed with root privileges (sudo ./setup.sh)."
 
 info "Starting NetworkMeasureBox production installation..."
@@ -45,7 +63,7 @@ if [ "$OS_TYPE" = "debian" ]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
     apt-get install -y --no-install-recommends \
-        python3 iproute2 nftables iptables ethtool pciutils usbutils \
+        python3 iproute2 nftables iptables ethtool pciutils usbutils polkitd \
         dnsmasq hostapd ppp pppoe udhcpc curl ca-certificates procps libcap2-bin \
         wireguard-tools openvpn easy-rsa python3-qrcode qrencode \
         traceroute iputils-tracepath mtr-tiny iperf3 sqlite3 gnupg dirmngr \
@@ -77,6 +95,9 @@ if [ "$OS_TYPE" = "debian" ]; then
             fi
         fi
     fi
+
+    # ooniprobe-cli pulls in Tor; NMB does not use it, so it must not run as a service.
+    systemctl disable --now tor 2>/dev/null || true
 
     # Compile native Open-RMBT C measurement engine if source is present
     if [ -d "$SCRIPT_DIR/components/open-rmbt" ]; then
@@ -124,7 +145,7 @@ EOF
     if [ -n "$OOKLA_ARCH" ] && ! command -v speedtest >/dev/null 2>&1; then
         info "Downloading standalone Ookla speedtest binary for $OOKLA_ARCH..."
         TMP_DIR=$(mktemp -d)
-        if curl -sSL "https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-$OOKLA_ARCH.tgz" | tar -xz -C "$TMP_DIR" 2>/dev/null; then
+        if fetch_ookla "$OOKLA_ARCH" "$TMP_DIR"; then
             if [ -f "$TMP_DIR/speedtest" ]; then
                 mv "$TMP_DIR/speedtest" /usr/local/bin/speedtest
                 chmod +x /usr/local/bin/speedtest
@@ -159,7 +180,7 @@ elif [ "$OS_TYPE" = "alpine" ]; then
     if [ -n "$OOKLA_ARCH" ] && ! command -v speedtest >/dev/null 2>&1; then
         info "Downloading standalone Ookla speedtest binary for $OOKLA_ARCH..."
         TMP_DIR=$(mktemp -d)
-        curl -sSL "https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-$OOKLA_ARCH.tgz" | tar -xz -C "$TMP_DIR" 2>/dev/null || true
+        fetch_ookla "$OOKLA_ARCH" "$TMP_DIR" || true
         if [ -f "$TMP_DIR/speedtest" ]; then
             mv "$TMP_DIR/speedtest" /usr/local/bin/speedtest
             chmod +x /usr/local/bin/speedtest
@@ -294,13 +315,17 @@ EOF
 chmod 0600 "$CRED_FILE"
 chown "$NMB_USER:$NMB_USER" "$CRED_FILE" 2>/dev/null || true
 
-# Mirror to FAT32 boot partition if present (accessible via PC/Mac SD card reader)
-if [ -d /boot/firmware ]; then
-    cp "$CRED_FILE" /boot/firmware/nmb_credentials.txt 2>/dev/null || true
-    chmod 0644 /boot/firmware/nmb_credentials.txt 2>/dev/null || true
-elif [ -d /boot ]; then
-    cp "$CRED_FILE" /boot/nmb_credentials.txt 2>/dev/null || true
-    chmod 0644 /boot/nmb_credentials.txt 2>/dev/null || true
+# Mirror to the FAT32 boot partition (readable with any SD card reader) only while the password is the
+# documented default or was generated just now; a password the user chose must not be stored there.
+BOOT_CRED_FILE=""
+[ -d /boot ] && BOOT_CRED_FILE="/boot/nmb_credentials.txt"
+[ -d /boot/firmware ] && BOOT_CRED_FILE="/boot/firmware/nmb_credentials.txt"
+if [ -n "$BOOT_CRED_FILE" ]; then
+    if [ "$ADMIN_PASS" = "admin" ] || [ "${RANDOM_ADMIN_PASSWORD:-0}" = "1" ]; then
+        cp "$CRED_FILE" "$BOOT_CRED_FILE" 2>/dev/null || true
+    else
+        rm -f "$BOOT_CRED_FILE" 2>/dev/null || true
+    fi
 fi
 
 # Detect low-memory embedded target (512MB RAM router / Pi Zero)
@@ -363,9 +388,15 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
     systemctl daemon-reload
 
     info "Enabling and starting NetworkMeasureBox systemd target..."
+    install -d /etc/polkit-1/rules.d
+    cp "$SCRIPT_DIR/os/90-nmb.rules" /etc/polkit-1/rules.d/90-nmb.rules
+    systemctl enable --now nmb-guard.service
+    systemctl restart nmb-guard.service
     systemctl enable nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service nmb-adblock.service
     systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
     systemctl enable nmb.target
+    # Replace a boot partition copy that may still hold secrets.
+    "$INSTALL_DIR/bin/nmb-helper" sync-drive-config 2>/dev/null || true
 
     # Preserve and auto-start WireGuard / OpenVPN servers if configured
     if [ -f /etc/wireguard/wg0.conf ]; then

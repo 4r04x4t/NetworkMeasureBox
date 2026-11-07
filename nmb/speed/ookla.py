@@ -5,6 +5,7 @@ Supports official Ookla speedtest binary, speedtest-cli, and resilient native fa
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -262,6 +263,15 @@ def get_available_servers(search_query: str = "", limit: int = 100) -> list[dict
     return filtered[:limit]
 
 
+# SHA-256 of the 1.2.0 archives; root runs this binary, so a changed download must not be used.
+OOKLA_SHA256 = {
+    "x86_64": "5690596c54ff9bed63fa3732f818a05dbc2db19ad36ed68f21ca5f64d5cfeeb7",
+    "aarch64": "3953d231da3783e2bf8904b6dd72767c5c6e533e163d3742fd0437affa431bd3",
+    "armhf": "e45fcdebbd8a185553535533dd032d6b10bc8c64eee4139b1147b9c09835d08d",
+    "i386": "9ff7e18dbae7ee0e03c66108445a2fb6ceea6c86f66482e1392f55881b772fe8",
+}
+
+
 def find_or_install_ookla_binary() -> Optional[str]:
     """Find official Ookla speedtest binary or automatically install it if missing."""
     import platform
@@ -330,6 +340,9 @@ def find_or_install_ookla_binary() -> Optional[str]:
         req = urllib.request.Request(url, headers={"User-Agent": get_effective_user_agent()})
         with urllib.request.urlopen(req, timeout=20) as resp:
             tar_bytes = resp.read()
+        if hashlib.sha256(tar_bytes).hexdigest() != OOKLA_SHA256.get(ookla_arch):
+            log.error("Ookla download for %s failed its checksum; not installing it", ookla_arch)
+            return None
         with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:gz") as tar:
             for member in tar.getmembers():
                 if member.name == "speedtest":

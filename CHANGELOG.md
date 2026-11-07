@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The DNS filter's control socket is limited to the box's own services.
 - API values with control characters are refused, which prevented adding lines to service config files.
 - Update references that git could read as options are refused.
+- The web UI, DNS and iPerf3 refuse public addresses, on IPv4 and IPv6, through a new firewall rule.
+- Passwords and tokens are no longer copied to the boot partition, and a chosen admin password is no longer stored there.
+- The web server runs as the `nmb` user instead of root.
+- The Ookla download is installed only if its checksum matches.
+- The Tor service that comes with the OONI package is disabled, because NMB does not use it.
 
 ## [2.5.0] - 2026-11-07
 

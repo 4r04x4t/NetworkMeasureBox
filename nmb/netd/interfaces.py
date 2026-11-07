@@ -57,8 +57,19 @@ def get_operstate(iface: str) -> str:
         return "unknown"
 
 
+def has_net_admin() -> bool:
+    """True when the service holds CAP_NET_ADMIN, so network tools work without sudo."""
+    try:
+        for line in Path("/proc/self/status").read_text().splitlines():
+            if line.startswith("CapEff:"):
+                return bool(int(line.split()[1], 16) & (1 << 12))
+    except (OSError, ValueError, IndexError):
+        pass
+    return False
+
+
 def _wrap_sudo(cmd: List[str]) -> List[str]:
-    if os.geteuid() != 0 and shutil.which("sudo"):
+    if os.geteuid() != 0 and not has_net_admin() and shutil.which("sudo"):
         return ["sudo", "-n"] + cmd
     return cmd
 

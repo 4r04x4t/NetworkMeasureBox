@@ -894,6 +894,9 @@ def _get_detailed_mtr(target: str = "1.1.1.1", cycles: int = 30) -> Dict[str, An
     target = (target or "1.1.1.1").strip()
     if target.startswith("-"):
         target = "1.1.1.1"
+    # Without root mtr waits a full second per cycle, which would make the bundle time out.
+    if os.geteuid() != 0:
+        cycles = min(cycles, 10)
     mtr_bin = shutil.which("mtr") or "/usr/bin/mtr"
     cycles_str = str(max(10, min(cycles, 100)))
 

@@ -1,0 +1,12 @@
+#!/usr/sbin/nft -f
+# Keep the web UI, DNS and iPerf3 away from public addresses.
+# Allowed: loopback, private LAN, link-local, Tailscale and VPN ranges.
+table inet nmb_guard
+delete table inet nmb_guard
+table inet nmb_guard {
+    chain input {
+        type filter hook input priority filter; policy accept;
+        meta l4proto { tcp, udp } th dport { 53, 80, 5201 } ip saddr != { 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10 } drop
+        meta l4proto { tcp, udp } th dport { 53, 80, 5201 } ip6 saddr != { ::1, fe80::/10, fc00::/7 } drop
+    }
+}

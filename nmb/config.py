@@ -8,6 +8,7 @@ from __future__ import annotations
 import configparser
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -75,20 +76,67 @@ def get_writable_drive_config_target() -> Optional[Path]:
     return None
 
 
+SECRET_MARK = "__KEEP_CURRENT__"
+_SECRET_KEY = re.compile(r"(password|psk|token|auth_key|secret)", re.I)
+_CONFIG_LINE = re.compile(r"^(\s*)([A-Za-z0-9_.-]+)(\s*=\s*)(.*)$")
+
+
+def mask_secrets(text: str) -> str:
+    """Replace secret values, because anyone holding the SD card can read the boot partition."""
+    out = []
+    for line in text.splitlines():
+        match = _CONFIG_LINE.match(line)
+        if match and match.group(4).strip() and _SECRET_KEY.search(match.group(2)):
+            line = f"{match.group(1)}{match.group(2)}{match.group(3)}{SECRET_MARK}"
+        out.append(line)
+    return "\n".join(out) + "\n"
+
+
+def merge_drive_config(drive_text: str, current_text: str) -> str:
+    """Apply an edited drive file, keeping current secrets wherever it still has the mark."""
+    current = _TolerantParser()
+    try:
+        current.read_string(current_text)
+    except configparser.Error:
+        current = _TolerantParser()
+    section = ""
+    out = []
+    for line in drive_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            section = stripped[1:-1]
+        match = _CONFIG_LINE.match(line)
+        if match and match.group(4).strip() == SECRET_MARK:
+            key = match.group(2)
+            if not current.has_option(section, key):
+                continue
+            line = f"{match.group(1)}{key}{match.group(3)}{current.get(section, key)}"
+        out.append(line)
+    return "\n".join(out) + "\n"
+
+
 def sync_drive_config(source_path: Path = DEFAULT_CONFIG_PATH) -> Optional[Path]:
     """Synchronize /etc/nmb/nmb.conf to drive-editable FAT32 boot partition."""
     if not source_path.is_file():
         return None
     target = get_writable_drive_config_target()
     if not target:
+        # The boot partition belongs to root; the web server asks the helper to write it.
+        if os.geteuid() != 0 and Path("/usr/local/bin/nmb-helper").exists():
+            import subprocess
+            done = subprocess.run(["sudo", "-n", "/usr/local/bin/nmb-helper", "sync-drive-config"],
+                                  capture_output=True, timeout=30, check=False)
+            if done.returncode == 0:
+                return next((loc for loc in DRIVE_CONFIG_LOCATIONS if loc.parent.is_dir()), None)
         return None
     try:
-        content = source_path.read_text(encoding="utf-8")
+        content = mask_secrets(source_path.read_text(encoding="utf-8"))
         header = (
             "# ==============================================================================\n"
             "# NetworkMeasureBox - Drive-Editable Configuration (Boot/Storage Partition)\n"
             "# Edit this file directly in Windows, macOS, or Linux when the SD card\n"
             "# or USB drive is plugged into your PC.\n"
+            f"# Passwords and tokens show {SECRET_MARK}: leave it to keep the value, or type a new one.\n"
             "# ==============================================================================\n\n"
         )
         if not content.startswith("# ==="):
@@ -594,7 +642,7 @@ def load_config(path: Path | None = None) -> Config:
             if not DEFAULT_CONFIG_PATH.exists():
                 try:
                     DEFAULT_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-                    DEFAULT_CONFIG_PATH.write_text(drive_path.read_text(encoding="utf-8"), encoding="utf-8")
+                    DEFAULT_CONFIG_PATH.write_text(merge_drive_config(drive_path.read_text(encoding="utf-8"), ""), encoding="utf-8")
                     log.info("imported initial configuration from drive: %s -> %s", drive_path, DEFAULT_CONFIG_PATH)
                 except Exception as e:
                     log.debug("could not copy drive config: %s", e)
@@ -605,7 +653,10 @@ def load_config(path: Path | None = None) -> Config:
                     # If drive was edited more recently than /etc/nmb/nmb.conf, load & update
                     if drive_mtime > default_mtime + 2.0:
                         log.info("detected newer configuration on drive (%s); applying to %s", drive_path, DEFAULT_CONFIG_PATH)
-                        DEFAULT_CONFIG_PATH.write_text(drive_path.read_text(encoding="utf-8"), encoding="utf-8")
+                        DEFAULT_CONFIG_PATH.write_text(
+                            merge_drive_config(drive_path.read_text(encoding="utf-8"), DEFAULT_CONFIG_PATH.read_text(encoding="utf-8")),
+                            encoding="utf-8",
+                        )
                     elif default_mtime > drive_mtime + 2.0:
                         sync_drive_config(DEFAULT_CONFIG_PATH)
                 except Exception as e:

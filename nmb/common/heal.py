@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import configparser
 import datetime
+import hashlib
 import json
 import logging
 import os
@@ -791,8 +792,13 @@ def _repair_missing_binary(bin_name: str, tier: int) -> List[str]:
             try:
                 # Use curl
                 rc, _, err = _run_cmd(["curl", "-sSL", url, "-o", str(tmp_dir / "speedtest.tgz")], timeout=30)
-                if rc == 0 and (tmp_dir / "speedtest.tgz").exists():
-                    _run_cmd(["tar", "-xzf", str(tmp_dir / "speedtest.tgz"), "-C", str(tmp_dir)], timeout=10)
+                from nmb.speed.ookla import OOKLA_SHA256
+                archive = tmp_dir / "speedtest.tgz"
+                if rc == 0 and archive.exists() and hashlib.sha256(archive.read_bytes()).hexdigest() != OOKLA_SHA256.get(ookla_arch):
+                    actions.append("Ookla download failed its checksum; not installing it")
+                    archive.unlink()
+                if rc == 0 and archive.exists():
+                    _run_cmd(["tar", "-xzf", str(archive), "-C", str(tmp_dir)], timeout=10)
                     extracted = tmp_dir / "speedtest"
                     if extracted.exists():
                         os.chmod(extracted, 0o755)

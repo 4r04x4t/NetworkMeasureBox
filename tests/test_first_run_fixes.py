@@ -139,6 +139,43 @@ class SecurityRegressionTest(unittest.TestCase):
                 self.assertEqual(run.returncode, code, line)
 
 
+class BootPartitionSecretsTest(unittest.TestCase):
+    def test_secrets_are_masked_and_kept_on_import(self):
+        from nmb.config import SECRET_MARK, mask_secrets, merge_drive_config
+        current = "[web]\nadmin_password = a%b\nport = 80\n[telegram]\ntoken = T1\n"
+        masked = mask_secrets(current)
+        self.assertNotIn("a%b", masked)
+        self.assertNotIn("T1", masked)
+        self.assertIn("port = 80", masked)
+        self.assertIn(SECRET_MARK, masked)
+        edited = masked.replace("port = 80", "port = 81").replace(f"token = {SECRET_MARK}", "token = T2")
+        merged = merge_drive_config(edited, current)
+        self.assertIn("admin_password = a%b", merged)
+        self.assertIn("token = T2", merged)
+        self.assertIn("port = 81", merged)
+        self.assertNotIn(SECRET_MARK, merge_drive_config(masked, ""))
+
+
+class ServiceHardeningTest(unittest.TestCase):
+    def test_web_server_does_not_run_as_root(self):
+        unit = (ROOT / "systemd/nmb-web.service").read_text()
+        self.assertIn("User=nmb", unit)
+        self.assertNotIn("User=root", unit)
+
+    def test_public_guard_covers_local_services_on_both_ip_versions(self):
+        rules = (ROOT / "os/nmb-guard.nft").read_text()
+        self.assertIn("{ 53, 80, 5201 } ip saddr", rules)
+        self.assertIn("{ 53, 80, 5201 } ip6 saddr", rules)
+
+
+class OoklaChecksumTest(unittest.TestCase):
+    def test_setup_and_engine_share_the_pinned_hashes(self):
+        from nmb.speed.ookla import OOKLA_SHA256
+        setup = (ROOT / "setup.sh").read_text()
+        for arch in ("x86_64", "aarch64", "armhf"):
+            self.assertIn(OOKLA_SHA256[arch], setup)
+
+
 class WebApiTest(unittest.TestCase):
     def test_post_handler_rejects_non_object_bodies(self):
         self.assertIn("must be a JSON object", (ROOT / "nmb/web/server.py").read_text())
