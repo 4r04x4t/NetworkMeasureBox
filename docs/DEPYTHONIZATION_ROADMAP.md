@@ -501,6 +501,10 @@ Not yet covered by the Python version, and open for the native one: charts, form
 **Rules from fixes**
 
 - Check whether a local service runs from the socket table. Do not connect to it: connecting to the iPerf3 port every few seconds logged a failed test each time.
+- Never run code from `/tmp` or from folders the `nmb` user can write to, and verify the checksum of any downloaded binary.
+- Do not put tools with an execution option, such as `ip`, in sudoers. Validate helper arguments, and refuse VPN configs with command lines.
+- The web server must not run as root, and local service ports must refuse public addresses on IPv4 and IPv6.
+- Keep secrets off the boot partition. The native version must keep the `__KEEP_CURRENT__` mark, so existing boot files stay valid.
 - A skipped test has no values. Show it as skipped, never as 0, and do not let skipped rows replace real results.
 
 **Changelog from the first commit**
@@ -543,6 +547,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Native rewrite project and this changelog.
 ```
+
+**Clean code, no spaghetti code**
+
+The rewrite must not carry over the structure of the Python version, where `do_POST` alone is 1714 lines and one function decides every API route. These rules apply from the first native commit, and code review and CI enforce them where a tool can:
+
+- **One job per unit:** each function does one thing and each package has one responsibility. A function's name says what it does.
+- **Small units:** aim for functions under about 50 lines and files under about 500 lines. A longer one needs a stated reason in review.
+- **Limited nesting:** at most three levels; use early returns and small helpers instead.
+- **Clear layers:** HTTP, CLI and Telegram handlers only parse input and format output. Measurement, network and storage logic sits behind interfaces they share, and dependencies point one way, with no import cycles.
+- **Routes as a table:** API routes are registered in one list, each with its own handler, not in one long chain of conditions.
+- **No duplication:** one implementation per behaviour. Aliases point to the same handler instead of copying it.
+- **No hidden state:** pass dependencies explicitly, and avoid global variables except for constants.
+- **Errors are handled:** return or log errors with context. Do not silently ignore them, and do not catch everything to keep going.
+- **Named values:** no unexplained numbers or strings; limits and paths are named constants.
+- **Tests with the code:** each component has tests that do not need real hardware or internet, behind interfaces that can be replaced in tests.
+- **Automatic checks:** CI runs the formatter, linter and complexity limits, for example `gofmt`, `go vet` and `gocyclo`, or `clang-format` and `clang-tidy` for C. A check that fails blocks the merge.
+- **Comments explain why:** code should explain what it does by itself.
+
+Replacing a Python component is done when it passes the Phase 0 checks and these rules. Copying Python structure line by line does not count as done.
 
 **Open before rewriting**
 

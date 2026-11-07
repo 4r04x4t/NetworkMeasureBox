@@ -518,6 +518,7 @@ Each port must also pass the checks in Phase 0 of `DEPYTHONIZATION_ROADMAP.md`, 
 Terminal interface and changelog in ports:
 
 - **Terminal interface:** router shells are often small, so `nmb-cli` must not depend on Python or full `curses`. If a target cannot hold the menu, it keeps the JSON commands.
+- **Clean code:** ports follow the clean code rules in `DEPYTHONIZATION_ROADMAP.md`. Hardware differences stay behind one interface per feature, in separate files per target, and not as `#ifdef` or device checks spread through shared code.
 - **Changelog:** each port records its support in `DePythonized/CHANGELOG.md`, using the rules in `DEPYTHONIZATION_ROADMAP.md`, and only after it has run on that hardware.
 
 ---

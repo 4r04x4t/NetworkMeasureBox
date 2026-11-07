@@ -11,7 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - This changelog, covering the project from its first commit.
 - A plan for a separate Keep a Changelog file for the native rewrite, kept from its first commit.
+- Clean code rules in the native rewrite plans, to avoid spaghetti code.
 - The `nmb-cli` terminal interface and the changelog rule in the architecture document.
+
+### Changed
+
+- The CLI Terminal and the task manager no longer act as root, because the web server runs as `nmb`.
+- Editing the boot partition copy of the config now uses `__KEEP_CURRENT__` for passwords and tokens.
+- The diagnostic bundle runs fewer MTR cycles, so it finishes faster without root.
+- Documentation describes the security model and which services run as root.
 
 ### Fixed
 

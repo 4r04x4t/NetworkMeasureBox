@@ -42,14 +42,14 @@ flowchart LR
 | `nmb-speed`       | 3     | unprivileged                   | tests     |
 | `nmb-report`      | 4     | unprivileged (timer)           | no        |
 | `nmb-telegram`    | 5     | unprivileged                   | alerts    |
-| `nmb-web`         | 5     | unprivileged, binds 127.0.0.1/LAN | config |
+| `nmb-web`         | 5     | `nmb` with `CAP_NET_BIND_SERVICE`, `CAP_NET_ADMIN`, `CAP_NET_RAW` | config |
 | `nmb-snapshot`    | 1     | unprivileged (timer)           | no        |
 
 Scheduled speed tests are started by a scheduler inside `nmb-web`, driven by `schedule_cron` (hourly by default). There is no separate systemd timer for them.
 
 The traffic gate reads `/proc/net/dev`, so it only sees traffic that passes through the box. The experimental `experimental_stop` switch (off by default) adds `nmb/probe/cross_traffic.py`, which separates other devices' traffic from the box's own using client-side ports or the router's UPnP counters (`nmb/netd/upnp_wan.py`). With it on, a scheduled test stops through `nmb/speed/cancel.py` when that traffic appears, and does not run if the traffic cannot be seen. `nmb-probe` keeps measuring either way.
 
-All daemons run as user `nmb`. Single-writer contention is handled by WAL + `busy_timeout`; probes batch-insert (1 txn / 10 s) so write lock time stays tiny.
+`nmb-netd`, `nmb-adblock`, `nmb-iperf3`, `nmb-ooni`, `nmb-heal` and `nmb-invasive-log` run as root; `nmb-web` and `nmb-speed` run as `nmb`. `nmb-web` manages services through the rules in `os/90-nmb.rules` and uses `nmb-helper` for other privileged tasks. `nmb-guard` (`os/nmb-guard.nft`) blocks public addresses from the local service ports. Single-writer contention is handled by WAL + `busy_timeout`; probes batch-insert (1 txn / 10 s) so write lock time stays tiny.
 
 ### Terminal interface
 `nmb-cli` (`nmb/tui/`) offers the WebGUI menus over SSH, and JSON commands for scripts. It reads the menu from `dashboard.html` and calls the same REST API as the browser, so it has no measurement logic of its own. `tests/test_tui.py` fails if a WebGUI tab or API call is missing from its catalog.

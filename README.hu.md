@@ -551,7 +551,7 @@ A telepítés befejeztével nyissa meg a böngészőjében a WebGUI-t közvetlen
 ```
 http://<az-eszköz-ip-címe>/
 ```
-* **Bejelentkezési adatok**: `admin` / `admin`, kivéve ha `RANDOM_ADMIN_PASSWORD=1` értékkel telepíted (automatikusan mentve a `/boot/firmware/nmb_credentials.txt` és `/var/lib/nmb/credentials.txt` fájlokba).
+* **Bejelentkezési adatok**: `admin` / `admin`, kivéve ha `RANDOM_ADMIN_PASSWORD=1` értékkel telepíted (mentve a `/var/lib/nmb/credentials.txt` fájlba; a boot-partíciós másolatról lásd: Biztonsági Modell).
   * Felhasználónév: `admin`
   * Jelszó: `admin` (a Beállítások fülön azonnal megváltoztatható!)
 * Állítsa be az előfizetői szerződésében szereplő adatokat (névleges és garantált letöltés/feltöltés), válassza ki a hálózati kártyák szerepköreit, és az eszköz máris megkezdi a folyamatos mérést és adatgyűjtést!
@@ -560,6 +560,18 @@ http://<az-eszköz-ip-címe>/
 
 ## Licenc
 A projekt az **MIT Licenc** alatt érhető el — szabadon használható, módosítható és beépíthető mind magáncélú, mind kereskedelmi környezetben.
+
+---
+
+## Biztonsági Modell
+
+* **Webszerver felhasználója**: az `nmb-web` az `nmb` felhasználóként fut, csak a szükséges hálózati képességekkel. A saját szolgáltatásait és az újraindítást polkit engedélyezi, a többi kiemelt feladatot az `nmb-helper` végzi. Emiatt a CLI Terminal és a folyamatkezelő nem tud rootként műveletet végezni.
+* **Nyilvános címek**: az `nmb-guard` tiltja a 80-as, 53-as és 5201-es portot nyilvános IPv4- és IPv6-címekről. A helyi hálózat, a VPN és a Tailscale továbbra is működik, és a doboz saját kimenő méréseit ez nem érinti. Systemd és `nftables` kell hozzá, ezért Alpine-ra nem települ.
+* **Boot-partíció**: a `/boot/firmware/nmb.conf` másolatban a jelszavak és tokenek helyén `__KEEP_CURRENT__` látszik. Ha így hagyod, megmarad az érték, ha átírod, az új érvényes. Az `nmb_credentials.txt` csak addig marad ott, amíg a jelszó az alapértelmezett, vagy telepítéskor generált.
+* **Veszélyes műveletek**: a gyári visszaállításhoz parancssorban `--yes`, API-n `RESET` kell. Az adatok és naplók törléséhez `PURGE` kell.
+* **Letöltések**: az Ookla-csomag csak egyező SHA-256 esetén települ.
+* **Tor**: az OONI csomag felrakja a Tor-t, de a telepítő letiltja a szolgáltatást, mert az NMB nem használja.
+* **Nincs titkosítás**: a webes felület alapból HTTP-t használ, ezért csak megbízható hálózaton vagy VPN-en keresztül használd.
 
 ---
 

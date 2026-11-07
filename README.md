@@ -270,7 +270,7 @@ After installation, open the web dashboard directly in your browser without ente
 ```
 http://<appliance-ip>/
 ```
-* **Default credentials**: `admin` / `admin` unless installed with `RANDOM_ADMIN_PASSWORD=1` (mirrored to `/boot/firmware/nmb_credentials.txt` and `/var/lib/nmb/credentials.txt`). Change immediately in the Settings tab.
+* **Default credentials**: `admin` / `admin` unless installed with `RANDOM_ADMIN_PASSWORD=1` (saved to `/var/lib/nmb/credentials.txt`; see Security Model for the boot partition copy). Change immediately in the Settings tab.
 
 ---
 
@@ -336,6 +336,18 @@ sudo journalctl -u nmb-probe -f
 # View scheduled speed test logs (started by nmb-web)
 sudo journalctl -u nmb-web -f
 ```
+
+---
+
+## Security Model
+
+* **Web server user**: `nmb-web` runs as the `nmb` user with only the network capabilities it needs. Polkit lets it manage its own services and reboot; `nmb-helper` handles other privileged tasks. As a result, the CLI Terminal and the task manager cannot act as root.
+* **Public addresses**: `nmb-guard` blocks ports 80, 53 and 5201 from public IPv4 and IPv6 addresses. Local networks, VPN and Tailscale still work, and the box's own outgoing tests are not affected. It needs systemd and `nftables`, so it is not installed on Alpine.
+* **Boot partition**: the copy at `/boot/firmware/nmb.conf` shows `__KEEP_CURRENT__` instead of passwords and tokens. Leave the mark to keep a value, or type a new value to change it. `nmb_credentials.txt` is only kept there while the password is the default or was generated during install.
+* **Destructive actions**: factory reset needs `--yes` in the CLI and `RESET` in the API. Data and log purges need `PURGE`.
+* **Downloads**: the Ookla archive is installed only if its SHA-256 matches.
+* **Tor**: the OONI package installs Tor, but setup disables the service because NMB does not use it.
+* **Not encrypted**: the Web UI uses HTTP by default, so use it only on a trusted network or through a VPN.
 
 ---
 
