@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - This changelog, covering the project from its first commit.
-- A rule in the native rewrite plans to keep the changelog from the first native commit.
+- A plan for a separate Keep a Changelog file for the native rewrite, kept from its first commit.
 - The `nmb-cli` terminal interface and the changelog rule in the architecture document.
 
 ## [2.5.0] - 2026-11-07

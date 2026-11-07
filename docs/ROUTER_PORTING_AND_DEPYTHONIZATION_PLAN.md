@@ -518,7 +518,7 @@ Each port must also pass the checks in Phase 0 of `DEPYTHONIZATION_ROADMAP.md`, 
 Terminal interface and changelog in ports:
 
 - **Terminal interface:** router shells are often small, so `nmb-cli` must not depend on Python or full `curses`. If a target cannot hold the menu, it keeps the JSON commands.
-- **Changelog:** each port records its support in `CHANGELOG.md` when it is added, and only after it has run on that hardware.
+- **Changelog:** each port records its support in `DePythonized/CHANGELOG.md`, using the rules in `DEPYTHONIZATION_ROADMAP.md`, and only after it has run on that hardware.
 
 ---
 

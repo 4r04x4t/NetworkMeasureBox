@@ -505,12 +505,44 @@ Not yet covered by the Python version, and open for the native one: charts, form
 
 **Changelog from the first commit**
 
-`CHANGELOG.md` follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and Semantic Versioning. The native rewrite uses it from its first commit:
+The native rewrite keeps its own changelog in `DePythonized/CHANGELOG.md`, following [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The file is created in the first commit of the rewrite, before any native code. The Python version's `CHANGELOG.md` stays separate.
 
-- Each change that users can notice adds an entry under `[Unreleased]`, in the same commit, under Added, Changed, Deprecated, Removed, Fixed or Security.
-- Each replaced Python component gets an entry that names it, so readers can see how far the migration has come.
-- A release moves `[Unreleased]` to a version with its date and updates the comparison links.
-- Entries are written for users, not copied from commit messages.
+Rules:
+
+- Each commit with a change users can notice adds its entry under `[Unreleased]`, in the same commit.
+- Entries use only Added, Changed, Deprecated, Removed, Fixed and Security, and are written for users rather than copied from commit messages.
+- Each version has a date in `YYYY-MM-DD` format, the newest comes first, and every version has a comparison link.
+- A release moves `[Unreleased]` to a new version and creates its git tag.
+- Versions start at `0.1.0`. `1.0.0` means `nmbd` fully replaces the Python version on the Raspberry Pi 4.
+
+What each phase records:
+
+| Phase | Changelog entries |
+| :--- | :--- |
+| Phase 0 | Added: the checks above as a test suite. Fixed: failures found in them |
+| Phase 1 | Added: each native engine. Changed: its measured difference from Python, only if measured |
+| Phase 2 | Added: routing, DNS and Wi-Fi control. Removed: the external tools no longer needed |
+| Phase 3 | Added: VPN, OONI and the single binary. Removed: each Python daemon it replaces |
+| Phase 4 | Added: self-healing, drivers and packages. Added: each router, only after it has run on that hardware |
+
+An entry for a replaced component names the Python component and says that it passed the Phase 0 checks. Incompatible changes to settings, the REST API or `nmb-cli` JSON output are listed under Changed or Removed, with what users must do, and raise the major version after `1.0.0`.
+
+Starting template:
+
+```markdown
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Native rewrite project and this changelog.
+```
 
 **Open before rewriting**
 
