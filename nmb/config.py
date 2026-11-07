@@ -285,6 +285,7 @@ host = 0.0.0.0
 port = 80
 auth_enabled = true
 admin_password = admin
+public_results = false
 
 [logging]
 level = INFO
@@ -359,6 +360,8 @@ class SystemConfig:
     log_dir: Path = Path("/var/log/nmb")
     sqm_algorithm: str = "cake"
     memory_profile: str = "auto"  # auto, low, standard, performance
+    # The file this config was loaded from with an explicit path; save_config writes back there.
+    config_path: str = ""
 
 
 @dataclass
@@ -486,6 +489,9 @@ class WebConfig:
     admin_username: str = "admin"
     admin_password: str = "admin"
     terminal_enabled: bool = False
+    # Off by default. When on, devices on the local network may view and download
+    # results without the password (read only); settings still need the password.
+    public_results: bool = False
     language: str = "en"
     theme: str = "default"
     tls_enabled: bool = False
@@ -898,6 +904,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.web.admin_username = w.get("admin_username", getattr(cfg.web, "admin_username", "admin"))
         cfg.web.admin_password = w.get("admin_password", cfg.web.admin_password)
         cfg.web.terminal_enabled = w.getboolean("terminal_enabled", fallback=False)
+        cfg.web.public_results = w.getboolean("public_results", fallback=False)
         cfg.ooni.enabled = parser.getboolean("ooni", "enabled", fallback=False)
         cfg.web.language = w.get("language", getattr(cfg.web, "language", "en"))
         cfg.web.theme = w.get("theme", getattr(cfg.web, "theme", "default")).strip().lower()
@@ -966,6 +973,8 @@ def load_config(path: Path | None = None) -> Config:
         cfg.tailscale.accept_dns = ts.getboolean("accept_dns", fallback=cfg.tailscale.accept_dns)
 
     _clamp_settings(cfg)
+    if path is not None:
+        cfg.system.config_path = str(path)
     return cfg
 
 
@@ -1134,6 +1143,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["web"]["auth_enabled"] = str(cfg.web.auth_enabled).lower()
     parser["web"]["admin_username"] = str(getattr(cfg.web, "admin_username", "admin"))
     parser["web"]["admin_password"] = str(cfg.web.admin_password)
+    parser["web"]["public_results"] = str(cfg.web.public_results).lower()
     if "ooni" not in parser:
         parser["ooni"] = {}
     parser["ooni"]["enabled"] = str(cfg.ooni.enabled).lower()

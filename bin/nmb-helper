@@ -14,19 +14,34 @@ reject_unsafe_vpn_config() {
 
 case "${1:-}" in
     upgrade)
-        if command -v systemd-run >/dev/null 2>&1; then
-            exec systemd-run --pipe --wait --quiet /bin/sh -c "export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get -y -o Dpkg::Options::=\"--force-confdef\" -o Dpkg::Options::=\"--force-confold\" upgrade"
-        else
-            export DEBIAN_FRONTEND=noninteractive
-            exec apt-get update && exec apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
+        # Run outside nmb's own service sandbox when systemd is there.
+        RUN=""
+        command -v systemd-run >/dev/null 2>&1 && RUN="systemd-run --pipe --wait --quiet"
+        if command -v apt-get >/dev/null 2>&1; then
+            exec $RUN /bin/sh -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade'
+        elif command -v dnf >/dev/null 2>&1; then
+            exec $RUN dnf -y upgrade --refresh
+        elif command -v apk >/dev/null 2>&1; then
+            exec $RUN /bin/sh -c 'apk update && apk upgrade'
         fi
+        echo "No supported package manager found." >&2
+        exit 1
         ;;
     check-updates)
-        if command -v systemd-run >/dev/null 2>&1; then
-            exec systemd-run --pipe --wait --quiet /bin/sh -c "apt-get update && apt-get -s upgrade"
-        else
-            exec apt-get update && exec apt-get -s upgrade
+        # Prints one "Inst <package>" line per available update, whatever the package manager.
+        RUN=""
+        command -v systemd-run >/dev/null 2>&1 && RUN="systemd-run --pipe --wait --quiet"
+        if command -v apt-get >/dev/null 2>&1; then
+            exec $RUN /bin/sh -c "apt-get update >/dev/null && apt-get -s upgrade"
+        elif command -v dnf >/dev/null 2>&1; then
+            $RUN dnf -q check-update --refresh | awk 'NF==3 && $1 ~ /\./ {print "Inst " $1}'
+            exit 0
+        elif command -v apk >/dev/null 2>&1; then
+            $RUN /bin/sh -c 'apk update >/dev/null && apk version -l "<"' | awk 'NR>1 {print "Inst " $1}'
+            exit 0
         fi
+        echo "No supported package manager found." >&2
+        exit 1
         ;;
     tune)
         if [ -x /opt/nmb/os/nic-tune.sh ]; then

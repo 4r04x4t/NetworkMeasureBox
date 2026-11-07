@@ -76,6 +76,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
   * Egykattintásos driver/firmware telepítő (Debian `apt`, OpenWrt `opkg`, Alpine `apk`, Arch `pacman`, Fedora `dnf`) élő terminálablakkal a WebGUI-ban.
 * **Sebességmérő Motorok és Ellenőrzések**:
   1. **Ookla Speedtest CLI**: Hivatalos Ookla mérőmotor automatikus szerverválasztással vagy testreszabott szerverazonosítóval.
+     * **Figyelem**: az Ookla korlátozza, milyen gyakran mérhet egy eszköz. Óránként működik; néhány percenként az Ookla hamar elutasítja a boxot („Limit reached”), és egy időre letiltja. A webes felület figyelmeztet, ha az ütemezés óránál gyakrabban futtatja az Ooklát. Amíg az Ookla elutasít, a box szünetelteti (30 perc, legfeljebb 4 óra), és RTR-NetTesttel mér, az RTR nevén tárolva. Gyakori méréshez az RTR-NetTestet vagy a Cloudflare-t válaszd.
   2. **Cloudflare Speed Engine**: Időalapú, 4 szálas le- és feltöltés a Cloudflare felé (gigabites vonalon futásonként kb. 1,2 GB).
   3. **RTR-Netztest (RMBT)**: Az Osztrák Szabályozó Hatóság (RTR) és az európai BEREC szabványos RMBT mérőmotorja.
   4. **iPerf3 Kliens és Szerver**: Helyi és távoli iPerf3 audit TCP/UDP protokollal, állítható szálakkal.
@@ -527,7 +528,7 @@ Ha beállította az `nmb-telegram` szolgáltatást, a dobozt közvetlenül a Tel
 * **Ajánlott (Teljes Router Módhoz)**: Raspberry Pi 4 / 5, vagy x86-64 mini PC (pl. Intel N100) legalább **2 fizikai Ethernet porttal** (1x WAN, 1x LAN) és Wi-Fi csatolóval.
 
 ### Automatikus Telepítés
-Futtassa a telepítőt. Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 24.04 LTS és Alpine 3.20 (x86-64), valamint Raspberry Pi 4-en Debian 13-mal (lásd: Tesztelési Állapot):
+Futtassa a telepítőt. Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 (a RHEL 10 helyett) és Alpine 3.20 (x86-64), valamint Raspberry Pi 4-en Debian 13-mal (lásd: Tesztelési Állapot):
 
 ```bash
 # Klónozza a tárolót
@@ -569,13 +570,13 @@ Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz. A részlet
 | Terület | Állapot |
 |---|---|
 | Raspberry Pi 4, Debian 13, `standalone` mód | Napi használatban |
-| Tiszta telepítés, x86-64 | Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 24.04 LTS és Alpine 3.20. Telepítés, szolgáltatások, webes felület, valódi sebességmérés, újratelepítés és (Alpine-on) újraindítás |
+| Tiszta telepítés, x86-64 | Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 (a RHEL 10 helyett) és Alpine 3.20. Telepítés, szolgáltatások, webes felület, valódi sebességmérés, újratelepítés és (Alpine-on) újraindítás |
 | `mode_a` router és `mode_b` híd | Virtuális gépeken tesztelve, DHCP-vel, NAT-tal, DMZ-izolációval és kliensforgalommal. Raspberry Pi hardveren nem |
 | Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. Valódi Wi-Fi hardveren nem |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Nincs igazolva. A Debian 13 hostapd-ja elutasította a Wi-Fi 7 beállításokat, ezért az NMB régebbi szabványra lép vissza |
 | PPPoE | Tárcsázás és vonalszakadás utáni újratárcsázás szimulált szolgáltatóval tesztelve. Valódi vonalon nem |
 | VLAN, Multi-WAN terheléselosztás, link aggregáció | A kód megvan, valódi vonalon nincs tesztelve |
-| Más disztribúciók (például Raspberry Pi OS, Fedora, Arch), 32 bites rendszerek | Nincs tesztelve; a telepítő csak Debian-alapú rendszert és Alpine-t támogat |
+| Más disztribúciók (például Raspberry Pi OS, Arch), 32 bites rendszerek | Nincs tesztelve; a telepítő Debian-alapú rendszert, Fedorát, RHEL-t és klónjait, valamint Alpine-t támogat |
 | 512 MB RAM-os eszközök | Nincs tesztelve, a memóriaprofilok csak Raspberry Pi 4-en futottak |
 | WireGuard és OpenVPN szerver, HTTPS-proxy | Virtuális gépen tesztelve valódi klienssel: alagút, internet és webes felület az alagúton át |
 | Vendég Wi-Fi kliens | Virtuális gépen tesztelve szimulált hálózattal. NetworkManager kell hozzá |
@@ -589,11 +590,12 @@ Az NMB személyes projekt, nem hitelesített mérőeszköz. Az eredményei alát
 
 ## Biztonsági Modell
 
-* **Webszerver felhasználója**: az `nmb-web` az `nmb` felhasználóként fut, csak a szükséges hálózati képességekkel. A saját szolgáltatásait és az újraindítást polkit engedélyezi, a többi kiemelt feladatot az `nmb-helper` végzi. Emiatt a CLI Terminal és a folyamatkezelő nem tud rootként műveletet végezni.
+* **Webszerver felhasználója**: az `nmb-web` az `nmb` felhasználóként fut, csak a szükséges hálózati képességekkel. A saját szolgáltatásait és az újraindítást polkit engedélyezi, a többi kiemelt feladatot az `nmb-helper` végzi. Emiatt a CLI Terminal és a folyamatkezelő nem tud rootként műveletet végezni. A 0.105-ös polkittal (Ubuntu 22.04) a szabály nem tud szolgáltatásnév szerint szűrni, ezért ott az `nmb` bármely systemd-szolgáltatást kezelheti.
 * **Nyilvános címek**: az `nmb-guard` tiltja a 80-as, 53-as és 5201-es portot nyilvános IPv4- és IPv6-címekről. A helyi hálózat, a VPN és a Tailscale továbbra is működik, és a doboz saját kimenő méréseit ez nem érinti. Systemd és `nftables` kell hozzá, ezért Alpine-ra nem települ.
 * **Boot-partíció**: a `/boot/firmware/nmb.conf` másolatban a jelszavak és tokenek helyén `__KEEP_CURRENT__` látszik. Ha így hagyod, megmarad az érték, ha átírod, az új érvényes. Az `nmb_credentials.txt` csak addig marad ott, amíg a jelszó az alapértelmezett, vagy telepítéskor generált.
 * **Veszélyes műveletek**: a gyári visszaállításhoz parancssorban `--yes`, API-n `RESET` kell. Az adatok és naplók törléséhez `PURGE` kell.
 * **Letöltések**: az Ookla-csomag csak egyező SHA-256 esetén települ.
+* **Eredmények jelszó nélkül** (választható, alapból ki van kapcsolva): ha a `[web]` részben `public_results = true` (Beállítások → rendszergazdai fiók), a helyi hálózat vagy a VPN eszközei bejelentkezés nélkül megnyithatják a `/results` oldalt, és letölthetik a riportot és a CSV-fájlokat. Például akkor, ha a box másnál van, és ő küldi el az eredményeket egy szakembernek. Csak ezek az olvasható oldalak nyílnak meg; a beállításokhoz, a mérés indításához és a diagnosztikai csomaghoz továbbra is jelszó kell, nyilvános címről pedig mindig.
 * **Tor**: az OONI csomag felrakja a Tor-t, de a telepítő letiltja a szolgáltatást, mert az NMB nem használja.
 * **Nincs titkosítás**: a webes felület alapból HTTP-t használ, ezért csak megbízható hálózaton vagy VPN-en keresztül használd.
 

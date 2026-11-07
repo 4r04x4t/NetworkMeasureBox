@@ -1,0 +1,15 @@
+# For polkit 0.105 (Debian 11, Ubuntu 22.04), which does not read 90-nmb.rules.
+# A .pkla file cannot limit by unit name, so nmb may manage any systemd unit here.
+[NetworkMeasureBox service management]
+Identity=unix-user:nmb
+Action=org.freedesktop.systemd1.manage-units;org.freedesktop.login1.reboot;org.freedesktop.login1.reboot-multiple-sessions
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
+
+[NetworkMeasureBox guest Wi-Fi]
+Identity=unix-user:nmb
+Action=org.freedesktop.NetworkManager.network-control;org.freedesktop.NetworkManager.wifi.scan;org.freedesktop.NetworkManager.enable-disable-wifi;org.freedesktop.NetworkManager.settings.modify.system;org.freedesktop.NetworkManager.settings.modify.own
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes

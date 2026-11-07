@@ -23,6 +23,9 @@ _update_lock = threading.Lock()
 _update_in_progress = False
 
 
+# sudoers allows this exact path, and RHEL's sudo secure_path leaves out /usr/local/bin.
+HELPER = "/usr/local/bin/nmb-helper"
+
 def detect_os_info() -> Dict[str, Any]:
     """Detect operating system distribution, release, architecture and package manager."""
     from nmb.common.memory import (
@@ -227,12 +230,12 @@ def get_dynamic_interfaces() -> List[Dict[str, Any]]:
 
 def _run_privileged_cmd(cmd_str: str, timeout: int = 60) -> subprocess.CompletedProcess:
     """Run command with root elevation and sandbox escape if needed."""
-    if shutil.which("nmb-helper") and os.geteuid() != 0:
+    if os.access(HELPER, os.X_OK) and os.geteuid() != 0:
         if "update" in cmd_str and "-s" in cmd_str:
-            args = ["sudo", "nmb-helper", "check-updates"]
+            args = ["sudo", "-n", HELPER, "check-updates"]
             return subprocess.run(args, capture_output=True, text=True, check=False, timeout=timeout)
         elif "upgrade" in cmd_str:
-            args = ["sudo", "nmb-helper", "upgrade"]
+            args = ["sudo", "-n", HELPER, "upgrade"]
             return subprocess.run(args, capture_output=True, text=True, check=False, timeout=timeout)
     if shutil.which("systemd-run") and os.geteuid() != 0:
         args = ["sudo", "systemd-run", "--pipe", "--wait", "--quiet", "/bin/sh", "-c", cmd_str]
@@ -337,8 +340,8 @@ def trigger_system_upgrade() -> Dict[str, Any]:
                     else:
                         raw_cmd = "echo 'Unsupported package manager'"
 
-                    if shutil.which("nmb-helper") and os.geteuid() != 0:
-                        full_cmd = ["sudo", "nmb-helper", "upgrade"]
+                    if os.access(HELPER, os.X_OK) and os.geteuid() != 0:
+                        full_cmd = ["sudo", "-n", HELPER, "upgrade"]
                     elif shutil.which("systemd-run") and os.geteuid() != 0:
                         full_cmd = ["sudo", "systemd-run", "--pipe", "--wait", "--quiet", "/bin/sh", "-c", raw_cmd]
                     elif os.geteuid() != 0:

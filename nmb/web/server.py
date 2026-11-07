@@ -74,6 +74,7 @@ from nmb.common.heal import (
 )
 from nmb.report.csv_export import export_ping_summary_csv, export_speedtests_csv, export_nmhh_speedtests_csv
 from nmb.report.dossier import generate_html_dossier
+from nmb.web.results_page import allows_without_password, render_results_page
 from nmb.report.llm_bundle import generate_llm_diagnostic_bundle
 from nmb.report.metrics import aggregate_report_data
 from nmb.report.svg_charts import render_latency_chart
@@ -164,6 +165,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return True
 
         client_ip = self.client_address[0] if hasattr(self, "client_address") else self.address_string()
+        if allows_without_password(getattr(self.server.cfg.web, "public_results", False), self.command, req_path, client_ip):
+            return True
         if _is_ip_rate_limited(client_ip):
             log.warning("[AUTH] Rate limited IP %s due to too many failed attempts", client_ip)
             self.send_response(HTTPStatus.TOO_MANY_REQUESTS)
@@ -375,6 +378,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(pcap_bytes)))
             self.end_headers()
             self.wfile.write(pcap_bytes)
+            return
+
+        # 6b. Read-only results page with download links
+        if path == "/results":
+            qs = parse_qs(parsed.query) if parsed.query else {}
+            lang = qs.get("lang", [getattr(self.server.cfg.web, "language", "en")])[0]
+            self._send_html(render_results_page(lang, getattr(self.server.cfg.system, "box_id", "")))
             return
 
         # 7. Standalone Dossier Download
@@ -1438,6 +1448,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 msg_parts.append(f"Idle gate: < {self.server.cfg.speedtest.idle_threshold_percent:.1f}% network load.")
 
             msg = " ".join(msg_parts) if msg_parts else "Measurement settings saved successfully."
+            from nmb.speed.anti_ban import ookla_schedule_warning
+            sp = self.server.cfg.speedtest
+            ookla_warning = ookla_schedule_warning(sp.automated_engine, sp.schedule_mode, sp.schedule_cron)
+            if ookla_warning and ookla_warning["code"] == "ookla_rate_limit_risk":
+                log.warning("schedule runs Ookla every %.0f min; Ookla limits tests and may block this box (safe: every %d min)",
+                            ookla_warning["interval_min"], ookla_warning["safe_interval_min"])
+                msg += " Warning: Ookla may block tests this frequent."
             save_config(self.server.cfg)
 
             # Record change to event table
@@ -1452,6 +1469,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json({
                 "status": "ok",
                 "message": msg,
+                "ookla_warning": ookla_warning,
                 "schedule_mode": self.server.cfg.speedtest.schedule_mode,
                 "schedule_cron": self.server.cfg.speedtest.schedule_cron,
                 "automated_engine": self.server.cfg.speedtest.automated_engine,
@@ -3296,6 +3314,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "sqm_algorithm": getattr(cfg.system, "sqm_algorithm", "cake"),
             "auth_enabled": bool(getattr(cfg.web, "auth_enabled", True)),
             "admin_username": getattr(cfg.web, "admin_username", "admin"),
+            "public_results": bool(getattr(cfg.web, "public_results", False)),
             "language": getattr(cfg.web, "language", "en"),
             "theme": getattr(cfg.web, "theme", "default"),
             "iperf_target_host": getattr(cfg.iperf, "target_host", ""),
@@ -3567,6 +3586,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             cfg.web.admin_username = body["admin_username"].strip()
         if "admin_password" in body and body["admin_password"]:
             cfg.web.admin_password = str(body["admin_password"])
+        if isinstance(body.get("public_results"), bool):
+            cfg.web.public_results = body["public_results"]
         if "language" in body and str(body["language"]).strip() in TRANSLATIONS:
             cfg.web.language = str(body["language"]).strip()
         valid_themes = ("default", "prtd", "proudride", "amoled", "asuswrt", "asus_camo", "tp_gold", "mountain_hago", "ndefault")

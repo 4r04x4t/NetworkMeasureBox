@@ -105,6 +105,7 @@ NMB records independent measurements at your network edge. It can run behind you
 ### 4. Measurement Engines & Checks
 1. **High-Frequency ICMP Probe (`nmb-probe`)**: 500ms continuous sampling to the gateway and public targets (by default `1.1.1.1`, `8.8.8.8`, `9.9.9.9`, `185.222.222.222`), RFC 3550 jitter calculation, p95/p99 latency tracking, and exact outage duration logging.
 2. **Ookla Speedtest CLI**: Official Ookla binary runner with automatic server detection or custom server targeting.
+   * **Warning**: Ookla limits how often one box may test. Hourly works; every few minutes Ookla soon refuses the box ("Limit reached") and blocks it for a while. The Web UI warns when the schedule runs Ookla more often than hourly. While Ookla refuses, the box pauses it (30 min, up to 4 h) and measures with RTR-NetTest, stored under RTR's name. For frequent tests choose RTR-NetTest or Cloudflare.
 3. **Cloudflare Speed Engine**: Timed 4-stream download and upload against the Cloudflare edge (about 1.2 GB per run at gigabit speed).
 4. **RTR-Netztest (RMBT)**: Open-source benchmark from the Austrian regulator RTR.
 5. **iPerf3 Client & Managed Server**: Local LAN and public WAN throughput benchmarking across TCP and UDP with parallel threads.
@@ -255,13 +256,13 @@ What has actually been run, so you can judge what to rely on. The full record (w
 | Area | Status |
 |---|---|
 | Raspberry Pi 4, Debian 13, `standalone` mode | In daily use |
-| Clean install, x86-64 | Tested in a simulated environment on a PC with these operating systems: Debian 13, Debian 12, Ubuntu 24.04 LTS and Alpine 3.20. Install, services, Web UI, a real speed test, reinstall and (on Alpine) reboot |
+| Clean install, x86-64 | Tested in a simulated environment on a PC with these operating systems: Debian 13, Debian 12, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 (for RHEL 10) and Alpine 3.20. Install, services, Web UI, a real speed test, reinstall and (on Alpine) reboot |
 | `mode_a` router and `mode_b` bridge | Tested in virtual machines, with DHCP, NAT, DMZ isolation and client traffic. Not on Raspberry Pi hardware |
 | Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. Not on real Wi-Fi hardware |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Not verified. The hostapd in Debian 13 rejected the Wi-Fi 7 settings, so NMB steps down to an older standard |
 | PPPoE | Dial-in and redial after a dropped line tested against a simulated ISP. Not on a real line |
 | VLAN, multi-WAN load balancing, link aggregation | Code exists, not tested on a real line |
-| Other distributions (such as Raspberry Pi OS, Fedora, Arch), 32-bit systems | Not tested; setup only supports Debian-based systems and Alpine |
+| Other distributions (such as Raspberry Pi OS, Arch), 32-bit systems | Not tested; setup supports Debian-based systems, Fedora, RHEL and its rebuilds, and Alpine |
 | Devices with 512 MB RAM | Not tested; memory profiles have only run on the Raspberry Pi 4 |
 | WireGuard and OpenVPN server, HTTPS proxy | Tested in a VM with a real client: tunnel, internet and Web UI through the tunnel |
 | Guest Wi-Fi client | Tested in a VM against a simulated network. Needs NetworkManager |
@@ -275,7 +276,7 @@ NMB is a personal project, not a certified measuring instrument. Its results can
 
 ## Quickstart / Automated Installation
 
-Run the installer. Tested in a simulated environment on a PC with Debian 13, Debian 12, Ubuntu 24.04 LTS and Alpine 3.20 (x86-64), and on a Raspberry Pi 4 with Debian 13 (see Tested Status):
+Run the installer. Tested in a simulated environment on a PC with Debian 13, Debian 12, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 (for RHEL 10) and Alpine 3.20 (x86-64), and on a Raspberry Pi 4 with Debian 13 (see Tested Status):
 
 ```bash
 git clone https://github.com/4r04x4t/NetworkMeasureBox.git
@@ -365,11 +366,12 @@ sudo journalctl -u nmb-web -f
 
 ## Security Model
 
-* **Web server user**: `nmb-web` runs as the `nmb` user with only the network capabilities it needs. Polkit lets it manage its own services and reboot; `nmb-helper` handles other privileged tasks. As a result, the CLI Terminal and the task manager cannot act as root.
+* **Web server user**: `nmb-web` runs as the `nmb` user with only the network capabilities it needs. Polkit lets it manage its own services and reboot; `nmb-helper` handles other privileged tasks. As a result, the CLI Terminal and the task manager cannot act as root. On polkit 0.105 (Ubuntu 22.04) the rule cannot name units, so there `nmb` may manage any systemd service.
 * **Public addresses**: `nmb-guard` blocks ports 80, 53 and 5201 from public IPv4 and IPv6 addresses. Local networks, VPN and Tailscale still work, and the box's own outgoing tests are not affected. It needs systemd and `nftables`, so it is not installed on Alpine.
 * **Boot partition**: the copy at `/boot/firmware/nmb.conf` shows `__KEEP_CURRENT__` instead of passwords and tokens. Leave the mark to keep a value, or type a new value to change it. `nmb_credentials.txt` is only kept there while the password is the default or was generated during install.
 * **Destructive actions**: factory reset needs `--yes` in the CLI and `RESET` in the API. Data and log purges need `PURGE`.
 * **Downloads**: the Ookla archive is installed only if its SHA-256 matches.
+* **Results without password** (optional, off by default): with `public_results = true` in `[web]` (Settings → admin credentials), devices on the local network or VPN can open `/results` and download the report and CSV files without logging in, for example when the box is hosted by someone else who sends the results to a specialist. Only these read-only pages open; settings, tests and the diagnostic bundle still need the password, and requests from public addresses always do.
 * **Tor**: the OONI package installs Tor, but setup disables the service because NMB does not use it.
 * **Not encrypted**: the Web UI uses HTTP by default, so use it only on a trusted network or through a VPN.
 

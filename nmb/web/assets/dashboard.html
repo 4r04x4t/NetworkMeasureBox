@@ -2557,6 +2557,7 @@
               <option value="iperf3">⚡ iPerf3 Symmetrical Bandwidth & Jitter</option>
               <option value="all">🏆 All 3 engines sequentially (Combined)</option>
             </select>
+            <div id="sched-ookla-warning" role="alert" style="display: none; margin-top: 8px; padding: 10px 12px; border-radius: 6px; border: 1px solid #f59e0b; background: rgba(245, 158, 11, 0.12); color: #fbbf24; font-size: 12.5px; line-height: 1.45;"></div>
           </div>
 
           <!-- Target Server ID -->
@@ -3873,6 +3874,14 @@
               <input type="password" id="cfg-admin-pass" placeholder="Enter new password (leave empty to keep unchanged)..." class="form-input">
               <div class="form-hint">Password required to authenticate to this web management dashboard.</div>
             </div>
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label class="form-label" style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="cfg-public-results" onchange="savePublicResults(this.checked)">
+              <span data-i18n="sys_public_results">Results without password on the local network</span>
+            </label>
+            <div class="form-hint" data-i18n="sys_public_results_hint">Devices on the local network can open /results and download the report and CSV files without logging in. Settings still need the password. Useful when the box is hosted by someone else who sends the results to a specialist.</div>
+            <div class="form-hint"><a href="/results" target="_blank">/results</a></div>
           </div>
           <div style="margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <button type="button" class="btn-primary" style="padding: 7px 18px; font-size: 12.5px;" onclick="updateAdminCredentials()">

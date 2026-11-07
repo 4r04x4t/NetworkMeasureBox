@@ -26,9 +26,12 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | Debian 13 | ✅ | ✅ | ✅ | Also the base of VM-D13 |
 | Debian 12 (Python 3.11) | ✅ | ✅ | — | Real speed test passed. Polkit rule verified: `nmb` may restart `nmb-netd`, not `ssh` |
 | Ubuntu 24.04 LTS | ✅ | — | — | Needed interface auto-detection (`ens3` instead of `eth0`), fixed |
+| Ubuntu 22.04 LTS (Python 3.10, polkit 0.105) | ✅ | ✅ | ✅ | Needed the old polkit's `.pkla` rule, added; there `nmb` may manage any unit. Scheduled Ookla tests ran |
 | Alpine 3.20 (OpenRC) | ✅ | ✅ | ✅ | Needed port 80 capability, RMBT build and OpenRC restart fixes |
 | Raspberry Pi 4, Debian 13 | ✅ | ✅ | ✅ | The Box |
-| Raspberry Pi OS, Fedora, Arch, 32-bit | — | — | — | Not tested; `setup.sh` supports only Debian-based systems and Alpine |
+| Fedora 45 (Python 3.15, SELinux enforcing) | ✅ | — | — | New `dnf` branch. All services, polkit, all optional packages; RTR and Cloudflare measured, the Ookla CLI ran (refused by Ookla's rate limit, shared IP). No SELinux denials. Reboot not checked |
+| AlmaLinux 10.2 (for RHEL 10; Python 3.12, SELinux enforcing) | ✅ | ✅ | ✅ | Needs EPEL (enabled by `setup.sh`). Fixed: rebuilds list "fedora" in `ID_LIKE`, so EPEL was skipped; `sudo` there does not search `/usr/local/bin`. Update check counts `dnf` updates. The image needs a SCSI disk in QEMU |
+| Raspberry Pi OS, Arch, 32-bit | — | — | — | Not tested |
 
 ### Measurement
 
@@ -94,6 +97,8 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | DNS ad blocker under load | VM-D13 | ✅ | 3000 queries from 50 threads: all answered, 6900/s, p99 72 ms, 24 MB RAM |
 | Self-update with rollback | VM-D13 | ✅ | `/opt/nmb` as a Git checkout with a local origin. A good commit was applied; a commit with a failing test was rolled back. Fixed: three tests depended on the machine, so on a real box every update was rolled back; `--json` output was not pure JSON |
 | Web UI, settings save and reload | Box, VM-distro | ✅ | |
+| Results without password (`public_results`) | Box, local instance, unit tests | ✅ | Off on the Box: `/results` gives 401. On: `/results`, the report and the CSV files open from the LAN without login; `/`, `/api/config`, `/api/status` and every POST still give 401; turning it off in the Web UI is saved |
+| Ookla schedule warning | Box, unit tests | ✅ | The Box (all engines every minute) reports `ookla_rate_limit_risk`; hourly or RTR-only gives none |
 | Factory reset | VM-D13 (earlier sweep), unit tests | ✅ | Needs `--yes` |
 | `nmb-cli` TUI | Box, unit tests | ✅ | |
 | Security: firewall guard, web server as `nmb`, secrets on the boot partition | VM-distro, Box | ✅ | |
@@ -102,9 +107,50 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | SMTP, OONI, drive swap | — | — | |
 | 512 MB RAM devices | — | — | |
 
+## Candidates
+
+### Operating systems
+
+Found by checking what `setup.sh` detects and what the code needs (Python 3.10 or newer at run time, standard library only, systemd with nftables, or Alpine with OpenRC).
+
+| System | Expected | Why | How to test |
+|---|---|---|---|
+| Ubuntu 26.04 LTS | Should work | Debian-based, current polkit | Cloud image VM, like Ubuntu 24.04 |
+| Raspberry Pi OS (arm64), Lite | Should work | Debian 13 based, like the Box | On a Pi, or Debian arm64 under QEMU |
+| Raspberry Pi OS (armhf, 32-bit) | Unknown | The Ookla and RMBT builds have only been run on arm64 and x86-64 | On a Pi 2/3/Zero 2 |
+| Armbian, DietPi | Should work | Debian-based images for other single-board computers | On the board, or their x86 images |
+| Linux Mint 22, Pop!_OS | Should work | Ubuntu 24.04 based; desktop NetworkManager may claim the ports | VM |
+| Alpine 3.21 / 3.22 | Should work | Same OpenRC path as 3.20 | Cloud image VM |
+| Devuan | Refused | No systemd; `setup.sh` now stops with a clear message | — |
+| Rocky Linux 10, CentOS Stream 10 | Should work | Same `dnf` and EPEL path as AlmaLinux 10 | Cloud image VM |
+| Arch, Manjaro, openSUSE, Void, NixOS | Not supported | Other package managers or init systems | Needs a port |
+| OpenWrt | Not supported | Planned in the native rewrite, see `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md` | — |
+
+### Features and situations not yet tested
+
+Can be done in VMs:
+
+- **Low memory:** a 512 MB and a 1 GB VM, all services on, for 24 hours; watch memory and OOM kills.
+- **Long run:** 24–72 hours with per-minute tests; memory growth, database size, log rotation.
+- **Power loss:** kill the VM during a speed test and during the 15-minute snapshot; check the database and config after boot.
+- **Backup and restore:** create, download, restore on a fresh install, restore an old-version backup.
+- **Upgrade from an older release:** install 2.4.0, then update to the current version with its config kept.
+- **WAN failover and multi-WAN load balancing:** two WAN NICs, pull one.
+- **VLAN, link aggregation, passthrough:** with a simulated switch (Linux bridge with VLAN filtering, a bonded peer).
+- **Hostile networks:** IPv6-only WAN, CGNAT, broken DNS, a captive portal, a flapping link, a clock jump (Pi has no clock battery).
+- **Telegram and SMTP** against local mock servers.
+- **Traceroute, packet sniffer, OONI, report generation, driver installer.**
+- **Web UI:** the five languages complete, several users at once, repeated wrong logins, and Firefox, Chrome and a phone browser.
+
+Needs hardware or accounts:
+
+- Real Wi-Fi radios (2.4/5/6 GHz, Wi-Fi 6/7), a real PPPoE line, the Nighthawk M6 Pro, a USB Ethernet adapter, a Pi 5.
+- Tailscale, a real DuckDNS domain, a real Telegram bot.
+
 ## Open
 
 - **The Box still has the old polkit rule.** Guest Wi-Fi from the Web UI fails there with "network-control: auth" until the new `os/90-nmb.rules` is installed (re-run `setup.sh`, or copy it to `/etc/polkit-1/rules.d/`).
+- Not tested: opening ports in firewalld (it was not running on the Fedora and AlmaLinux cloud images).
 - Not tested: Ubuntu reinstall and reboot, Debian 12 reboot, Tailscale, a real Telegram bot, SMTP, OONI, real Wi-Fi and PPPoE hardware.
 
 ## Re-running

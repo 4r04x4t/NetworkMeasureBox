@@ -38,20 +38,63 @@ fetch_ookla() {
 
 info "Starting NetworkMeasureBox production installation..."
 
+# Standalone Ookla CLI and OONI probe binaries, for systems without a package for them.
+machine_arch() {
+    case "$(uname -m)" in
+        x86_64) echo "$1" | cut -d, -f1 ;;
+        aarch64) echo "$1" | cut -d, -f2 ;;
+        armv7l) echo "$1" | cut -d, -f3 ;;
+    esac
+}
+
+install_ookla_binary() {
+    command -v speedtest >/dev/null 2>&1 && return 0
+    arch=$(machine_arch "x86_64,aarch64,armhf")
+    [ -n "$arch" ] || return 1
+    info "Downloading standalone Ookla speedtest binary for $arch..."
+    tmp=$(mktemp -d)
+    if fetch_ookla "$arch" "$tmp" && [ -f "$tmp/speedtest" ]; then
+        mv "$tmp/speedtest" /usr/local/bin/speedtest
+        chmod +x /usr/local/bin/speedtest
+        info "Installed /usr/local/bin/speedtest"
+    fi
+    rm -rf "$tmp"
+    command -v speedtest >/dev/null 2>&1
+}
+
+install_miniooni() {
+    command -v ooniprobe >/dev/null 2>&1 || command -v ooniprobe-cli >/dev/null 2>&1 && return 0
+    arch=$(machine_arch "amd64,arm64,armv7")
+    [ -n "$arch" ] || return 1
+    info "Downloading standalone miniooni binary for $arch..."
+    curl -sL "https://github.com/ooni/probe-cli/releases/download/v3.31.1/miniooni-linux-$arch" -o /usr/local/bin/ooniprobe 2>/dev/null || true
+    chmod +x /usr/local/bin/ooniprobe 2>/dev/null || true
+}
+
 # ------------------------------------------------------------------------------
 # 1. OS & Init System Detection
 # ------------------------------------------------------------------------------
 OS_TYPE="debian"
 INIT_SYSTEM="systemd"
 
+OS_ID=$(. /etc/os-release 2>/dev/null; echo "${ID:-}")
+OS_IDS=$(. /etc/os-release 2>/dev/null; echo "${ID:-} ${ID_LIKE:-}")
 if [ -f /etc/alpine-release ]; then
     OS_TYPE="alpine"
     INIT_SYSTEM="openrc"
-elif [ -f /etc/debian_version ] || grep -q -E "debian|ubuntu|raspbian" /etc/os-release 2>/dev/null; then
+elif [ -f /etc/debian_version ] || echo "$OS_IDS" | grep -q -E "debian|ubuntu|raspbian"; then
     OS_TYPE="debian"
     INIT_SYSTEM="systemd"
+elif echo "$OS_IDS" | grep -q -E "fedora|rhel|centos"; then
+    # Fedora, RHEL and its rebuilds (Rocky, AlmaLinux, CentOS Stream)
+    OS_TYPE="rpm"
+    INIT_SYSTEM="systemd"
 else
-    error "Unsupported operating system. NetworkMeasureBox officially supports Debian, Ubuntu, Raspberry Pi OS, and Alpine Linux."
+    error "Unsupported operating system. NetworkMeasureBox supports Debian, Ubuntu, Raspberry Pi OS, Fedora, RHEL (and its rebuilds) and Alpine Linux."
+fi
+# A systemd family system without systemd running (such as Devuan) would fail halfway through.
+if [ "$INIT_SYSTEM" = "systemd" ] && ! [ -d /run/systemd/system ]; then
+    error "This system does not run systemd. NetworkMeasureBox needs systemd here (or Alpine with OpenRC)."
 fi
 info "Detected platform: $OS_TYPE with $INIT_SYSTEM"
 
@@ -62,8 +105,11 @@ info "Installing required operating system packages and network utilities..."
 if [ "$OS_TYPE" = "debian" ]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
+    # Debian 11 and Ubuntu 22.04 ship polkit 0.105 as "policykit-1"; later releases as "polkitd".
+    POLKIT_PKG=polkitd
+    apt-cache show polkitd >/dev/null 2>&1 || POLKIT_PKG=policykit-1
     apt-get install -y --no-install-recommends \
-        python3 iproute2 nftables iptables ethtool pciutils usbutils polkitd \
+        python3 iproute2 nftables iptables ethtool pciutils usbutils "$POLKIT_PKG" \
         dnsmasq hostapd iw wireless-regdb ppp pppoe udhcpc curl ca-certificates procps libcap2-bin \
         wireguard-tools openvpn easy-rsa python3-qrcode qrencode \
         traceroute iputils-tracepath mtr-tiny iperf3 sqlite3 gnupg dirmngr \
@@ -81,30 +127,9 @@ if [ "$OS_TYPE" = "debian" ]; then
         apt-get update -y 2>/dev/null || true
         DEBIAN_FRONTEND=noninteractive apt-get install -y ooniprobe-cli 2>/dev/null || true
 
-        # Fallback to standalone miniooni binary if debian repo failed
-        if ! command -v ooniprobe >/dev/null 2>&1 && ! command -v ooniprobe-cli >/dev/null 2>&1; then
-            ARCH=$(uname -m)
-            OONI_ARCH=""
-            [ "$ARCH" = "x86_64" ] && OONI_ARCH="amd64"
-            [ "$ARCH" = "aarch64" ] && OONI_ARCH="arm64"
-            [ "$ARCH" = "armv7l" ] && OONI_ARCH="armv7"
-            if [ -n "$OONI_ARCH" ]; then
-                info "Downloading standalone miniooni binary for $OONI_ARCH..."
-                curl -sL "https://github.com/ooni/probe-cli/releases/download/v3.31.1/miniooni-linux-$OONI_ARCH" -o /usr/local/bin/ooniprobe 2>/dev/null || true
-                chmod +x /usr/local/bin/ooniprobe 2>/dev/null || true
-            fi
-        fi
+        # Fall back to the standalone binary if the repository failed.
+        install_miniooni
     fi
-
-    # ooniprobe-cli pulls in Tor; NMB does not use it, so it must not run as a service.
-    systemctl disable --now tor 2>/dev/null || true
-
-
-    # Stop and disable OS-packaged dnsmasq & hostapd so nmb-netd has exclusive control
-    systemctl disable --now dnsmasq hostapd 2>/dev/null || true
-    # dnsmasq often fails when installed next to another DNS service; do not leave the system degraded.
-    systemctl reset-failed dnsmasq hostapd 2>/dev/null || true
-    systemctl mask hostapd 2>/dev/null || true
 
     NMB_MODE="${NMB_MODE:-standalone}"
     if [ "$NMB_MODE" != "standalone" ]; then
@@ -130,25 +155,8 @@ EOF
         info "Standalone Mode: physical network interfaces remain under host OS management."
     fi
 
-    # Install official Ookla Speedtest CLI (try standalone binary first for reliable multi-distro support)
-    ARCH=$(uname -m)
-    OOKLA_ARCH=""
-    [ "$ARCH" = "x86_64" ] && OOKLA_ARCH="x86_64"
-    [ "$ARCH" = "aarch64" ] && OOKLA_ARCH="aarch64"
-    [ "$ARCH" = "armv7l" ] && OOKLA_ARCH="armhf"
-
-    if [ -n "$OOKLA_ARCH" ] && ! command -v speedtest >/dev/null 2>&1; then
-        info "Downloading standalone Ookla speedtest binary for $OOKLA_ARCH..."
-        TMP_DIR=$(mktemp -d)
-        if fetch_ookla "$OOKLA_ARCH" "$TMP_DIR"; then
-            if [ -f "$TMP_DIR/speedtest" ]; then
-                mv "$TMP_DIR/speedtest" /usr/local/bin/speedtest
-                chmod +x /usr/local/bin/speedtest
-                info "Installed /usr/local/bin/speedtest"
-            fi
-        fi
-        rm -rf "$TMP_DIR"
-    fi
+    # Official Ookla Speedtest CLI: the standalone binary works on every distribution.
+    install_ookla_binary || true
 
     if ! command -v speedtest >/dev/null 2>&1; then
         info "Trying Ookla repository package..."
@@ -156,7 +164,7 @@ EOF
         if [ "${INSTALL_OOKLA_REPO:-0}" = "1" ]; then
             curl -sSL https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash 2>/dev/null || true
         fi
-        apt-get install -y speedtest 2>/dev/null || warn "Ookla repository install deferred; native high-speed fallback will be active."
+        apt-get install -y speedtest 2>/dev/null || warn "Ookla CLI not installed; RTR-NetTest and Cloudflare remain available."
     fi
 
 elif [ "$OS_TYPE" = "alpine" ]; then
@@ -166,39 +174,49 @@ elif [ "$OS_TYPE" = "alpine" ]; then
         curl ca-certificates busybox-extras libcap traceroute iputils mtr \
         iperf3 sqlite openvpn wireguard-tools build-base gcc make openssl-dev curl-dev pkgconfig
 
-    ARCH=$(uname -m)
-    OOKLA_ARCH=""
-    [ "$ARCH" = "x86_64" ] && OOKLA_ARCH="x86_64"
-    [ "$ARCH" = "aarch64" ] && OOKLA_ARCH="aarch64"
-    [ "$ARCH" = "armv7l" ] && OOKLA_ARCH="armhf"
+    install_ookla_binary || true
+    install_miniooni
 
-    if [ -n "$OOKLA_ARCH" ] && ! command -v speedtest >/dev/null 2>&1; then
-        info "Downloading standalone Ookla speedtest binary for $OOKLA_ARCH..."
-        TMP_DIR=$(mktemp -d)
-        fetch_ookla "$OOKLA_ARCH" "$TMP_DIR" || true
-        if [ -f "$TMP_DIR/speedtest" ]; then
-            mv "$TMP_DIR/speedtest" /usr/local/bin/speedtest
-            chmod +x /usr/local/bin/speedtest
-            info "Installed /usr/local/bin/speedtest"
-        fi
-        rm -rf "$TMP_DIR"
+elif [ "$OS_TYPE" = "rpm" ]; then
+    # RHEL and its rebuilds keep hostapd, qrencode and python3-qrcode in EPEL.
+    # Rebuilds list "fedora" in ID_LIKE too, so only ID tells Fedora apart.
+    if [ "$OS_ID" != "fedora" ] && ! rpm -q epel-release >/dev/null 2>&1; then
+        info "Enabling EPEL for hostapd and QR code tools..."
+        dnf install -y epel-release 2>/dev/null || \
+            dnf install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E %rhel).noarch.rpm" || \
+            warn "EPEL could not be enabled; Wi-Fi access point and QR codes will be unavailable."
     fi
+    dnf install -y --setopt=install_weak_deps=False \
+        python3 iproute nftables ethtool pciutils usbutils polkit dnsmasq ppp curl ca-certificates \
+        procps-ng libcap wireguard-tools traceroute iputils mtr iperf3 sqlite gnupg2 \
+        gcc make glibc-devel openssl-devel libcurl-devel pkgconf-pkg-config \
+        || error "Required packages could not be installed."
+    # Optional features; each may be missing from a repository without breaking the install.
+    for pkg in hostapd iw wireless-regdb openvpn python3-qrcode qrencode iptables-nft NetworkManager-ppp; do
+        dnf install -y --setopt=install_weak_deps=False "$pkg" >/dev/null 2>&1 || warn "Package $pkg is not available; the feature that needs it stays off."
+    done
+    install_ookla_binary || true
+    install_miniooni
+fi
 
-    # Install standalone OONI probe for Alpine
-    if ! command -v ooniprobe >/dev/null 2>&1 && ! command -v ooniprobe-cli >/dev/null 2>&1; then
-        OONI_ARCH=""
-        [ "$ARCH" = "x86_64" ] && OONI_ARCH="amd64"
-        [ "$ARCH" = "aarch64" ] && OONI_ARCH="arm64"
-        [ "$ARCH" = "armv7l" ] && OONI_ARCH="armv7"
-        if [ -n "$OONI_ARCH" ]; then
-            info "Downloading standalone miniooni binary for $OONI_ARCH..."
-            curl -sL "https://github.com/ooni/probe-cli/releases/download/v3.31.1/miniooni-linux-$OONI_ARCH" -o /usr/local/bin/ooniprobe 2>/dev/null || true
-            chmod +x /usr/local/bin/ooniprobe 2>/dev/null || true
-        fi
+# Shared by every systemd system.
+if [ "$INIT_SYSTEM" = "systemd" ]; then
+    # ooniprobe-cli pulls in Tor; NMB does not use it, so it must not run as a service.
+    systemctl disable --now tor 2>/dev/null || true
+    # nmb-netd runs dnsmasq and hostapd itself.
+    systemctl disable --now dnsmasq hostapd 2>/dev/null || true
+    systemctl reset-failed dnsmasq hostapd 2>/dev/null || true
+    systemctl mask hostapd 2>/dev/null || true
+    # firewalld (Fedora, RHEL) would block the Web UI and the services NMB offers.
+    if systemctl is-active --quiet firewalld 2>/dev/null; then
+        info "Opening NMB ports in firewalld..."
+        firewall-cmd -q --permanent --add-service=http --add-service=dns --add-service=dhcp \
+            --add-port=5201/tcp --add-port=51820/udp --add-port=1194/udp --add-port=8443/tcp || true
+        firewall-cmd -q --reload || true
     fi
 fi
 
-# Both Debian and Alpine install the build tools above.
+# Every branch above installs the build tools.
 # Compile native Open-RMBT C measurement engine if source is present
 if [ -d "$SCRIPT_DIR/components/open-rmbt" ]; then
     info "Compiling native Open-RMBT C measurement client (/usr/local/bin/rmbt-client)..."
@@ -410,6 +428,11 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
     info "Enabling and starting NetworkMeasureBox systemd target..."
     install -d /etc/polkit-1/rules.d
     cp "$SCRIPT_DIR/os/90-nmb.rules" /etc/polkit-1/rules.d/90-nmb.rules
+    # polkit 0.105 ignores rules.d and reads .pkla files, which cannot limit by unit name.
+    if pkaction --version 2>/dev/null | grep -qE ' 0\.(9[0-9]|10[0-5])$'; then
+        install -d /etc/polkit-1/localauthority/50-local.d
+        cp "$SCRIPT_DIR/os/90-nmb.pkla" /etc/polkit-1/localauthority/50-local.d/90-nmb.pkla
+    fi
     systemctl enable --now nmb-guard.service
     systemctl restart nmb-guard.service
     systemctl enable nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service nmb-adblock.service

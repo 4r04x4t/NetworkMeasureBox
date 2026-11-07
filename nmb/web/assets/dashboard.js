@@ -36,6 +36,30 @@
     return currentTranslations[key] || fallback || key;
   }
 
+  // Ookla refuses a box that tests too often; say so wherever the schedule is shown.
+  function ooklaWarningText(w) {
+    if (!w) return '';
+    let text;
+    if (w.code === 'ookla_rate_limit_risk') {
+      text = t('ookla_warn_risk', 'Ookla limits how often one box may test. This schedule runs Ookla every {interval} min; Ookla will soon refuse the tests and block this box for a while. Use every {safe} min or less often, or choose RTR-NetTest or Cloudflare for frequent tests.')
+        .replace('{interval}', w.interval_min).replace('{safe}', w.safe_interval_min);
+    } else {
+      text = t('ookla_warn_paused_only', 'Ookla refused tests from this box.');
+    }
+    if (w.paused_min) {
+      text += ' ' + t('ookla_warn_paused', 'Ookla is paused for {paused} min; until then the box measures with RTR-NetTest.').replace('{paused}', w.paused_min);
+    }
+    return text;
+  }
+
+  function renderOoklaWarning(w) {
+    const box = document.getElementById('sched-ookla-warning');
+    if (!box) return;
+    const text = ooklaWarningText(w);
+    box.style.display = text ? 'block' : 'none';
+    box.textContent = text ? '⚠️ ' + text : '';
+  }
+
   function applyTranslations() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const k = el.getAttribute('data-i18n');
@@ -2371,8 +2395,11 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           const stopToggle = document.getElementById('traffic-stop-toggle');
           if (stopToggle) stopToggle.checked = globalTrafficStop;
           const gateInfo = data.scheduler_status && data.scheduler_status.traffic_gate;
+          const ooklaWarn = data.scheduler_status ? data.scheduler_status.ookla_warning : null;
+          renderOoklaWarning(ooklaWarn);
           const visibilityWarning = gateInfo && gateInfo.visibility === 'none' ? ` &nbsp;|&nbsp; ⚠️ ${escapeHtml(t('gate_no_visibility', 'No speed tests: other devices\' traffic is not visible to the box'))}` : '';
-          modeBadge.innerHTML = `🟢 <b>${t('mode_scheduled', 'Automated Schedule')}:</b> ${escapeHtml(cronDesc)} &nbsp;|&nbsp; 🛡️ <b>${t('accuracy_gate', 'Accuracy Gate')}:</b> &lt; ${gatePct.toFixed(1)}% (max ${limitMbps} Mbps)${visibilityWarning}`;
+          const ooklaBadge = ooklaWarn ? ` &nbsp;|&nbsp; ⚠️ ${escapeHtml(ooklaWarningText(ooklaWarn))}` : '';
+          modeBadge.innerHTML = `🟢 <b>${t('mode_scheduled', 'Automated Schedule')}:</b> ${escapeHtml(cronDesc)} &nbsp;|&nbsp; 🛡️ <b>${t('accuracy_gate', 'Accuracy Gate')}:</b> &lt; ${gatePct.toFixed(1)}% (max ${limitMbps} Mbps)${visibilityWarning}${ooklaBadge}`;
           modeBadge.style.background = 'rgba(16, 185, 129, 0.15)';
           modeBadge.style.color = '#34d399';
           modeBadge.style.borderColor = '#10b981';
@@ -4497,6 +4524,11 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           banner.innerHTML = `<span style="color:#34d399; font-weight:600;">${t('sched_saved', '✅ Automated schedule and Traffic Gate (< 2%) successfully saved!')}</span>`;
         }
         showToast(t('sched_saved', '✅ Automated schedule and Traffic Gate (< 2%) successfully saved!'));
+        try {
+          const saved = await res.clone().json();
+          renderOoklaWarning(saved.ookla_warning);
+          if (saved.ookla_warning && saved.ookla_warning.code === 'ookla_rate_limit_risk') showToast('⚠️ ' + ooklaWarningText(saved.ookla_warning));
+        } catch (e) { /* refreshStatus shows the warning again */ }
         refreshStatus();
       } else {
         const err = await res.json();
@@ -4544,6 +4576,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       const res = await fetch('/api/config');
       if (!res.ok) return;
       const d = await res.json();
+
+      const publicResults = document.getElementById('cfg-public-results');
+      if (publicResults) publicResults.checked = !!d.public_results;
 
       // WAN
       if (document.getElementById('cfg-wan-proto')) document.getElementById('cfg-wan-proto').value = d.wan_proto || 'dhcp';
@@ -7313,6 +7348,20 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       }
     } catch (e) {
       showToast('Error updating credentials: ' + e);
+    }
+  }
+
+  // Results without password on the local network
+  async function savePublicResults(enabled) {
+    try {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ public_results: !!enabled })
+      });
+      showToast(res.ok ? (enabled ? '✅ /results is open on the local network.' : '🔒 /results needs the password again.') : 'Error saving the setting.');
+    } catch (e) {
+      showToast('Error saving the setting: ' + e);
     }
   }
 

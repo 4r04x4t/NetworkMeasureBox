@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Fedora and RHEL support (tested on Fedora 45 and AlmaLinux 10): a `dnf` branch in `setup.sh` that enables EPEL on RHEL and its rebuilds and opens the NMB ports in firewalld. `nmb-helper upgrade` and `check-updates` work with `dnf` and `apk` too.
+- Optional results without password: with `public_results = true` (off by default), devices on the local network can open `/results` and download the report and CSV files without logging in. Settings still need the password.
+- A warning in the Web UI, the API and the log when the schedule runs Ookla more often than hourly, since Ookla then blocks the box; it also shows how long Ookla stays paused.
 - A testing record, `docs/TESTING.md` (and `docs/TESTING.hu.md`): where each feature was tested, how, and with what result.
 - This changelog, covering the project from its first commit.
 - A plan for a separate Keep a Changelog file for the native rewrite, kept from its first commit.
@@ -31,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `nmb-helper upgrade` ran only `apt-get update`: a second `exec` never ran, so packages were not upgraded. It also ran `apt-get` on Alpine.
+- The update check used `sudo nmb-helper` without its path, which fails where `sudo` does not search `/usr/local/bin` (RHEL).
+- `nmb-web --config FILE` saved settings to `/etc/nmb/nmb.conf` instead of FILE.
+- `setup.sh` stops with a clear message on Debian derivatives without systemd, such as Devuan, instead of failing halfway.
+- Install on Ubuntu 22.04: polkit 0.105 ignores the JavaScript rule, so the web server could not manage services. `setup.sh` now also installs a `.pkla` rule there, and picks `policykit-1` where `polkitd` does not exist.
 - OpenVPN rejected every client: the server certificate had no TLS server usage, which clients check. New certificates carry it, and an old one is reissued from the same CA, so issued profiles keep working.
 - The HTTPS proxy took 20 seconds per request on networks with a broken IPv6 route; it now tries IPv6 and IPv4 addresses side by side. Stopping it now frees its port, and it no longer forwards to the box's own loopback or link-local addresses.
 - Guest Wi-Fi: the `nmb` user may now control NetworkManager (polkit), reconnecting no longer fails on a stale profile, errors show NetworkManager's own message, and a disconnected client is no longer reported as connected.

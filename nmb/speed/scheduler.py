@@ -14,6 +14,7 @@ from typing import Optional, Set, Tuple
 
 from nmb.config import Config
 
+from nmb.speed.anti_ban import ookla_schedule_warning
 log = logging.getLogger("nmb.speed.scheduler")
 
 RETRY_INTERVAL_SEC = 300.0
@@ -264,6 +265,18 @@ def get_cron_description(cron_expr: str, lang: str = "en") -> str:
     return f"Egyedi időzítés ({norm})" if is_hu else f"Custom schedule ({norm})"
 
 
+def shortest_gap_seconds(cron_expr: str, samples: int = 6) -> Optional[float]:
+    """Smallest gap between the next few runs of a schedule, or None if it cannot be told."""
+    try:
+        runs = [estimate_next_run(cron_expr)]
+        for _ in range(samples):
+            runs.append(estimate_next_run(cron_expr, runs[-1] + datetime.timedelta(seconds=1)))
+    except Exception:
+        return None
+    gaps = [(b - a).total_seconds() for a, b in zip(runs, runs[1:]) if b > a]
+    return min(gaps) if gaps else None
+
+
 def estimate_next_run(cron_expr: str, start_dt: Optional[datetime.datetime] = None) -> datetime.datetime:
     """Find next matching time up to 48 hours in the future."""
     dt = start_dt or datetime.datetime.now()
@@ -483,6 +496,8 @@ class AutonomousScheduler(threading.Thread):
             "last_run_timestamp": self.last_run_timestamp,
             "last_outcome": self.last_outcome,
             "last_detail": self.last_detail,
+            "ookla_warning": ookla_schedule_warning(
+                getattr(self.cfg.speedtest, "automated_engine", "ookla"), sched_mode, sched_cron),
             "traffic_gate": {
                 "mode": thresh_mode,
                 "threshold_percent": thresh_pct,

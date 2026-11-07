@@ -209,3 +209,28 @@ def get_smart_rotated_server(target_server_id: Optional[int] = None) -> Optional
     log.info("smart server rotation selected Ookla server %d (least recently used)", chosen_id)
     return chosen_id
 
+
+
+# Ookla refuses a client that tests too often. Hourly has worked on the developer's
+# box; per-minute tests were refused within the hour.
+OOKLA_SAFE_INTERVAL_SEC = 3600
+
+
+def ookla_schedule_warning(engine: str, schedule_mode: str, cron_expr: str) -> Optional[Dict[str, Any]]:
+    """Describe the Ookla rate-limit risk of this schedule, or None when there is none."""
+    paused_min = int(client_cooldown_remaining() // 60) + 1 if client_cooldown_remaining() > 0 else 0
+    uses_ookla = engine in ("ookla", "all")
+    gap = None
+    if uses_ookla and schedule_mode == "scheduled":
+        from nmb.speed.scheduler import shortest_gap_seconds
+        gap = shortest_gap_seconds(cron_expr)
+    if gap is not None and gap < OOKLA_SAFE_INTERVAL_SEC:
+        return {
+            "code": "ookla_rate_limit_risk",
+            "interval_min": round(gap / 60, 1),
+            "safe_interval_min": OOKLA_SAFE_INTERVAL_SEC // 60,
+            "paused_min": paused_min,
+        }
+    if paused_min:
+        return {"code": "ookla_paused", "paused_min": paused_min, "safe_interval_min": OOKLA_SAFE_INTERVAL_SEC // 60}
+    return None
