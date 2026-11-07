@@ -35,5 +35,12 @@ class CloudflareEngineTests(unittest.TestCase):
         self.assertEqual(len(errors), 2)
 
 
+class TransferErrorSplitTest(unittest.TestCase):
+    def test_only_recovered_tls_drops_are_separated(self):
+        from nmb.speed.cloudflare import split_transfer_errors
+        drop = "[SSL: RECORD_LAYER_FAILURE] record layer failure (_ssl.c:2650)"
+        self.assertEqual(split_transfer_errors([drop, "HTTP 429"]), ([drop], ["HTTP 429"]))
+
+
 if __name__ == "__main__":
     unittest.main()

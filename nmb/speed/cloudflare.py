@@ -108,6 +108,7 @@ class CloudflareSpeedResult:
     bufferbloat_grade: Optional[str] = None
     bufferbloat_delta_ms: Optional[float] = None
     meta: CloudflareMeta = field(default_factory=CloudflareMeta)
+    recovered_streams: int = 0
     tier_downloads: Dict[str, float] = field(default_factory=dict)
     tier_uploads: Dict[str, float] = field(default_factory=dict)
     error: Optional[str] = None
@@ -157,6 +158,7 @@ class CloudflareSpeedResult:
                 "city": self.meta.city,
                 "country": self.meta.country,
                 "asn": self.meta.asn,
+                "recovered_tls_streams": self.recovered_streams,
                 "tier_downloads_mbps": self.tier_downloads,
                 "tier_uploads_mbps": self.tier_uploads,
                 "down_loaded_lat_ms": self.down_loaded_lat_ms,
@@ -408,6 +410,12 @@ def _plausible_mbps(mbps: float, capacity: Optional[float], direction: str) -> O
     return mbps
 
 
+def split_transfer_errors(errors: List[str]) -> Tuple[List[str], List[str]]:
+    """Separate TLS stream drops the workers recover from, from errors that can affect a result."""
+    recovered = [e for e in errors if "RECORD_LAYER_FAILURE" in e]
+    return recovered, [e for e in errors if "RECORD_LAYER_FAILURE" not in e]
+
+
 def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
     """Execute complete Cloudflare Speed Test mirroring cloudflare-speed-cli with optional interface binding."""
     global _bound_source_ip
@@ -452,8 +460,12 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
     tier_downloads = {window_label: round(measured_down, 2)}
     tier_uploads = {window_label: round(measured_up, 2)}
     transfer_errors = down_errors + up_errors
-    if transfer_errors:
-        log.warning("cloudflare transfer errors: %s", transfer_errors[:4])
+    # A TLS stream that drops and reconnects did not change results in repeated tests on the box.
+    recovered, serious = split_transfer_errors(transfer_errors)
+    if recovered:
+        log.info("cloudflare: %d TLS streams dropped and reconnected", len(recovered))
+    if serious:
+        log.warning("cloudflare transfer errors: %s", serious[:4])
 
     # 5. Bufferbloat Calculation
     bb_grade, bb_delta = calculate_bufferbloat(idle_lat, loaded_down_lat, loaded_up_lat)
@@ -472,6 +484,7 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
         bufferbloat_grade=bb_grade,
         bufferbloat_delta_ms=bb_delta,
         meta=meta,
+        recovered_streams=len(recovered),
         tier_downloads=tier_downloads,
         tier_uploads=tier_uploads,
         error="; ".join(transfer_errors[:3]) or None if not (mean_down_mbps and mean_up_mbps) else None,
