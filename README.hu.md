@@ -527,7 +527,7 @@ Ha beállította az `nmb-telegram` szolgáltatást, a dobozt közvetlenül a Tel
 * **Ajánlott (Teljes Router Módhoz)**: Raspberry Pi 4 / 5, vagy x86-64 mini PC (pl. Intel N100) legalább **2 fizikai Ethernet porttal** (1x WAN, 1x LAN) és Wi-Fi csatolóval.
 
 ### Automatikus Telepítés
-Futtassa a telepítőt. Debian 13-on tesztelt (lásd: Tesztelési Állapot), az Ubuntu, a Raspberry Pi OS változatai és az Alpine kódútja létezik, de nincs igazolva:
+Futtassa a telepítőt. Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 24.04 LTS és Alpine 3.20 (x86-64), valamint Raspberry Pi 4-en Debian 13-mal (lásd: Tesztelési Állapot):
 
 ```bash
 # Klónozza a tárolót
@@ -569,13 +569,13 @@ Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz:
 | Terület | Állapot |
 |---|---|
 | Raspberry Pi 4, Debian 13, `standalone` mód | Napi használatban |
-| Tiszta telepítés Debian 13 x86-64-en | Virtuális gépen tesztelve |
+| Tiszta telepítés, x86-64 | Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 24.04 LTS és Alpine 3.20. Telepítés, szolgáltatások, webes felület, valódi sebességmérés, újratelepítés és (Alpine-on) újraindítás |
 | `mode_a` router és `mode_b` híd | Virtuális gépeken tesztelve, DHCP-vel, NAT-tal, DMZ-izolációval és kliensforgalommal. Raspberry Pi hardveren nem |
 | Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. Valódi Wi-Fi hardveren nem |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Nincs igazolva. A Debian 13 hostapd-ja elutasította a Wi-Fi 7 beállításokat, ezért az NMB régebbi szabványra lép vissza |
 | PPPoE | Tárcsázás és vonalszakadás utáni újratárcsázás szimulált szolgáltatóval tesztelve. Valódi vonalon nem |
 | VLAN, Multi-WAN terheléselosztás, link aggregáció | A kód megvan, valódi vonalon nincs tesztelve |
-| Ubuntu, Alpine és más disztribúciók, 32 bites rendszerek | Nincs tesztelve |
+| Más disztribúciók (például Raspberry Pi OS, Fedora, Arch), 32 bites rendszerek | Nincs tesztelve; a telepítő csak Debian-alapú rendszert és Alpine-t támogat |
 | 512 MB RAM-os eszközök | Nincs tesztelve, a memóriaprofilok csak Raspberry Pi 4-en futottak |
 | Telegram, SMTP, Tailscale, DynDNS, VPN valódi kliensekkel | A fejlesztő eszközén használva, vagy automata teszt nem fedi |
 

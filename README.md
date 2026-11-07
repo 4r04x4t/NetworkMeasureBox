@@ -255,13 +255,13 @@ What has actually been run, so you can judge what to rely on:
 | Area | Status |
 |---|---|
 | Raspberry Pi 4, Debian 13, `standalone` mode | In daily use |
-| Clean install on Debian 13 x86-64 | Tested in a virtual machine |
+| Clean install, x86-64 | Tested in a simulated environment on a PC with these operating systems: Debian 13, Debian 12, Ubuntu 24.04 LTS and Alpine 3.20. Install, services, Web UI, a real speed test, reinstall and (on Alpine) reboot |
 | `mode_a` router and `mode_b` bridge | Tested in virtual machines, with DHCP, NAT, DMZ isolation and client traffic. Not on Raspberry Pi hardware |
 | Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. Not on real Wi-Fi hardware |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Not verified. The hostapd in Debian 13 rejected the Wi-Fi 7 settings, so NMB steps down to an older standard |
 | PPPoE | Dial-in and redial after a dropped line tested against a simulated ISP. Not on a real line |
 | VLAN, multi-WAN load balancing, link aggregation | Code exists, not tested on a real line |
-| Ubuntu, Alpine and other distributions, 32-bit systems | Not tested |
+| Other distributions (such as Raspberry Pi OS, Fedora, Arch), 32-bit systems | Not tested; setup only supports Debian-based systems and Alpine |
 | Devices with 512 MB RAM | Not tested; memory profiles have only run on the Raspberry Pi 4 |
 | Telegram, SMTP, Tailscale, DynDNS, VPN with real clients | Used on the developer's box, or not covered by automated tests |
 
@@ -271,7 +271,7 @@ NMB is a personal project, not a certified measuring instrument. Its results can
 
 ## Quickstart / Automated Installation
 
-Run the installer. It has been tested on Debian 13 (see Tested Status); Ubuntu, Raspberry Pi OS variants and Alpine have code paths but are not verified:
+Run the installer. Tested in a simulated environment on a PC with Debian 13, Debian 12, Ubuntu 24.04 LTS and Alpine 3.20 (x86-64), and on a Raspberry Pi 4 with Debian 13 (see Tested Status):
 
 ```bash
 git clone https://github.com/4r04x4t/NetworkMeasureBox.git

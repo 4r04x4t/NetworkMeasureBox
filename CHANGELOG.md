@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CLI Terminal and the task manager no longer act as root, because the web server runs as `nmb`.
 - Editing the boot partition copy of the config now uses `__KEEP_CURRENT__` for passwords and tokens.
 - The diagnostic bundle runs fewer MTR cycles, so it finishes faster without root.
+- READMEs list the operating systems tested in a simulated environment on a PC: Debian 13, Debian 12, Ubuntu 24.04 LTS and Alpine 3.20.
 - READMEs now state what has been tested, and describe features as they work, for example the bridge needing an IP address and the self-update needing a Git checkout.
 - Documentation describes the security model and which services run as root.
 
@@ -31,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Wireless router mode now works: Wi-Fi and LAN share a bridge, a Wi-Fi failure no longer stops wired DHCP, and `hostapd` steps down to an older standard if it rejects a setting.
 - If the main config file is lost, restoring it from the boot partition no longer writes the `__KEEP_CURRENT__` marks as values or brings back the shared factory Wi-Fi password. Passwords and tokens must then be entered again.
+- Running setup again on Alpine no longer stops halfway when a service is already restarting.
+- On Alpine (OpenRC), the Web UI listens on port 80 instead of falling back to 8080, the RTR client is built, and the summary shows the OpenRC status command.
+- On systems without `eth0`, such as Ubuntu with `ens3`, setup now writes the real network interface names into a new config.
 - PPPoE redials after the line drops, instead of staying offline.
 - `dnsmasq` no longer conflicts with the built-in DNS filter in router mode, which could leave clients without DHCP.
 - WPA3 access points connect, because the cipher setting was missing.

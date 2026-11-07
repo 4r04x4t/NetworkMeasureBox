@@ -5,6 +5,8 @@ command="/usr/bin/python3"
 command_args="-m nmb.web.server"
 command_background="yes"
 command_user="nmb:nmb"
+# Port 80 and network changes without root, like the systemd unit.
+capabilities="^cap_net_bind_service,^cap_net_admin,^cap_net_raw"
 pidfile="/run/nmb/web.pid"
 output_log="/var/log/nmb/web.log"
 error_log="/var/log/nmb/web.err"

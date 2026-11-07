@@ -99,11 +99,6 @@ if [ "$OS_TYPE" = "debian" ]; then
     # ooniprobe-cli pulls in Tor; NMB does not use it, so it must not run as a service.
     systemctl disable --now tor 2>/dev/null || true
 
-    # Compile native Open-RMBT C measurement engine if source is present
-    if [ -d "$SCRIPT_DIR/components/open-rmbt" ]; then
-        info "Compiling native Open-RMBT C measurement client (/usr/local/bin/rmbt-client)..."
-        (cd "$SCRIPT_DIR/components/open-rmbt" && make clean >/dev/null 2>&1 && make >/dev/null 2>&1 && make install >/dev/null 2>&1) || warn "Open-RMBT native compilation deferred; pure Python engine will remain active."
-    fi
 
     # Stop and disable OS-packaged dnsmasq & hostapd so nmb-netd has exclusive control
     systemctl disable --now dnsmasq hostapd 2>/dev/null || true
@@ -203,6 +198,13 @@ elif [ "$OS_TYPE" = "alpine" ]; then
     fi
 fi
 
+# Both Debian and Alpine install the build tools above.
+# Compile native Open-RMBT C measurement engine if source is present
+if [ -d "$SCRIPT_DIR/components/open-rmbt" ]; then
+    info "Compiling native Open-RMBT C measurement client (/usr/local/bin/rmbt-client)..."
+    (cd "$SCRIPT_DIR/components/open-rmbt" && make clean >/dev/null 2>&1 && make >/dev/null 2>&1 && make install >/dev/null 2>&1) || warn "Open-RMBT native compilation deferred; pure Python engine will remain active."
+fi
+
 # ------------------------------------------------------------------------------
 # 3. System User & Group
 # ------------------------------------------------------------------------------
@@ -276,6 +278,24 @@ if [ ! -f "$CONFIG_FILE" ]; then
         cp "$SCRIPT_DIR/config/nmb.conf.example" "$CONFIG_FILE"
     fi
     info "Created default configuration at $CONFIG_FILE"
+    # Interface names differ between systems (eth0, ens3, enp1s0...); use the ones that exist here.
+    if [ ! -e /sys/class/net/eth0 ]; then
+        WAN_IF=$(ip route show default 2>/dev/null | awk '{print $5; exit}')
+        LAN_IF=""
+        for n in /sys/class/net/*; do
+            n=$(basename "$n")
+            [ "$n" = "$WAN_IF" ] && continue
+            [ -e "/sys/class/net/$n/device" ] && [ ! -e "/sys/class/net/$n/wireless" ] && { LAN_IF="$n"; break; }
+        done
+        if [ -n "$WAN_IF" ]; then
+            sed -i "s/^wan_interface = .*/wan_interface = $WAN_IF/" "$CONFIG_FILE"
+            info "Using $WAN_IF as the WAN interface"
+        fi
+        if [ -n "$LAN_IF" ]; then
+            sed -i "s/^lan_interface = .*/lan_interface = $LAN_IF/; s/^lan_ports = .*/lan_ports = $LAN_IF/" "$CONFIG_FILE"
+            info "Using $LAN_IF as the LAN interface"
+        fi
+    fi
 fi
 
 # A shared factory Wi-Fi password would be identical on every box.
@@ -424,10 +444,14 @@ elif [ "$INIT_SYSTEM" = "openrc" ]; then
     rc-update add nmb-web default
     rc-update add nmb-telegram default 2>/dev/null || true
 
-    rc-service nmb-db restart || rc-service nmb-db start
-    rc-service nmb-netd restart || rc-service nmb-netd start
-    rc-service nmb-probe restart || rc-service nmb-probe start
-    rc-service nmb-web restart || rc-service nmb-web start
+    # Restarting nmb-db also restarts the services that need it, so a later restart can collide; check the result instead.
+    for svc in nmb-db nmb-netd nmb-probe nmb-web; do
+        rc-service "$svc" restart >/dev/null 2>&1 || rc-service "$svc" start >/dev/null 2>&1 || true
+    done
+    sleep 3
+    for svc in nmb-db nmb-netd nmb-probe nmb-web; do
+        rc-service "$svc" status >/dev/null 2>&1 || warn "$svc is not running; check /var/log/nmb/"
+    done
 
     # Deploy crontab for Alpine Busybox crond (/etc/crontabs/root format, no username column)
     install -d /etc/crontabs
@@ -447,6 +471,8 @@ HOST_IP=$(ip -4 addr show scope global 2>/dev/null | awk '/inet / {print $2}' | 
 # ------------------------------------------------------------------------------
 # 9. Installation Summary Banner
 # ------------------------------------------------------------------------------
+STATUS_CMD="systemctl status nmb.target"
+[ "$INIT_SYSTEM" = "openrc" ] && STATUS_CMD="rc-status default"
 printf '\n\033[1;32m'
 cat <<EOF
 ================================================================================
@@ -485,6 +511,6 @@ cat <<EOF
     1. Open \033[1;34mhttp://${HOST_IP}\033[0m in your browser to access the dashboard.
     2. Log in with user '\033[1;32madmin\033[0m' and password '\033[1;33m${ADMIN_PASS}\033[0m'.
     3. Edit \033[1;33m/etc/nmb/nmb.conf\033[0m to configure your ISP SLA plan, Telegram token, or Wi-Fi.
-    4. Check overall system status: \033[1;37msystemctl status nmb.target\033[0m
+    4. Check overall system status: \033[1;37m$STATUS_CMD\033[0m
 ================================================================================
 EOF
