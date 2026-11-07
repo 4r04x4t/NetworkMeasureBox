@@ -72,6 +72,16 @@ class LogFindingsTest(unittest.TestCase):
         self.assertIn("timeout=300", source)
 
 
+class StopSwitchCoverageTest(unittest.TestCase):
+    def test_blind_box_does_not_confirm_idle(self):
+        from unittest.mock import patch
+        from nmb.config import load_config
+        from nmb.probe import cross_traffic
+        blind = cross_traffic.ForeignTrafficMonitor("eth0", [], None)
+        with patch.object(cross_traffic.ForeignTrafficMonitor, "for_config", return_value=blind):
+            self.assertFalse(cross_traffic.network_confirmed_idle(load_config(ROOT / "config/nmb.conf.example")))
+
+
 class WebApiTest(unittest.TestCase):
     def test_post_handler_rejects_non_object_bodies(self):
         self.assertIn("must be a JSON object", (ROOT / "nmb/web/server.py").read_text())

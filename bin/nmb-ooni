@@ -30,7 +30,13 @@ from nmb.probe import ooni
 
 def cmd_enabled() -> int:
     """Exit 0 when the add-on is switched on; the service uses this to skip scheduled runs."""
-    return 0 if load_config().ooni.enabled else 1
+    cfg = load_config()
+    if not cfg.ooni.enabled:
+        return 1
+    if cfg.speedtest.traffic_stop_enabled:
+        from nmb.probe.cross_traffic import network_confirmed_idle
+        return 0 if network_confirmed_idle(cfg) else 1
+    return 0
 
 
 def cmd_status() -> int:

@@ -1716,8 +1716,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 8.1 Memory Profile & Heap Trimming
         if path == "/api/system/tasks/kill":
             from nmb.common.tasks import kill_process
-            pid = int(body_json.get("pid", 0))
-            sig = int(body_json.get("signal", 15))
+            try:
+                pid = int(body_json.get("pid", 0))
+                sig = int(body_json.get("signal", 15))
+            except (TypeError, ValueError):
+                self._send_json({"status": "error", "message": "A valid process ID is required."}, status=400)
+                return
             res = kill_process(pid=pid, sig_num=sig)
             self._send_json(res)
             return
@@ -1971,8 +1975,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # Network Driver and Firmware Installation
         if path in ("/api/system/install_drivers", "/api/system/drivers/install"):
-            pkg = body_json.get("package", "all")
-            res = trigger_driver_install(pkg)
+            pkg = body_json.get("package")
+            if not isinstance(pkg, str) or not pkg.strip():
+                self._send_json({"status": "error", "message": "A driver package name is required."}, status=400)
+                return
+            res = trigger_driver_install(pkg.strip())
             self._send_json(res)
             return
 
@@ -2178,6 +2185,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # 15b. Total Log Purge
         if path in ("/api/system/logs/purge", "/api/logs/purge"):
+            if body_json.get("confirm") != "PURGE":
+                self._send_json({"status": "error", "message": "Confirmation text PURGE is required."}, status=400)
+                return
             from nmb.devlog import purge_all_logs
             inc_db = bool(body_json.get("include_db", True))
             inc_journal = bool(body_json.get("include_journal", True))

@@ -136,6 +136,29 @@ class ForeignTrafficMonitor:
         return self._last_kbps
 
 
+def network_confirmed_idle(cfg, max_wait_sec: float = 60.0) -> bool:
+    """Return True when other devices are visible and the network stays below the strict limit."""
+    from nmb.netd.interfaces import find_preferred_measurement_interface
+    from nmb.netd.lan_topology import traffic_monitor_device
+    from nmb.probe.traffic_gate import TrafficGate
+
+    iface = traffic_monitor_device(cfg.network, find_preferred_measurement_interface(cfg)[0])
+    monitor = ForeignTrafficMonitor.for_config(cfg, iface, getattr(cfg.network, "mode", ""))
+    if monitor.visibility == VISIBILITY_NONE:
+        return False
+    gate = TrafficGate(iface, strict=True)
+    result = gate.wait_for_idle(
+        threshold_kbps=cfg.speedtest.idle_threshold_kbps,
+        max_wait_sec=max_wait_sec,
+        iface=iface,
+        capacity_mbps=gate.get_interface_capacity_mbps(iface, contract_down_mbps=cfg.isp.contract_down_mbps),
+        threshold_percent=cfg.speedtest.idle_threshold_percent,
+        mode=cfg.speedtest.idle_threshold_mode,
+        extra_kbps=monitor.router_kbps,
+    )
+    return result.cleared
+
+
 def watch(monitor: ForeignTrafficMonitor, threshold_kbps: float, stop: threading.Event,
           on_detect: Callable[[float], None]) -> threading.Thread:
     """Call on_detect once when foreign traffic stays above the threshold."""

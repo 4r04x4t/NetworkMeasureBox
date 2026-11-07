@@ -443,6 +443,53 @@ timeline
         OpenWrt .ipk & procd Init : Official feed distribution for routers
 ```
 
+### Phase 0: Freeze Behaviour Before Rewriting
+No native component replaces a Python one until it passes the same checks. These come from testing a clean install, and each one found real failures in the Python version.
+
+**Checks each native component must pass**
+
+| Check | Required result |
+| :--- | :--- |
+| Clean install on Debian 13, from a fresh clone | Installer exits 0, no failed units, `nmb.target` active, dashboard answers |
+| Every setting with empty, text, negative, huge and `%` values | Settings still load; a bad value is logged and replaced by its default |
+| Web port, web address and ping interval set to invalid values | Services stay up and the dashboard stays reachable |
+| Every POST endpoint with an empty, invalid or non-object body | Never a crash or HTTP 500; destructive actions refuse to run |
+| `--help` on every command | Prints usage and changes nothing |
+| Switching between `standalone`, `mode_a`, `mode_b` and `auto` | Box keeps an IPv4 address and a route, and can switch back |
+| Restart | Settings and the last snapshot survive; at most about 15 minutes of data is lost after a power cut |
+| Factory reset | Needs explicit confirmation, leaves a readable config and a unique Wi-Fi password |
+
+**Behaviour that must carry over**
+
+- Destructive actions need confirmation: factory reset (`--yes` or `RESET`), data and log purge (`PURGE`).
+- Percent signs are plain text in settings, including passwords.
+- In bridge mode, IPv6 link-local addresses do not count as having an address. Measurements use the bridge, and traffic counters come from the WAN port.
+- Update verification never touches the live database.
+
+**Stop on network traffic (experimental, off by default)**
+
+Off, the box only checks the traffic it can see before a test. On, it behaves as follows, and ping always keeps running:
+
+| Situation | Required behaviour |
+| :--- | :--- |
+| Other devices' traffic cannot be seen | No scheduled speed test or OONI run |
+| Traffic above the limit (at most 500 kbps) before a test | Test does not start; retries every 5 minutes |
+| Sustained traffic during a test | Engine stops, no partial result is saved |
+| Counters cannot be read | Treated as busy |
+| Test started by a person | Never stopped |
+
+Measured in virtual machines with about 23 Mbps from a second machine behind the box, in `mode_a` and `mode_b`. Not yet measured on Raspberry Pi hardware as a bridge or with a real router's UPnP counters.
+
+**Limits a native version cannot remove**
+
+A box on one switch port cannot see other devices' traffic, whatever language it is written in, and promiscuous capture does not change this. Bridging, port mirroring or router counters are required. A router running `nmbd` is better placed, because client traffic passes through it.
+
+**Open before rewriting**
+
+- Cloudflare downloads sometimes drop a TLS stream on the Raspberry Pi (`RECORD_LAYER_FAILURE`). The cause is unknown. Repeated tests ruled out GRO, receive checksums, read size, the latency probe and the TLS version, and results stayed in the same range. Native code using a different TLS library will show whether the cause is OpenSSL.
+- `iperf.schedule_cron` and `iperf.automated_enabled` exist in the settings, but nothing schedules iPerf3. Implement them or remove them.
+- Many endpoints report failure as HTTP 200 with `"status": "error"`, and the dashboard relies on this. Decide on the API contract before the rewrite.
+
 ### Phase 1: High-ROI Micro-Engine Replacements
 - **Step 1.1**: Build `nmb-probe` in Go (`cmd/nmb-probe/main.go`). Communicates with existing Python `nmb-web` via SQLite WAL.
 - **Step 1.2**: Build `nmb-speed` in Go (`cmd/nmb-speed/main.go`) with integrated Open-RMBT and iPerf3 client protocols.

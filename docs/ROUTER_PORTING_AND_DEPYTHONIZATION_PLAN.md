@@ -503,6 +503,20 @@ On routers whose ports all sit behind one CPU link, software bonding cannot rais
 
 ---
 
+## 7B. Traffic Detection and Stopping Tests in Ports
+
+A router port would see client traffic that a separate box on a switch port cannot. This is not yet implemented or measured on any router, and it brings its own problems:
+
+- **Hardware acceleration:** flow offload such as Broadcom Runner or MediaTek PPE can bypass the kernel, so its counters may miss client traffic. Each target must prove its counters include offloaded traffic, or read the switch or offload counters instead.
+- **Separating own traffic:** subtract the test's traffic using its sockets, or read client-side ports. Do not assume the WAN counter alone is client traffic.
+- **Wi-Fi clients:** count the radios as client-side ports, because their traffic may not cross the wired LAN ports.
+- **Failure rule:** if traffic cannot be read, treat the network as busy, as the Python version does.
+- **Low-end targets:** stopping a test needs only counter reads and a cancel signal, so it should stay available on targets with a reduced feature set.
+
+Each port must also pass the checks in Phase 0 of `DEPYTHONIZATION_ROADMAP.md`, as far as its hardware allows.
+
+---
+
 ## 8. Cross-Compilation Matrix & Toolchain Setup
 
 ### 8.1 Toolchains Required

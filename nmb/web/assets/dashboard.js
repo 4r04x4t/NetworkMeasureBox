@@ -3609,7 +3609,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       const res = await fetch('/api/system/logs/purge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ include_db: true, include_journal: true }),
+        body: JSON.stringify({ confirm: 'PURGE', include_db: true, include_journal: true }),
       });
       const d = await res.json();
       if (res.ok && d.status === 'ok') {
