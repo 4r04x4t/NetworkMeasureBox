@@ -107,10 +107,54 @@ def get_quarantined_servers() -> Dict[int, float]:
 
 
 def clear_quarantine() -> None:
-    """Clear all quarantined servers."""
+    """Clear all quarantined servers and the client rate-limit cooldown."""
+    global _client_limited_until, _client_cooldown_sec
     with _lock:
         _quarantined_servers.clear()
-    log.info("cleared all Ookla server quarantines")
+        _client_limited_until = 0.0
+        _client_cooldown_sec = CLIENT_COOLDOWN_MIN_SEC
+    log.info("cleared all Ookla server quarantines and the client cooldown")
+
+
+# Ookla's CLI limits the whole client ("Limit reached: Too many requests"), not one
+# server. Trying another server only spends more requests, so the client waits instead.
+CLIENT_LIMIT_SIGNATURES = ("limit reached", "too many requests", "429")
+CLIENT_COOLDOWN_MIN_SEC = 1800
+CLIENT_COOLDOWN_MAX_SEC = 4 * 3600
+_client_limited_until = 0.0
+_client_cooldown_sec = CLIENT_COOLDOWN_MIN_SEC
+
+
+def is_client_rate_limit(error_text: Optional[str]) -> bool:
+    """True when Ookla refused this client for sending too many tests."""
+    txt = (error_text or "").lower()
+    return any(sig in txt for sig in CLIENT_LIMIT_SIGNATURES)
+
+
+def mark_client_rate_limited() -> int:
+    """Start (or double) the client cooldown; returns its length in seconds."""
+    global _client_limited_until, _client_cooldown_sec
+    with _lock:
+        if _client_limited_until > 0.0:
+            _client_cooldown_sec = min(_client_cooldown_sec * 2, CLIENT_COOLDOWN_MAX_SEC)
+        duration = _client_cooldown_sec
+        _client_limited_until = time.monotonic() + duration
+    log.warning("Ookla rate-limited this box; pausing Ookla tests for %d min", duration // 60)
+    return duration
+
+
+def mark_client_ok() -> None:
+    """A successful Ookla test ends the cooldown back-off."""
+    global _client_limited_until, _client_cooldown_sec
+    with _lock:
+        _client_limited_until = 0.0
+        _client_cooldown_sec = CLIENT_COOLDOWN_MIN_SEC
+
+
+def client_cooldown_remaining() -> float:
+    """Seconds left before Ookla may be asked again (0 when it may)."""
+    with _lock:
+        return max(0.0, _client_limited_until - time.monotonic())
 
 
 def record_server_attempt(server_id: int) -> None:

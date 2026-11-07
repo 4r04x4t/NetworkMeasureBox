@@ -219,36 +219,32 @@ def _run_single_engine(
             )
         else:
             from nmb.speed.anti_ban import (
-                is_ookla_ban_error,
-                quarantine_server,
-                get_smart_rotated_server,
-                record_server_attempt,
+                client_cooldown_remaining,
+                is_client_rate_limit,
+                mark_client_ok,
+                mark_client_rate_limited,
             )
-            # Smart server selection (auto-quarantine bypass)
-            effective_server_id = get_smart_rotated_server(target_server_id)
-            if effective_server_id:
-                record_server_attempt(effective_server_id)
-            log.info("executing Ookla engine with target_server_id=%s (effective_server_id=%s, iface=%s, ip=%s)",
-                     target_server_id, effective_server_id, bound_iface, bound_ip)
-
-            res = execute_speedtest(server_id=effective_server_id, interface=bound_iface, bind_ip=bound_ip)
-
-            # Check for ban / 429 rate-limit error signatures
-            is_ban, ban_reason = is_ookla_ban_error(res.error) if (res and res.status != "ok") else (False, "")
-            if is_ban:
-                log.warning("Ookla ban or rate-limit detected (server=%s): %s", effective_server_id, ban_reason)
-                if effective_server_id:
-                    quarantine_server(effective_server_id, duration_sec=7200, reason=ban_reason)
-
-                # Retry once with an alternative rotated server if one is available
-                alt_server_id = get_smart_rotated_server(None)
-                if alt_server_id and alt_server_id != effective_server_id:
-                    log.info("retrying Ookla speedtest with rotated non-banned server %d...", alt_server_id)
-                    record_server_attempt(alt_server_id)
-                    res = execute_speedtest(server_id=alt_server_id, interface=bound_iface, bind_ip=bound_ip)
-                    is_ban, ban_reason = is_ookla_ban_error(res.error) if (res and res.status != "ok") else (False, "")
-                    if is_ban and alt_server_id:
-                        quarantine_server(alt_server_id, duration_sec=7200, reason=ban_reason)
+            is_ban = False
+            wait_sec = client_cooldown_remaining()
+            if wait_sec > 0:
+                # Asking again while limited only extends Ookla's block.
+                res = SpeedtestResult(
+                    status="error",
+                    error=f"Ookla rate limit: paused for another {int(wait_sec // 60) + 1} min",
+                    bound_iface=bound_iface, bound_ip=bound_ip,
+                )
+                is_ban = True
+            else:
+                log.info("executing Ookla engine with server_id=%s (iface=%s, ip=%s)",
+                         target_server_id or "auto", bound_iface, bound_ip)
+                res = execute_speedtest(server_id=target_server_id, interface=bound_iface, bind_ip=bound_ip)
+                if res.status == "ok":
+                    mark_client_ok()
+                    _flag_server_mismatch(res, target_server_id)
+                elif is_client_rate_limit(res.error):
+                    minutes = mark_client_rate_limited() // 60
+                    res.error = f"Ookla rate limit (too many tests from this box): paused for {minutes} min"
+                    is_ban = True
 
             # Circuit breaker: if Ookla failed or was banned, fall back seamlessly to RTR-NetTest or Cloudflare
             if res.status != "ok" and (is_ban or not res.down_bps):
@@ -350,7 +346,10 @@ def _run_single_engine(
         down_contract_note = f" — ISP offered plan ({contract_down:.0f} Mbps): {down_pct:.1f}%" if down_pct is not None else ""
         up_contract_note = f" — ISP offered plan ({contract_up:.0f} Mbps): {up_pct:.1f}%" if up_pct is not None else ""
 
-        engine_label = "Ookla" if engine == "ookla" else ("Cloudflare" if engine == "cloudflare" else ("RTR-NetTest" if engine == "rtr" else "iPerf3"))
+        used_engine = getattr(res, "engine", None) or engine
+        engine_label = {"ookla": "Ookla", "cloudflare": "Cloudflare", "rtr": "RTR-NetTest"}.get(used_engine, "iPerf3")
+        if used_engine != engine:
+            engine_label += f" (fallback for {engine})"
         parts = [f"Speedtest [{engine_label}] {res.status}: Down: {down_mbps:.1f} Mbps{down_pct_str}, Up: {up_mbps:.1f} Mbps{up_pct_str}{bb_info} [{type_label}]"]
         client_ipv6_val = getattr(res, "client_ipv6", None)
         if res.client_ip and client_ipv6_val:
@@ -498,7 +497,7 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
         )
     elapsed = time.monotonic() - t_start
     log.info("speedtest engine=%s completed in %.2fs (status=%s, down=%.1f Mbps, up=%.1f Mbps, ping=%.2f ms, error=%s)",
-             engine, elapsed, res.status, down_mbps, up_mbps, ping_ms_val, res.error or "none")
+             getattr(res, "engine", None) or engine, elapsed, res.status, down_mbps, up_mbps, ping_ms_val, res.error or "none")
     from nmb.common.memory import trim_process_memory
     trim_process_memory()
     return res
@@ -541,6 +540,19 @@ def _save_visibility(visibility: str) -> None:
             )
     finally:
         conn.close()
+
+
+def _flag_server_mismatch(res: SpeedtestResult, target_server_id: Optional[int]) -> None:
+    """Record when Ookla measured against a server other than the chosen one."""
+    if not target_server_id or not res.server_id or int(res.server_id) == int(target_server_id):
+        return
+    log.warning("Ookla used server %s instead of the chosen server %s", res.server_id, target_server_id)
+    try:
+        raw = json.loads(res.raw_json) if res.raw_json else {}
+    except (TypeError, ValueError):
+        raw = {}
+    raw["requested_server_id"] = int(target_server_id)
+    res.raw_json = json.dumps(raw)
 
 
 def run_measurement_cycle(

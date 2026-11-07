@@ -524,158 +524,22 @@ def run_speedtest_cli(interface: Optional[str] = None, bind_ip: Optional[str] = 
         return None
 
 
-def run_native_fallback(server_id: Optional[int] = None, interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
-    """Native standard library HTTP streaming speed probe.
-
-    Used when Ookla CLI binary is not present or cannot run.
-    Measures download and upload throughput with Ookla-aligned metadata,
-    supporting strict source interface / IP binding.
-    """
-    log.info("executing native fallback HTTP throughput measurement (target_server_id=%s, iface=%s, bind_ip=%s)", server_id, interface, bind_ip)
-    test_url = "https://speed.cloudflare.com/__down?bytes=25000000"  # 25 MB stream
-    total_bytes = 0
-    t_start = time.monotonic()
-
-    # Resolve target server metadata if available
-    srv_name = "2Connect Kft. (Budapest) [Native Stream]"
-    srv_host = "speedtest.2connect.hu:8080"
-    srv_loc = "Budapest, Hungary"
-    srv_id = server_id or 31717
-
-    try:
-        if server_id and server_id in _cached_servers_map:
-            cached = _cached_servers_map[server_id]
-            srv_name = f"{cached.get('name', 'Server')} [Native Stream]"
-            srv_host = cached.get("host") or srv_host
-            srv_loc = cached.get("location") or srv_loc
-        elif not _cached_servers_map:
-            try:
-                found = get_available_servers("hungary", limit=3)
-                if found:
-                    srv = found[0]
-                    srv_id = srv.get("id", srv_id)
-                    srv_name = f"{srv.get('name', 'Ookla Target')} [Native Stream]"
-                    srv_host = srv.get("host") or srv_host
-                    srv_loc = srv.get("location") or srv_loc
-            except Exception:
-                log.debug("suppressed exception", exc_info=True)
-    except Exception:
-        log.debug("suppressed exception", exc_info=True)
-
-    try:
-        client_ip = None
-        client_ipv6 = None
-        try:
-            from nmb.netd.interfaces import get_dual_stack_ips
-            dual = get_dual_stack_ips()
-            client_ip = dual.get("ipv4")
-            client_ipv6 = dual.get("ipv6")
-        except Exception:
-            log.debug("suppressed exception", exc_info=True)
-
-        def _open(req, timeout=30):
-            if bind_ip:
-                try:
-                    from nmb.speed.cloudflare import BoundHTTPHandler, BoundHTTPSHandler
-                    opener = urllib.request.build_opener(BoundHTTPHandler(bind_ip), BoundHTTPSHandler(bind_ip))
-                    return opener.open(req, timeout=timeout)
-                except Exception:
-                    log.debug("suppressed exception", exc_info=True)
-            return urllib.request.urlopen(req, timeout=timeout)
-
-        req = urllib.request.Request(test_url, headers={"User-Agent": get_effective_user_agent()})
-        with _open(req, timeout=30) as resp:
-            t_connect = time.monotonic()
-            latency_us = int((t_connect - t_start) * 1_000_000)
-
-            while True:
-                chunk = resp.read(65536)
-                if not chunk:
-                    break
-                total_bytes += len(chunk)
-                # Cap test at 10 seconds duration
-                if time.monotonic() - t_connect > 10.0:
-                    break
-
-            t_end = time.monotonic()
-            duration = t_end - t_connect
-
-        down_bps = int((total_bytes * 8) / duration) if duration > 0 else 0
-        raw_info = {
-            "engine": "ookla_native_stream",
-            "server_id": srv_id,
-            "server_name": srv_name,
-            "download_endpoint": test_url,
-            "bytes_received": total_bytes,
-            "down_duration_sec": round(duration, 3),
-            "down_bps": down_bps,
-        }
-
-        # Real upload benchmark via HTTP POST to CDN upload sink
-        up_bps: Optional[int] = None
-        up_bytes = 4 * 1024 * 1024  # 4 MB payload
-        up_payload = b"\x00" * up_bytes
-        try:
-            up_url = "https://speed.cloudflare.com/__up"
-            up_req = urllib.request.Request(
-                up_url,
-                data=up_payload,
-                headers={"User-Agent": get_effective_user_agent(), "Content-Type": "application/octet-stream"}
-            )
-            t_up_start = time.monotonic()
-            with _open(up_req, timeout=15) as up_resp:
-                up_resp.read(512)
-            t_up_end = time.monotonic()
-            up_dur = max(0.01, t_up_end - t_up_start)
-            up_bps = int((up_bytes * 8) / up_dur)
-            raw_info["upload_endpoint"] = up_url
-            raw_info["up_bytes"] = up_bytes
-            raw_info["up_duration_sec"] = round(up_dur, 3)
-            raw_info["up_bps"] = up_bps
-            log.info("native fallback upload measured: %d bps", up_bps)
-        except Exception as e:
-            log.warning("native fallback upload test failed or unsupported: %s; recording up_bps as None", e)
-            up_bps = None
-
-        return SpeedtestResult(
-            status="ok",
-            down_bps=down_bps,
-            up_bps=up_bps,
-            ping_us=latency_us,
-            jitter_us=None,
-            loss_pct=0.0,
-            server_id=srv_id,
-            server_name=srv_name,
-            server_host=srv_host,
-            server_location=srv_loc,
-            client_ip=client_ip,
-            client_ipv6=client_ipv6,
-            result_url=None,
-            raw_json=json.dumps(raw_info),
-            engine="ookla",
-            bound_iface=interface,
-            bound_ip=bind_ip,
-        )
-    except Exception as e:
-        log.error("native fallback measurement failed: %s", e)
-        return SpeedtestResult(status="error", error=str(e), engine="ookla", bound_iface=interface, bound_ip=bind_ip)
-
-
 def execute_speedtest(server_id: Optional[int] = None, interface: Optional[str] = None, bind_ip: Optional[str] = None) -> SpeedtestResult:
-    """Execute speedtest using best available engine, optionally specifying server_id and interface binding."""
-    # 1. Try official Ookla binary
+    """Run the official Ookla CLI, against server_id when one is chosen.
+
+    An Ookla failure is returned as an error. The runner then falls back to another
+    engine that records its own name, so a result never claims an Ookla server it did
+    not use.
+    """
     res = run_official_ookla(server_id=server_id, interface=interface, bind_ip=bind_ip)
-    if res and res.status == "ok":
+    if res is not None:
         return res
     cancel.check()
-
-    # 2. Try speedtest-cli
-    res = run_speedtest_cli(interface=interface, bind_ip=bind_ip)
-    if res and res.status == "ok":
-        return res
-
-    cancel.check()
-
-    # 3. Native fallback
-    fb = run_native_fallback(server_id=server_id, interface=interface, bind_ip=bind_ip)
-    return fb
+    # Without the official binary, speedtest-cli is still Ookla's network, but it
+    # cannot target a server, so it only stands in when no server was chosen.
+    if not server_id:
+        res = run_speedtest_cli(interface=interface, bind_ip=bind_ip)
+        if res and res.status == "ok":
+            return res
+    return SpeedtestResult(status="error", error="Ookla speedtest CLI is not available",
+                           bound_iface=interface, bound_ip=bind_ip)

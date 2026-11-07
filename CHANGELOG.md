@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Ookla results no longer claim a server they did not use. When Ookla refused a test, the box used to run a one-second Cloudflare download, store it as an Ookla result under the chosen server's name, and report far lower speeds. That fallback is removed; a fallback test is now stored and logged under its own engine (RTR-NetTest or Cloudflare).
+- An Ookla rate limit ("Limit reached: Too many requests") now pauses Ookla for the whole box (30 min, doubling up to 4 h) instead of quarantining one server after another. The chosen server is no longer silently swapped, and a result from a different server is flagged with `requested_server_id`.
+
 - Kernel network tuning now runs in `nmb-netd`, which has root; the unprivileged web server no longer fills its log with `sysctl: permission denied`, and the tuning button asks `nmb-netd` to re-apply it.
 - The installer's closing summary shows colours instead of raw `\033` codes.
 
