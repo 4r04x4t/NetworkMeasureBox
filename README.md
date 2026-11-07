@@ -339,6 +339,12 @@ sudo journalctl -u nmb-web -f
 
 ---
 
+## Changelog
+
+Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+---
+
 ## License
 
 This project is licensed under the **MIT License** — free for personal, community, and commercial use.

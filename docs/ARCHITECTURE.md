@@ -51,6 +51,9 @@ The traffic gate reads `/proc/net/dev`, so it only sees traffic that passes thro
 
 All daemons run as user `nmb`. Single-writer contention is handled by WAL + `busy_timeout`; probes batch-insert (1 txn / 10 s) so write lock time stays tiny.
 
+### Terminal interface
+`nmb-cli` (`nmb/tui/`) offers the WebGUI menus over SSH, and JSON commands for scripts. It reads the menu from `dashboard.html` and calls the same REST API as the browser, so it has no measurement logic of its own. `tests/test_tui.py` fails if a WebGUI tab or API call is missing from its catalog.
+
 ## 2. Storage Strategy (microSD Longevity)
 
 The live database lives in **RAM (tmpfs)**. A consistent snapshot is copied to the SD card

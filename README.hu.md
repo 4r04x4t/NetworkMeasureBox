@@ -560,3 +560,9 @@ http://<az-eszköz-ip-címe>/
 
 ## Licenc
 A projekt az **MIT Licenc** alatt érhető el — szabadon használható, módosítható és beépíthető mind magáncélú, mind kereskedelmi környezetben.
+
+---
+
+## Változásnapló
+
+A változások a [CHANGELOG.md](CHANGELOG.md) fájlban találhatók.

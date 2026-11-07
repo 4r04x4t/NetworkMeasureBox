@@ -484,6 +484,34 @@ Measured in virtual machines with about 23 Mbps from a second machine behind the
 
 A box on one switch port cannot see other devices' traffic, whatever language it is written in, and promiscuous capture does not change this. Bridging, port mirroring or router counters are required. A router running `nmbd` is better placed, because client traffic passes through it.
 
+**Terminal interface (`nmb-cli`)**
+
+The native version must keep what the Python version offers:
+
+- The same menus as the WebGUI, read from one source, with a test that fails when a WebGUI tab or API call is missing.
+- Keyboard, mouse and hotkey control over SSH, usable at 80x24 and without extra libraries where possible. A native build must replace Python's `curses`.
+- The JSON commands `menu`, `show`, `run`, `api` and `logs`, with their names and output kept stable, because scripts and LLMs depend on them.
+- `--yes` for actions that need confirmation.
+- The logo from `nmb/tui/logo.py`.
+
+The commands call the REST API, so `nmb-cli` can move to native code on its own. On targets with too little flash for the menu, the JSON commands should remain.
+
+Not yet covered by the Python version, and open for the native one: charts, forms filled with current values, translated action names, and following logs live.
+
+**Rules from fixes**
+
+- Check whether a local service runs from the socket table. Do not connect to it: connecting to the iPerf3 port every few seconds logged a failed test each time.
+- A skipped test has no values. Show it as skipped, never as 0, and do not let skipped rows replace real results.
+
+**Changelog from the first commit**
+
+`CHANGELOG.md` follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and Semantic Versioning. The native rewrite uses it from its first commit:
+
+- Each change that users can notice adds an entry under `[Unreleased]`, in the same commit, under Added, Changed, Deprecated, Removed, Fixed or Security.
+- Each replaced Python component gets an entry that names it, so readers can see how far the migration has come.
+- A release moves `[Unreleased]` to a version with its date and updates the comparison links.
+- Entries are written for users, not copied from commit messages.
+
 **Open before rewriting**
 
 - Cloudflare downloads sometimes drop a TLS stream on the Raspberry Pi (`RECORD_LAYER_FAILURE`). The cause is unknown. Repeated tests ruled out GRO, receive checksums, read size, the latency probe and the TLS version, and results stayed in the same range. Native code using a different TLS library will show whether the cause is OpenSSL.

@@ -83,6 +83,19 @@ class LogoTest(unittest.TestCase):
         self.assertEqual({len(line) for line in LOGO}, {80})
 
 
+class ChangelogTest(unittest.TestCase):
+    def test_changelog_follows_keep_a_changelog(self):
+        text = (ROOT / "CHANGELOG.md").read_text()
+        self.assertIn("keepachangelog.com/en/1.1.0", text)
+        self.assertIn("## [Unreleased]", text)
+        versions = re.findall(r"^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$", text, re.M)
+        self.assertTrue(versions)
+        for name in ["Unreleased", *versions]:
+            self.assertIn(f"[{name}]: https://", text)
+        for heading in re.findall(r"^### (.+)$", text, re.M):
+            self.assertIn(heading, ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"))
+
+
 class RenderTest(unittest.TestCase):
     def test_secrets_are_hidden_and_tables_drawn(self):
         text = "\n".join(to_lines({"admin_password": "abc", "rows": [{"a": 1, "b": None}]}))

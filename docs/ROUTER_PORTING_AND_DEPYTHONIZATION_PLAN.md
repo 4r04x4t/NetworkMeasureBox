@@ -515,6 +515,11 @@ A router port would see client traffic that a separate box on a switch port cann
 
 Each port must also pass the checks in Phase 0 of `DEPYTHONIZATION_ROADMAP.md`, as far as its hardware allows.
 
+Terminal interface and changelog in ports:
+
+- **Terminal interface:** router shells are often small, so `nmb-cli` must not depend on Python or full `curses`. If a target cannot hold the menu, it keeps the JSON commands.
+- **Changelog:** each port records its support in `CHANGELOG.md` when it is added, and only after it has run on that hardware.
+
 ---
 
 ## 8. Cross-Compilation Matrix & Toolchain Setup
