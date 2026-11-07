@@ -9,13 +9,15 @@ import logging
 import sqlite3
 import time
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 from nmb.db import database as db
 
 log = logging.getLogger("nmb.probe.gate")
 
 PROC_NET_DEV = Path("/proc/net/dev")
+# A percentage of a fast line would allow calls and video, so percent mode has an upper limit.
+MAX_PERCENT_IDLE_KBPS = 500.0
 
 
 class InterfaceCounter:
@@ -84,6 +86,7 @@ def get_effective_threshold_kbps(
     threshold_percent: float = 2.0,
     threshold_mode: str = "percent",
     fixed_kbps: float = 500.0,
+    strict: bool = False,
 ) -> float:
     """Calculate effective threshold in Kbps."""
     if threshold_mode == "fixed":
@@ -92,12 +95,13 @@ def get_effective_threshold_kbps(
     capacity_kbps = max(10.0, capacity_mbps) * 1000.0
     thresh_kbps = capacity_kbps * (max(0.1, threshold_percent) / 100.0)
     # Floor at 200 Kbps (to accommodate harmless OS background traffic like NTP/DNS/mDNS)
-    return max(200.0, thresh_kbps)
+    return max(200.0, min(MAX_PERCENT_IDLE_KBPS, thresh_kbps) if strict else thresh_kbps)
 
 
 class TrafficGate:
-    def __init__(self, monitored_iface: Optional[str] = None):
+    def __init__(self, monitored_iface: Optional[str] = None, strict: bool = False):
         self.monitored_iface = monitored_iface
+        self.strict = strict
         self.last_counters: Dict[str, InterfaceCounter] = {}
         self.current_rates: Dict[str, Tuple[int, int]] = {}  # iface -> (rx_bps, tx_bps)
 
@@ -112,7 +116,7 @@ class TrafficGate:
         threshold_mode: str = "percent",
         fixed_kbps: float = 500.0,
     ) -> float:
-        return get_effective_threshold_kbps(capacity_mbps, threshold_percent, threshold_mode, fixed_kbps)
+        return get_effective_threshold_kbps(capacity_mbps, threshold_percent, threshold_mode, fixed_kbps, strict=self.strict)
 
     def _read_proc_net_dev(self) -> Dict[str, Tuple[int, int]]:
         """Read cumulative (rx_bytes, tx_bytes) for each interface in /proc/net/dev."""
@@ -185,8 +189,8 @@ class TrafficGate:
         load_pct = calculate_load_percent(current_kbps, cap_mbps)
 
         if mode == "percent":
-            effective_thresh = get_effective_threshold_kbps(cap_mbps, threshold_percent=threshold_percent, threshold_mode="percent")
-            idle = (load_pct < threshold_percent)
+            effective_thresh = get_effective_threshold_kbps(cap_mbps, threshold_percent=threshold_percent, threshold_mode="percent", strict=self.strict)
+            idle = (current_kbps < effective_thresh)
         else:
             effective_thresh = float(threshold_kbps)
             idle = (current_kbps < effective_thresh)
@@ -208,6 +212,7 @@ class TrafficGate:
         capacity_mbps: Optional[float] = None,
         threshold_percent: float = 2.0,
         mode: str = "percent",
+        extra_kbps: Optional[Callable[[], float]] = None,
     ) -> IdleCheckResult:
         """Block until traffic is consistently below threshold for consecutive_idle_sec.
 
@@ -222,6 +227,7 @@ class TrafficGate:
             threshold_percent=threshold_percent,
             threshold_mode=mode,
             fixed_kbps=threshold_kbps,
+            strict=self.strict,
         )
 
         log.info(
@@ -240,11 +246,13 @@ class TrafficGate:
             self.sample()
             rx_bps, tx_bps = self.get_rate(iface)
             total_kbps = (rx_bps + tx_bps) / 1000.0
+            if extra_kbps:
+                total_kbps += extra_kbps()
             load_pct = calculate_load_percent(total_kbps, cap_mbps)
             last_kbps = total_kbps
             last_pct = load_pct
 
-            is_below = (load_pct < threshold_percent) if mode == "percent" else (total_kbps < effective_thresh)
+            is_below = total_kbps < effective_thresh
 
             if is_below:
                 if idle_streak_start is None:

@@ -249,7 +249,6 @@ def _collect_systemd_status() -> Dict[str, str]:
         "nmb-netd",
         "nmb-probe",
         "nmb-web",
-        "nmb-speed.timer",
         "nmb-speed.service",
         "hostapd",
         "dnsmasq",

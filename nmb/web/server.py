@@ -1903,6 +1903,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 11b. OONI Probe Censorship Test Run
+        if path == "/api/speedtest/traffic-stop":
+            self.server.cfg.speedtest.traffic_stop_enabled = bool(body_json.get("enabled"))
+            save_config(self.server.cfg)
+            self._send_json({"status": "ok", "enabled": self.server.cfg.speedtest.traffic_stop_enabled})
+            return
+
         if path == "/api/ooni/toggle":
             enabled = bool(body_json.get("enabled"))
             self.server.cfg.ooni.enabled = enabled
@@ -3091,12 +3097,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "bufferbloat": latest_bb,
             "latest_speedtest": report.speed_tests[0] if report.speed_tests else None,
             "schedule_mode": getattr(self.server.cfg.speedtest, "schedule_mode", "scheduled"),
-            "schedule_cron": getattr(self.server.cfg.speedtest, "schedule_cron", "0 */6 * * *"),
-            "schedule_cron_desc": get_cron_description(getattr(self.server.cfg.speedtest, "schedule_cron", "0 */6 * * *"), getattr(self.server.cfg.web, "language", "en")),
+            "schedule_cron": getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"),
+            "schedule_cron_desc": get_cron_description(getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"), getattr(self.server.cfg.web, "language", "en")),
             "automated_engine": getattr(self.server.cfg.speedtest, "automated_engine", "ookla"),
             "idle_threshold_mode": getattr(self.server.cfg.speedtest, "idle_threshold_mode", "percent"),
             "idle_threshold_percent": getattr(self.server.cfg.speedtest, "idle_threshold_percent", 2.0),
             "idle_threshold_kbps": getattr(self.server.cfg.speedtest, "idle_threshold_kbps", 500),
+            "traffic_stop_enabled": self.server.cfg.speedtest.traffic_stop_enabled,
             "scheduler_status": self.server.scheduler.get_status() if getattr(self.server, "scheduler", None) else None,
             "scheduled_server": {
                 "id": getattr(self.server.cfg.speedtest, "server_id", None),
@@ -3228,7 +3235,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "guest_wifi_metric": getattr(cfg.guest_wifi, "metric", 600),
             "guest_wifi_auto_reconnect": getattr(cfg.guest_wifi, "auto_reconnect", True),
             "schedule_mode": getattr(cfg.speedtest, "schedule_mode", "scheduled"),
-            "schedule_cron": getattr(cfg.speedtest, "schedule_cron", "0 */6 * * *"),
+            "schedule_cron": getattr(cfg.speedtest, "schedule_cron", "0 * * * *"),
             "automated_engine": getattr(cfg.speedtest, "automated_engine", "ookla"),
             "idle_threshold_mode": getattr(cfg.speedtest, "idle_threshold_mode", "percent"),
             "idle_threshold_percent": getattr(cfg.speedtest, "idle_threshold_percent", 2.0),

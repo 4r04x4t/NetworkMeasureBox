@@ -45,7 +45,7 @@ NMB eliminates this finger-pointing by placing an independent measurement system
 │                         ▼                                                           ▼                            │
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Traffic-Gated Measurement Engine (nmb-speed) │          │ Data Analytics & Report Generator (nmb-report)   │  │
-│  │ • /proc/net/dev idle gate (<500 kbps window) │          │ • Standalone HTML dossier with embedded SVGs     │  │
+│  │ • /proc/net/dev idle gate (2% of capacity)    │          │ • Standalone HTML dossier with embedded SVGs     │  │
 │  │ • 5 Engines: Ookla, Cloudflare, RTR, iPerf,FW│          │ • Raw RFC 4180 CSV telemetry exporter            │  │
 │  │ • Net-neutrality TCP/UDP port throttle check │          │ • Automated SMTP dispatch for ISP fault tickets  │  │
 │  └──────────────────────┬───────────────────────┘          └────────────────────────┬─────────────────────────┘  │
@@ -110,7 +110,7 @@ NMB eliminates this finger-pointing by placing an independent measurement system
 4. **RTR-Netztest (RMBT)**: Open-source benchmark from the Austrian regulator RTR.
 5. **iPerf3 Client & Managed Server**: Local LAN and public WAN throughput benchmarking across TCP and UDP with parallel threads.
 6. **Net-Neutrality Port Throttle Checker**: Audits whether the ISP throttles specific ports (HTTP 80, HTTPS 443, Alt-HTTP 8080, SSH 22, BitTorrent, VoIP).
-7. **Traffic Gate**: Monitors `/proc/net/dev` and postpones scheduled tests if existing traffic exceeds the configured threshold (2% of link capacity by default).
+7. **Traffic Gate**: Monitors `/proc/net/dev` and postpones tests if traffic exceeds the threshold (2% of capacity by default). Experimental, off by default (`experimental_stop`, with a Web UI switch): the limit is at most 500 kbps, deferred tests retry every 5 minutes, and scheduled tests are aborted without saving partial results if other traffic appears while they run. Other devices are visible on client-side ports in inline and LAN passthrough setups; plain `standalone` mode needs the router's UPnP counters, and when they are unavailable no scheduled speed tests run, only ping continues, and the Web UI and report say so. Recommended wiring: the box as a bridge between the ISP endpoint and the router.
 
 ### 5. Embedded & Low-Memory Optimization (512 MB RAM Support)
 Memory-saving profiles for constrained Linux systems. These have only been run on the Raspberry Pi 4, not on routers:

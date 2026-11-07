@@ -51,7 +51,7 @@ Egyedi, manuálisan futtatott böngészős sebességtesztekkel a felhasználó t
 A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspberry Pi 4-en fejlesztve és futtatva) a nap 24 órájában, az év 365 napján automatikusan felügyeli és dokumentálja az internetkapcsolatot:
 1. **Objektív bizonyítékot gyűjt**: Rögzíti az összes késleltetést, mikroszakadást, jittert és sávszélesség-ingadozást.
 2. **Közvetlenül a vonalon mér**: Képes routerként (Mode A) vagy passzív, láthatatlan inline hídként (Mode B) üzemelni a modem és a router között, így kiküszöböli a belső hálózati zavaró tényezőket.
-3. **Nem zavarja a felhasználót**: A beépített intelligens forgalmi kapu (Traffic Gate) csak akkor indít nagy sávszélességű tesztet, ha a vonal éppen üres (a beállított küszöb alatt), így nem szakítja meg a videóhívást vagy az online játékot.
+3. **Nem zavarja a felhasználót**: A beépített intelligens forgalmi kapu (Traffic Gate) csak akkor indít nagy sávszélességű tesztet, ha a doboz által látható forgalom a küszöb alatt van. Kísérleti, alapból kikapcsolt funkcióként a futó mérés is leállítható (lásd: Traffic Gate).
 4. **SLA dossziét generál**: Egyetlen gombnyomással önállóan megnyitható HTML jelentést állít elő beágyazott vektoros SVG diagramokkal és az előfizetői szerződéshez viszonyított SLA-megfelelőségi táblázattal, amelyet közvetlenül be lehet nyújtani hibajegyként a szolgáltatónak, vagy vita esetén az illetékes hírközlési hatóságnak.
 
 ---
@@ -209,7 +209,9 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 
 ### 7. Traffic Gate (Forgalmi Kapu)
 * Az automatikus mérések előtt az NMB megvizsgálja a `/proc/net/dev` számlálóit.
-* Ha a belső hálózaton a felhasználói forgalom meghaladja a beállított küszöbértéket (alapértelmezetten a kapacitás 2%-a), a teszt elhalasztásra kerül, így a mérés soha nem okoz akadást a felhasználónak.
+* Ha a forgalom meghaladja a küszöböt (alapértelmezetten a kapacitás 2%-a), a teszt elhalasztásra kerül.
+* Kísérleti, alapból kikapcsolt funkció (`experimental_stop`, webes kapcsolóval): a határ legfeljebb 500 kbps, elhalasztásnál 5 percenként újrapróbálkozik, és az ütemezett mérés közben az NMB tovább figyeli a többi eszköz forgalmát. Tartós idegen forgalomnál megszakítja a mérést, és részeredményt nem ment. A kézi mérésekre ez nem vonatkozik.
+* A többi eszköz forgalma inline módban és LAN-passthrough esetén a kliens oldali portokon látszik. Sima `standalone` módban csak a router UPnP-számlálóiból olvasható ki; ha a router ezt nem támogatja, nincs ütemezett sebességmérés, csak a ping fut tovább, és a felület és a riport ezt jelzi. Az ajánlott bekötés: a doboz hídként a szolgáltatói végpont és a router között.
 
 ---
 

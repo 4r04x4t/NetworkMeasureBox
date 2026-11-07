@@ -17,6 +17,7 @@ import time
 from typing import Optional
 from urllib.parse import urlparse
 
+from nmb.speed import cancel
 from nmb.speed.ookla import SpeedtestResult
 from nmb.speed.rmbt import connection, control, pretest, tests, uuid_store
 
@@ -65,7 +66,7 @@ def _run_native_rmbt_speedtest(
     ]
     log.info("invoking native C Open-RMBT binary: %s", " ".join(cmd))
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=duration_sec * 3 + 30)
+        proc = cancel.run(cmd, timeout=duration_sec * 3 + 30)
     except subprocess.TimeoutExpired as e:
         log.warning(
             "native C rmbt-client timed out after %ss; falling back to Python engine; output: %s",

@@ -1,6 +1,6 @@
 [Unit]
 Description=NetworkMeasureBox System Services & Measurement Stack
-Wants=nmb-db.service nmb-tune.service nmb-maintain.timer nmb-snapshot.timer nmb-netd.service nmb-probe.service nmb-speed.timer nmb-report.timer nmb-web.service nmb-invasive-log.timer nmb-iperf3.service nmb-ooni.timer
+Wants=nmb-db.service nmb-tune.service nmb-maintain.timer nmb-snapshot.timer nmb-netd.service nmb-probe.service nmb-report.timer nmb-web.service nmb-invasive-log.timer nmb-iperf3.service nmb-ooni.timer
 After=network.target local-fs.target
 
 [Install]

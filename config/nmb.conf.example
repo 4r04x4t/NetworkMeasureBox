@@ -90,14 +90,17 @@ batch_flush_sec = 10
 outage_loss_seconds = 15.0
 
 [traffic_gate]
-# Minimum bandwidth threshold (kbps) to declare network "active" vs "idle"
+# mode = percent uses 2% of capacity; mode = fixed uses threshold_kbps
 threshold_kbps = 500
+# Experimental: no scheduled speed test unless the network is provably idle (at most 500 kbps);
+# a running test stops when other traffic appears. Needs a view of other devices' traffic.
+experimental_stop = false
 sample_window_sec = 3
 cooldown_sec = 10
 
 [speedtest]
 # Scheduled Ookla Speedtest
-schedule_cron = 0 */6 * * *
+schedule_cron = 0 * * * *
 # Maximum seconds to wait for network to become idle before delaying test
 idle_wait_max_sec = 1800
 # Target ports to check for net-neutrality throttling

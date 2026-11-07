@@ -15,6 +15,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Optional
 
+from nmb.speed import cancel
+
 log = logging.getLogger("nmb.speed.ookla")
 
 
@@ -370,7 +372,7 @@ def run_official_ookla(server_id: Optional[int] = None, interface: Optional[str]
             log.info("executing official Ookla speedtest (auto-server, iface=%s, ip=%s): %s",
                      interface, bind_ip, bin_path)
 
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        res = cancel.run(cmd, timeout=120)
 
         if res.returncode != 0:
             log.warning("ookla speedtest failed (code %d): %s", res.returncode, res.stderr.strip())
@@ -463,7 +465,7 @@ def run_speedtest_cli(interface: Optional[str] = None, bind_ip: Optional[str] = 
         if bind_ip:
             cmd.extend(["--source", bind_ip])
         log.info("executing speedtest-cli (bind_ip=%s): %s", bind_ip, " ".join(cmd))
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        res = cancel.run(cmd, timeout=120)
         if res.returncode != 0:
             return SpeedtestResult(status="error", error=res.stderr.strip(), raw_json=res.stdout, bound_iface=interface, bound_ip=bind_ip)
 
@@ -667,11 +669,14 @@ def execute_speedtest(server_id: Optional[int] = None, interface: Optional[str] 
     res = run_official_ookla(server_id=server_id, interface=interface, bind_ip=bind_ip)
     if res and res.status == "ok":
         return res
+    cancel.check()
 
     # 2. Try speedtest-cli
     res = run_speedtest_cli(interface=interface, bind_ip=bind_ip)
     if res and res.status == "ok":
         return res
+
+    cancel.check()
 
     # 3. Native fallback
     fb = run_native_fallback(server_id=server_id, interface=interface, bind_ip=bind_ip)

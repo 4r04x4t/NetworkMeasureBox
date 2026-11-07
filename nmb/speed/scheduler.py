@@ -16,6 +16,8 @@ from nmb.config import Config
 
 log = logging.getLogger("nmb.speed.scheduler")
 
+RETRY_INTERVAL_SEC = 300.0
+
 
 def parse_cron_field(field_expr: str, min_val: int, max_val: int) -> Set[int]:
     """Parse a single cron field (supports *, */N, A-B, A,B,C, N)."""
@@ -62,7 +64,7 @@ def normalize_cron_expression(expr: str) -> str:
     """Normalize user input (shorthand seconds, minutes, or 5/6-part cron)."""
     s = str(expr).strip().lower()
     if not s:
-        return "0 */6 * * *"
+        return "0 * * * *"
 
     # 1. Check seconds shorthands, e.g. "10s", "30 sec", "15 mp", "every 20s"
     is_sec = False
@@ -132,7 +134,7 @@ def normalize_cron_expression(expr: str) -> str:
     if len(parts) == 5:
         return " ".join(parts)
 
-    return "0 */6 * * *"
+    return "0 * * * *"
 
 
 def is_second_cron(expr: str) -> bool:
@@ -240,7 +242,7 @@ def get_cron_description(cron_expr: str, lang: str = "en") -> str:
         "0 * * * *": ("1 óránként", "Every 1 hour"),
         "0 */2 * * *": ("2 óránként", "Every 2 hours"),
         "0 */4 * * *": ("4 óránként", "Every 4 hours"),
-        "0 */6 * * *": ("6 óránként (Ajánlott)", "Every 6 hours (Recommended)"),
+        "0 */6 * * *": ("6 óránként", "Every 6 hours"),
         "0 */12 * * *": ("12 óránként", "Every 12 hours"),
         "0 3 * * *": ("24 óránként (Hajnali 3:00)", "Every 24 hours (3:00 AM)"),
     }
@@ -281,6 +283,12 @@ def estimate_next_run(cron_expr: str, start_dt: Optional[datetime.datetime] = No
         return cur
 
 
+def next_retry_time(now: float, deadline: float) -> float:
+    """Return when to retry a deferred test, or 0 if the next scheduled test is too close."""
+    candidate = now + RETRY_INTERVAL_SEC
+    return candidate if candidate <= deadline else 0.0
+
+
 class AutonomousScheduler(threading.Thread):
     """Background daemon thread that continuously monitors cron schedule.
 
@@ -301,6 +309,8 @@ class AutonomousScheduler(threading.Thread):
         self.last_detail: str = ""
         self.last_checked_time: float = 0.0
         self._cycle_running = False
+        self._retry_at: float = 0.0
+        self._retry_deadline: float = 0.0
 
     def stop(self) -> None:
         self.running = False
@@ -309,7 +319,7 @@ class AutonomousScheduler(threading.Thread):
     def run(self) -> None:
         self.running = True
         self._stop_event.clear()
-        sched_cron = getattr(self.cfg.speedtest, "schedule_cron", "0 */6 * * *")
+        sched_cron = getattr(self.cfg.speedtest, "schedule_cron", "0 * * * *")
         log.info("AutonomousScheduler thread started. Schedule mode: %s, Cron: %s (Seconds-level: %s)",
                  getattr(self.cfg.speedtest, "schedule_mode", "scheduled"),
                  sched_cron,
@@ -323,7 +333,7 @@ class AutonomousScheduler(threading.Thread):
                 now = datetime.datetime.now()
                 self.last_checked_time = time.time()
                 sched_mode = getattr(self.cfg.speedtest, "schedule_mode", "scheduled")
-                sched_cron = getattr(self.cfg.speedtest, "schedule_cron", "0 */6 * * *")
+                sched_cron = getattr(self.cfg.speedtest, "schedule_cron", "0 * * * *")
 
                 if sched_mode == "scheduled":
                     is_sec = is_second_cron(sched_cron)
@@ -339,10 +349,20 @@ class AutonomousScheduler(threading.Thread):
                                 log.debug("AutonomousScheduler: previous measurement cycle still running at %s, skipping tick", now.strftime("%Y-%m-%d %H:%M:%S"))
                             else:
                                 log.info("AutonomousScheduler: scheduled interval triggered (%s). Initiating cycle with Traffic Gate...", sched_cron)
+                                self._retry_at = 0.0
+                                self._retry_deadline = estimate_next_run(sched_cron, now).timestamp() - RETRY_INTERVAL_SEC
                                 self._execute_cycle()
                     else:
                         log.debug("AutonomousScheduler already triggered for %s", current_key)
+
+                    if self._retry_at and time.time() >= self._retry_at and not self._cycle_running:
+                        from nmb.speed.runner import is_speedtest_running
+                        if not is_speedtest_running():
+                            self._retry_at = 0.0
+                            log.info("AutonomousScheduler: retrying the deferred measurement")
+                            self._execute_cycle(record_skip=False)
                 else:
+                    self._retry_at = 0.0
                     log.debug("AutonomousScheduler idle: mode is %s (not scheduled)", sched_mode)
 
             except Exception as e:
@@ -354,7 +374,7 @@ class AutonomousScheduler(threading.Thread):
 
         log.info("AutonomousScheduler thread stopped.")
 
-    def _execute_cycle(self) -> None:
+    def _execute_cycle(self, record_skip: bool = True) -> None:
         """Run measurement cycle in a non-blocking worker thread."""
         def _worker():
             from nmb.speed.runner import run_measurement_cycle
@@ -365,6 +385,7 @@ class AutonomousScheduler(threading.Thread):
                 engine = getattr(self.cfg.speedtest, "automated_engine", "ookla")
                 server_id = getattr(self.cfg.speedtest, "server_id", None)
                 log.debug("AutonomousScheduler worker starting run_measurement_cycle (engine=%s, server_id=%s)", engine, server_id)
+                outcome: dict = {}
                 ok = run_measurement_cycle(
                     self.cfg,
                     trigger="schedule",
@@ -372,14 +393,24 @@ class AutonomousScheduler(threading.Thread):
                     run_port_check=True,
                     server_id=server_id,
                     engine=engine,
+                    record_skip=record_skip,
+                    outcome=outcome,
                 )
                 self.last_run_timestamp = time.time()
                 if ok:
                     self.last_outcome = "completed"
                     self.last_detail = f"Measurement completed ({engine})"
-                else:
+                elif outcome.get("blind"):
                     self.last_outcome = "skipped_busy"
-                    self.last_detail = "Measurement deferred: network load exceeded the accuracy threshold (<2%)"
+                    self.last_detail = "No speed test: other devices' traffic is not visible to the box"
+                elif outcome.get("deferred"):
+                    self.last_outcome = "skipped_busy"
+                    self.last_detail = "Measurement deferred: other traffic is using the network"
+                    if getattr(self.cfg.speedtest, "traffic_stop_enabled", False):
+                        self._retry_at = next_retry_time(time.time(), self._retry_deadline)
+                else:
+                    self.last_outcome = "error"
+                    self.last_detail = f"Measurement failed ({engine})"
                 log.debug("AutonomousScheduler worker finished: outcome=%s, detail=%s", self.last_outcome, self.last_detail)
             except Exception as ex:
                 log.error("AutonomousScheduler worker error: %s", ex)
@@ -394,17 +425,20 @@ class AutonomousScheduler(threading.Thread):
     def get_status(self) -> dict:
         """Return full diagnostics on the scheduler and traffic gate."""
         now = datetime.datetime.now()
-        sched_cron = getattr(self.cfg.speedtest, "schedule_cron", "0 */6 * * *")
+        sched_cron = getattr(self.cfg.speedtest, "schedule_cron", "0 * * * *")
         sched_mode = getattr(self.cfg.speedtest, "schedule_mode", "scheduled")
         thresh_pct = getattr(self.cfg.speedtest, "idle_threshold_percent", 2.0)
         thresh_mode = getattr(self.cfg.speedtest, "idle_threshold_mode", "percent")
         contract_down = getattr(self.cfg.isp, "contract_down_mbps", 1000.0)
 
+        from nmb.db import database as db
+        from nmb.probe.cross_traffic import ForeignTrafficMonitor
         from nmb.probe.traffic_gate import TrafficGate
         from nmb.netd.lan_topology import resolve_topology
         topology = resolve_topology(self.cfg.network)
         gate_iface = topology.monitor_device if topology.active else self.cfg.network.wan_interface
-        gate = TrafficGate(gate_iface)
+        stop_enabled = bool(getattr(self.cfg.speedtest, "traffic_stop_enabled", False))
+        gate = TrafficGate(gate_iface, strict=stop_enabled)
         cap_mbps = gate.get_interface_capacity_mbps(gate_iface, contract_down_mbps=contract_down)
         eff_thresh_kbps = gate.get_effective_threshold_kbps(
             capacity_mbps=cap_mbps,
@@ -412,6 +446,16 @@ class AutonomousScheduler(threading.Thread):
             threshold_mode=thresh_mode,
             fixed_kbps=getattr(self.cfg.speedtest, "idle_threshold_kbps", 500)
         )
+        visibility = "off"
+        if stop_enabled:
+            try:
+                conn = db.connect()
+                row = conn.execute("SELECT v FROM kv WHERE k = 'active_mode'").fetchone()
+                conn.close()
+                visibility = ForeignTrafficMonitor.for_config(self.cfg, gate_iface, str(row[0]) if row else "").visibility
+            except Exception:
+                log.debug("traffic visibility check failed", exc_info=True)
+                visibility = "unknown"
         gate_res = gate.is_idle(
             threshold_kbps=eff_thresh_kbps,
             iface=gate_iface,
@@ -445,5 +489,6 @@ class AutonomousScheduler(threading.Thread):
                 "current_traffic_kbps": round(cur_kbps, 1),
                 "current_load_percent": round(load_pct, 2),
                 "is_gate_clear": idle,
+                "visibility": visibility,
             }
         }

@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 import http.client
+from nmb.speed import cancel
 from nmb.common.user_agent import get_effective_user_agent
 from nmb.speed.ookla import SpeedtestResult, calculate_bufferbloat
 
@@ -357,6 +358,7 @@ def _upload_worker(conn, meter: _ByteMeter, start: threading.Event, window: Tupl
 def _measure_throughput(worker, streams: int = STREAMS, duration: float = TEST_SECONDS,
                         warmup: float = WARMUP_SECONDS) -> Tuple[float, List[str]]:
     """Run parallel transfers for a fixed time and return Mbps over the post-warmup window."""
+    cancel.check()
     meter = _ByteMeter()
     conns = []
     for _ in range(streams):
@@ -377,8 +379,13 @@ def _measure_throughput(worker, streams: int = STREAMS, duration: float = TEST_S
     window[0], window[1] = now + warmup, now + duration
     stop_at[0] = now + duration
     start.set()
+    deadline = time.monotonic() + duration + 20.0
     for thread in threads:
-        thread.join(timeout=duration + 20.0)
+        while thread.is_alive() and time.monotonic() < deadline:
+            if cancel.is_requested():
+                stop_at[0] = 0.0
+            thread.join(timeout=0.25)
+    cancel.check()
     return (meter.bytes * 8) / ((duration - warmup) * 1_000_000.0), meter.errors
 
 

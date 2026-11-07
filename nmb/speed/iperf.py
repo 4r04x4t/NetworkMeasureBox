@@ -15,6 +15,8 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
+from nmb.speed import cancel
+
 log = logging.getLogger("nmb.speed.iperf")
 
 _iperf_lock = threading.Lock()
@@ -159,7 +161,7 @@ def run_iperf_client_test(
                   host, port, duration, protocol, parallel, reverse, bidir, bind_address)
         t0 = time.time()
         # Cap subprocess timeout to duration + 10s (connect timeout will bail after 4s anyway)
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=duration + 12)
+        proc = cancel.run(cmd, timeout=duration + 12)
         elapsed = time.time() - t0
         log.debug("iperf3 process finished in %.2fs (exit code %d, stdout_len=%d, stderr_len=%d)",
                   elapsed, proc.returncode, len(proc.stdout or ""), len(proc.stderr or ""))

@@ -78,11 +78,6 @@ if [ "$OS_TYPE" = "debian" ]; then
         fi
     fi
 
-    # Unattended onboarding for OONI Probe
-    if command -v ooniprobe >/dev/null 2>&1; then
-        ooniprobe onboard --yes 2>/dev/null || true
-    fi
-
     # Compile native Open-RMBT C measurement engine if source is present
     if [ -d "$SCRIPT_DIR/components/open-rmbt" ]; then
         info "Compiling native Open-RMBT C measurement client (/usr/local/bin/rmbt-client)..."
@@ -198,7 +193,7 @@ if ! id "$NMB_USER" >/dev/null 2>&1; then
     fi
 fi
 
-# Grant full administration rights to NMB in sudoers
+# Allow NMB only the privileged commands it needs
 if [ -d /etc/sudoers.d ]; then
     cat > /etc/sudoers.d/020_nmb-net <<SUDOERS
 $NMB_USER ALL=(root) NOPASSWD: /usr/local/bin/nmb-helper, /usr/bin/systemctl reboot, /usr/bin/tee /etc/nmb/nmb.conf, /usr/sbin/ip, /usr/bin/ip, /usr/sbin/iw, /usr/sbin/rfkill, /usr/bin/resolvectl
@@ -359,12 +354,15 @@ chmod 2775 /var/lib/nmb /var/lib/nmb/live /var/lib/nmb/persist /var/lib/nmb/pers
 # ------------------------------------------------------------------------------
 if [ "$INIT_SYSTEM" = "systemd" ]; then
     info "Installing systemd units to /etc/systemd/system/..."
+    # The nmb-web scheduler now starts speed tests from schedule_cron; remove the old fixed timer.
+    systemctl disable --now nmb-speed.timer 2>/dev/null || true
+    rm -f /etc/systemd/system/nmb-speed.timer
     cp "$SCRIPT_DIR/systemd/"* /etc/systemd/system/
     systemctl daemon-reload
 
     info "Enabling and starting NetworkMeasureBox systemd target..."
     systemctl enable nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service nmb-adblock.service
-    systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
+    systemctl enable nmb-maintain.timer nmb-snapshot.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
     systemctl enable nmb.target
 
     # Preserve and auto-start WireGuard / OpenVPN servers if configured
@@ -378,7 +376,8 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
     fi
 
     systemctl restart nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service nmb-adblock.service
-    systemctl start nmb-maintain.timer nmb-snapshot.timer nmb-speed.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
+    # Restart, not start, so an upgrade applies changed timer schedules.
+    systemctl restart nmb-maintain.timer nmb-snapshot.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
 
 elif [ "$INIT_SYSTEM" = "openrc" ]; then
     info "Installing OpenRC init scripts to /etc/init.d/..."
@@ -401,8 +400,8 @@ elif [ "$INIT_SYSTEM" = "openrc" ]; then
     cat >/etc/crontabs/root <<'EOF'
 */5 * * * * PYTHONPATH=/opt/nmb /usr/bin/python3 -m nmb.db.database maintain >/dev/null 2>&1
 */15 * * * * PYTHONPATH=/opt/nmb /usr/bin/python3 -m nmb.db.database snapshot >/dev/null 2>&1
-0 */6 * * * /usr/local/bin/nmb-speed --trigger schedule >/dev/null 2>&1
 5 0 * * * /usr/local/bin/nmb-report --window 24h >/dev/null 2>&1
+30 3 * * 0 /usr/local/bin/nmb-ooni enabled && /usr/local/bin/nmb-ooni run websites >/dev/null 2>&1
 EOF
     rc-update add crond default 2>/dev/null || true
     rc-service crond restart 2>/dev/null || rc-service crond start 2>/dev/null || true
@@ -439,7 +438,7 @@ cat <<EOF
     nmb-vpn / pivpn  - Unified PiVPN-style WireGuard & OpenVPN management CLI
     nmb-wifi         - Wi-Fi scanner, connector (hidden SSID support), and saved profiles
     nmb-iperf        - iPerf3 client bandwidth benchmark & background server manager
-    nmb-ooni         - OONI Probe censorship & net-neutrality diagnostic suite
+    nmb-ooni         - Optional weekly OONI Probe censorship audit (off by default; enable in the Web UI)
     rmbt-client      - Official native C Open-RMBT regulatory speedtest engine
     nmb-invasive-log - Deep invasive technical diagnostic snapshot generator
     nmb-factory-reset- Factory reset utility

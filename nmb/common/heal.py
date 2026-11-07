@@ -172,7 +172,6 @@ CORE_SERVICES = [
 CORE_TIMERS = [
     "nmb-maintain.timer",
     "nmb-snapshot.timer",
-    "nmb-speed.timer",
     "nmb-report.timer",
     "nmb-invasive-log.timer",
     "nmb-ooni.timer",

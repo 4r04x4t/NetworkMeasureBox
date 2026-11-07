@@ -15,7 +15,9 @@ from typing import Any, Dict, List, Optional
 
 from nmb.config import Config, load_config
 from nmb.db import database as db
+from nmb.probe import cross_traffic
 from nmb.probe.traffic_gate import TrafficGate
+from nmb.speed import cancel
 from nmb.speed.ookla import SpeedtestResult, execute_speedtest
 from nmb.speed.cloudflare import execute_cloudflare_speedtest
 from nmb.speed.rtr import execute_rtr_speedtest
@@ -266,9 +268,14 @@ def _run_single_engine(
                             res = cf_res
                 except Exception as cb_err:
                     log.error("circuit breaker fallback attempt failed: %s", cb_err)
+    except cancel.MeasurementCancelled:
+        res = None
     finally:
         set_speedtest_running(False)
         cpu_telemetry = sampler.stop()
+
+    if res is None or cancel.is_requested():
+        return _record_aborted(conn, trigger, engine, now_ms, cancel.current_reason())
 
     if not res.bound_iface:
         res.bound_iface = bound_iface
@@ -497,6 +504,45 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
     return res
 
 
+def _record_aborted(conn, trigger: str, engine: str, now_ms: int, reason: str) -> SpeedtestResult:
+    """Save an aborted run without values; a partial result would not be a valid measurement."""
+    reason = reason or "aborted: user traffic detected during the measurement"
+    log.warning("speed test %s", reason)
+    with db.tx(conn):
+        conn.execute(
+            "INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
+            (now_ms, trigger, reason, engine),
+        )
+        conn.execute(
+            "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warn', 'speed', 'speedtest_aborted', ?)",
+            (now_ms, f"Scheduled speed test {reason}"),
+        )
+    return SpeedtestResult(status="skipped_busy", error=reason, engine=engine)
+
+
+def _active_mode() -> str:
+    conn = db.connect()
+    try:
+        row = conn.execute("SELECT v FROM kv WHERE k = 'active_mode'").fetchone()
+        return str(row[0]) if row else ""
+    except db.sqlite3.Error:
+        return ""
+    finally:
+        conn.close()
+
+
+def _save_visibility(visibility: str) -> None:
+    conn = db.connect()
+    try:
+        with db.tx(conn):
+            conn.execute(
+                "INSERT OR REPLACE INTO kv (k, v, ts) VALUES ('traffic_visibility', ?, ?)",
+                (visibility, db.now_ms()),
+            )
+    finally:
+        conn.close()
+
+
 def run_measurement_cycle(
     cfg: Config,
     trigger: str = "schedule",
@@ -506,6 +552,8 @@ def run_measurement_cycle(
     server_id: Optional[int] = None,
     engine: Optional[str] = None,
     target_iface: Optional[str] = None,
+    record_skip: bool = True,
+    outcome: Optional[dict] = None,
 ) -> bool:
     """Execute complete measurement cycle (Traffic Gate -> Speedtest -> Port Checker)."""
     now_ms = db.now_ms()
@@ -556,8 +604,32 @@ def run_measurement_cycle(
     pref_gate_iface, _, _ = find_preferred_measurement_interface(cfg, target_iface=target_iface)
     from nmb.netd.lan_topology import traffic_monitor_device
     check_gate_iface = traffic_monitor_device(cfg.network, pref_gate_iface)
+    monitor = None
+    stop_enabled = bool(getattr(cfg.speedtest, "traffic_stop_enabled", False))
+    if not force and stop_enabled:
+        monitor = cross_traffic.ForeignTrafficMonitor.for_config(cfg, check_gate_iface, _active_mode())
+        _save_visibility(monitor.visibility)
+        # Without a view of other devices an idle line cannot be proven, so only ping keeps running.
+        if trigger == "schedule" and monitor.visibility == cross_traffic.VISIBILITY_NONE:
+            reason = "skipped: other devices' traffic is not visible to the box, so an idle network cannot be confirmed"
+            log.warning("speed test %s", reason)
+            if outcome is not None:
+                outcome["blind"] = True
+            if record_skip:
+                conn = db.connect()
+                with db.tx(conn):
+                    conn.execute(
+                        "INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
+                        (now_ms, trigger, reason, engine),
+                    )
+                    conn.execute(
+                        "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warn', 'speed', 'speedtest_skipped', ?)",
+                        (now_ms, f"Scheduled speed test {reason}"),
+                    )
+                conn.close()
+            return False
     if not force:
-        gate = TrafficGate(check_gate_iface)
+        gate = TrafficGate(check_gate_iface, strict=stop_enabled)
         cap_mbps = gate.get_interface_capacity_mbps(check_gate_iface, contract_down_mbps=cfg.isp.contract_down_mbps)
         gate_res = gate.wait_for_idle(
             threshold_kbps=fixed_kbps,
@@ -567,19 +639,24 @@ def run_measurement_cycle(
             capacity_mbps=cap_mbps,
             threshold_percent=thresh_pct,
             mode=tg_mode,
+            extra_kbps=monitor.router_kbps if monitor else None,
         )
 
         if not gate_res.cleared:
+            if outcome is not None:
+                outcome["deferred"] = True
             reason = (
-                f"deferred: network load {gate_res.load_percent:.2f}% ({gate_res.rate_kbps:.0f} kbps) exceeded {thresh_pct:.1f}% threshold "
-                f"({gate_res.threshold_kbps:.0f} kbps / {cap_mbps:.0f} Mbps capacity) to preserve test accuracy and protect active user traffic"
+                f"deferred: network traffic {gate_res.rate_kbps:.0f} kbps ({gate_res.load_percent:.2f}% load) exceeded the "
+                f"{gate_res.threshold_kbps:.0f} kbps limit ({cap_mbps:.0f} Mbps capacity) to preserve test accuracy and protect active user traffic"
             )
             reason_hu = (
-                f"Scheduled speed test deferred: network load {gate_res.load_percent:.2f}% ({gate_res.rate_kbps:.0f} Kbps) "
-                f"exceeded the allowed < {thresh_pct:.1f}% threshold ({gate_res.threshold_kbps/1000.0:.1f} Mbps / {cap_mbps:.0f} Mbps capacity) "
+                f"Scheduled speed test deferred: network traffic {gate_res.rate_kbps:.0f} Kbps ({gate_res.load_percent:.2f}% load) "
+                f"exceeded the {gate_res.threshold_kbps/1000.0:.1f} Mbps limit ({cap_mbps:.0f} Mbps capacity) "
                 f"to preserve measurement accuracy and avoid disturbing client traffic."
             )
             log.warning("network busy: %s", reason)
+            if not record_skip:
+                return False
             conn = db.connect()
             with db.tx(conn):
                 conn.execute(
@@ -613,11 +690,31 @@ def run_measurement_cycle(
 
     all_ok = True
     last_res = None
-    for eng in engines_to_run:
-        res = _run_single_engine(eng, cfg, trigger, target_server_id, conn, now_ms, target_iface=target_iface)
-        last_res = res
-        if res.status != "ok":
-            all_ok = False
+    token = cancel.CancelToken()
+    stop_watch = threading.Event()
+    # A person asked for manual runs, so only scheduled tests give way to other traffic.
+    if monitor and trigger == "schedule":
+        cross_traffic.watch(
+            monitor, gate_res.threshold_kbps, stop_watch,
+            lambda kbps: token.cancel(f"aborted: other traffic detected during the measurement ({kbps:.0f} kbps, 0 means counters unreadable)"),
+        )
+    try:
+        with cancel.scope(token):
+            for eng in engines_to_run:
+                res = _run_single_engine(eng, cfg, trigger, target_server_id, conn, now_ms, target_iface=target_iface)
+                last_res = res
+                if res.status != "ok":
+                    all_ok = False
+                if token.is_set():
+                    break
+    finally:
+        stop_watch.set()
+
+    if token.is_set():
+        if outcome is not None:
+            outcome["deferred"] = True
+        conn.close()
+        return False
 
     # 4. Execute Net-Neutrality Port Throttling Check
     if run_port_check:

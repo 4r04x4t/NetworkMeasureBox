@@ -141,11 +141,13 @@ outage_loss_seconds = 15.0
 mode = percent
 threshold_percent = 2.0
 threshold_kbps = 500
+# Experimental: only run speed tests on a provably idle network, and stop them when traffic appears.
+experimental_stop = false
 sample_window_sec = 3
 cooldown_sec = 10
 
 [speedtest]
-schedule_cron = 0 */6 * * *
+schedule_cron = 0 * * * *
 idle_wait_max_sec = 1800
 idle_threshold_mode = percent
 idle_threshold_percent = 2.0
@@ -429,12 +431,13 @@ class ProbeConfig:
 @dataclass
 class SpeedtestConfig:
     schedule_mode: str = "scheduled"          # "scheduled" (periodic automation) or "manual" (disabled / on-demand only)
-    schedule_cron: str = "0 */6 * * *"
+    schedule_cron: str = "0 * * * *"
     automated_engine: str = "ookla"           # "ookla", "cloudflare", "rtr", "all"
     idle_wait_max_sec: float = 1800.0
     idle_threshold_mode: str = "percent"      # "percent" (< 2% network load) or "fixed" (custom kbps)
     idle_threshold_percent: float = 2.0       # dynamic network load threshold (e.g. 2.0%)
     idle_threshold_kbps: int = 500            # fallback fixed kbps
+    traffic_stop_enabled: bool = False        # Experimental: strict idle check and stop on foreign traffic
     server_id: Optional[int] = None           # Manually selected server ID for automated measurements!
     server_name: str = ""
     server_host: str = ""
@@ -692,6 +695,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.speedtest.idle_threshold_mode = tg.get("mode", getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower().strip()
         cfg.speedtest.idle_threshold_percent = tg.getfloat("threshold_percent", fallback=getattr(cfg.speedtest, "idle_threshold_percent", 2.0))
         cfg.speedtest.idle_threshold_kbps = tg.getint("threshold_kbps", fallback=getattr(cfg.speedtest, "idle_threshold_kbps", 500))
+        cfg.speedtest.traffic_stop_enabled = tg.getboolean("experimental_stop", fallback=False)
 
     if parser.has_section("speedtest"):
         st = parser["speedtest"]
@@ -960,6 +964,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["traffic_gate"]["mode"] = str(getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower()
     parser["traffic_gate"]["threshold_percent"] = str(getattr(cfg.speedtest, "idle_threshold_percent", 2.0))
     parser["traffic_gate"]["threshold_kbps"] = str(getattr(cfg.speedtest, "idle_threshold_kbps", 500))
+    parser["traffic_gate"]["experimental_stop"] = str(cfg.speedtest.traffic_stop_enabled).lower()
 
     # Speedtest (Automated measurements configuration)
     parser["speedtest"]["schedule_mode"] = str(getattr(cfg.speedtest, "schedule_mode", "scheduled")).lower()

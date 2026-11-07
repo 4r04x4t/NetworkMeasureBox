@@ -1070,6 +1070,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
 
     # 8. Speedtest Results
     last_speed = conn.execute("SELECT * FROM speedtest ORDER BY ts DESC LIMIT 1").fetchone()
+    visibility_row = conn.execute("SELECT v FROM kv WHERE k = 'traffic_visibility'").fetchone()
     last_speed_dict = dict(last_speed) if last_speed else {}
 
     recent_speeds = conn.execute(
@@ -1569,6 +1570,14 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
             lines.append(f"| `{ts_str}` | `{s['engine']}` | **{d_m}** | **{u_m}** | {lat_s} | {bb_s} | {cpu_peak_s} |")
     else:
         lines.append("- *No prior speedtest runs recorded.*")
+
+    visibility_notes = {
+        "inline": "Other devices' traffic passes through this box and is checked before and during scheduled tests.",
+        "router": "Other devices' traffic is read from the router's UPnP counters, before and during scheduled tests.",
+        "none": "WARNING: other devices' traffic is not visible here, so scheduled speed tests do not run; ping continues.",
+    }
+    if cfg.speedtest.traffic_stop_enabled and visibility_row and visibility_row[0] in visibility_notes:
+        lines.extend(["", f"- **Traffic Visibility**: {visibility_notes[visibility_row[0]]}"])
 
     lines.extend(["", "### 7.2 Speed Distribution by Engine (Past 24 Hours, Mbps)"])
     lines.extend(speed_stats)

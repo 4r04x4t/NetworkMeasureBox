@@ -2366,8 +2366,13 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           const cronDesc = data.schedule_cron_desc || (data.schedule_cron ? data.schedule_cron : 'Scheduled');
           const gatePct = (data.idle_threshold_percent !== undefined) ? data.idle_threshold_percent : 2.0;
           const capMbps = (data.contract && data.contract.contract_down_mbps) ? data.contract.contract_down_mbps : 1000.0;
-          const limitMbps = ((capMbps * gatePct) / 100.0).toFixed(1);
-          modeBadge.innerHTML = `🟢 <b>${t('mode_scheduled', 'Automated Schedule')}:</b> ${escapeHtml(cronDesc)} &nbsp;|&nbsp; 🛡️ <b>${t('accuracy_gate', 'Accuracy Gate')}:</b> &lt; ${gatePct.toFixed(1)}% (max ${limitMbps} Mbps)`;
+          const limitMbps = (data.traffic_stop_enabled ? Math.max(0.2, Math.min(0.5, (capMbps * gatePct) / 100.0)) : (capMbps * gatePct) / 100.0).toFixed(1);
+          globalTrafficStop = !!data.traffic_stop_enabled;
+          const stopToggle = document.getElementById('traffic-stop-toggle');
+          if (stopToggle) stopToggle.checked = globalTrafficStop;
+          const gateInfo = data.scheduler_status && data.scheduler_status.traffic_gate;
+          const visibilityWarning = gateInfo && gateInfo.visibility === 'none' ? ` &nbsp;|&nbsp; ⚠️ ${escapeHtml(t('gate_no_visibility', 'No speed tests: other devices\' traffic is not visible to the box'))}` : '';
+          modeBadge.innerHTML = `🟢 <b>${t('mode_scheduled', 'Automated Schedule')}:</b> ${escapeHtml(cronDesc)} &nbsp;|&nbsp; 🛡️ <b>${t('accuracy_gate', 'Accuracy Gate')}:</b> &lt; ${gatePct.toFixed(1)}% (max ${limitMbps} Mbps)${visibilityWarning}`;
           modeBadge.style.background = 'rgba(16, 185, 129, 0.15)';
           modeBadge.style.color = '#34d399';
           modeBadge.style.borderColor = '#10b981';
@@ -4271,13 +4276,30 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
   let globalContractDownMbps = 1000.0;
 
+  let globalTrafficStop = false;
+
+  async function toggleTrafficStop(enabled) {
+    try {
+      const res = await fetch('/api/speedtest/traffic-stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enabled })
+      });
+      if (!res.ok) throw new Error(res.status);
+      globalTrafficStop = enabled;
+      updateGateCalculatedBadge();
+    } catch (e) {
+      showToast(t('error_prefix', 'Error: ') + e);
+    }
+  }
+
   function updateGateCalculatedBadge() {
     const badge = document.getElementById('sched-gate-badge');
     const pctInput = document.getElementById('sched-gate-percent');
     if (!badge) return;
     const pct = pctInput ? parseFloat(pctInput.value) || 2.0 : 2.0;
     const capMbps = globalContractDownMbps || 1000.0;
-    const limitMbps = (capMbps * (pct / 100.0)).toFixed(1);
+    const limitMbps = (globalTrafficStop ? Math.max(0.2, Math.min(0.5, capMbps * (pct / 100.0))) : capMbps * (pct / 100.0)).toFixed(1);
     badge.innerText = `Gate: max ${limitMbps} Mbps (${capMbps} Mbps link - < ${pct.toFixed(1)}%)`;
   }
 
@@ -4468,7 +4490,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
   async function onHomeIntervalSelect(val) {
     if (val === 'manual') {
-      await saveQuickSchedule('manual', '0 */6 * * *');
+      await saveQuickSchedule('manual', '0 * * * *');
     } else {
       await saveQuickSchedule('scheduled', val);
     }
