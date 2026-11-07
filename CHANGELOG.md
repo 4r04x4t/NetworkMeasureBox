@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Kernel network tuning now runs in `nmb-netd`, which has root; the unprivileged web server no longer fills its log with `sysctl: permission denied`, and the tuning button asks `nmb-netd` to re-apply it.
+- The installer's closing summary shows colours instead of raw `\033` codes.
+
 - Wireless router mode now works: Wi-Fi and LAN share a bridge, a Wi-Fi failure no longer stops wired DHCP, and `hostapd` steps down to an older standard if it rejects a setting.
 - If the main config file is lost, restoring it from the boot partition no longer writes the `__KEEP_CURRENT__` marks as values or brings back the shared factory Wi-Fi password. Passwords and tokens must then be entered again.
 - Running setup again on Alpine no longer stops halfway when a service is already restarting.

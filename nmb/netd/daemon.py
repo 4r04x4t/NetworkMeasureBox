@@ -49,6 +49,7 @@ class NetworkDaemon:
     def _apply_reload(self) -> None:
         """Reload config; rebuild the network only when its settings actually changed."""
         self.reload_requested = False
+        _apply_kernel_tuning()
         old_network = self.cfg.network
         self.cfg = load_config()
         if self.cfg.network == old_network:
@@ -170,6 +171,8 @@ class NetworkDaemon:
         except Exception as e:
             log.debug("could not write pidfile: %s", e)
 
+        _apply_kernel_tuning()
+
         # Initial assessment
         override = self._get_override_mode()
         initial_mode, reason = self.detector.evaluate_target_mode(override)
@@ -200,6 +203,15 @@ class NetworkDaemon:
         STATE_FILE.unlink(missing_ok=True)
         pid_file.unlink(missing_ok=True)
         log.info("nmb-netd shutdown complete")
+
+
+def _apply_kernel_tuning() -> None:
+    """Kernel tuning needs root, so netd owns it; the unprivileged web server asks via reload."""
+    try:
+        from nmb.netd.kernel import apply_kernel_network_tuning
+        apply_kernel_network_tuning()
+    except Exception as e:
+        log.warning("kernel network tuning failed: %s", e)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -474,7 +474,7 @@ HOST_IP=$(ip -4 addr show scope global 2>/dev/null | awk '/inet / {print $2}' | 
 STATUS_CMD="systemctl status nmb.target"
 [ "$INIT_SYSTEM" = "openrc" ] && STATUS_CMD="rc-status default"
 printf '\n\033[1;32m'
-cat <<EOF
+BANNER=$(cat <<EOF
 ================================================================================
    NetworkMeasureBox (NMB) — Installation Complete Successfully!
 ================================================================================
@@ -514,3 +514,6 @@ cat <<EOF
     4. Check overall system status: \033[1;37m$STATUS_CMD\033[0m
 ================================================================================
 EOF
+)
+# The heredoc holds \033 colour codes; %b turns them into real escapes.
+printf '%b\n' "$BANNER"

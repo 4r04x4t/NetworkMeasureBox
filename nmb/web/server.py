@@ -1878,11 +1878,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 10b. Kernel Performance Tuning Apply
         if path == "/api/system/kernel-tuning/apply":
             from nmb.netd.kernel import apply_kernel_network_tuning, get_kernel_network_status
-            res = apply_kernel_network_tuning()
+            if os.geteuid() == 0:
+                res = apply_kernel_network_tuning()
+                message = "Kernel network performance optimizations applied successfully."
+            else:
+                # nmb-netd runs as root and re-applies the tuning when it reloads.
+                self._notify_daemon_reload()
+                res = {"delegated_to": "nmb-netd"}
+                message = "Kernel network tuning requested from nmb-netd."
             status_data = get_kernel_network_status()
             self._send_json({
                 "status": "ok",
-                "message": "Kernel network performance optimizations applied successfully.",
+                "message": message,
                 "details": res,
                 "kernel_status": status_data,
             })
@@ -3899,12 +3906,13 @@ class WebDaemon:
             except Exception as e:
                 log.debug("proxy start error: %s", e)
 
-        # Enforce kernel network performance tuning and multi-core RPS softirq steering
-        try:
-            from nmb.netd.kernel import apply_kernel_network_tuning
-            threading.Thread(target=apply_kernel_network_tuning, daemon=True, name="nmb-kernel-tuner").start()
-        except Exception as e:
-            log.debug("kernel tuning background error: %s", e)
+        # Kernel tuning needs root: nmb-netd applies it. Only a root dev server does it here.
+        if os.geteuid() == 0:
+            try:
+                from nmb.netd.kernel import apply_kernel_network_tuning
+                threading.Thread(target=apply_kernel_network_tuning, daemon=True, name="nmb-kernel-tuner").start()
+            except Exception as e:
+                log.debug("kernel tuning background error: %s", e)
 
         host, port = self.server.server_address
         proto = "https" if getattr(self.server, "is_tls", False) else "http"
