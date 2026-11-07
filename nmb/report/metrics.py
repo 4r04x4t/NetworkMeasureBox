@@ -17,6 +17,17 @@ from nmb.db import database as db
 log = logging.getLogger("nmb.report.metrics")
 
 
+def latest_measured_test(tests: List[dict]) -> Optional[dict]:
+    """Return the newest test with results; a skipped test has no speed to show."""
+    return next((t for t in tests if t.get("status") == "ok"), None)
+
+
+def tests_for_display(tests: List[dict], measured: int = 25, skipped: int = 5) -> List[dict]:
+    """Keep real results visible when frequent skipped runs would otherwise push them out."""
+    done = [t for t in tests if t.get("status") != "skipped_busy"][:measured]
+    other = [t for t in tests if t.get("status") == "skipped_busy"][:skipped]
+    return sorted(done + other, key=lambda t: t.get("ts") or 0, reverse=True)
+
 @dataclass
 class OutageRecord:
     id: int

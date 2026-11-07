@@ -82,6 +82,17 @@ class StopSwitchCoverageTest(unittest.TestCase):
             self.assertFalse(cross_traffic.network_confirmed_idle(load_config(ROOT / "config/nmb.conf.example")))
 
 
+class SkippedTestDisplayTest(unittest.TestCase):
+    def test_skipped_runs_do_not_replace_real_results(self):
+        from nmb.report.metrics import latest_measured_test, tests_for_display
+        tests = [{"ts": 100 - i, "status": "skipped_busy"} for i in range(40)] + [{"ts": 10, "status": "ok", "down_bps": 9}]
+        self.assertEqual(latest_measured_test(tests)["down_bps"], 9)
+        self.assertIsNone(latest_measured_test(tests[:40]))
+        shown = tests_for_display(tests)
+        self.assertEqual(len(shown), 6)
+        self.assertIn(tests[-1], shown)
+
+
 class WebApiTest(unittest.TestCase):
     def test_post_handler_rejects_non_object_bodies(self):
         self.assertIn("must be a JSON object", (ROOT / "nmb/web/server.py").read_text())

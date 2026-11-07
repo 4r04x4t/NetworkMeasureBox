@@ -243,7 +243,7 @@ class CommandHandler:
                 log.debug("suppressed exception", exc_info=True)
             isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
 
-            latest_st = rep.speed_tests[0] if rep.speed_tests else {}
+            latest_st = next((s for s in rep.speed_tests if s.get("status") == "ok"), {})
             st_down = f"{latest_st.get('down_mbps', 0):.1f} Mb/s" if latest_st.get("down_mbps") else "--"
             st_up = f"{latest_st.get('up_mbps', 0):.1f} Mb/s" if latest_st.get("up_mbps") else "--"
 

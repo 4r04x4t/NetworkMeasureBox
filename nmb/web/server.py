@@ -31,6 +31,7 @@ from urllib.parse import parse_qs, urlparse
 from nmb.config import Config, load_config, save_config, CONNECTION_TYPES, find_drive_config_path, get_writable_drive_config_target, DEFAULT_CONFIG_PATH
 from nmb.db import database as db
 from nmb.netd import interfaces, dns
+from nmb.report.metrics import latest_measured_test, tests_for_display
 from nmb.netd.drivers import get_full_driver_status, trigger_driver_install, get_driver_install_status, get_interfaces_matrix
 from nmb.netd.adblock import (
     get_full_adblock_status,
@@ -2943,7 +2944,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                           down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms, connection_type,
                           engine, colo
                    FROM speedtest
-                   WHERE LOWER(engine) = ?
+                   WHERE LOWER(engine) = ? AND status != 'skipped_busy'
                    ORDER BY ts DESC LIMIT 1""",
                 (eng,)
             ).fetchone()
@@ -3115,7 +3116,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "outages_count": len(report.outages),
             "total_outage_sec": report.total_outage_sec,
             "bufferbloat": latest_bb,
-            "latest_speedtest": report.speed_tests[0] if report.speed_tests else None,
+            "latest_speedtest": latest_measured_test(report.speed_tests),
             "schedule_mode": getattr(self.server.cfg.speedtest, "schedule_mode", "scheduled"),
             "schedule_cron": getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"),
             "schedule_cron_desc": get_cron_description(getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"), getattr(self.server.cfg.web, "language", "en")),
@@ -3172,7 +3173,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 }
                 for t in report.target_stats
             ],
-            "speed_tests": report.speed_tests[:25],
+            "speed_tests": tests_for_display(report.speed_tests),
             "latest_per_engine": latest_per_engine,
             "chart_svg": svg,
             "auth_enabled": bool(getattr(self.server.cfg.web, "auth_enabled", True)),

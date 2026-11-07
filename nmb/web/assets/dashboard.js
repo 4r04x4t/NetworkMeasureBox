@@ -2599,9 +2599,11 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           sHtml += `<tr>
             <td style="white-space: nowrap;">${dtStr}</td>
             <td style="white-space: nowrap;">${engineBadge}</td>
-            <td style="white-space: nowrap;"><b>${dMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(dPct)}</td>
-            <td style="white-space: nowrap;"><b>${uMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(uPct)}</td>
-            <td style="white-space: nowrap;">${lat.toFixed(2)} ms</td>
+            ${st.status === 'skipped_busy'
+              ? `<td colspan="2" style="white-space: nowrap;" title="${escapeHtml(st.error || '')}">— ${escapeHtml(t('speed_skipped', 'Skipped, no measurement'))}</td>`
+              : `<td style="white-space: nowrap;"><b>${dMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(dPct)}</td>
+            <td style="white-space: nowrap;"><b>${uMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(uPct)}</td>`}
+            <td style="white-space: nowrap;">${st.status === 'skipped_busy' ? '--' : lat.toFixed(2) + ' ms'}</td>
             <td style="white-space: nowrap;">${bb}</td>
             <td style="white-space: nowrap;">${clientIpCell}</td>
             <td style="white-space: nowrap;">${link}</td>
