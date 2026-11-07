@@ -110,7 +110,11 @@ NMB eliminates this finger-pointing by placing an independent measurement system
 4. **RTR-Netztest (RMBT)**: Open-source benchmark from the Austrian regulator RTR.
 5. **iPerf3 Client & Managed Server**: Local LAN and public WAN throughput benchmarking across TCP and UDP with parallel threads.
 6. **Net-Neutrality Port Throttle Checker**: Audits whether the ISP throttles specific ports (HTTP 80, HTTPS 443, Alt-HTTP 8080, SSH 22, BitTorrent, VoIP).
-7. **Traffic Gate**: Monitors `/proc/net/dev` and postpones tests if traffic exceeds the threshold (2% of capacity by default). Experimental, off by default (`experimental_stop`, with a Web UI switch): the limit is at most 500 kbps, deferred tests retry every 5 minutes, and scheduled tests are aborted without saving partial results if other traffic appears while they run. Other devices are visible on client-side ports in inline and LAN passthrough setups; plain `standalone` mode needs the router's UPnP counters, and when they are unavailable no scheduled speed tests run, only ping continues, and the Web UI and report say so. Recommended wiring: the box as a bridge between the ISP endpoint and the router.
+7. **Traffic Gate**: Monitors `/proc/net/dev` and postpones a test if the box sees traffic above the threshold (2% of capacity by default). In plain `standalone` mode the box only sees its own traffic, so other devices do not count; other traffic only reaches its counters when it passes through the box.
+8. **Stop on Network Traffic (experimental, off by default)**: Enabled with `experimental_stop = true` under `[traffic_gate]` or the Web UI switch. Scheduled tests then need a limit of at most 500 kbps, retry every 5 minutes after a deferral, and stop without saving partial results if other traffic appears. Ping keeps running and manual tests are not stopped. A voice call fits under the limit; video and torrents do not. The box reads other devices' traffic from client-side ports (bridge, gateway, or its own access point) or the router's UPnP counters. If neither is available, no scheduled speed tests run. For a full view, wire the box as a bridge between the ISP endpoint and the router, which needs two Ethernet ports (on a Raspberry Pi 4, a USB 3 gigabit adapter as the second). This has not yet been tried on a real bridge.
+9. **OONI Probe (optional, off by default)**: Weekly censorship and net-neutrality run, enabled in the Web UI or with `enabled = true` under `[ooni]`. It does not use the Traffic Gate.
+
+**Speed test schedule**: New installs test every hour (`schedule_cron = 0 * * * *`), changeable in the Web UI. `nmb-web` starts scheduled tests, so it must be running; upgrades keep the configured schedule.
 
 ### 5. Embedded & Low-Memory Optimization (512 MB RAM Support)
 Memory-saving profiles for constrained Linux systems. These have only been run on the Raspberry Pi 4, not on routers:
@@ -277,6 +281,7 @@ http://<appliance-ip>/
 | `nmb-netd` | Network daemon (Router / Bridge / Multi-WAN) | `nmb-netd --status`<br>`nmb-netd --switch auto\|mode_a\|mode_b`<br>`nmb-netd --matrix` |
 | `nmb-probe` | Continuous latency/jitter ICMP engine | `nmb-probe --verbose`<br>`nmb-probe --target 1.1.1.1` |
 | `nmb-speed` | Speedtest & net-neutrality runner | `nmb-speed --trigger manual`<br>`nmb-speed --engine ookla\|cloudflare\|rtr\|iperf`<br>`nmb-speed --interface eth0` |
+| `nmb-ooni` | Optional OONI Probe add-on | `nmb-ooni status`<br>`nmb-ooni run websites` |
 | `nmb-report` | HTML dossier & CSV generator | `nmb-report --window 24h --html dossier.html --lang en\|hu\|de\|fr\|uk`<br>`nmb-report --json-summary`<br>`nmb-report --send-email` |
 | `nmb-adblock` | High-performance DNS sinkhole | `nmb-adblock --status`<br>`nmb-adblock --update-gravity`<br>`nmb-adblock --block domain.com` |
 | `nmb-heal` | Self-healing watchdog & safety rollback | `nmb-heal --audit`<br>`nmb-heal --verify`<br>`nmb-heal --rollback` |
@@ -327,8 +332,8 @@ sudo systemctl restart nmb.target
 # View live probe engine logs
 sudo journalctl -u nmb-probe -f
 
-# View speedtest runner logs
-sudo journalctl -u nmb-speed -f
+# View scheduled speed test logs (started by nmb-web)
+sudo journalctl -u nmb-web -f
 ```
 
 ---

@@ -51,7 +51,7 @@ Egyedi, manuálisan futtatott böngészős sebességtesztekkel a felhasználó t
 A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspberry Pi 4-en fejlesztve és futtatva) a nap 24 órájában, az év 365 napján automatikusan felügyeli és dokumentálja az internetkapcsolatot:
 1. **Objektív bizonyítékot gyűjt**: Rögzíti az összes késleltetést, mikroszakadást, jittert és sávszélesség-ingadozást.
 2. **Közvetlenül a vonalon mér**: Képes routerként (Mode A) vagy passzív, láthatatlan inline hídként (Mode B) üzemelni a modem és a router között, így kiküszöböli a belső hálózati zavaró tényezőket.
-3. **Nem zavarja a felhasználót**: A beépített intelligens forgalmi kapu (Traffic Gate) csak akkor indít nagy sávszélességű tesztet, ha a doboz által látható forgalom a küszöb alatt van. Kísérleti, alapból kikapcsolt funkcióként a futó mérés is leállítható (lásd: Traffic Gate).
+3. **Nem zavarja a felhasználót**: A beépített forgalmi kapu (Traffic Gate) csak akkor indít nagy sávszélességű tesztet, ha a doboz által látható forgalom a küszöb alatt van. Hogy mit lát, az a bekötéstől függ. Kísérleti, alapból kikapcsolt funkcióként a futó mérés is leállítható (lásd: Leállás hálózati forgalomra).
 4. **SLA dossziét generál**: Egyetlen gombnyomással önállóan megnyitható HTML jelentést állít elő beágyazott vektoros SVG diagramokkal és az előfizetői szerződéshez viszonyított SLA-megfelelőségi táblázattal, amelyet közvetlenül be lehet nyújtani hibajegyként a szolgáltatónak, vagy vita esetén az illetékes hírközlési hatóságnak.
 
 ---
@@ -209,9 +209,20 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 
 ### 7. Traffic Gate (Forgalmi Kapu)
 * Az automatikus mérések előtt az NMB megvizsgálja a `/proc/net/dev` számlálóit.
-* Ha a forgalom meghaladja a küszöböt (alapértelmezetten a kapacitás 2%-a), a teszt elhalasztásra kerül.
-* Kísérleti, alapból kikapcsolt funkció (`experimental_stop`, webes kapcsolóval): a határ legfeljebb 500 kbps, elhalasztásnál 5 percenként újrapróbálkozik, és az ütemezett mérés közben az NMB tovább figyeli a többi eszköz forgalmát. Tartós idegen forgalomnál megszakítja a mérést, és részeredményt nem ment. A kézi mérésekre ez nem vonatkozik.
-* A többi eszköz forgalma inline módban és LAN-passthrough esetén a kliens oldali portokon látszik. Sima `standalone` módban csak a router UPnP-számlálóiból olvasható ki; ha a router ezt nem támogatja, nincs ütemezett sebességmérés, csak a ping fut tovább, és a felület és a riport ezt jelzi. Az ajánlott bekötés: a doboz hídként a szolgáltatói végpont és a router között.
+* Ha a doboz a küszöb feletti forgalmat lát (alapértelmezetten a kapacitás 2%-a), a teszt elhalasztásra kerül. Sima `standalone` módban a doboz csak a saját forgalmát látja, ezért a többi eszköz nem számít bele; idegen forgalom csak akkor kerül a számlálóiba, ha áthalad a dobozon.
+
+### 8. Leállás hálózati forgalomra (kísérleti, alapból kikapcsolt)
+* Bekapcsolás: `experimental_stop = true` a `[traffic_gate]` szakaszban, vagy a webes kapcsoló.
+* Bekapcsolva az ütemezett mérés határa legfeljebb 500 kbps, elhalasztásnál 5 percenként újrapróbálkozik, és ha közben más forgalom jelenik meg, leáll, részeredmény mentése nélkül. A ping tovább fut, a kézi méréseket nem állítja le.
+* Egy hanghívás belefér a határba, a videó és a torrent nem.
+* A többi eszköz forgalmát a doboz a kliens oldali portokról (híd, gateway vagy saját hozzáférési pont) vagy a router UPnP-számlálóiból olvassa ki. Ha egyik sem érhető el, nincs ütemezett sebességmérés.
+* A teljes rálátáshoz a dobozt hídként a szolgáltatói végpont és a router közé kell kötni. Ehhez két Ethernet-port kell, Raspberry Pi 4-en a második egy USB 3-as gigabites adapter lehet. Valódi hídon ezt még nem próbáltuk ki.
+
+### 9. OONI Probe (opcionális, alapból kikapcsolt)
+* Heti cenzúra- és hálózatsemlegességi mérés, a webes felületen vagy az `[ooni]` szakasz `enabled = true` beállításával kapcsolható be. A forgalmi kaput nem használja.
+
+### Sebességmérés ütemezése
+* Az új telepítések óránként mérnek (`schedule_cron = 0 * * * *`), ez a webes felületen módosítható. Az ütemezett méréseket az `nmb-web` indítja, ezért annak futnia kell; frissítéskor a beállított ütemezés megmarad.
 
 ---
 
@@ -459,6 +470,7 @@ A szoftver moduláris felépítésű, az egyes feladatokat különálló, jól t
 | `nmb-netd` | Hálózati üzemmód démon (Mode A / Mode B / Failover) | `nmb-netd --status`<br>`nmb-netd --switch auto\|mode_a\|mode_b`<br>`nmb-netd --matrix` |
 | `nmb-probe` | Nagyfrekvenciás ICMP ping és jitter szonda | `nmb-probe --verbose`<br>`nmb-probe --target 1.1.1.1` |
 | `nmb-speed` | Sebességmérő és forgalomkorlátozás-ellenőrző | `nmb-speed --trigger manual`<br>`nmb-speed --interface eth0`<br>`nmb-speed --engine ookla\|cloudflare\|rtr\|iperf` |
+| `nmb-ooni` | Opcionális OONI Probe kiegészítő | `nmb-ooni status`<br>`nmb-ooni run websites` |
 | `nmb-report` | Riport generátor (HTML dosszié, CSV, JSON) | `nmb-report --window 24h --html dossier.html --lang hu\|en\|de\|fr\|uk`<br>`nmb-report --json-summary` |
 | `nmb-adblock` | Beépített DNS reklámblokkoló sinkhole | `nmb-adblock --status`<br>`nmb-adblock --update-gravity`<br>`nmb-adblock --block domain.hu` |
 | `nmb-heal` | Önjavító watchdog és biztonsági visszaállás | `nmb-heal --audit`<br>`nmb-heal --verify`<br>`nmb-heal --rollback` |
@@ -479,7 +491,6 @@ sudo systemctl restart nmb.target
 
 # Valós idejű naplók követése
 sudo journalctl -u nmb-probe -f
-sudo journalctl -u nmb-speed -f
 sudo journalctl -u nmb-web -f
 ```
 

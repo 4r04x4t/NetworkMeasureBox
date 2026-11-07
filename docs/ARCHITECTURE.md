@@ -45,6 +45,10 @@ flowchart LR
 | `nmb-web`         | 5     | unprivileged, binds 127.0.0.1/LAN | config |
 | `nmb-snapshot`    | 1     | unprivileged (timer)           | no        |
 
+Scheduled speed tests are started by a scheduler inside `nmb-web`, driven by `schedule_cron` (hourly by default). There is no separate systemd timer for them.
+
+The traffic gate reads `/proc/net/dev`, so it only sees traffic that passes through the box. The experimental `experimental_stop` switch (off by default) adds `nmb/probe/cross_traffic.py`, which separates other devices' traffic from the box's own using client-side ports or the router's UPnP counters (`nmb/netd/upnp_wan.py`). With it on, a scheduled test stops through `nmb/speed/cancel.py` when that traffic appears, and does not run if the traffic cannot be seen. `nmb-probe` keeps measuring either way.
+
 All daemons run as user `nmb`. Single-writer contention is handled by WAL + `busy_timeout`; probes batch-insert (1 txn / 10 s) so write lock time stays tiny.
 
 ## 2. Storage Strategy (microSD Longevity)
