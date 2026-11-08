@@ -136,7 +136,7 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 * Modern dark-themed router dashboard on **standard HTTP port 80** (with automatic unprivileged fallback to port 8080 for development).
 * **Mobile-First Ergonomics**: Sub-navigation bars (`.router-subnav`, `.remote-subnav`, `.adblock-subnav`) are styled as resilient horizontal swipe ribbons (`flex: 0 0 auto`, `nowrap`) with container-relative `scrollTo`, eliminating vertical pill squeezing and letter-wrapping on small smartphone screens (360px–420px).
 * Live inline SVG graphs, historical speed records, network device explorer (ARP sweep & MAC vendor lookup), real-time syslog inspector, and one-click diagnostic LLM bundle generation.
-* **Translations**: The Web UI, the terminal UI (`nmb-cli`), the results page, the charts and the report (dossier) have the same text keys in 11 languages; some technical terms stay in English, and action names in `nmb-cli` are English. The Telegram bot speaks the first 5 so far; in the others it answers in English.
+* **Translations**: The Web UI, the terminal UI (`nmb-cli`), the results page, the charts and the report (dossier) have the same text keys in 11 languages; some technical terms stay in English, and action names in `nmb-cli` are English. The Telegram bot speaks all 11 too (menus, answers, alerts); a few admin answers (`/mode`, `/backup`, health audit, drivers) are still in the first 5 languages and English.
   * 🇬🇧 English (EN)
   * 🇭🇺 Hungarian (HU)
   * 🇩🇪 German (DE)
@@ -254,6 +254,7 @@ It listens on port 8600. Put it behind an HTTPS reverse proxy or start it with `
 > **Status: planned only.** NMB is developed and run on the Raspberry Pi 4. No router software or firmware exists yet; the figures below are design targets, not measurements.
 
 The plan for running NetworkMeasureBox on commercial routers with as little as **4MB Flash and 32MB RAM**:
+* **Quality bar**: the native build must run at least as flawlessly as the Python version, fix the bugs found on the way instead of carrying them over, and be measurably better (CPU, memory, start-up, logging, safe updates); a component replaces its Python counterpart only with that evidence written down. See *Quality Bar* in `DEPYTHONIZATION_ROADMAP.md`.
 * **Unified Single Binary (`nmbd`)**: Written in **Go 1.23+** (Tier 1) and **C11 with Musl libc** (Tier 2 & 3), completely eliminating Python 3, pip, and all runtime packages.
 * **Target Hardware Porting Specifications & WikiDevi Profiles**:
   * **[ASUS RT-AXE7800](https://wikidevi.wi-cat.ru/ASUS_RT-AXE7800)**:

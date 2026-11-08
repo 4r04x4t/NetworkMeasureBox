@@ -92,7 +92,7 @@ class TestTelegramI18n(unittest.TestCase):
         self.tmpdir.cleanup()
 
     def test_supported_languages(self):
-        expected = ["hu", "en", "de", "fr", "uk"]
+        expected = ["hu", "en", "de", "fr", "uk", "ro", "it", "es", "pt", "pt-br", "zh"]
         self.assertEqual(sorted(SUPPORTED_LANGUAGES), sorted(expected))
         for lang in expected:
             self.assertIn(lang, LANG_INFO)
@@ -114,7 +114,7 @@ class TestTelegramI18n(unittest.TestCase):
         self.assertEqual(get_chat_lang(10001, self.cfg), "de")
 
         # Reject invalid language
-        self.assertFalse(set_chat_lang(10001, "es"))
+        self.assertFalse(set_chat_lang(10001, "xx"))
         self.assertEqual(get_chat_lang(10001, self.cfg), "de")
 
     def test_main_keyboards_all_languages(self):
@@ -153,7 +153,8 @@ class TestTelegramI18n(unittest.TestCase):
     def test_measurement_status_and_sla_verdicts(self):
         for lang in SUPPORTED_LANGUAGES:
             badge_ok, desc_ok = get_measurement_status(1, lang)
-            self.assertTrue("MEGFELELŐ" in badge_ok or "COMPLIANT" in badge_ok or "KONFORM" in badge_ok or "CONFORME" in badge_ok or "ВІДПОВІДАЄ" in badge_ok)
+            badge_bad, _ = get_measurement_status(6, lang)
+            self.assertTrue(badge_ok.startswith("🟢") and badge_bad.startswith("🔴") and badge_ok != badge_bad, lang)
 
             v_ok = get_sla_verdict("MEGFELELT", lang)
             self.assertTrue(len(v_ok) > 0)

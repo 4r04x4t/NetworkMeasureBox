@@ -49,9 +49,12 @@ class BotLanguageTests(unittest.TestCase):
                 self.assertIsNone(pattern.search(str(value)), f"{lang}.{key}")
 
     def test_catalog_has_every_language(self):
-        self.assertEqual(set(LANGUAGE_ORDER), set(SUPPORTED_LANGUAGES))
+        # The first five languages live in the MESSAGES tuples, the others in nmb/bot/locales/*.json.
+        self.assertTrue(set(LANGUAGE_ORDER) <= set(SUPPORTED_LANGUAGES))
         for key, values in MESSAGES.items():
-            self.assertEqual(len(values), 5, key)
+            self.assertEqual(len(values), len(LANGUAGE_ORDER), key)
+            for lang in SUPPORTED_LANGUAGES:
+                self.assertIn(key, STRINGS[lang], f"{lang}.{key}")
 
     def test_foreign_catalog_has_no_hungarian_letters(self):
         for key, values in MESSAGES.items():

@@ -461,6 +461,16 @@ timeline
         OpenWrt .ipk & procd Init : Official feed distribution for routers
 ```
 
+### Quality Bar: At Least as Good as the Python Version, and Better
+
+The native build is not finished when it "mostly works". It replaces a version that runs every day on a real line, so it must be held to the following, and the developer (person or LLM agent) is responsible for meeting it:
+
+1. **Flawless where the Python version is flawless.** Every check of Phase 0 and every row of the release checklist in `docs/TESTING.md` passes on the native build on the same hardware, with the same results within measurement noise (for speed engines: the same line speed on the same box, measured back to back with the Python engine).
+2. **Bugs are fixed, not carried over.** When a native component behaves wrongly, the developer fixes the cause before moving on, adds a test that fails without the fix, and records it in `DePythonized/CHANGELOG.md` and `docs/TESTING.md`. A bug found in the Python reference while porting is fixed in the Python version too (or reported in an issue), so both stay honest; "the Python version did it too" is never a reason to keep a bug.
+3. **No regression is accepted silently.** If the native build is worse at anything (a missing setting, a slower engine, a lost language, a rougher error message), it is listed under Known limits with the reason and a plan, and the release notes say so. It does not ship as a replacement until the list is empty or the owner accepts each item.
+4. **Better than the Python version.** Each native component must improve on the reference where it can, and the improvement is measured, not claimed: lower CPU and memory at the same throughput (for example TLS-capable engines at line rate on a Pi 4 or a MIPS router), faster start-up, the logging and safe-update requirements of the porting plan (section 7D), and the open items the Python version never finished (live log following in `nmb-cli`, translated `nmb-cli` actions, the Telegram admin commands in every language). The comparison (Python vs native, same box, same day) goes into `docs/TESTING.md`.
+5. **Proof before replacement.** A native component replaces its Python counterpart only with this evidence written down: tests passed, the measured comparison, the bugs found and fixed, and what is better. Without it, the Python component stays.
+
 ### Phase 0: Freeze Behaviour Before Rewriting
 No native component replaces a Python one until it passes the same checks. These come from testing a clean install, and each one found real failures in the Python version.
 

@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The de-Pythonization roadmap and the porting plan set a quality bar: the native build must run at least as flawlessly as the Python version, fix the bugs it finds instead of carrying them over, and be measurably better, with the evidence written down before it replaces a Python component.
 - A release checklist in the testing record (English and Hungarian): 18 areas, each with what to do and what counts as passed.
 - The de-Pythonization roadmap and the porting plan list the features added in November 2026 and the rules learned from their fixes, which the native build must keep.
-- Six more languages: Romanian, Italian, Spanish, Portuguese (Portugal and Brazil) and Simplified Chinese, in the Web UI (all 1362 texts), the logout page, the terminal UI, the results page, the charts and the report. The Telegram bot answers in English in these languages for now.
+- Six more languages: Romanian, Italian, Spanish, Portuguese (Portugal and Brazil) and Simplified Chinese, in the Web UI (all 1362 texts), the logout page, the terminal UI, the results page, the charts and the report. The Telegram bot speaks them too: menus, answers, the language menu and alerts (a few admin answers are still in the first five languages and English).
 - The README and the testing record explain why scheduled Ookla tests run at most once an hour: Ookla blocks the public IP address that tests too often, shown on the test line when a new public IP (after a restart of the main router, suggested by the box's owner) passed at once while the old one stayed blocked.
 - The porting plan requires for every port and the native `nmbd` on all devices: an owner-enabled maintenance mode with full access for developers and developer LLM agents (keys only, audit log, time limit), detailed structured logging that spares flash, crash evidence kept across reboots, and fixes applied next to the running version with automatic rollback and a written recovery path per device. Planned only.
 - Storage guard (`[storage]`, on by default): before the disk fills up, the box deletes the oldest logs, backups, reports and journal, and only then the oldest measurements (the last 7 days are kept). The free space it keeps depends on the size of the disk. `setup.sh` stops with a clear message when less than 500 MB is free, and uses smaller logs on disks under 8 GB.
@@ -68,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The Telegram bot showed a non-compliant SLA result ("NEM MEGFELELŐ") as compliant, because it matched the shorter word inside it first.
 - Seven Web UI texts described older behaviour (no Fast.com in the mixed run, "falls back to RTR-NetTest" while Ookla is paused, "RTR/Cloudflare failover" on a refusal, no main Wi-Fi client role); corrected in every language.
 - The Ookla CLI could not keep its settings since the Web UI runs as `nmb` (its home `/home/nmb` does not exist and systemd keeps homes read-only), so every Ookla test started as a brand-new client. It now has its own home, `/var/lib/nmb/ookla`, and `setup.sh` carries over the licence accepted earlier as root. Whether this is what made Ookla refuse the box is not yet proven.
 - Saving the settings from two programs at once (for example the Web UI starting while `nmb-cli` saves) could leave a broken `nmb.conf`: both wrote the same temporary file, so the start of one config ended up over the end of the other, and every program then failed to read it. Saves now run one at a time, each with its own temporary file.

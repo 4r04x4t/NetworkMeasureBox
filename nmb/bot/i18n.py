@@ -333,7 +333,7 @@ def get_measurement_status(code: int, lang: str = DEFAULT_LANGUAGE) -> Tuple[str
     return lang_dict.get(code, lang_dict.get(1, ("⚪ UNKNOWN", "Unknown SLA state")))
 
 
-def get_sla_verdict(verdict: str, lang: str = DEFAULT_LANGUAGE) -> str:
+def _base_verdict_original(verdict: str, lang: str = DEFAULT_LANGUAGE) -> str:
     """Translate the SLA verdict computed by NMB."""
     lang = lang if lang in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
     v = (verdict or "").strip().upper()
@@ -644,7 +644,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /reboot - Safely restart the device host
 • /sla - What the SLA result means
 • /purge - Delete stored data
-• /lang - Change interface language (EN, HU, DE, FR, UK)""",
+• /lang - Change interface language (EN, HU, DE, FR, UK, RO, IT, ES, PT, PT-BR, ZH)""",
         # Inline Button Labels
         "btn_quick_test": "📊 Quick Test",
         "btn_report": "📈 SLA Dossier",
@@ -1210,3 +1210,94 @@ def format_alert(alert_key: str, lang: str = DEFAULT_LANGUAGE, **kwargs) -> str:
     except Exception:
         log.debug("suppressed exception", exc_info=True)
         return tmpl
+
+
+# =============================================================================
+# 6. More languages: one JSON file each in nmb/bot/locales/
+# =============================================================================
+# A missing text falls back to English, never to another language.
+
+_BOT_LOCALES: Dict[str, Dict[str, Any]] = {}
+for _code in ("ro", "it", "es", "pt", "pt-br", "zh"):
+    try:
+        _BOT_LOCALES[_code] = __import__("json").loads(
+            (__import__("pathlib").Path(__file__).with_name("locales") / f"{_code.replace('-', '_')}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as _e:
+        log.warning("bot language %s not loaded: %s", _code, _e)
+for _code, _data in _BOT_LOCALES.items():
+    STRINGS[_code] = {**STRINGS["en"], **_data.get("strings", {})}
+    ALERT_TEMPLATES[_code] = {**ALERT_TEMPLATES["en"], **_data.get("alerts", {})}
+    LANG_INFO[_code] = _data["info"]
+    if _code not in SUPPORTED_LANGUAGES:
+        SUPPORTED_LANGUAGES.append(_code)
+
+_base_main_keyboard = get_main_keyboard
+_base_measurement_status = get_measurement_status
+_base_menu_aliases = get_menu_aliases
+
+
+def get_main_keyboard(lang: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
+    """Generate localized persistent Telegram reply keyboard."""
+    rows = _BOT_LOCALES.get(lang, {}).get("keyboard")
+    if not rows:
+        return _base_main_keyboard(lang)
+    return {"keyboard": [[{"text": label} for label in row] for row in rows], "resize_keyboard": True, "persistent": True}
+
+
+def get_language_keyboard() -> Dict[str, Any]:
+    """Inline keyboard with every language, two per row."""
+    buttons = [{"text": f"{info['flag']} {info['name']}", "callback_data": f"/lang {code}"} for code, info in LANG_INFO.items()]
+    return {"inline_keyboard": [buttons[i:i + 2] for i in range(0, len(buttons), 2)]}
+
+
+def get_menu_aliases() -> Dict[str, str]:
+    """Button labels in every language mapped to commands (the labels of a language map like English's)."""
+    aliases = _base_menu_aliases()
+    en_rows = [[b["text"] for b in row] for row in _base_main_keyboard("en")["keyboard"]]
+    for data in _BOT_LOCALES.values():
+        for en_row, row in zip(en_rows, data.get("keyboard", [])):
+            for en_label, label in zip(en_row, row):
+                cmd = aliases.get(en_label.lower())
+                if cmd:
+                    aliases[label.lower()] = cmd
+    return aliases
+
+
+def get_measurement_status(code: int, lang: str = DEFAULT_LANGUAGE) -> Tuple[str, str]:
+    """Return localized measurement status badge and description for speed test results."""
+    status = _BOT_LOCALES.get(lang, {}).get("status")
+    if status:
+        hit = status.get(str(code)) or status.get("1")
+        if hit:
+            return hit[0], hit[1]
+    return _base_measurement_status(code, lang)
+
+
+_VERDICTS = {
+    "hu": {"BREACHED": "SLA ALATT", "DEGRADED": "ROMLÁS", "COMPLIANT": "MEGFELEL", "MEGFELELŐ": "MEGFELELŐ",
+           "NEM MEGFELELŐ": "NEM MEGFELELŐ", "FIGYELMEZTETÉS": "FIGYELMEZTETÉS", "UNKNOWN": "ISMERETLEN"},
+    "en": {"BREACHED": "BELOW TARGETS", "DEGRADED": "DEGRADED", "COMPLIANT": "MEETS TARGETS", "MEGFELELŐ": "COMPLIANT",
+           "NEM MEGFELELŐ": "NON-COMPLIANT", "FIGYELMEZTETÉS": "WARNING", "UNKNOWN": "UNKNOWN"},
+    "de": {"BREACHED": "UNTER DEN ZIELEN", "DEGRADED": "BEEINTRÄCHTIGT", "COMPLIANT": "ZIELE ERFÜLLT", "MEGFELELŐ": "KONFORM",
+           "NEM MEGFELELŐ": "NICHT KONFORM", "FIGYELMEZTETÉS": "WARNUNG", "UNKNOWN": "UNBEKANNT"},
+    "fr": {"BREACHED": "SOUS LES OBJECTIFS", "DEGRADED": "DÉGRADÉ", "COMPLIANT": "OBJECTIFS ATTEINTS", "MEGFELELŐ": "CONFORME",
+           "NEM MEGFELELŐ": "NON CONFORME", "FIGYELMEZTETÉS": "AVERTISSEMENT", "UNKNOWN": "INCONNU"},
+    "uk": {"BREACHED": "НИЖЧЕ ЦІЛЕЙ", "DEGRADED": "ПОГІРШЕНО", "COMPLIANT": "ЦІЛІ ДОСЯГНУТО", "MEGFELELŐ": "ВІДПОВІДАЄ",
+           "NEM MEGFELELŐ": "НЕ ВІДПОВІДАЄ", "FIGYELMEZTETÉS": "ПОПЕРЕДЖЕННЯ", "UNKNOWN": "НЕВІДОМО"},
+}
+
+
+def get_sla_verdict(verdict: str, lang: str = DEFAULT_LANGUAGE) -> str:
+    """Translate the SLA verdict computed by NMB.
+
+    An exact match wins; otherwise the longest matching term, so "NEM MEGFELELŐ" (non-compliant)
+    is never read as its substring "MEGFELELŐ" (compliant).
+    """
+    v = (verdict or "").strip().upper()
+    t_map = _BOT_LOCALES.get(lang, {}).get("verdict") or _VERDICTS.get(lang) or _VERDICTS["en"]
+    if v in t_map:
+        return t_map[v]
+    for orig in sorted(t_map, key=len, reverse=True):
+        if orig in v:
+            return t_map[orig]
+    return v

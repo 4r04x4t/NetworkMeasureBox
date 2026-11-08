@@ -525,6 +525,10 @@ Terminal interface and changelog in ports:
 
 ---
 
+## 7E. Quality Bar for Every Port
+
+Every port must run at least as flawlessly as the Python version on the Raspberry Pi 4, must fix (not carry over) the bugs found on the way, and must be measurably better where it can (CPU, memory, start-up, logging, safe updates). The full rule and the evidence a port needs before it counts as done are in `DEPYTHONIZATION_ROADMAP.md` (*Quality Bar*).
+
 ## 7D. Development Access, Detailed Logging and Safe Fixes in the Field (Required for Every Target)
 
 > **Status: planned requirement.** It applies to every port and to the de-Pythonized `nmbd` on all devices: routers, the Raspberry Pi 4, x86 boxes and NMB's own distribution. A port that does not meet it is not finished.
