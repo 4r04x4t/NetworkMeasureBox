@@ -8,6 +8,7 @@ from __future__ import annotations
 import configparser
 import logging
 import os
+import threading
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1080,9 +1081,33 @@ def load_config(path: Path | None = None) -> Config:
     return cfg
 
 
+_save_lock = threading.Lock()
+
+
 def save_config(cfg: Config, target_path: Path | None = None) -> bool:
-    """Atomically write Config back to nmb.conf preserving structure."""
+    """Atomically write Config back to nmb.conf preserving structure.
+
+    Saves run one at a time, across threads (a lock) and processes (``flock`` on ``nmb.conf.lock``):
+    nmb-web, nmb-netd and nmb-cli may save at once, and two writers sharing one temporary file once
+    left the start of one config over the end of another.
+    """
     path = Path(target_path) if target_path else Path(getattr(cfg.system, "config_path", DEFAULT_CONFIG_PATH) or DEFAULT_CONFIG_PATH)
+    with _save_lock:
+        lock_fd = None
+        try:
+            import fcntl
+            lock_fd = os.open(str(path.with_name(path.name + ".lock")), os.O_RDWR | os.O_CREAT, 0o660)
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        except (OSError, ImportError):
+            lock_fd = None   # no lock possible here (read-only dir); the unique temp file still prevents mixing
+        try:
+            return _save_config_locked(cfg, path)
+        finally:
+            if lock_fd is not None:
+                os.close(lock_fd)
+
+
+def _save_config_locked(cfg: Config, path: Path) -> bool:
     parser = _TolerantParser()
     if path.exists():
         try:
@@ -1339,10 +1364,13 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["tailscale"]["advertise_exit_node"] = str(cfg.tailscale.advertise_exit_node).lower()
     parser["tailscale"]["accept_dns"] = str(cfg.tailscale.accept_dns).lower()
 
+    import tempfile
     tmp_path = path.with_suffix(".tmp")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(tmp_path, "w", encoding="utf-8") as f:
+        fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
+        tmp_path = Path(tmp_name)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             parser.write(f)
             f.flush()
             os.fsync(f.fileno())

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Wi-Fi shared on a LAN port (`[wifi_share]`, off by default): when the box is on Wi-Fi and the port has no internet of its own, devices on that port get addresses from the box (192.168.77.0/24 by default) and reach the internet through the box's Wi-Fi. The box never hands out addresses where another DHCP server answers: it checks before starting, every minute, and right after a cable is plugged in (stopping its own DHCP first). Web UI card under the schedule, `nmb-cli run wifi.share`.
 - In Ports & Drivers each wireless interface can be the *Guest Wi-Fi client* or the *Main Wi-Fi client (measuring)*. One interface cannot be both; taking the guest client's radio away turns the guest client off, and the automatic choice of the main client skips the guest client's radio.
 - The README and the testing record say on what line NMB is developed and tested: one 1000/300 Mbps home fibre (FTTH) connection, with a Raspberry Pi 4.
 - Fast.com (Netflix) as a measuring engine, in pure Python through Fast.com's own API: up to five nearby Netflix Open Connect servers, latency to each, 8 streams over them for download and upload, the "stable" speed Fast.com shows, latency under load and bufferbloat. Each row keeps the ISP, ASN and location Fast.com sees, every server with its latency and its share of the transfer, and the speed every half second. The home page shows it in a table: how Fast.com sees the box (ISP, ASN, place), the stable, mean and peak speed, the latency under load and every Netflix server with its latency and its share. In the Web UI, the Telegram bot (`/test fastcom`), `nmb-speed --engine fastcom` and `nmb-cli`; part of the mixed run every time (`fastcom_interval_min`, 0 by default). Transfers use plain HTTP with 16 streams for 15 s each way, since on a Raspberry Pi 4 TLS used most of the CPU and the result dropped when other services ran.
@@ -57,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Saving the settings from two programs at once (for example the Web UI starting while `nmb-cli` saves) could leave a broken `nmb.conf`: both wrote the same temporary file, so the start of one config ended up over the end of the other, and every program then failed to read it. Saves now run one at a time, each with its own temporary file.
 - The Wi-Fi status showed no network name, signal or band, and the access-point check never saw an access point, because `iw` is in `/usr/sbin`, which is not on the `nmb` user's path.
 - A test bound to Wi-Fi left over Ethernet when the Wi-Fi was joined outside NMB (netplan or a saved profile) and both links were on the same subnet; the source rule is now kept then too.
 - Cloudflare results no longer link to Cloudflare's front page as if it were the result, and a missing bufferbloat grade shows `--` instead of a made-up `A+`.

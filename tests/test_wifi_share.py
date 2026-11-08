@@ -101,3 +101,30 @@ class SyncTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ConfigSaveRaceTest(unittest.TestCase):
+    def test_parallel_saves_never_mix_two_configs(self):
+        import configparser, tempfile, threading
+        from pathlib import Path
+        from nmb.config import Config, save_config
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "nmb.conf"
+            short, long_ = Config(), Config()
+            long_.isp.name = "x" * 4000          # one config much longer than the other
+            errors = []
+
+            def writer(c):
+                for _ in range(15):
+                    if not save_config(c, path):
+                        errors.append("save failed")
+
+            threads = [threading.Thread(target=writer, args=(c,)) for c in (short, long_, short, long_)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            parser = configparser.ConfigParser(interpolation=None, strict=True)
+            parser.read_string(path.read_text())          # raises on a duplicate section
+            self.assertEqual(errors, [])
+            self.assertFalse(list(Path(d).glob(".nmb.conf.*.tmp")))
