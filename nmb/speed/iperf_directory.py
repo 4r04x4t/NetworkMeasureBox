@@ -306,3 +306,79 @@ def probe_iperf_server(host: str, port: int = 5201, timeout_sec: float = 3.0) ->
             "reachable": False,
             "error": str(e),
         }
+
+
+_label_cache: Dict[str, Dict[str, str]] = {}
+_label_misses: Dict[str, float] = {}
+
+
+def describe_server(host: str, port: int = 5201) -> Dict[str, str]:
+    """A readable name for an iPerf3 server: from the public list, else from the IP's GeoIP data.
+
+    Returns {"name": "Vienna • DATAPACKET", "country": "AT", "isp": "...", "source": "directory|geoip|none"}.
+    """
+    key = f"{host}:{port}"
+    if key in _label_cache:
+        return _label_cache[key]
+    if time.time() - _label_misses.get(key, 0) < 3600:
+        return {"name": "", "country": "", "isp": "", "source": "none"}
+    out = {"name": "", "country": "", "isp": "", "source": "none"}
+    try:
+        cached = _read_cache(max_age_sec=30 * 86400) or {}
+        for s in cached.get("servers") or []:
+            if str(s.get("host", "")).lower() == host.lower():
+                out = {"name": " • ".join(x for x in (s.get("site"), s.get("provider")) if x),
+                       "country": str(s.get("country") or ""), "isp": str(s.get("provider") or ""), "source": "directory"}
+                break
+    except Exception as e:
+        log.debug("iperf directory lookup failed: %s", e)
+    if not out["name"]:
+        try:
+            import socket
+            from nmb.netd.geoip import get_public_geoip
+            ip = socket.gethostbyname(host)
+            geo = get_public_geoip(ip)
+            isp = str(geo.get("isp") or "")
+            if isp in ("Unknown ISP", "Unknown"):
+                isp = ""
+            place = ", ".join(x for x in (geo.get("city"), geo.get("country_code") or geo.get("country")) if x and x != "--")
+            if place or isp:
+                out = {"name": " • ".join(x for x in (place, isp) if x), "country": str(geo.get("country_code") or ""),
+                       "isp": isp, "source": "geoip"}
+        except Exception as e:
+            log.debug("geoip lookup for %s failed: %s", host, e)
+    if out["source"] != "none":
+        _label_cache[key] = out
+    else:
+        _label_misses[key] = time.time()   # do not ask GeoIP again for an hour
+    return out
+
+
+_BARE_IPERF_NAME = re.compile(r"^iPerf3:\s*\[?([0-9A-Za-z.:-]+?)\]?:(\d+)$")
+
+
+def label_iperf_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Give an iPerf3 row that only names an address (older rows) the server's name, country and ISP.
+
+    The name comes from the public iPerf3 list, else from the address's GeoIP data; ``row`` is changed
+    in place and returned. Rows of other engines, and rows that already carry a name, are left alone.
+    """
+    if str(row.get("engine") or "").lower() != "iperf3":
+        return row
+    name = str(row.get("server_name") or "")
+    m = _BARE_IPERF_NAME.match(name)
+    host = (m.group(1) if m else "") or str(row.get("server_host") or "")
+    if not host or (name and not m):
+        return row
+    port = int(m.group(2)) if m else 5201
+    d = describe_server(host, port)
+    if not d.get("name"):
+        return row
+    row["server_name"] = f"iPerf3: {d['name']} ({host}:{port})"
+    row["server_country"] = d.get("country") or None
+    row["server_isp"] = d.get("isp") or None
+    loc = str(row.get("server_location") or "")
+    where = " · ".join(x for x in (d.get("country"), d.get("isp")) if x)
+    if where and where not in loc:
+        row["server_location"] = f"{where} · {loc}" if loc else where
+    return row

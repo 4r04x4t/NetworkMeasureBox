@@ -232,7 +232,7 @@ def get_status(cfg) -> Dict[str, Any]:
 # ------------------------------------------------------------------------------
 
 POLL_SEC = 60
-ENGINES = ("ookla", "rtr", "cloudflare", "all")
+ENGINES = ("ookla", "rtr", "cloudflare", "fastcom", "all")
 _results: List[Dict[str, Any]] = []
 _results_lock = threading.Lock()
 

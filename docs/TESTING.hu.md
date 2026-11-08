@@ -42,6 +42,7 @@ Jelölés: ✅ működik · ⚠️ korláttal működik · ❌ nem működik · 
 |---|---|---|---|
 | Ookla | Box | ⚠️ | Óránként működik. Percenként az Ookla tiltja a boxot („Limit reached”); ekkor a box szünetelteti az Ooklát (30 perc, legfeljebb 4 óra), és RTR-NetTesttel mér, az RTR saját nevén tárolva |
 | RTR-NetTest | Box, VM-disztró | ✅ | ~910/320 Mbps az 1000/300-as vonalon |
+| Fast.com | Box, fejlesztői gép | ✅ | 884/314 Mbit/s az 1000/300-as vonalon, 5 Netflix-szerver, bufferbloat A |
 | Cloudflare | Box | ✅ | |
 | iPerf3 | Box, VM-D13 | ✅ | |
 | Ping-szonda, kiesések | Box | ✅ | Telepítés óta folyamatosan |

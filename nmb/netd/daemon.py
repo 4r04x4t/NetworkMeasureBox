@@ -188,6 +188,12 @@ class NetworkDaemon:
 
                 if isinstance(self.current_mode_inst, ModeA):
                     self.current_mode_inst.check_wan_failover()
+                # Tests bound to the Wi-Fi address must leave over Wi-Fi, even with a cable in.
+                try:
+                    from nmb.netd.wifi_uplink import sync_source_routing
+                    sync_source_routing(self.cfg)
+                except Exception as e:
+                    log.debug("wifi uplink routing: %s", e)
 
                 if is_ready and target_mode != self.current_mode_name:
                     self.switch_mode(target_mode, reason)

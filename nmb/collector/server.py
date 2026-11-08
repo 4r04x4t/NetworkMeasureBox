@@ -279,7 +279,7 @@ COMMANDS = {
     "diagnostics": "Send fresh network diagnostics",
     "upload": "Upload now",
 }
-ENGINES = ("ookla", "rtr", "cloudflare", "all")
+ENGINES = ("ookla", "rtr", "cloudflare", "fastcom", "all")
 
 
 def queue_command(conn: sqlite3.Connection, uid: str, kind: str, args: Dict[str, Any]) -> int:

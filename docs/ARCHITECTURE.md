@@ -112,7 +112,7 @@ NMB currently runs only on the Raspberry Pi 4; no router port exists. For the pl
 The `nmb-telegram` daemon runs alongside `nmb-web` to provide mobile chat management and proactive incident alerts without external dependencies (pure Python standard library HTTPS multipart/form-data client).
 
 ### Interactive Commands
-- **📡 Diagnostics**: `/status`, `/ping`, `/test [ookla|cloudflare|rtr|iperf]`, `/report` (HTML dossier), `/ai` (Markdown bundle), `/mode`
+- **📡 Diagnostics**: `/status`, `/ping`, `/test [ookla|cloudflare|fastcom|rtr|iperf]`, `/report` (HTML dossier), `/ai` (Markdown bundle), `/mode`
 - **🛡️ VPN Hub**:
   - `/vpn` - WireGuard & OpenVPN daemon status and client counts
   - `/vpn clients` - Connected peer roster with IP, latest handshake, and RX/TX traffic

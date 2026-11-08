@@ -75,12 +75,19 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
     ).fetchall()
 
     for r in rows:
+        r = dict(r)
+        try:
+            from nmb.speed.iperf_directory import label_iperf_row
+            label_iperf_row(r)
+        except Exception:
+            pass
+        r_keys = r.keys()
         d_mbps = round(r["down_bps"] / 1_000_000.0, 2) if r["down_bps"] else None
         u_mbps = round(r["up_bps"] / 1_000_000.0, 2) if r["up_bps"] else None
         d_pct = round((d_mbps / contract_down_mbps) * 100.0, 1) if (contract_down_mbps > 0 and d_mbps is not None) else ""
         u_pct = round((u_mbps / contract_up_mbps) * 100.0, 1) if (contract_up_mbps > 0 and u_mbps is not None) else ""
 
-        client_ipv6_val = r["client_ipv6"] if "client_ipv6" in r.keys() and r["client_ipv6"] else ""
+        client_ipv6_val = r["client_ipv6"] if "client_ipv6" in r_keys and r["client_ipv6"] else ""
         isp = default_isp or "Unknown ISP"
 
         writer.writerow([

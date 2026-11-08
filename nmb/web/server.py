@@ -752,6 +752,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 17b. DuckDNS / dynv6 DynDNS Status
+        if path == "/api/wifi-uplink/status":
+            from nmb.netd import wifi_uplink
+            self._send_json(wifi_uplink.status(self.server.cfg))
+            return
+
         if path == "/api/collector/status":
             from nmb.collector import client as collector_client
             self._send_json(collector_client.get_status(self.server.cfg))
@@ -1321,7 +1326,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/speedtest":
             raw_sid = body_json.get("server_id")
             engine = str(body_json.get("engine", "ookla")).strip().lower()
-            if engine not in ("ookla", "cloudflare", "rtr", "iperf3", "all"):
+            if engine not in ("ookla", "cloudflare", "fastcom", "rtr", "iperf3", "all"):
                 engine = "ookla"
 
             target_iface = body_json.get("interface") or body_json.get("target_iface")
@@ -1378,7 +1383,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 1a. Fast endpoint to instantly switch and persist active/automated measurement engine
         if path == "/api/speedtest/engine":
             engine = str(body_json.get("engine", "")).strip().lower()
-            if engine in ("ookla", "cloudflare", "rtr", "iperf3", "all"):
+            if engine in ("ookla", "cloudflare", "fastcom", "rtr", "iperf3", "all"):
                 self.server.cfg.speedtest.automated_engine = engine
                 save_config(self.server.cfg)
                 conn = db.connect()
@@ -1415,7 +1420,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self.server.cfg.speedtest.schedule_cron = norm_cron
             if auto_eng and str(auto_eng).strip():
                 self.server.cfg.speedtest.automated_engine = str(auto_eng).strip().lower()
-            for key, floor in (("ookla_interval_min", 60), ("rtr_interval_min", 0), ("cloudflare_interval_min", 0), ("iperf3_interval_min", 0)):
+            for key, floor in (("ookla_interval_min", 60), ("rtr_interval_min", 0), ("cloudflare_interval_min", 0), ("fastcom_interval_min", 0), ("iperf3_interval_min", 0)):
                 if key in body_json:
                     try:
                         setattr(self.server.cfg.speedtest, key, max(floor, min(10080, int(body_json[key]))))
@@ -1522,6 +1527,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "ookla_interval_min": self.server.cfg.speedtest.ookla_interval_min,
                 "rtr_interval_min": self.server.cfg.speedtest.rtr_interval_min,
                 "cloudflare_interval_min": self.server.cfg.speedtest.cloudflare_interval_min,
+                "fastcom_interval_min": self.server.cfg.speedtest.fastcom_interval_min,
                 "iperf_auto": {
                     "duration": self.server.cfg.iperf.duration, "protocol": self.server.cfg.iperf.protocol,
                     "parallel": self.server.cfg.iperf.parallel,
@@ -1866,7 +1872,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 parallel = 1
             direction_req = str(body_json.get("direction", "")).lower().strip()
             bidir_req = bool(body_json.get("bidir", getattr(self.server.cfg.iperf, "bidir", False)))
-            is_bidir = bidir_req or (direction_req in ("bidir", "both", "duplex", "full-duplex"))
+            sequential = direction_req in ("seq", "sequential")
+            is_bidir = not sequential and (bidir_req or (direction_req in ("bidir", "both", "duplex", "full-duplex")))
 
             if direction_req in ("down", "download", "reverse"):
                 reverse = True
@@ -1886,7 +1893,34 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "busy", "message": "iPerf test already in progress."}, status=409)
                 return
 
+            def _async_iperf_sequential():
+                # Download (-R), a short pause, then upload; shown together as one result.
+                from nmb.speed import iperf as iperf_mod
+                try:
+                    common = dict(host=target_host, port=port, duration=duration, udp=udp, parallel=parallel,
+                                  bidir=False, target_bandwidth=target_bw)
+                    down = run_iperf_client_test(reverse=True, direction="down", **common)
+                    up = {}
+                    if down.get("status") == "ok":
+                        for wait in (3, 8):
+                            time.sleep(wait)
+                            up = run_iperf_client_test(reverse=False, direction="up", **common)
+                            if up.get("status") == "ok":
+                                break
+                    merged = dict(down)
+                    merged.update({
+                        "is_bidirectional": True, "direction": "sequential",
+                        "download_mbps": down.get("mbps"), "upload_mbps": up.get("mbps") if up.get("status") == "ok" else None,
+                        "error": down.get("error") if down.get("status") != "ok" else (None if up.get("status") == "ok" else f"upload: {up.get('error')}"),
+                    })
+                    iperf_mod._latest_iperf_result = merged
+                except Exception as e:
+                    log.error("iPerf execution error: %s", e)
+
             def _async_iperf():
+                if sequential:
+                    _async_iperf_sequential()
+                    return
                 try:
                     run_iperf_client_test(
                         host=target_host,
@@ -1914,7 +1948,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     "parallel": parallel,
                     "reverse": reverse,
                     "bidir": is_bidir,
-                    "direction": "bidir" if is_bidir else ("down" if reverse else "up"),
+                    "direction": "sequential" if sequential else ("bidir" if is_bidir else ("down" if reverse else "up")),
                 },
             })
             return
@@ -2290,6 +2324,38 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             inc_journal = bool(body_json.get("include_journal", True))
             result = purge_all_logs(include_database_events=inc_db, include_system_journal=inc_journal)
             self._send_json(result)
+            return
+
+        # Wi-Fi uplink (the box on the owner's Wi-Fi) and where speed tests run
+        if path in ("/api/wifi-uplink/save", "/api/wifi-uplink/connect", "/api/wifi-uplink/disconnect"):
+            from nmb.netd import wifi_uplink
+            wu = self.server.cfg.wifi_uplink
+            if path.endswith("/save"):
+                link = str(body_json.get("measurement_link", self.server.cfg.network.measurement_link)).lower()
+                if link in wifi_uplink.LINKS:
+                    self.server.cfg.network.measurement_link = link
+                if "ssid" in body_json:
+                    wu.ssid = str(body_json["ssid"]).strip()[:64]
+                if str(body_json.get("password", "")):
+                    wu.password = str(body_json["password"])[:128]   # empty keeps the saved one
+                iface = str(body_json.get("interface", wu.interface)).strip()
+                if iface == "auto" or iface in wifi_uplink.wireless_interfaces():
+                    wu.interface = iface
+                wu.hidden = bool(body_json.get("hidden", wu.hidden))
+                wu.enabled = bool(body_json.get("enabled", wu.enabled)) and bool(wu.ssid)
+                save_config(self.server.cfg)
+                ok, msg = True, "Saved."
+                if wu.enabled and body_json.get("connect", True):
+                    ok, msg = wifi_uplink.connect(self.server.cfg)
+                elif not wu.enabled:
+                    wifi_uplink.disconnect(self.server.cfg)
+            elif path.endswith("/connect"):
+                ok, msg = wifi_uplink.connect(self.server.cfg)
+            else:
+                ok, msg = wifi_uplink.disconnect(self.server.cfg)
+            st = wifi_uplink.status(self.server.cfg)
+            st.update(status="ok" if ok else "error", message=msg)
+            self._send_json(st, status=200 if ok else 400)
             return
 
         # Central collector (opt-in): settings and "send now"
@@ -3065,7 +3131,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # Latest speedtest per engine for instantaneous dashboard switching
         latest_per_engine = {}
-        for eng in ("ookla", "cloudflare", "rtr", "iperf3"):
+        for eng in ("ookla", "cloudflare", "fastcom", "rtr", "iperf3"):
             row = conn.execute(
                 """SELECT ts, trigger, status, server_id, server_name, server_host, server_location, client_ip, client_ipv6,
                           down_bps, up_bps, ping_us, jitter_us, loss_pct, result_url, error,
@@ -3078,6 +3144,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             ).fetchone()
             if row:
                 d = dict(row)
+                if eng == "iperf3":
+                    from nmb.speed.iperf_directory import label_iperf_row
+                    label_iperf_row(d)
                 # A failed run after the last result is mentioned, not shown as a result.
                 fail = conn.execute(
                     "SELECT ts, error FROM speedtest WHERE LOWER(engine) = ? AND status = 'error' AND ts > ? ORDER BY ts DESC LIMIT 1",
@@ -3265,6 +3334,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "ookla": self.server.cfg.speedtest.ookla_interval_min,
                 "rtr": self.server.cfg.speedtest.rtr_interval_min,
                 "cloudflare": self.server.cfg.speedtest.cloudflare_interval_min,
+                "fastcom": self.server.cfg.speedtest.fastcom_interval_min,
                 "iperf3": self.server.cfg.speedtest.iperf3_interval_min,
             },
             "idle_threshold_mode": getattr(self.server.cfg.speedtest, "idle_threshold_mode", "percent"),
@@ -3650,7 +3720,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 cfg.speedtest.schedule_cron = normalize_cron_expression(sc)
         if "automated_engine" in body:
             ae = str(body["automated_engine"]).strip().lower()
-            if ae in ("ookla", "cloudflare", "rtr", "iperf3", "all"):
+            if ae in ("ookla", "cloudflare", "fastcom", "rtr", "iperf3", "all"):
                 cfg.speedtest.automated_engine = ae
         if "daily_data_limit_mb" in body:
             try:

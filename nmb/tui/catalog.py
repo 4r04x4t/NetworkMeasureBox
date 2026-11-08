@@ -70,15 +70,15 @@ def A(action_id: str, label: str, path: str, fields: str = "", method: str = "PO
 
 
 NET_ADDR = "wan_proto:choice(dhcp|static|pppoe) wan_ip wan_netmask wan_gateway wan_mac dns_mode dns_primary dns_secondary"
-SCHEDULE = ("schedule_mode:choice(scheduled|manual) schedule_cron daily_data_limit_mb:float automated_engine:choice(ookla|cloudflare|rtr|iperf3|all) "
-            "ookla_interval_min:int rtr_interval_min:int cloudflare_interval_min:int iperf3_interval_min:int "
+SCHEDULE = ("schedule_mode:choice(scheduled|manual) schedule_cron daily_data_limit_mb:float automated_engine:choice(ookla|cloudflare|fastcom|rtr|iperf3|all) "
+            "ookla_interval_min:int rtr_interval_min:int cloudflare_interval_min:int fastcom_interval_min:int iperf3_interval_min:int "
             "idle_threshold_mode:choice(percent|fixed) idle_threshold_percent:float idle_threshold_kbps:int")
 IPERF_AUTO = ("iperf_target_host iperf_port:int iperf_duration:int iperf_protocol:choice(tcp|udp) iperf_parallel:int "
               "iperf_direction:choice(both|download|upload|bidir) iperf_extra_servers")
 
 CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
     "tab-home": (("/api/status", "/api/scheduler/status"), (
-        A("speed.run", "Run speed test", "/api/speedtest", "engine:choice(ookla|cloudflare|rtr|iperf3|all) server_id:int interface"),
+        A("speed.run", "Run speed test", "/api/speedtest", "engine:choice(ookla|cloudflare|fastcom|rtr|iperf3|all) server_id:int interface"),
         A("speed.cancel", "Cancel speed test", "/api/speedtest/cancel"),
         A("speed.stop", "Stop speed test", "/api/speedtest/stop"),
         A("traffic.stop", "Stop on network traffic (experimental)", "/api/speedtest/traffic-stop", "enabled:bool"),
@@ -177,10 +177,13 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
     "tab-portscan": (("/api/status",), (
         A("port.check", "Run port check", "/api/portcheck"),
     )),
-    "tab-script": (("/api/scheduler/status", "/api/speedtest/servers", "/api/user-agent"), (
+    "tab-script": (("/api/scheduler/status", "/api/speedtest/servers", "/api/user-agent", "/api/wifi-uplink/status"), (
+        A("wifi.uplink", "Measurement link and Wi-Fi uplink", "/api/wifi-uplink/save",
+          "measurement_link:choice(auto|ethernet|wifi) ssid password:secret interface hidden:bool enabled:bool"),
+        A("wifi.uplink.disconnect", "Disconnect the Wi-Fi uplink", "/api/wifi-uplink/disconnect"),
         A("server.default", "Set scheduled server", "/api/speedtest/scheduled-server", "server_id:int server_name server_host"),
         A("schedule.set", "Change schedule", "/api/speedtest/schedule", SCHEDULE),
-        A("engine.set", "Set engine", "/api/speedtest/engine", "engine:choice(ookla|cloudflare|rtr|iperf3|all)"),
+        A("engine.set", "Set engine", "/api/speedtest/engine", "engine:choice(ookla|cloudflare|fastcom|rtr|iperf3|all)"),
         A("iperf.auto", "iPerf3 servers and settings for automatic tests", "/api/speedtest/schedule", IPERF_AUTO),
         A("servers.refresh", "Refresh the Ookla server list from Ookla", "/api/speedtest/servers", "refresh:choice(1)", method="GET"),
         A("ua.save", "Set User-Agent", "/api/user-agent", "user_agent user_agent_mode"),

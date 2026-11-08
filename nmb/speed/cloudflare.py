@@ -151,7 +151,7 @@ class CloudflareSpeedResult:
             server_location=srv_loc,
             client_ip=v4,
             client_ipv6=v6,
-            result_url="https://speed.cloudflare.com",
+            result_url=None,  # Cloudflare gives no page for a single result
             raw_json=json.dumps({
                 "engine": "cloudflare",
                 "colo": self.meta.colo,

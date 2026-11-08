@@ -37,6 +37,11 @@
   }
 
   // Failed rows: name the known Ookla pause in the page language, otherwise show the engine's text.
+  // A link to a service's front page (older Cloudflare rows) is not a link to the result.
+  function isGenericResultUrl(url) {
+    return /^https?:\/\/speed\.cloudflare\.com\/?$/i.test(String(url || '').trim());
+  }
+
   function speedErrorText(err) {
     const e = String(err || '');
     const m = e.match(/^Ookla rate limit.*?(\d+) min/);
@@ -2022,15 +2027,18 @@
       }
 
       if (elLatency) elLatency.innerText = (latMs > 0 ? latMs.toFixed(2) : '--') + ' ms';
-      if (elBufferbloat) elBufferbloat.innerText = latest.bufferbloat_grade ? `${latest.bufferbloat_grade} (+${latest.bufferbloat_delta_ms || 0} ms)` : (latest.jitter_us ? `Jitter: ${(latest.jitter_us/1000.0).toFixed(2)} ms` : 'A+');
+      if (elBufferbloat) elBufferbloat.innerText = latest.bufferbloat_grade ? `${latest.bufferbloat_grade} (+${latest.bufferbloat_delta_ms || 0} ms)` : (latest.jitter_us ? `Jitter: ${(latest.jitter_us/1000.0).toFixed(2)} ms` : '--');
 
       let srvNameSafe = escapeHtml(latest.server_name || latest.server_host || '--');
       let srvDisplay = srvNameSafe;
-      if (latest.result_url) {
+      if (latest.result_url && !isGenericResultUrl(latest.result_url)) {
         let safeUrl = sanitizeUrl(latest.result_url);
         if (safeUrl) {
           srvDisplay += ` — <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8; text-decoration:none;">🔗 ${t('open_result_link', 'Open Result Link')}</a>`;
         }
+      }
+      if ((latest.engine || '').toLowerCase() === 'cloudflare' && srvDisplay === srvNameSafe) {
+        srvDisplay += ` <span style="color:#94a3b8; font-size: 11.5px;">(${escapeHtml(t('cf_no_result_page', 'Cloudflare gives no page for a single result'))})</span>`;
       }
       if (elServerLink) elServerLink.innerHTML = srvDisplay;
     } else {
@@ -2128,7 +2136,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     // 1b. Update active engine badge on Dashboard
     const activeBadge = document.getElementById('home-active-engine-badge');
     if (activeBadge) {
-      const labels = { ookla: 'Ookla', cloudflare: 'Cloudflare', rtr: 'RTR-NetTest', iperf3: 'iPerf3',
+      const labels = { ookla: 'Ookla', cloudflare: 'Cloudflare', fastcom: 'Fast.com', rtr: 'RTR-NetTest', iperf3: 'iPerf3',
                        all: t('home_view_mixed_short', 'Mixed') };
       activeBadge.innerText = labels[selectedEngine] || selectedEngine;
       if (selectedEngine === 'ookla') {
@@ -2139,6 +2147,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         activeBadge.style.background = 'rgba(245,158,11,0.25)';
         activeBadge.style.color = '#fbbf24';
         activeBadge.style.borderColor = '#f59e0b';
+      } else if (selectedEngine === 'fastcom') {
+        activeBadge.style.background = 'rgba(229,9,20,0.25)';
+        activeBadge.style.color = '#f87171';
+        activeBadge.style.borderColor = '#e50914';
       } else if (selectedEngine === 'rtr') {
         activeBadge.style.background = 'rgba(16,185,129,0.25)';
         activeBadge.style.color = '#34d399';
@@ -2161,6 +2173,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         descEl.innerHTML = t('engine_desc_ookla', '⚡ <b>Ookla Speedtest:</b> Global server fleet, selectable target server, detailed download/upload and bufferbloat.');
       } else if (selectedEngine === 'cloudflare') {
         descEl.innerHTML = t('engine_desc_cloudflare', '☁️ <b>Cloudflare Edge (cloudflare-speed-cli):</b> Direct CDN edge speed measurement (speed.cloudflare.com), airport PoP code (e.g. BUD), ASN and loaded latency.');
+      } else if (selectedEngine === 'fastcom') {
+        descEl.innerHTML = t('engine_desc_fastcom', '🎬 <b>Fast.com (Netflix):</b> Netflix Open Connect servers near you, several at once: download, upload, unloaded and loaded latency, ISP and per-server detail.');
       } else if (selectedEngine === 'rtr') {
         descEl.innerHTML = t('engine_desc_rtr', '🇦🇹 <b>RTR-NetTest (netztest.at / Open-RMBT):</b> Open European standard (BEREC) measurement on Vienna 100G cluster with shareable report link.');
       } else if (selectedEngine === 'iperf3') {
@@ -2487,7 +2501,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         }
         if (data.iperf_target_host !== undefined) showIperfAutoCurrent(data.iperf_target_host, data.iperf_port, data.iperf_auto);
         if (data.engine_intervals && !schedFormDirty && !isScheduleInputActive()) {
-          for (const k of ['ookla', 'rtr', 'cloudflare', 'iperf3']) {
+          for (const k of ['ookla', 'rtr', 'cloudflare', 'fastcom', 'iperf3']) {
             const el = document.getElementById('sched-int-' + k);
             if (el && document.activeElement !== el && data.engine_intervals[k] !== undefined) el.value = data.engine_intervals[k];
           }
@@ -2655,13 +2669,15 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
             engineBadge = '<span class="badge" style="background:rgba(168,85,247,0.2);color:#c084fc;border:1px solid #a855f7;">IPERF3</span>';
           } else if (st.engine === 'cloudflare') {
             engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;">CLOUDFLARE ${st.colo ? '[' + escapeHtml(st.colo) + ']' : ''}</span>`;
+          } else if (st.engine === 'fastcom') {
+            engineBadge = `<span class="badge" style="background:rgba(229,9,20,0.2);color:#f87171;border:1px solid #e50914;">FAST.COM ${st.colo ? '[' + escapeHtml(st.colo) + ']' : ''}</span>`;
           } else if (st.engine === 'rtr' || st.engine === 'rtr-nettest') {
             engineBadge = '<span class="badge" style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;">RTR-NETTEST</span>';
           }
 
           let safeServerName = escapeHtml(st.server_name || st.server_host || '--');
           let link = safeServerName;
-          if (st.result_url) {
+          if (st.result_url && !isGenericResultUrl(st.result_url)) {
             let safeUrl = sanitizeUrl(st.result_url);
             if (safeUrl) {
               link = `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8; text-decoration:none; font-weight:600;">🔗 ${safeServerName || t('open_result_link', 'View Official Result')}</a>`;
@@ -3105,6 +3121,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     let engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;font-size: 11px;">OOKLA</span>';
     if (item.engine === 'cloudflare') {
       engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;font-size: 11px;">CLOUDFLARE ${item.colo ? '[' + escapeHtml(item.colo) + ']' : ''}</span>`;
+    } else if (item.engine === 'fastcom') {
+      engineBadge = `<span class="badge" style="background:rgba(229,9,20,0.2);color:#f87171;border:1px solid #e50914;font-size: 11px;">FAST.COM ${item.colo ? '[' + escapeHtml(item.colo) + ']' : ''}</span>`;
     } else if (item.engine === 'rtr' || item.engine === 'rtr-nettest') {
       engineBadge = '<span class="badge" style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;font-size: 11px;">RTR-NETTEST</span>';
     } else if (item.engine === 'iperf3') {
@@ -4336,6 +4354,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       'sched-int-ookla',
       'sched-int-rtr',
       'sched-int-cloudflare',
+      'sched-int-fastcom',
       'sched-int-iperf3',
       'sched-server-id-input',
       'sched-gate-mode',
@@ -4609,6 +4628,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           ookla_interval_min: Math.max(60, parseInt((document.getElementById('sched-int-ookla') || {}).value || '60', 10) || 60),
           rtr_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-rtr') || {}).value || '0', 10) || 0),
           cloudflare_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-cloudflare') || {}).value || '0', 10) || 0),
+          fastcom_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-fastcom') || {}).value || '0', 10) || 0),
           iperf3_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-iperf3') || {}).value || '0', 10) || 0),
           iperf_target_host: (document.getElementById('sched-iperf-host') ? document.getElementById('sched-iperf-host').value : '').trim(),
           iperf_port: (document.getElementById('sched-iperf-port') ? parseInt(document.getElementById('sched-iperf-port').value) : 5201) || 5201
@@ -5907,7 +5927,7 @@ ${codeBadge}
           cardUp.style.display = 'block';
           if (resDown) resDown.textContent = (l.download_mbps != null) ? `${l.download_mbps} Mbps` : '-- Mbps';
           if (resUp) resUp.textContent = (l.upload_mbps != null) ? `${l.upload_mbps} Mbps` : '-- Mbps';
-          if (resLabel) resLabel.textContent = 'Combined Total';
+          if (resLabel) resLabel.textContent = l.direction === 'sequential' ? t('iperf_dir_both_short', 'download, then upload') : 'Combined Total';
         } else {
           cardDown.style.display = 'none';
           cardUp.style.display = 'none';
@@ -6182,7 +6202,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
           iperf_duration: parseInt(document.getElementById('iperf-duration').value) || 10,
           iperf_protocol: document.getElementById('iperf-protocol').value,
           iperf_parallel: parseInt(document.getElementById('iperf-parallel').value) || 4,
-          iperf_direction: ({ 'false': 'upload', 'true': 'download', 'bidir': 'bidir', 'both': 'both' })[document.getElementById('iperf-reverse').value] || 'both',
+          iperf_direction: ({ 'false': 'upload', 'true': 'download', 'bidir': 'bidir', 'seq': 'both' })[document.getElementById('iperf-reverse').value] || 'both',
         })
       });
       if (!res.ok) { showToast(t('iperf_save_failed', 'Could not save the iPerf3 server.')); return; }
@@ -6248,6 +6268,14 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       txt += ` · ${auto.parallel}× ${String(auto.protocol || 'tcp').toUpperCase()}, ${auto.duration} s, ${dirs[auto.direction] || auto.direction}`;
     }
     el.textContent = txt;
+    if (auto && auto.direction && !window.iperfDirSynced) {
+      const sel = document.getElementById('iperf-reverse');
+      const map = { both: 'seq', download: 'true', upload: 'false', bidir: 'bidir' };
+      if (sel && document.activeElement !== sel && map[auto.direction]) sel.value = map[auto.direction];
+      const par = document.getElementById('iperf-parallel');
+      if (par && auto.parallel && Array.from(par.options).some(o => o.value == auto.parallel)) par.value = auto.parallel;
+      window.iperfDirSynced = true;
+    }
     if (auto && auto.extra_servers !== undefined) {
       iperfExtraServers = String(auto.extra_servers || '').split(',').map(x => x.trim()).filter(Boolean);
       renderIperfExtraList();
@@ -7605,6 +7633,70 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     }
   }
 
+  // Where speed tests run, and the Wi-Fi uplink
+  function renderWifiUplink(d) {
+    const link = document.getElementById('meas-link');
+    if (link && document.activeElement !== link && d.measurement_link) link.value = d.measurement_link;
+    const sel = document.getElementById('wu-iface');
+    if (sel && document.activeElement !== sel) {
+      const keep = sel.value;
+      sel.innerHTML = '<option value="auto">auto</option>' + (d.interfaces || []).map(i => `<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
+      sel.value = keep && Array.from(sel.options).some(o => o.value === keep) ? keep : 'auto';
+    }
+    const ssid = document.getElementById('wu-ssid');
+    if (ssid && document.activeElement !== ssid && !ssid.value) ssid.value = d.ssid_configured || '';
+    const en = document.getElementById('wu-enabled');
+    if (en && document.activeElement !== en) en.checked = !!d.enabled;
+    const hid = document.getElementById('wu-hidden');
+    if (hid && document.activeElement !== hid) hid.checked = !!d.hidden;
+    const ph = document.getElementById('wu-pass-hint');
+    if (ph) ph.textContent = d.password_set ? t('wu_pass_saved', 'A password is saved; leave empty to keep it.') : '';
+    const st = document.getElementById('wu-status');
+    if (st) {
+      if (d.connected) {
+        const band = d.frequency_mhz ? (d.frequency_mhz >= 5925 ? '6 GHz' : d.frequency_mhz >= 4900 ? '5 GHz' : '2.4 GHz') : '';
+        st.textContent = t('wu_connected', 'Connected: {ssid} on {iface}, {ip}').replace('{ssid}', d.ssid || '?').replace('{iface}', d.interface || '?').replace('{ip}', d.ip || '?')
+          + (d.signal_dbm != null ? `, ${d.signal_dbm} dBm` : '') + (band ? `, ${band}` : '') + (d.bitrate ? `, ${d.bitrate}` : '');
+      } else {
+        st.textContent = d.interface ? t('wu_not_connected', 'Not connected over Wi-Fi.') : t('wu_no_iface', 'No wireless interface found.');
+      }
+      if (d.message) st.textContent = d.message + ' ' + st.textContent;
+    }
+  }
+
+  async function loadWifiUplink() {
+    try { const r = await fetch('/api/wifi-uplink/status'); if (r.ok) renderWifiUplink(await r.json()); } catch (e) {}
+  }
+
+  async function saveWifiUplink() {
+    const body = {
+      measurement_link: document.getElementById('meas-link').value,
+      ssid: (document.getElementById('wu-ssid').value || '').trim(),
+      password: document.getElementById('wu-pass').value || '',
+      interface: document.getElementById('wu-iface').value,
+      hidden: document.getElementById('wu-hidden').checked,
+      enabled: document.getElementById('wu-enabled').checked,
+    };
+    const st = document.getElementById('wu-status');
+    if (st) st.textContent = body.enabled ? t('wu_connecting', 'Connecting...') : t('toast_saving', 'Applying settings, please wait...');
+    try {
+      const r = await fetch('/api/wifi-uplink/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json();
+      document.getElementById('wu-pass').value = '';
+      renderWifiUplink(d);
+      showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
+    } catch (e) { showToast('Error: ' + e); }
+  }
+
+  async function wifiUplinkAction(action) {
+    try {
+      const r = await fetch('/api/wifi-uplink/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const d = await r.json();
+      renderWifiUplink(d);
+      showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
+    } catch (e) { showToast('Error: ' + e); }
+  }
+
   // Central collector (opt-in)
   function renderCollectorStatus(d) {
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
@@ -7670,6 +7762,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       showToast('Error: ' + e);
     }
     loadCollector();
+  loadWifiUplink();
   }
 
   // Logout Handler

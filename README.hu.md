@@ -79,14 +79,16 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
   1. **Ookla Speedtest CLI**: Hivatalos Ookla mérőmotor automatikus szerverválasztással vagy testreszabott szerverazonosítóval.
      * **Figyelem**: az Ookla korlátozza, milyen gyakran mérhet egy eszköz: néhány percenkénti mérésnél hamar elutasítja a boxot („Limit reached”), és egy időre letiltja. Ezért az ütemezett Ookla-mérés legfeljebb óránként egyszer fut, akármilyen sűrű az ütemezés; az RTR-NetTest, a Cloudflare és az iPerf3 minden alkalommal fut, a kézi Ookla-mérés pedig kérésre azonnal. Ha az Ookla mégis elutasít, a box szünetelteti az Ooklát (30 perc, duplázódva legfeljebb 4 óráig, újraindítás után is), és nem tesz a helyére más motor eredményét. A webes felület mutatja az óránkénti korlátot és a szünetet.
   2. **Cloudflare Speed Engine**: Időalapú, 4 szálas le- és feltöltés a Cloudflare felé (gigabites vonalon futásonként kb. 1,2 GB).
-  3. **RTR-Netztest (RMBT)**: Az Osztrák Szabályozó Hatóság (RTR) és az európai BEREC szabványos RMBT mérőmotorja.
-  4. **iPerf3 Kliens és Szerver**: Helyi és távoli iPerf3 audit TCP/UDP protokollal, állítható szálakkal.
-  5. **Portfojtás-Ellenőrző**: TCP-átvitel összehasonlítása gyakori portokon (alapból 80, 443, 8080, 8443, 53, SSH 22, SIP 5060 és BitTorrent 6881) egy 443-as alapértékkel. Különbséget mutathat, de nem bizonyítja, hogy a szolgáltató okozta.
+  3. **Fast.com (Netflix)**: Beépítve, tisztán Pythonban (nem kell hozzá Node, Go vagy böngésző), a Fast.com saját API-jával, ahogy a `gesquive/fast-cli` és a `sindresorhus/fast-cli` is. Részletek lent, a Fast.com motornál.
+  4. **RTR-Netztest (RMBT)**: Az Osztrák Szabályozó Hatóság (RTR) és az európai BEREC szabványos RMBT mérőmotorja.
+  5. **iPerf3 Kliens és Szerver**: Helyi és távoli iPerf3 audit TCP/UDP protokollal, állítható szálakkal. Az eredmények, a statisztika és a CSV néven nevezik a szervert (hely és szolgáltató a nyilvános iPerf3-listából; ha csak a címe ismert, a GeoIP szerinti város, ország és ISP), a régi, csak címet tároló soroknál is.
+  6. **Portfojtás-Ellenőrző**: TCP-átvitel összehasonlítása gyakori portokon (alapból 80, 443, 8080, 8443, 53, SSH 22, SIP 5060 és BitTorrent 6881) egy 443-as alapértékkel. Különbséget mutathat, de nem bizonyítja, hogy a szolgáltató okozta.
 * **Sub-second ICMP Ping Szonda (`nmb-probe`)**: 500 ms-os folyamatos mintavételezés, RFC 3550 jitter számítás, p95/p99 késleltetés, az átjáró és nyilvános célpontok (alapból 1.1.1.1, 8.8.8.8, 9.9.9.9, 185.222.222.222) és kimaradási ablakok naplózása.
 * **Alacsony memóriás profilok (512 MB-on nincs tesztelve)**: Dinamikus memóriaprofilok (`low`, `standard`, `performance`), szigorú SQLite live méretkorlátok (48 MB), periodikus és kézi `malloc_trim(0)` memóriafelszabadítás router platformokon.
 * **Flash- és SD-Kártya Élettartam Védelem**: Élő adatbázis memóriában futó tmpfs-en, 15 percenkénti és leállításkori atomi pillanatképek SD-re, ext4 `noatime,commit=600`.
 * **Hálózatfelderítő (Device Explorer)**: Beépített ARP sweep és MAC OUI vendor felismerés (Apple, Samsung, Intel, Xiaomi stb.) a helyi és a vendéghálózaton.
 * **Dedikált Vendég Wi-Fi Kliens Szonda**: Másodlagos vezeték nélküli interfésszel automatikusan felkapcsolódik a router vendég Wi-Fi hálózatára, és ellenőrzi annak sávszélességét, stabilitását és izolációját.
+* **Mérés Wi-Fi-n**: A box a saját Wi-Fi-hálózatodra is csatlakozhat, hogy azon mérjen (`[wifi_uplink]`: `ssid`, `password`, `interface`, `hidden`, `enabled`; saját NetworkManager-profil, `nmb-uplink`, a vendégklienstől külön). A `[network] measurement_link` adja meg, hol fut a sebességmérés: `auto` (Etherneten, ha van kábel, különben Wi-Fi-n), `ethernet` vagy `wifi`. Ha a kábel és a Wi-Fi is él, az alapútvonal az Etherneten marad, és egy forrásszabály (150-es tábla) gondoskodik róla, hogy a Wi-Fi-hez kötött mérés tényleg Wi-Fi-n menjen ki. A webes felületen az ütemezés alatt, vagy `nmb-cli run wifi.uplink` paranccsal állítható. NetworkManager kell hozzá.
 * **Többnyelvű Reszponzív WebGUI**: Sötét módú irányítópult, több fül és alfül, valós idejű SVG diagramok, jelszavas védelem, Logout funkció és azonos kulcskészletű fordítás 5 nyelven (magyar, angol, német, ukrán, francia).
 * **Telegram Távfelügyelet**: Valós idejű push riasztások szakadás vagy >5% csomagvesztés esetén, távoli parancsok (`/status`, `/ping`, `/test`, `/report`, `/mode`).
 
@@ -114,7 +116,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Forgalomfüggő Sebességmérő (nmb-speed)       │          │ Elemző és Dosszié-Generátor (nmb-report)         │  │
 │  │ • /proc/net/dev üresjárati kapu (küszöbbel) │          │ • Önmagában álló HTML jelentés vektoros SVG-vel  │  │
-│  │ • Motorok: Ookla, Cloudflare, RTR, iPerf3     │          │ • RFC 4180 CSV telemetria exportáló              │  │
+│  │ • Motorok: Ookla, Cloudflare, Fast.com, RTR,  │          │ • RFC 4180 CSV telemetria exportáló              │  │
 │  │ • Net-neutrality portfojtás-ellenőrző        │          │ • Automatikus SMTP hibajegy-továbbítás           │  │
 │  └──────────────────────┬───────────────────────┘          └────────────────────────┬─────────────────────────┘  │
 │                         │                                                           │                            │
@@ -196,19 +198,26 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 * A Cloudflare globális CDN hálózatát használó, több szálon futó (multipart) mérőmotor.
 * 100 MB-os és 25 MB-os valós adatcsomagok letöltése és feltöltése a legközelebbi Cloudflare edge pontról.
 
-### 4. RTR-Netztest (RMBT Szabályozói Mérőmotor)
+### 4. Fast.com (Netflix) mérőmotor
+* A Fast.com saját API-ját használja (`api.fast.com/netflix/speedtest/v2`), a tokent a Fast.com oldalának szkriptjéből olvassa ki (ha nem sikerül, az ismert tokent használja).
+* A Fast.com legfeljebb öt, a boxhoz közeli Netflix Open Connect szervert ad; a box mindegyikhez méri a késleltetést (ugyanazt a `range/0-0` kérést, amit a Fast.com is mér, és a TCP-kézfogást).
+* Letöltés és feltöltés: 8 párhuzamos szál a szerverek között elosztva, irányonként 10 mp; az első 2,5 mp (TCP-felfutás) kimarad. A kijelzett érték a Fast.com-hoz hasonlóan a „stabil” sebesség: az átlag attól a ponttól, ahol a sebesség beáll.
+* Minden sor a `raw_json`-ban megőrzi: a szolgáltatót, ASN-t, várost és országot, ahogy a Fast.com látja; minden szervert városával, országával, késleltetési mintáival és a le- és feltöltésből vett saját részével; a félmásodpercenkénti sebességet; a csúcsot és a sima átlagot; a terhelés alatti késleltetést mindkét irányban és a bufferbloat-osztályzatot.
+* Gigabites vonalon futásonként kb. 1,5 GB, ezért az ütemezett Fast.com-mérés alapból 6 óránként fut (`fastcom_interval_min = 360`).
+
+### 5. RTR-Netztest (RMBT Szabályozói Mérőmotor)
 * Az Osztrák Hírközlési Szabályozó Hatóság (RTR) és az Európai Elektronikus Hírközlési Szabályozók Testülete (BEREC) által elfogadott, RFC kompatibilis RMBT nyílt forráskódú mérőmotor.
 * Hiteles, független, szolgáltatói befolyástól mentes mérést biztosít.
 
-### 5. iPerf3 Helyi és Távoli Tesztek
+### 6. iPerf3 Helyi és Távoli Tesztek
 * Beépített iPerf3 kliens és felügyelt iPerf3 háttérszerver.
 * Lehetővé teszi a belső hálózat (LAN kábel, Wi-Fi AP) maximális throughputjának kimérését, valamint nyilvános iPerf3 szerverek tesztelését TCP és UDP protokollon, tetszőleges párhuzamos szálakkal.
 
-### 6. Net-Neutrality Portfojtás-Ellenőrző (Traffic Shaping Checker)
+### 7. Net-Neutrality Portfojtás-Ellenőrző (Traffic Shaping Checker)
 * Ellenőrzi, hogy a szolgáltató mesterségesen fojtja-e a sávszélességet vagy blokkol-e bizonyos típusú forgalmat.
 * TCP-átvitelt hasonlít össze gyakori portokon (alapból 80, 443, 8080, 8443, 53, SSH 22, SIP 5060 és BitTorrent 6881) egy 443-as alapértékkel.
 
-### 7. Traffic Gate (Forgalmi Kapu)
+### 8. Traffic Gate (Forgalmi Kapu)
 * Az automatikus mérések előtt az NMB megvizsgálja a `/proc/net/dev` számlálóit.
 * Ha a doboz a küszöb feletti forgalmat lát (alapértelmezetten a kapacitás 2%-a), a teszt elhalasztásra kerül. Sima `standalone` módban a doboz csak a saját forgalmát látja, ezért a többi eszköz nem számít bele; idegen forgalom csak akkor kerül a számlálóiba, ha áthalad a dobozon.
 
@@ -223,7 +232,7 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 * Heti cenzúra- és hálózatsemlegességi mérés, a webes felületen vagy az `[ooni]` szakasz `enabled = true` beállításával kapcsolható be. A forgalmi kaput nem használja.
 
 ### Sebességmérés ütemezése
-* Az új telepítések óránként mérnek (`schedule_cron = 0 * * * *`), ez a webes felületen módosítható. Az ütemezés azt adja meg, milyen gyakran néz rá a box; emellett minden motornak saját minimális időköze van (`ookla_interval_min`, legalább 60; `rtr_interval_min` és `cloudflare_interval_min`, 0 = minden futáskor) a `[speedtest]` részben vagy a webes felületen. Így az RTR-NetTest mérhet percenként, az Ookla pedig óránként. Az iPerf3 ugyanezzel az ütemezéssel fut, saját `iperf3_interval_min` időközzel, egy vagy több szerverrel (`target_host` és `extra_servers`; alapból 4 TCP-szál, 10 mp, előbb letöltés, majd feltöltés), önmagában vagy a vegyes mérésben, de csak ha az `[iperf]` részben be van állítva iPerf3-szerver, és az válaszol; különben üres sor nélkül kimarad. A mérési lista csak valódi méréseket mutat; a kihagyott és sikertelen futásokat egy sor számolja. Az ütemezett méréseket az `nmb-web` indítja, ezért annak futnia kell; frissítéskor a beállított ütemezés megmarad.
+* Az új telepítések óránként mérnek (`schedule_cron = 0 * * * *`), ez a webes felületen módosítható. Az ütemezés azt adja meg, milyen gyakran néz rá a box; emellett minden motornak saját minimális időköze van (`ookla_interval_min`, legalább 60; `rtr_interval_min` és `cloudflare_interval_min`, 0 = minden futáskor; `fastcom_interval_min`, alapból 360) a `[speedtest]` részben vagy a webes felületen. Így az RTR-NetTest mérhet percenként, az Ookla pedig óránként. Az iPerf3 ugyanezzel az ütemezéssel fut, saját `iperf3_interval_min` időközzel, egy vagy több szerverrel (`target_host` és `extra_servers`; alapból 4 TCP-szál, 10 mp, előbb letöltés, majd feltöltés), önmagában vagy a vegyes mérésben, de csak ha az `[iperf]` részben be van állítva iPerf3-szerver, és az válaszol; különben üres sor nélkül kimarad. A mérési lista csak valódi méréseket mutat; a kihagyott és sikertelen futásokat egy sor számolja. Az ütemezett méréseket az `nmb-web` indítja, ezért annak futnia kell; frissítéskor a beállított ütemezés megmarad.
 
 ---
 
@@ -478,7 +487,7 @@ A NetworkMeasureBox kereskedelmi routereken való futtatásának terve (akár **
     * Qualcomm Atheros QCA9563 @ 775 MHz, 128 MiB RAM, 8 MiB Flash, QCA8337N, 1x 1GbE WAN + 4x 1GbE LAN, AC1200.
 * **Főbb Natív Alrendszerek (Zéró Python)**:
   * **Memória-optimalizált DNS Sinkhole / Reklámblokkoló**: 512 KB Counting Bloom Filter (MurmurHash3, 0.1% FPR) és Trie, amely kevesebb mint 640 KB RAM-ot fogyaszt 32 MB-os routereken.
-  * **Külső Függőség Nélküli Sebességmérő Socket Sinks**: Saját folyamaton belüli TCP/TLS kliens, amely közvetlenül csatlakozik Ookla, Cloudflare Edge és RTR-NetTest szerverekhez `splice()` és `recv()` zéró-másolásos pufferekkel külső binárisok nélkül.
+  * **Külső Függőség Nélküli Sebességmérő Socket Sinks**: Saját folyamaton belüli TCP/TLS kliens, amely közvetlenül csatlakozik Ookla, Cloudflare Edge, Fast.com (Netflix Open Connect) és RTR-NetTest szerverekhez `splice()` és `recv()` zéró-másolásos pufferekkel külső binárisok nélkül.
   * **Autonóm Önjavító Motor (`nmb_heal`)**: Többszintű watchdog (szolgáltatás újraindítás, interfész bounce, driver offload konfigurálás, biztonsági konfigurációs visszagörgetés).
   * **Dinamikus DNS Kliens**: Közvetlen TLS 1.3 Netlink-tudatos frissítő `duckdns` és `dynv6` szolgáltatásokhoz (<60 KB RAM).
 * Részletes műszaki tervek:
@@ -495,14 +504,14 @@ A szoftver moduláris felépítésű, az egyes feladatokat különálló, jól t
 |---|---|---|
 | `nmb-netd` | Hálózati üzemmód démon (Mode A / Mode B / Failover) | `nmb-netd --status`<br>`nmb-netd --switch auto\|standalone\|mode_a\|mode_b` |
 | `nmb-probe` | Nagyfrekvenciás ICMP ping és jitter szonda | `nmb-probe --verbose` |
-| `nmb-speed` | Sebességmérő és forgalomkorlátozás-ellenőrző | `nmb-speed --trigger manual`<br>`nmb-speed --engine ookla\|cloudflare\|rtr\|iperf3\|all`<br>`nmb-speed --interface eth0` |
+| `nmb-speed` | Sebességmérő és forgalomkorlátozás-ellenőrző | `nmb-speed --trigger manual`<br>`nmb-speed --engine ookla\|cloudflare\|fastcom\|rtr\|iperf3\|all`<br>`nmb-speed --interface eth0` |
 | `nmb-ooni` | Opcionális OONI Probe kiegészítő | `nmb-ooni status`<br>`nmb-ooni run websites` |
 | `nmb-report` | Riport generátor (HTML dosszié, CSV, JSON) | `nmb-report --window 24h --html dossier.html`<br>`nmb-report --json-summary`<br>`nmb-report --send-email` |
 | `nmb-adblock` | Beépített DNS reklámblokkoló sinkhole | `nmb-adblock status`<br>`nmb-adblock update`<br>`nmb-adblock -b domain.com` |
 | `nmb-heal` | Önjavító watchdog és biztonsági visszaállás | `nmb-heal audit`<br>`nmb-heal status`<br>`nmb-heal fix` |
 | `nmb-driver` | Hardveres driver és firmware felderítő | `nmb-driver scan`<br>`nmb-driver missing`<br>`sudo nmb-driver install` |
 | `nmb-telegram` | Telegram menedzsment és riasztási bot | `nmb-telegram` |
-| `nmb-cli` | A WebGUI menüi terminálban (SSH, egér, gyorsbillentyűk) és JSON-parancsok | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli logs dev -n 50 --level warning`<br>`nmb-cli latest` / `nmb-cli latest ookla`<br>`nmb-cli update` / `nmb-cli update --apply --yes`<br>`nmb-cli run collector.send` |
+| `nmb-cli` | A WebGUI menüi terminálban (SSH, egér, gyorsbillentyűk) és JSON-parancsok | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli run speed.run engine=fastcom`<br>`nmb-cli logs dev -n 50 --level warning`<br>`nmb-cli latest` / `nmb-cli latest ookla`<br>`nmb-cli update` / `nmb-cli update --apply --yes`<br>`nmb-cli run collector.send` |
 | `nmb-collector` | Központi mérésgyűjtő szolgáltatónak vagy szakembernek (az ő szerverén fut, nem a boxon) | `nmb-collector set-password`<br>`nmb-collector token-add <név>`<br>`nmb-collector serve --port 8600` |
 | `nmb-web` | Beépített kezelőfelület és REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Emelt szintű hálózati és driver műveletek segédprogramja | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
@@ -533,7 +542,7 @@ Ha beállította az `nmb-telegram` szolgáltatást, a dobozt közvetlenül a Tel
 | `/menu` | Megnyitja a fő interaktív érintőmenüt (Inline billentyűzet) |
 | `/status` | Valós idejű rendszerállapot: üzemidő, hálózati mód, IP címek, szolgáltató, CPU/RAM |
 | `/ping` | Azonnali ICMP válaszidő és csomagvesztési mátrix a 4 referencia-célpontra |
-| `/test [motor]` | Sebességmérés indítása (`ookla`, `cloudflare`, `rtr`, `iperf`) bufferbloat osztályzattal |
+| `/test [motor]` | Sebességmérés indítása (`ookla`, `cloudflare`, `fastcom`, `rtr`, `iperf`) bufferbloat osztályzattal |
 | `/report [ablak]` | Legenerálja és közvetlenül elküldi a hivatalos SLA dossziét (`.html`) a csevegésbe |
 | `/ai` | Szanált Markdown diagnosztikai állapotcsomag külső LLM elemzéshez |
 | `/mode [auto\|a\|b]`| Megjeleníti vagy átkapcsolja a működési módot (Router vs Transzparens Híd) |

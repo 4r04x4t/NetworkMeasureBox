@@ -154,6 +154,9 @@ def _run_single_engine(
             res = execute_cloudflare_speedtest(interface=bound_iface, bind_ip=bound_ip)
             if hasattr(res, "to_speedtest_result"):
                 res = res.to_speedtest_result(bound_iface=bound_iface, bound_ip=bound_ip)
+        elif engine == "fastcom":
+            from nmb.speed.fastcom import execute_fastcom_speedtest
+            res = execute_fastcom_speedtest(interface=bound_iface, bind_ip=bound_ip)
         elif engine == "rtr":
             log.debug("starting RTR-NetTest / Open-RMBT speedtest (bound_iface=%s, bound_ip=%s)", bound_iface, bound_ip)
             res = execute_rtr_speedtest(interface=bound_iface, bind_ip=bound_ip)
@@ -231,9 +234,9 @@ def _run_single_engine(
                 ping_us=ping_us,
                 jitter_us=jitter_us,
                 loss_pct=loss_pct,
-                server_name=f"iPerf3: {target_host}:{target_port}",
+                server_name=_iperf_label(target_host, target_port),
                 server_host=target_host,
-                server_location=f"{protocol.upper()} -P {parallel}",
+                server_location=_iperf_location(target_host, target_port, protocol, parallel),
                 client_ip=raw_res.get("local_host"),
                 raw_json=raw_res.get("raw_output"),
                 error=raw_res.get("error"),
@@ -358,7 +361,7 @@ def _run_single_engine(
                 getattr(res, "client_ipv6", None),
                 res.server_host,
                 res.server_location,
-                engine if engine in ("cloudflare", "rtr", "iperf3") else (getattr(res, "engine", None) or engine),
+                engine if engine in ("cloudflare", "fastcom", "rtr", "iperf3") else (getattr(res, "engine", None) or engine),
                 getattr(res, "colo", None) or ("VIE" if engine == "rtr" else None),
                 res.bound_iface,
                 res.bound_ip,
@@ -382,7 +385,7 @@ def _run_single_engine(
         up_contract_note = f" — ISP offered plan ({contract_up:.0f} Mbps): {up_pct:.1f}%" if up_pct is not None else ""
 
         used_engine = getattr(res, "engine", None) or engine
-        engine_label = {"ookla": "Ookla", "cloudflare": "Cloudflare", "rtr": "RTR-NetTest"}.get(used_engine, "iPerf3")
+        engine_label = {"ookla": "Ookla", "cloudflare": "Cloudflare", "fastcom": "Fast.com", "rtr": "RTR-NetTest"}.get(used_engine, "iPerf3")
         if used_engine != engine:
             engine_label += f" (fallback for {engine})"
         parts = [f"Speedtest [{engine_label}] {res.status}: Down: {down_mbps:.1f} Mbps{down_pct_str}, Up: {up_mbps:.1f} Mbps{up_pct_str}{bb_info} [{type_label}]"]
@@ -438,6 +441,30 @@ curl -s -X POST "https://speed.cloudflare.com/__up" --data-binary @chunk_10mb.bi
 # Download Speed: {down_mbps:.2f} Mbps ({(down_mbps/8):.2f} MB/s){down_contract_note}
 # Upload Speed: {up_mbps:.2f} Mbps ({(up_mbps/8):.2f} MB/s){up_contract_note}
 # Latency (Ping): {ping_ms_val:.2f} ms | Bufferbloat: {res.bufferbloat_grade or '--'} (+{res.bufferbloat_delta_ms or 0} ms)
+"""
+        elif engine == "fastcom":
+            meroscript = f"""#!/bin/sh
+# ==============================================================================
+# NetworkMeasureBox - Fast.com (Netflix) Speedtest Execution
+# Measurement Engine: Fast.com API, Netflix Open Connect servers
+# Timestamp: {dt_str} | Status: {res.status.upper()}
+# ==============================================================================
+
+# 1. Servers chosen by Fast.com for this client:
+curl -s "https://api.fast.com/netflix/speedtest/v2?https=true&token=<token>&urlCount=5"
+# Closest server: {res.server_host or '--'} ({res.server_location or '--'})
+# Public Client IP: {res.client_ip or client_ipv6_val or '--'}
+
+# 2. Transfers (8 parallel streams over the servers, 10 s each way, first 2.5 s left out):
+curl -s "https://<server>/speedtest/range/0-0?<query>" -o /dev/null          # latency
+curl -s "https://<server>/speedtest/range/0-26214400?<query>" -o /dev/null   # download
+curl -s -X POST --data-binary @10mb.bin "https://<server>/speedtest/range/0-10000000?<query>"  # upload
+
+# 3. Measured:
+# Download Speed: {down_mbps:.2f} Mbps ({(down_mbps/8):.2f} MB/s){down_contract_note}
+# Upload Speed: {up_mbps:.2f} Mbps ({(up_mbps/8):.2f} MB/s){up_contract_note}
+# Unloaded latency: {ping_ms_val:.2f} ms | Jitter: {jitter_ms_val:.2f} ms
+# Loaded latency: down {res.down_loaded_lat_ms or '--'} ms, up {res.up_loaded_lat_ms or '--'} ms | Bufferbloat: {res.bufferbloat_grade or '--'} (+{res.bufferbloat_delta_ms or 0} ms)
 """
         elif engine == "rtr":
             meroscript = f"""#!/bin/sh
@@ -536,6 +563,27 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
     from nmb.common.memory import trim_process_memory
     trim_process_memory()
     return res
+
+
+def _iperf_label(host: str, port: int) -> str:
+    """ "iPerf3: Vienna • DATAPACKET (185.180.12.40:5201)", or the address alone when nothing is known."""
+    try:
+        from nmb.speed.iperf_directory import describe_server
+        name = describe_server(host, port).get("name")
+    except Exception:
+        name = ""
+    return f"iPerf3: {name} ({host}:{port})" if name else f"iPerf3: {host}:{port}"
+
+
+def _iperf_location(host: str, port: int, protocol: str, parallel: int) -> str:
+    try:
+        from nmb.speed.iperf_directory import describe_server
+        d = describe_server(host, port)
+    except Exception:
+        d = {}
+    where = " · ".join(x for x in (d.get("country"), d.get("isp")) if x)
+    base = f"{protocol.upper()} -P {parallel}"
+    return f"{where} · {base}" if where else base
 
 
 def iperf3_servers(cfg: Config) -> List[tuple]:
@@ -816,13 +864,13 @@ def run_measurement_cycle(
     usage_start = data_budget.interface_bytes(usage_iface)
     target_server_id = server_id if server_id is not None else getattr(cfg.speedtest, "server_id", None)
     conn = db.connect()
-    engines_to_run = ["ookla", "cloudflare", "rtr"] if engine == "all" else [engine or "ookla"]
+    engines_to_run = ["ookla", "cloudflare", "fastcom", "rtr"] if engine == "all" else [engine or "ookla"]
     mixed = engine == "all"
     if trigger == "schedule" and engines_to_run == ["ookla"] and _ookla_blocked_now(cfg):
         # Ookla-only schedule while Ookla may not run (paused, or its hour is not over): run the
         # other engines instead, each stored under its own name, so the schedule still measures.
         log.info("Ookla cannot run now; this scheduled run uses Cloudflare and RTR-NetTest instead")
-        engines_to_run = ["cloudflare", "rtr"]
+        engines_to_run = ["cloudflare", "fastcom", "rtr"]
         mixed = True
     if trigger == "schedule" and engines_to_run == ["iperf3"] and not _iperf3_usable(cfg):
         # iPerf3-only schedule: run only against a set server that answers; no empty rows.
@@ -903,7 +951,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", "-f", action="store_true", help="Bypass traffic gate idle check")
     parser.add_argument("--no-port-check", action="store_true", help="Skip port throttling tests")
     parser.add_argument("--ports", help="Comma-separated list of ports to test for throttling")
-    parser.add_argument("--engine", "-e", choices=["ookla", "cloudflare", "rtr", "iperf3", "all"], help="Measurement engine")
+    parser.add_argument("--engine", "-e", choices=["ookla", "cloudflare", "fastcom", "rtr", "iperf3", "all"], help="Measurement engine")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose debug output")
     args = parser.parse_args(argv)
 

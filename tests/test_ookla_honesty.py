@@ -223,14 +223,14 @@ class OoklaOnlyFallbackTest(unittest.TestCase):
 
     def test_iperf3_joins_the_mixed_run_when_its_server_answers(self):
         self.engine, self.iperf_ok = "all", True
-        self.assertEqual(self._cycle(), ["ookla", "cloudflare", "rtr", "iperf3"])
+        self.assertEqual(self._cycle(), ["ookla", "cloudflare", "fastcom", "rtr", "iperf3"])
         self.iperf_ok = False
-        self.assertEqual(self._cycle(), ["ookla", "cloudflare", "rtr"])
+        self.assertEqual(self._cycle(), ["ookla", "cloudflare", "fastcom", "rtr"])
 
     def test_iperf3_joins_the_ookla_fallback_too(self):
         anti_ban.mark_client_rate_limited()
         self.iperf_ok = True
-        self.assertEqual(self._cycle(), ["cloudflare", "rtr", "iperf3"])
+        self.assertEqual(self._cycle(), ["cloudflare", "fastcom", "rtr", "iperf3"])
 
     def test_iperf3_alone_runs_only_with_a_working_server(self):
         self.engine, self.iperf_ok = "iperf3", True
@@ -264,7 +264,7 @@ class OoklaOnlyFallbackTest(unittest.TestCase):
 
     def test_other_engines_run_while_ookla_is_paused(self):
         anti_ban.mark_client_rate_limited()
-        self.assertEqual(self._cycle(), ["cloudflare", "rtr"])
+        self.assertEqual(self._cycle(), ["cloudflare", "fastcom", "rtr"])
 
     def test_ookla_runs_when_it_may(self):
         self.assertEqual(self._cycle(), ["ookla"])
@@ -319,6 +319,21 @@ class IperfBothDirectionsTest(unittest.TestCase):
         self.assertEqual(calls, [True, False])
         row = conn.execute("SELECT engine, down_bps, up_bps FROM speedtest").fetchone()
         self.assertEqual(row, ("iperf3", 900_000_000, 300_000_000))
+
+
+class IperfServerNameTest(unittest.TestCase):
+    def test_name_from_directory_then_geoip(self):
+        from nmb.speed import iperf_directory as d
+        from nmb.speed.runner import _iperf_label
+        d._label_cache.clear()
+        with mock.patch.object(d, "_read_cache", return_value={"servers": [{"host": "185.180.12.40", "site": "Vienna", "provider": "DATAPACKET", "country": "AT"}]}):
+            self.assertEqual(_iperf_label("185.180.12.40", 5201), "iPerf3: Vienna • DATAPACKET (185.180.12.40:5201)")
+        d._label_cache.clear()
+        with mock.patch.object(d, "_read_cache", return_value={}), \
+             mock.patch("socket.gethostbyname", return_value="203.0.113.9"), \
+             mock.patch("nmb.netd.geoip.get_public_geoip", return_value={"city": "Frankfurt", "country_code": "DE", "isp": "Example Net"}):
+            self.assertEqual(_iperf_label("203.0.113.9", 5201), "iPerf3: Frankfurt, DE • Example Net (203.0.113.9:5201)")
+        d._label_cache.clear()
 
 
 if __name__ == "__main__":

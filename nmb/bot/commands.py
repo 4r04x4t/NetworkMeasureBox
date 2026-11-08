@@ -427,7 +427,7 @@ class CommandHandler:
 """
             inline_kb = {
                 "inline_keyboard": [
-                    [{"text": t("btn_rtr", lang), "callback_data": "/test rtr"}, {"text": t("btn_ookla", lang), "callback_data": "/test ookla"}, {"text": t("btn_cloudflare", lang), "callback_data": "/test cloudflare"}],
+                    [{"text": t("btn_rtr", lang), "callback_data": "/test rtr"}, {"text": t("btn_ookla", lang), "callback_data": "/test ookla"}, {"text": t("btn_cloudflare", lang), "callback_data": "/test cloudflare"}, {"text": t("btn_fastcom", lang), "callback_data": "/test fastcom"}],
                     [{"text": t("btn_report", lang), "callback_data": "/report"}, {"text": t("btn_status", lang), "callback_data": "/status"}]
                 ]
             }

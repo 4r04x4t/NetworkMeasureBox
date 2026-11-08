@@ -39,7 +39,7 @@ def _latest(client: ApiClient, engine: str, as_json: bool) -> int:
     import time
     st = client.call("GET", "/api/status", timeout=30)
     per = st.get("latest_per_engine") or {}
-    names = ["ookla", "cloudflare", "rtr", "iperf3"] if engine == "all" else [engine]
+    names = ["ookla", "cloudflare", "fastcom", "rtr", "iperf3"] if engine == "all" else [engine]
     rows = {n: per.get(n) for n in names}
     if as_json:
         _print(rows)
@@ -126,7 +126,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     api.add_argument("path")
     api.add_argument("body", nargs="?", default="{}", help="JSON body")
     lat = sub.add_parser("latest", help="Show the newest speed test result, mixed or per engine")
-    lat.add_argument("engine", nargs="?", default="all", choices=["all", "ookla", "cloudflare", "rtr", "iperf3"])
+    lat.add_argument("engine", nargs="?", default="all", choices=["all", "ookla", "cloudflare", "fastcom", "rtr", "iperf3"])
     lat.add_argument("--json", action="store_true")
     upd = sub.add_parser("update", help="Check for a newer version on GitHub, or install it")
     upd.add_argument("--apply", action="store_true", help="Download and install the newest version")

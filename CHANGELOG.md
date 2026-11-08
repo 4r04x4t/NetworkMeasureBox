@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Fast.com (Netflix) as a measuring engine, in pure Python through Fast.com's own API: up to five nearby Netflix Open Connect servers, latency to each, 8 streams over them for download and upload, the "stable" speed Fast.com shows, latency under load and bufferbloat. Each row keeps the ISP, ASN and location Fast.com sees, every server with its latency and its share of the transfer, and the speed every half second. In the Web UI, the Telegram bot (`/test fastcom`), `nmb-speed --engine fastcom` and `nmb-cli`; part of the mixed run, scheduled every 6 hours by default (`fastcom_interval_min`).
+- iPerf3 rows that only stored an address (older rows) now show the server's name in the statistics, the history and the CSV: from the public iPerf3 list, else the city, country and ISP of the address from GeoIP.
+- Wi-Fi uplink for measuring: the box can join the owner's own Wi-Fi (`[wifi_uplink]`, its own `nmb-uplink` NetworkManager profile, separate from the guest Wi-Fi client), and `[network] measurement_link` chooses where speed tests run: `auto` (Ethernet when a cable is connected, otherwise Wi-Fi), `ethernet` or `wifi`. With both links up, tests bound to Wi-Fi really leave over Wi-Fi (source routing). Set it in the Web UI under the schedule or with `nmb-cli run wifi.uplink`.
+- iPerf3 "Download, then upload" direction (now the default in the iPerf3 tab), shown as one result.
+- iPerf3 results name the server (place and provider, from the public list or GeoIP) instead of only its address.
 - Several iPerf3 servers for automatic tests, tested one after the other, each in its own row ("Add to the automatic list" in the iPerf3 tab, `extra_servers` under `[iperf]`, `nmb-cli run iperf.auto`). Servers that do not answer are left out.
 - "Use this server for automatic tests" in the iPerf3 tab saves the server with its streams, duration, protocol and direction.
 - `nmb-cli latest [engine]`: the newest result of every engine, or of one.
@@ -34,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Scheduled iPerf3 tests run at most hourly by default (`iperf3_interval_min = 60`), since public iPerf3 servers take one client at a time.
 - The home page only shows results: buttons choose the newest result of any engine (mixed) or of one engine. The engine, the Ookla server, the interface and the schedule are set under Measurement & Servers, which the home page links to. In `nmb-cli` the schedule moved to the same screen.
 - Recommended iPerf3 defaults for automatic tests: 4 parallel TCP streams, 10 s, download and then upload one after the other (`auto_direction = both`), with a short pause and a retry before the upload, since many public servers take one client at a time.
 - No country is built in: the Ookla server choice comes only from Ookla's current list of servers near the box (the built-in list had wrong IDs, such as 10390 for Yettel, which Ookla answers with "No servers defined"); the Wi-Fi country defaults to automatic; the ISP name, examples and placeholders no longer name Hungarian providers; regulator-specific status codes are now neutral status codes with English descriptions.
@@ -49,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Cloudflare results no longer link to Cloudflare's front page as if it were the result, and a missing bufferbloat grade shows `--` instead of a made-up `A+`.
 - iPerf3 results were labelled OOKLA in the speed test list, and an upload-only iPerf3 run showed 0.00 Mbps download.
 - "Stop iPerf Server" did nothing: the server runs as the root unit `nmb-iperf3`, which the web server could not stop with `pkill`; start and stop now use `systemctl`.
 - A busy or unreachable iPerf3 server no longer adds failed rows to scheduled runs.

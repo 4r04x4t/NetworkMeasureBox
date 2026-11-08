@@ -332,6 +332,11 @@ def aggregate_report_data(
 
     for s in speed_rows:
         d_dict = dict(s)
+        try:
+            from nmb.speed.iperf_directory import label_iperf_row
+            label_iperf_row(d_dict)
+        except Exception:
+            log.debug("iperf server label failed", exc_info=True)
         d_mbps = (s["down_bps"] or 0) / 1_000_000.0 if s["down_bps"] else None
         u_mbps = (s["up_bps"] or 0) / 1_000_000.0 if s["up_bps"] else None
         d_dict["down_mbps"] = round(d_mbps, 2) if d_mbps is not None else None

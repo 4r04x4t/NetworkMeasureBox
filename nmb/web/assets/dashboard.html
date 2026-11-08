@@ -130,6 +130,7 @@
         <button type="button" class="engine-pill" id="pill-engine-all" onclick="viewEngine('all')"><span>🏆</span> <span data-i18n="home_view_mixed">Mixed (newest of any engine)</span></button>
         <button type="button" class="engine-pill" id="pill-engine-ookla" onclick="viewEngine('ookla')"><span>⚡</span> Ookla</button>
         <button type="button" class="engine-pill" id="pill-engine-cloudflare" onclick="viewEngine('cloudflare')"><span>☁️</span> Cloudflare</button>
+        <button type="button" class="engine-pill" id="pill-engine-fastcom" onclick="viewEngine('fastcom')"><span>🎬</span> Fast.com</button>
         <button type="button" class="engine-pill" id="pill-engine-rtr" onclick="viewEngine('rtr')"><span>📶</span> RTR-NetTest</button>
         <button type="button" class="engine-pill" id="pill-engine-iperf3" onclick="viewEngine('iperf3')"><span>🔁</span> iPerf3</button>
       </div>
@@ -395,7 +396,8 @@
           <div class="form-group">
             <label class="form-label" data-i18n="iperf_direction">Direction:</label>
             <select id="iperf-reverse" class="form-input">
-              <option value="false" selected data-i18n="iperf_dir_up">Client to Server (Upload)</option>
+              <option value="seq" selected data-i18n="iperf_dir_seq">⇅ Download, then upload (recommended)</option>
+              <option value="false" data-i18n="iperf_dir_up">Client to Server (Upload)</option>
               <option value="true" data-i18n="iperf_dir_down">Server to Client (-R Reverse / Download)</option>
               <option value="bidir" data-i18n="iperf_dir_bidir">⚡ Simultaneous Both Ways / Full Duplex (--bidir)</option>
             </select>
@@ -2478,6 +2480,7 @@
             <select id="sched-engine-select" class="form-input" onchange="markSchedDirty(); onSchedEngineSelectChange(this.value)">
               <option value="ookla" selected>⚡ Ookla Speedtest CLI</option>
               <option value="cloudflare">☁️ Cloudflare Edge (speed.cloudflare.com)</option>
+              <option value="fastcom">🎬 Fast.com (Netflix Open Connect)</option>
               <option value="rtr">🇦🇹 RTR-NetTest (netztest.at / Open-RMBT)</option>
               <option value="iperf3">⚡ iPerf3 Symmetrical Bandwidth & Jitter</option>
               <option value="all">🏆 All engines in turn (iPerf3 too, if its server answers)</option>
@@ -2508,6 +2511,29 @@
         </div>
           </div>
 
+          <!-- Where speed tests run, and the box on the owner's Wi-Fi -->
+          <div id="wifi-uplink-card" style="border: 1px solid #1e293b; border-radius: 8px; padding: 12px;">
+            <label class="form-label" for="meas-link" style="font-size: 12px;" data-i18n="meas_link_label">Speed tests run over:</label>
+            <select id="meas-link" class="form-input" style="max-width: 420px;">
+              <option value="auto" data-i18n="meas_link_auto">Ethernet when a cable is connected, otherwise Wi-Fi</option>
+              <option value="ethernet" data-i18n="meas_link_eth">Ethernet only</option>
+              <option value="wifi" data-i18n="meas_link_wifi">Wi-Fi only</option>
+            </select>
+            <div class="form-hint" data-i18n="wifi_uplink_hint">Wi-Fi reception: the box joins your own Wi-Fi network to measure over it. This is separate from the guest network client, which is for packet capture on another network.</div>
+            <div class="router-row-3" style="margin-top: 8px;">
+              <div class="form-group"><label class="form-label" for="wu-ssid" data-i18n="wifi_ssid">Network Name (SSID):</label><input type="text" id="wu-ssid" class="form-input" maxlength="64"></div>
+              <div class="form-group"><label class="form-label" for="wu-pass" data-i18n="wu_password">Wi-Fi password</label><input type="password" id="wu-pass" class="form-input" autocomplete="off"><div class="form-hint" id="wu-pass-hint"></div></div>
+              <div class="form-group"><label class="form-label" for="wu-iface" data-i18n="wu_iface">Wireless interface</label><select id="wu-iface" class="form-input"><option value="auto">auto</option></select></div>
+            </div>
+            <label class="form-label" style="display: flex; gap: 8px; align-items: center;"><input type="checkbox" id="wu-hidden"> <span data-i18n="wu_hidden">Hidden network</span></label>
+            <label class="form-label" style="display: flex; gap: 8px; align-items: center;"><input type="checkbox" id="wu-enabled"> <span data-i18n="wu_enabled">Connect the box to this Wi-Fi</span></label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+              <button type="button" class="btn-primary" onclick="saveWifiUplink()" data-i18n="col_save">Save</button>
+              <button type="button" class="btn-secondary" onclick="wifiUplinkAction('disconnect')" data-i18n="wu_disconnect">Disconnect</button>
+            </div>
+            <div class="form-hint" id="wu-status" aria-live="polite" style="margin-top: 6px;"></div>
+          </div>
+
           <!-- Per-engine minimum intervals -->
           <div id="sched-engine-intervals">
             <label class="form-label" style="font-size: 12px;" data-i18n="engine_intervals_title">How often each engine may run (minutes, 0 = every scheduled run):</label>
@@ -2521,8 +2547,11 @@
               <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">Cloudflare
                 <input type="number" id="sched-int-cloudflare" class="form-input" min="0" max="10080" value="0" style="width: 110px;" oninput="markSchedDirty()">
               </label>
+              <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">Fast.com
+                <input type="number" id="sched-int-fastcom" class="form-input" min="0" max="10080" value="360" style="width: 110px;" oninput="markSchedDirty()">
+              </label>
               <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">iPerf3
-                <input type="number" id="sched-int-iperf3" class="form-input" min="0" max="10080" value="0" style="width: 110px;" oninput="markSchedDirty()">
+                <input type="number" id="sched-int-iperf3" class="form-input" min="0" max="10080" value="60" style="width: 110px;" oninput="markSchedDirty()">
               </label>
             </div>
             <div class="form-hint" data-i18n="engine_intervals_hint">The schedule above sets how often the box checks; each engine then runs only when its own interval is over. Ookla runs at most hourly. iPerf3 joins the mixed run when an iPerf3 server is set and answers.</div>
@@ -3398,6 +3427,8 @@
               <select id="cfg-sched-engine" class="form-input">
                 <option value="ookla" selected>⚡ Ookla Speedtest CLI</option>
                 <option value="cloudflare">☁️ Cloudflare Edge (speed.cloudflare.com)</option>
+                <option value="fastcom">🎬 Fast.com (Netflix Open Connect)</option>
+              <option value="fastcom">🎬 Fast.com (Netflix Open Connect)</option>
                 <option value="rtr">🇦🇹 RTR-NetTest (netztest.at / Open-RMBT)</option>
                 <option value="all">🏆 All engines in turn (iPerf3 too, if its server answers)</option>
               </select>

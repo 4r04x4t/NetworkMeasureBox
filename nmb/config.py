@@ -394,6 +394,9 @@ class NetworkConfig:
     lan_ports: List[str] = field(default_factory=lambda: ["eth1"])
     dmz_interface: str = ""
     measurement_interface: str = "wan"  # wan, wan2, all, or interface name
+    # Where speed tests run: auto (Ethernet when a cable is connected, otherwise Wi-Fi),
+    # ethernet (only Ethernet) or wifi (only the Wi-Fi uplink).
+    measurement_link: str = "auto"
     wlan_interface: str = "wlan0"
     bridge_interface: str = "br0"
 
@@ -544,13 +547,14 @@ class ProbeConfig:
 class SpeedtestConfig:
     schedule_mode: str = "scheduled"          # "scheduled" (periodic automation) or "manual" (disabled / on-demand only)
     schedule_cron: str = "0 * * * *"
-    automated_engine: str = "ookla"           # "ookla", "cloudflare", "rtr", "all"
+    automated_engine: str = "ookla"           # "ookla", "cloudflare", "fastcom", "rtr", "all"
     # Per-engine minimum minutes between scheduled tests (0 = every scheduled run).
     # Ookla never runs more often than hourly, since it blocks boxes that test more often.
     ookla_interval_min: int = 60
     rtr_interval_min: int = 0
     cloudflare_interval_min: int = 0
-    iperf3_interval_min: int = 0
+    fastcom_interval_min: int = 360  # Fast.com moves a lot of data on fast lines; every 6 h by default
+    iperf3_interval_min: int = 60   # public iPerf3 servers take one client at a time; hourly is polite
     idle_wait_max_sec: float = 1800.0
     idle_threshold_mode: str = "percent"      # "percent" (< 2% network load) or "fixed" (custom kbps)
     idle_threshold_percent: float = 2.0       # dynamic network load threshold (e.g. 2.0%)
@@ -585,6 +589,16 @@ class GuestWiFiConfig:
     security: str = "auto"
     metric: int = 600
     auto_reconnect: bool = True
+
+
+@dataclass
+class WifiUplinkConfig:
+    """The box on the owner's own Wi-Fi for measuring (not the guest network feature)."""
+    enabled: bool = False
+    interface: str = "auto"     # auto = the first wireless interface
+    ssid: str = ""
+    password: str = ""
+    hidden: bool = False
 
 
 @dataclass
@@ -668,6 +682,7 @@ class Config:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     duckdns: DuckDNSConfig = field(default_factory=DuckDNSConfig)
     collector: CollectorConfig = field(default_factory=CollectorConfig)
+    wifi_uplink: WifiUplinkConfig = field(default_factory=WifiUplinkConfig)
     ooni: OoniConfig = field(default_factory=OoniConfig)
     wireguard: WireGuardConfig = field(default_factory=WireGuardConfig)
     openvpn: OpenVPNConfig = field(default_factory=OpenVPNConfig)
@@ -770,6 +785,8 @@ def load_config(path: Path | None = None) -> Config:
             cfg.network.lan_ports = [cfg.network.lan_interface] if cfg.network.lan_interface else ["eth1"]
         cfg.network.dmz_interface = n.get("dmz_interface", getattr(cfg.network, "dmz_interface", "")).strip()
         cfg.network.measurement_interface = n.get("measurement_interface", getattr(cfg.network, "measurement_interface", "wan")).strip()
+        link = n.get("measurement_link", "auto").strip().lower()
+        cfg.network.measurement_link = link if link in ("auto", "ethernet", "wifi") else "auto"
         cfg.network.wlan_interface = n.get("wlan_interface", cfg.network.wlan_interface).strip()
         cfg.network.bridge_interface = n.get("bridge_interface", cfg.network.bridge_interface).strip()
         cfg.network.lan_passthrough_enabled = n.getboolean("lan_passthrough_enabled", fallback=False)
@@ -850,7 +867,8 @@ def load_config(path: Path | None = None) -> Config:
         cfg.speedtest.ookla_interval_min = max(60, min(10080, st.getint("ookla_interval_min", fallback=60)))
         cfg.speedtest.rtr_interval_min = max(0, min(10080, st.getint("rtr_interval_min", fallback=0)))
         cfg.speedtest.cloudflare_interval_min = max(0, min(10080, st.getint("cloudflare_interval_min", fallback=0)))
-        cfg.speedtest.iperf3_interval_min = max(0, min(10080, st.getint("iperf3_interval_min", fallback=0)))
+        cfg.speedtest.fastcom_interval_min = max(0, min(10080, st.getint("fastcom_interval_min", fallback=360)))
+        cfg.speedtest.iperf3_interval_min = max(0, min(10080, st.getint("iperf3_interval_min", fallback=60)))
         cfg.speedtest.idle_wait_max_sec = st.getfloat("idle_wait_max_sec", fallback=cfg.speedtest.idle_wait_max_sec)
         cfg.speedtest.idle_threshold_mode = st.get("idle_threshold_mode", getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower().strip()
         cfg.speedtest.idle_threshold_percent = st.getfloat("idle_threshold_percent", fallback=getattr(cfg.speedtest, "idle_threshold_percent", 2.0))
@@ -966,6 +984,14 @@ def load_config(path: Path | None = None) -> Config:
         cfg.logging.console_enabled = lg.getboolean("console_enabled", fallback=cfg.logging.console_enabled)
         cfg.logging.log_requests = lg.getboolean("log_requests", fallback=getattr(cfg.logging, "log_requests", True))
 
+    if parser.has_section("wifi_uplink"):
+        wu = parser["wifi_uplink"]
+        cfg.wifi_uplink.enabled = wu.getboolean("enabled", fallback=False)
+        cfg.wifi_uplink.interface = wu.get("interface", "auto").strip() or "auto"
+        cfg.wifi_uplink.ssid = wu.get("ssid", "").strip()
+        cfg.wifi_uplink.password = wu.get("password", "")
+        cfg.wifi_uplink.hidden = wu.getboolean("hidden", fallback=False)
+
     if parser.has_section("collector"):
         co = parser["collector"]
         cfg.collector.enabled = co.getboolean("enabled", fallback=False)
@@ -1042,7 +1068,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
         except Exception:
             pass
 
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -1068,6 +1094,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["network"]["lan_ports"] = ",".join(getattr(cfg.network, "lan_ports", ["eth1"]))
     parser["network"]["dmz_interface"] = str(getattr(cfg.network, "dmz_interface", ""))
     parser["network"]["measurement_interface"] = str(getattr(cfg.network, "measurement_interface", "wan"))
+    parser["network"]["measurement_link"] = str(getattr(cfg.network, "measurement_link", "auto"))
     parser["network"]["wlan_interface"] = str(cfg.network.wlan_interface)
     parser["network"]["bridge_interface"] = str(cfg.network.bridge_interface)
     parser["network"]["lan_passthrough_enabled"] = str(cfg.network.lan_passthrough_enabled).lower()
@@ -1141,6 +1168,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["speedtest"]["ookla_interval_min"] = str(max(60, int(cfg.speedtest.ookla_interval_min)))
     parser["speedtest"]["rtr_interval_min"] = str(int(cfg.speedtest.rtr_interval_min))
     parser["speedtest"]["cloudflare_interval_min"] = str(int(cfg.speedtest.cloudflare_interval_min))
+    parser["speedtest"]["fastcom_interval_min"] = str(int(cfg.speedtest.fastcom_interval_min))
     parser["speedtest"]["iperf3_interval_min"] = str(int(cfg.speedtest.iperf3_interval_min))
     parser["speedtest"]["idle_wait_max_sec"] = str(cfg.speedtest.idle_wait_max_sec)
     parser["speedtest"]["idle_threshold_mode"] = str(getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower()
@@ -1222,6 +1250,13 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["logging"]["backup_count"] = str(cfg.logging.backup_count)
     parser["logging"]["console_enabled"] = str(cfg.logging.console_enabled).lower()
     parser["logging"]["log_requests"] = str(getattr(cfg.logging, "log_requests", True)).lower()
+
+    # Wi-Fi uplink for measuring
+    parser["wifi_uplink"]["enabled"] = str(cfg.wifi_uplink.enabled).lower()
+    parser["wifi_uplink"]["interface"] = str(cfg.wifi_uplink.interface)
+    parser["wifi_uplink"]["ssid"] = str(cfg.wifi_uplink.ssid)
+    parser["wifi_uplink"]["password"] = str(cfg.wifi_uplink.password)
+    parser["wifi_uplink"]["hidden"] = str(cfg.wifi_uplink.hidden).lower()
 
     # Central collector
     parser["collector"]["enabled"] = str(cfg.collector.enabled).lower()

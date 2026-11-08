@@ -472,7 +472,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 <b>📡 Hálózati Mérések & Diagnosztika:</b>
 • /status - Rendszerállapot, Uptime, CPU és SLA megfelelőség
 • /ping - Valós idejű késleltetés és csomagvesztés referencia csomópontok felé
-• /test (vagy /speed) <code>[ookla|cloudflare|rtr]</code> - Sebességmérés futtatása
+• /test (vagy /speed) <code>[ookla|cloudflare|fastcom|rtr]</code> - Sebességmérés futtatása
 • /report - 24 órás mérési és SLA megfelelőségi riport letöltése (.html fájl)
 • /ai - AI diagnosztikai naplócsomag letöltése LLM-ekhez (.md fájl)
 • /mode <code>[auto|standalone|mode_a|mode_b]</code> - Üzemmód váltás
@@ -531,6 +531,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "btn_rtr": "🔄 RTR-NetTest",
         "btn_ookla": "⚡ Ookla",
         "btn_cloudflare": "☁️ Cloudflare",
+        "btn_fastcom": "🎬 Fast.com",
     },
 
     # -------------------------------------------------------------------------
@@ -607,7 +608,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 <b>📡 Network Measurements & Diagnostics:</b>
 • /status - System status, Uptime, CPU and SLA compliance
 • /ping - Real-time latency and packet loss to reference endpoints
-• /test (or /speed) <code>[ookla|cloudflare|rtr]</code> - Run speed test
+• /test (or /speed) <code>[ookla|cloudflare|fastcom|rtr]</code> - Run speed test
 • /report - Download 24-hour official SLA compliance dossier (.html file)
 • /ai - Download AI diagnostic snapshot bundle for LLMs (.md file)
 • /mode <code>[auto|standalone|mode_a|mode_b]</code> - Switch operating mode
@@ -666,6 +667,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "btn_rtr": "🔄 RTR-NetTest",
         "btn_ookla": "⚡ Ookla",
         "btn_cloudflare": "☁️ Cloudflare",
+        "btn_fastcom": "🎬 Fast.com",
     },
 
     # -------------------------------------------------------------------------
@@ -742,7 +744,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 <b>📡 Netzwerkmessungen & Diagnose:</b>
 • /status - Systemstatus, Uptime, CPU und SLA-Konformität
 • /ping - Echtzeit-Latenz und Paketverlust zu Referenz-Knoten
-• /test (oder /speed) <code>[ookla|cloudflare|rtr]</code> - Speedtest ausführen
+• /test (oder /speed) <code>[ookla|cloudflare|fastcom|rtr]</code> - Speedtest ausführen
 • /report - 24-Stunden-SLA-Prüfbericht herunterladen (.html)
 • /ai - AI-Diagnoseprotokoll für LLMs herunterladen (.md)
 • /mode <code>[auto|standalone|mode_a|mode_b]</code> - Betriebsmodus wechseln
@@ -801,6 +803,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "btn_rtr": "🔄 RTR-NetTest",
         "btn_ookla": "⚡ Ookla",
         "btn_cloudflare": "☁️ Cloudflare",
+        "btn_fastcom": "🎬 Fast.com",
     },
 
     # -------------------------------------------------------------------------
@@ -877,7 +880,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 <b>📡 Mesures Réseau & Diagnostics:</b>
 • /status - État du système, Disponibilité, CPU et conformité SLA
 • /ping - Latence en temps réel et perte de paquets vers les nœuds
-• /test (ou /speed) <code>[ookla|cloudflare|rtr]</code> - Lancer un test de débit
+• /test (ou /speed) <code>[ookla|cloudflare|fastcom|rtr]</code> - Lancer un test de débit
 • /report - Télécharger le dossier d'audit SLA 24h (.html)
 • /ai - Télécharger le snapshot de diagnostic pour LLM (.md)
 • /mode <code>[auto|standalone|mode_a|mode_b]</code> - Changer le mode réseau
@@ -936,6 +939,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "btn_rtr": "🔄 RTR-NetTest",
         "btn_ookla": "⚡ Ookla",
         "btn_cloudflare": "☁️ Cloudflare",
+        "btn_fastcom": "🎬 Fast.com",
     },
 
     # -------------------------------------------------------------------------
@@ -1012,7 +1016,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 <b>📡 Вимірювання мережі та діагностика:</b>
 • /status - Стан системи, Uptime, CPU та відповідність SLA
 • /ping - Затримка в реальному часі та втрата пакетів до вузлів
-• /test (або /speed) <code>[ookla|cloudflare|rtr]</code> - Запустити тест швидкості
+• /test (або /speed) <code>[ookla|cloudflare|fastcom|rtr]</code> - Запустити тест швидкості
 • /report - Завантажити 24-годинний офіційний звіт SLA (.html)
 • /ai - Завантажити пакет діагностики для LLM (.md)
 • /mode <code>[auto|standalone|mode_a|mode_b]</code> - Змінити режим роботи
@@ -1071,6 +1075,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "btn_rtr": "🔄 RTR-NetTest",
         "btn_ookla": "⚡ Ookla",
         "btn_cloudflare": "☁️ Cloudflare",
+        "btn_fastcom": "🎬 Fast.com",
     }
 }
 

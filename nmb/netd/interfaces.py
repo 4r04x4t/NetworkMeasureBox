@@ -408,6 +408,26 @@ def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface
         ip = addrs[0].split("/")[0] if addrs else None
         return target_iface, ip, is_wired_interface(target_iface)
 
+    # 1b. [network] measurement_link: "ethernet" or "wifi" pins the link; "auto" goes on below.
+    link = getattr(getattr(cfg, "network", None), "measurement_link", "auto") if cfg is not None else "auto"
+    if link == "wifi":
+        from nmb.netd.wifi_uplink import uplink_interface
+        wl = uplink_interface(cfg)
+        if wl and interface_exists(wl):
+            addrs = get_ip_addresses(wl)
+            ip = addrs[0].split("/")[0] if addrs else None
+            log.info("measurement link set to Wi-Fi: using %s (ip=%s)", wl, ip)
+            return wl, ip, False
+        log.warning("measurement link set to Wi-Fi, but no wireless interface is up")
+        return wl or "wlan0", None, False
+    if link == "ethernet":
+        wired = find_active_wired_interface()
+        if wired:
+            return wired[0], wired[1], True
+        wan = getattr(cfg.network, "wan_interface", "eth0") or "eth0"
+        log.warning("measurement link set to Ethernet, but no cable with an address is connected")
+        return wan, None, True
+
     # 2. STRICT WIRED PRIORITY: If a cable is plugged in with carrier & IP
     wired = find_active_wired_interface()
     if wired:
