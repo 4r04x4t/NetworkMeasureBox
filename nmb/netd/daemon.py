@@ -200,6 +200,12 @@ class NetworkDaemon:
                     wifi_share_sync(self.cfg)
                 except Exception as e:
                     log.debug("wifi share: %s", e)
+                # Free space before the disk fills up (checks every 10 minutes).
+                try:
+                    from nmb.common.storage_guard import run as storage_guard_run
+                    storage_guard_run(self.cfg)
+                except Exception as e:
+                    log.warning("storage guard: %s", e)
 
                 if is_ready and target_mode != self.current_mode_name:
                     self.switch_mode(target_mode, reason)

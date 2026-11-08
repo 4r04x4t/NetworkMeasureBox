@@ -72,6 +72,22 @@ install_miniooni() {
 }
 
 # ------------------------------------------------------------------------------
+# 0. Storage: enough room to install, and smaller logs on small disks
+# ------------------------------------------------------------------------------
+# Packages, the code, Ookla, OONI and a first database take about 500 MB.
+DISK_TOTAL_MB=$(df -Pm / 2>/dev/null | awk 'NR==2 {print $2}')
+DISK_FREE_MB=$(df -Pm / 2>/dev/null | awk 'NR==2 {print $4}')
+if [ -n "$DISK_FREE_MB" ]; then
+    info "Storage: ${DISK_FREE_MB} MB free of ${DISK_TOTAL_MB} MB on /."
+    if [ "$DISK_FREE_MB" -lt 500 ] && [ "${NMB_IGNORE_DISK:-0}" != "1" ]; then
+        error "Only ${DISK_FREE_MB} MB free on /; NMB needs at least 500 MB. Free some space (or set NMB_IGNORE_DISK=1 to try anyway)."
+    fi
+    if [ "$DISK_TOTAL_MB" -lt 4096 ]; then
+        warn "Small disk (${DISK_TOTAL_MB} MB): logs are kept smaller, and the storage guard deletes the oldest logs and measurements before the disk fills up."
+    fi
+fi
+
+# ------------------------------------------------------------------------------
 # 1. OS & Init System Detection
 # ------------------------------------------------------------------------------
 OS_TYPE="debian"
@@ -316,6 +332,11 @@ if [ ! -f "$CONFIG_FILE" ]; then
         cp "$SCRIPT_DIR/config/nmb.conf.example" "$CONFIG_FILE"
     fi
     info "Created default configuration at $CONFIG_FILE"
+    # Small disks: smaller log files (the storage guard also scales its free-space target to the disk).
+    if [ -n "$DISK_TOTAL_MB" ] && [ "$DISK_TOTAL_MB" -lt 8192 ] && ! grep -q '^\[logging\]' "$CONFIG_FILE"; then
+        printf '\n[logging]\nmax_bytes = 2097152\nbackup_count = 2\n' >> "$CONFIG_FILE"
+        info "Small disk: developer log limited to 2 x 2 MB."
+    fi
     # Interface names differ between systems (eth0, ens3, enp1s0...); use the ones that exist here.
     if [ ! -e /sys/class/net/eth0 ]; then
         WAN_IF=$(ip route show default 2>/dev/null | awk '{print $5; exit}')

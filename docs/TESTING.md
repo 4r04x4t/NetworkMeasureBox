@@ -2,7 +2,7 @@
 
 What has been tested, where, how, and with what result. Update this file whenever a test is run again or a new one is added. The README's *Tested Status* table summarises it.
 
-Last full sweep: 2026-11-07.
+Last full sweep: 2026-11-07. Last update: 2026-11-08.
 
 ## Where the tests ran
 
@@ -13,7 +13,7 @@ Last full sweep: 2026-11-07.
 | **Box** | Raspberry Pi 4, Debian 13 (arm64), `standalone` mode, wired to the developer's router. In daily use on a 1000/300 Mbps home fibre (FTTH) line. |
 | **VM-D13** | QEMU/KVM on an x86-64 PC, Debian 13 cloud image with the full `linux-image-amd64` kernel. Two NICs (user-mode NAT as WAN, a socket link as LAN). Wi-Fi with `mac80211_hwsim` (three simulated radios); clients in network namespaces. |
 | **VM-distro** | Clean QEMU/KVM VMs of Debian 13, Debian 12, Ubuntu 24.04 LTS and Alpine 3.20 (x86-64), each installed from scratch with `setup.sh`. |
-| **Unit tests** | `python3 -m unittest discover tests` (223 tests) on the developer PC and, as root, inside VM-D13. |
+| **Unit tests** | `python3 -m unittest discover tests` (303 tests) on the developer PC and, as root, inside VM-D13. |
 
 Simulated means: real Linux, real `hostapd`, `dnsmasq`, `pppd`, WireGuard and OpenVPN, but virtual NICs and radios. Timing, drivers and radio behaviour of real hardware are not covered.
 
@@ -121,12 +121,85 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | Update from GitHub (no Git install) | Unit tests | ⚠️ | Safe unpacking (path traversal refused), check against GitHub (mocked), status file, root and commit checks. Not yet run against the real repository on a box |
 | Reinstall with `setup.sh` | VM-distro (Ubuntu 26.04, Alpine 3.22, Rocky 10) | ✅ | Settings, admin password and measurements kept; a stale file in `/opt/nmb` removed; config 0640 `nmb:nmb` |
 | Central collector and remote control | Local collector and box client, unit tests | ✅ | Upload (repeat adds nothing), search by case number, earlier case number and customer number, CSV, diagnostics and events only with consent, remote speed test run and reported, commands refused without consent or from another site, unknown commands refused on both sides, secrets stored as hashes (0600). Not yet run between two machines |
+| Storage guard | Box, unit tests | ⚠️ | On the Box (116 GB) it keeps 2048 MB free and deleted nothing, as it should. Unit tests: target by disk size, oldest logs first, newest backup kept, measurements of the last 7 days kept. Not yet run on a really full disk |
+| Saving settings from two programs at once | Box, unit tests | ✅ | Found on the Box: `nmb-web` starting while `nmb-cli` saved left a broken `nmb.conf` (a duplicated section and a cut line), and every program failed to read it. Fixed (one save at a time, own temporary file); a unit test saves a short and a long config from four threads 60 times and the file always parses |
 
-## Candidates
+## How to test
 
-### Operating systems
+Every change is tested at the level it can break. Write down what you ran, where, and what you saw; a change without a recorded test is not finished (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
 
-Found by checking what `setup.sh` detects and what the code needs (Python 3.10 or newer at run time, standard library only, systemd with nftables, or Alpine with OpenRC).
+### 1. Unit tests (every change)
+
+```sh
+python3 -m unittest discover -s tests          # about 1 minute; must end with OK
+node --check nmb/web/assets/dashboard.js       # when the Web UI script changed
+bash -n setup.sh                               # when setup.sh changed
+```
+
+- New behaviour gets a test in `tests/`. Mock the system (`subprocess`, `/sys`, sockets); tests must pass on a normal PC without root, without network and without the box.
+- `tests/test_tui.py` fails when the Web UI calls an endpoint `nmb-cli` does not know: add the action to `nmb/tui/catalog.py`.
+- Translations: every key in all five languages, no Hungarian text in the other languages:
+  `python3 -c "from nmb.web.i18n import TRANSLATIONS as T; k=set(T['en']); print({l: len(k ^ set(v)) for l, v in T.items()})"` must print only zeros.
+
+### 2. On a real box (anything that touches the network, the system or measuring)
+
+1. Install the change the way users get it: `git archive HEAD` to the box, then `sudo bash setup.sh` from the unpacked folder. Do not copy single files, except for a quick try, and say so when you do.
+2. Check: `systemctl is-active nmb-web nmb-netd nmb-probe` and `systemctl list-units 'nmb*' --state=failed`.
+3. Run the feature for real and look at the result where users see it: the Web UI, `nmb-cli latest`, the database (`sqlite3 -readonly /var/lib/nmb/live/nmb.db`), the logs (`journalctl -u nmb-web -u nmb-netd`).
+4. Measure what the feature claims. For network features this means byte counters: read `/sys/class/net/<if>/statistics/{rx,tx}_bytes` before and after, so you know which link the traffic really took.
+5. Put the box back as it was: settings, test interfaces, rules. Say what you changed and that you undid it.
+
+### 3. Without risking the box's own connection
+
+- **A LAN client:** a veth pair with one end in a network namespace (`ip netns add t; ip link add v0 type veth peer name v1; ip link set v1 netns t`). The namespace is a device plugged into the box. Never test DHCP or routing on the port you are connected through.
+- **A second DHCP server:** `dnsmasq --port=0 --interface=v1 --bind-interfaces --dhcp-range=...` inside the namespace.
+- **Simulated Wi-Fi:** `mac80211_hwsim` in a VM (VM-D13). Real radios behave differently; mark such results as simulated.
+- **Speed engines:** run one engine at a time; Ookla at most once an hour from the same public IP, or Ookla blocks it for hours.
+
+### 4. In virtual machines (installers, other distributions, network modes)
+
+- A clean cloud image per distribution, installed from scratch with `setup.sh`; then install again over it and reboot. Check that settings, the admin password and measurements survive, and that `/etc/nmb/nmb.conf` is `0640 nmb:nmb`.
+- Network modes and the access point in VM-D13 (two NICs, simulated radios, clients in namespaces).
+
+### What to record
+
+For every row: where (Box, VM name, unit tests), the result (✅ ⚠️ ❌), and how: what was set up, what was measured, numbers, and what was found and fixed on the way. Something that was not tried is written as not tried, not as working.
+
+## Still to test
+
+### Needs a real cable or hardware
+
+| What | How |
+|---|---|
+| Wi-Fi shared on a LAN port, for real | Box on Wi-Fi, Ethernet cable from the box to a laptop (no router): the laptop gets 192.168.77.x and reaches the internet. Then plug the box's cable into the home router: the box must stop its DHCP within seconds and get the router's address |
+| Wi-Fi uplink with the box's own profile | `nmb-cli run wifi.uplink ssid=... password=... enabled=true` on a box not yet on Wi-Fi; then a speed test with `measurement_link = wifi`, counters on `wlan0` |
+| Guest Wi-Fi and main Wi-Fi on two radios | A USB Wi-Fi adapter as `wlan1`: one main, one guest; both banners in the device explorer |
+| Real Wi-Fi radios as an access point | 2.4/5/6 GHz, Wi-Fi 6/7, with real clients |
+| PPPoE on a real line, the Nighthawk M6 Pro, a Pi 5 | |
+| Planned routers | Nothing runs on routers yet; see the porting plan |
+
+### Can be done now (VM or box)
+
+| What | How |
+|---|---|
+| Storage guard on a full disk | VM with a small disk (2–4 GB); fill it (`fallocate -l ... /var/tmp/fill`), wait up to 10 minutes or call `storage_guard.run(cfg, force=True)` as root: rotated logs go first, measurements of the last 7 days stay, an event is written |
+| Installer on a small or full disk | `setup.sh` with less than 500 MB free must stop with a clear message; on a disk under 8 GB the new config gets 2 × 2 MB logs |
+| Saving settings from several programs at once | Web UI and `nmb-cli` saving in a loop for a few minutes; `nmb.conf` must stay readable (the unit test covers threads in one process) |
+| Fast.com on a line other than 1000/300 | Compare with RTR-NetTest on the same line |
+| Long run | 24–72 hours with per-minute tests: memory, database size, log rotation, storage guard |
+| Low memory, longer | 512 MB passed for 25 minutes; 24 hours still to do |
+| Upgrade and backup from an older release | Install 2.4.0, update to the current one with its config; restore a 2.4.0 backup |
+| WAN failover, load balancing, VLAN, link aggregation | Two WAN NICs, pull one; a Linux bridge with VLAN filtering |
+| Hostile networks | IPv6-only WAN, CGNAT, broken DNS, captive portal, flapping link, clock jump |
+| Telegram, SMTP | Against local mock servers, then a real bot |
+| Update from GitHub on a box | Once the current code is on GitHub |
+| Central collector between two machines | Collector on one PC, box on another network |
+| Web UI | All five languages, several users at once, wrong logins, Firefox, Chrome and a phone |
+| firewalld ports, Debian 12 and Fedora reboot, Tailscale, OONI, a real DuckDNS domain | |
+
+### Operating systems not yet tested
+
+Found by checking what `setup.sh` detects and what the code needs (Python 3.10 or newer, standard library only, systemd with nftables, or Alpine with OpenRC).
 
 | System | Expected | Why | How to test |
 |---|---|---|---|
@@ -134,39 +207,13 @@ Found by checking what `setup.sh` detects and what the code needs (Python 3.10 o
 | Raspberry Pi OS (armhf, 32-bit) | Unknown | The Ookla and RMBT builds have only been run on arm64 and x86-64 | On a Pi 2/3/Zero 2 |
 | Armbian, DietPi | Should work | Debian-based images for other single-board computers | On the board, or their x86 images |
 | Linux Mint 22, Pop!_OS | Should work | Ubuntu 24.04 based; desktop NetworkManager may claim the ports | VM |
-| Devuan | Refused | No systemd; `setup.sh` now stops with a clear message | — |
+| Devuan | Refused | No systemd; `setup.sh` stops with a clear message | — |
 | Arch, Manjaro, openSUSE, Void, NixOS | Not supported | Other package managers or init systems | Needs a port |
 | OpenWrt | Not supported | Planned in the native rewrite, see `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md` | — |
+| NMB's own distribution | Planned | See the porting plan | — |
 
-### Features and situations not yet tested
+## Known limits
 
-Can be done in VMs:
-
-- **Low memory, longer:** 512 MB passed for 25 minutes; a 24-hour run is still to do.
-- **Long run:** 24–72 hours with per-minute tests; memory growth, database size, log rotation.
-- **Backup from an older release:** restore a 2.4.0 backup.
-- **Upgrade from an older release:** install 2.4.0, then update to the current version with its config kept.
-- **WAN failover and multi-WAN load balancing:** two WAN NICs, pull one.
-- **VLAN, link aggregation, passthrough:** with a simulated switch (Linux bridge with VLAN filtering, a bonded peer).
-- **Hostile networks:** IPv6-only WAN, CGNAT, broken DNS, a captive portal, a flapping link, a clock jump (Pi has no clock battery).
-- **Telegram and SMTP** against local mock servers.
-- **Traceroute, packet sniffer, OONI, report generation, driver installer.**
-- **Web UI:** the five languages complete, several users at once, repeated wrong logins, and Firefox, Chrome and a phone browser.
-
-Needs hardware or accounts:
-
-- Real Wi-Fi radios (2.4/5/6 GHz, Wi-Fi 6/7), a real PPPoE line, the Nighthawk M6 Pro, a USB Ethernet adapter, a Pi 5.
-- Tailscale, a real DuckDNS domain, a real Telegram bot.
-
-## Open
-
-- **The Box still has the old polkit rule.** Guest Wi-Fi from the Web UI fails there with "network-control: auth" until the new `os/90-nmb.rules` is installed (re-run `setup.sh`, or copy it to `/etc/polkit-1/rules.d/`).
-- Not tested: opening ports in firewalld (it was not running on the Fedora and AlmaLinux cloud images).
-- Not tested: Debian 12 and Fedora reboot, Tailscale, a real Telegram bot, SMTP, OONI, real Wi-Fi and PPPoE hardware.
-- Not yet run for real: the update from GitHub on a box (waits until the current code is on GitHub, since the box would otherwise go back to an older version), and the central collector between two machines.
-- Wi-Fi measuring: with no cable the box measures over Wi-Fi already (it falls back to the default route); measuring over Wi-Fi while a cable is plugged in, both at once, and the box as a Wi-Fi-to-Ethernet adapter are still to be designed.
-
-## Re-running
-
-- Unit tests: `python3 -m unittest discover tests` (about 3 minutes).
-- The VM scripts used for these runs are not part of the repository; each row above says what was set up.
+- Ookla blocks a public IP that tests often, also after refused attempts; the box then pauses Ookla (30 min, doubling up to 4 h). It cannot be forced; run Ookla rarely.
+- Up to 15 minutes of results can be lost on a power cut, by design (the live database is in RAM).
+- The VM scripts used for the runs above are not part of the repository; each row says what was set up.

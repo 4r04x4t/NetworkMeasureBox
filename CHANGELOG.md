@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Storage guard (`[storage]`, on by default): before the disk fills up, the box deletes the oldest logs, backups, reports and journal, and only then the oldest measurements (the last 7 days are kept). The free space it keeps depends on the size of the disk. `setup.sh` stops with a clear message when less than 500 MB is free, and uses smaller logs on disks under 8 GB.
+- CONTRIBUTING.md (English and Hungarian) and a pull request template: how to test a change and what to write down about it.
+- The testing record says how to test (unit tests, on a box, without risking the box's own connection, in VMs) and lists what is still to test and how.
+- NMB's own Linux distribution, built on the de-Pythonized `nmbd`, is in the porting plan. Planned only.
+- ASUS RT-AC57U v1 (MediaTek MT7621AT, 128 MiB RAM, 16 MiB flash) is listed as a planned router target. Planned only, like the other routers.
 - Wi-Fi shared on a LAN port (`[wifi_share]`, off by default): when the box is on Wi-Fi and the port has no internet of its own, devices on that port get addresses from the box (192.168.77.0/24 by default) and reach the internet through the box's Wi-Fi. The box never hands out addresses where another DHCP server answers: it checks before starting, every minute, and right after a cable is plugged in (stopping its own DHCP first). Web UI card under the schedule, `nmb-cli run wifi.share`.
 - In Ports & Drivers each wireless interface can be the *Guest Wi-Fi client* or the *Main Wi-Fi client (measuring)*. One interface cannot be both; taking the guest client's radio away turns the guest client off, and the automatic choice of the main client skips the guest client's radio.
 - The README and the testing record say on what line NMB is developed and tested: one 1000/300 Mbps home fibre (FTTH) connection, with a Raspberry Pi 4.

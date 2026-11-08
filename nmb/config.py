@@ -603,6 +603,14 @@ class WifiUplinkConfig:
 
 
 @dataclass
+class StorageConfig:
+    """Free space before the disk fills up (see nmb.common.storage_guard)."""
+    auto_cleanup: bool = True
+    min_free_mb: int = 0      # 0 = from the size of the disk
+    keep_days: int = 7        # measurements younger than this are kept
+
+
+@dataclass
 class WifiShareConfig:
     """The box's Wi-Fi internet on its LAN port, with its own DHCP, when that port has no upstream."""
     enabled: bool = False
@@ -693,6 +701,7 @@ class Config:
     collector: CollectorConfig = field(default_factory=CollectorConfig)
     wifi_uplink: WifiUplinkConfig = field(default_factory=WifiUplinkConfig)
     wifi_share: WifiShareConfig = field(default_factory=WifiShareConfig)
+    storage: StorageConfig = field(default_factory=StorageConfig)
     ooni: OoniConfig = field(default_factory=OoniConfig)
     wireguard: WireGuardConfig = field(default_factory=WireGuardConfig)
     openvpn: OpenVPNConfig = field(default_factory=OpenVPNConfig)
@@ -1002,6 +1011,12 @@ def load_config(path: Path | None = None) -> Config:
         cfg.wifi_uplink.password = wu.get("password", "")
         cfg.wifi_uplink.hidden = wu.getboolean("hidden", fallback=False)
 
+    if parser.has_section("storage"):
+        so = parser["storage"]
+        cfg.storage.auto_cleanup = so.getboolean("auto_cleanup", fallback=True)
+        cfg.storage.min_free_mb = max(0, min(100_000, so.getint("min_free_mb", fallback=0)))
+        cfg.storage.keep_days = max(1, min(3650, so.getint("keep_days", fallback=7)))
+
     if parser.has_section("wifi_share"):
         sh = parser["wifi_share"]
         cfg.wifi_share.enabled = sh.getboolean("enabled", fallback=False)
@@ -1115,7 +1130,7 @@ def _save_config_locked(cfg: Config, path: Path) -> bool:
         except Exception:
             pass
 
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "wifi_share", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "wifi_share", "storage", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -1304,6 +1319,11 @@ def _save_config_locked(cfg: Config, path: Path) -> bool:
     parser["wifi_uplink"]["ssid"] = str(cfg.wifi_uplink.ssid)
     parser["wifi_uplink"]["password"] = str(cfg.wifi_uplink.password)
     parser["wifi_uplink"]["hidden"] = str(cfg.wifi_uplink.hidden).lower()
+
+    # Storage guard
+    parser["storage"]["auto_cleanup"] = str(cfg.storage.auto_cleanup).lower()
+    parser["storage"]["min_free_mb"] = str(int(cfg.storage.min_free_mb))
+    parser["storage"]["keep_days"] = str(int(cfg.storage.keep_days))
 
     # Wi-Fi shared on the LAN port
     parser["wifi_share"]["enabled"] = str(cfg.wifi_share.enabled).lower()

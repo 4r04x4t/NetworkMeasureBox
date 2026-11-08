@@ -1,5 +1,5 @@
 # 🌐 NetworkMeasureBox (NMB) — Router Porting & 100% De-Pythonization Specification
-## Native Systems Engineering Plan for ASUS RT-AXE7800, ASUS RT-N12+ (MT7620N), TP-Link TL-WR740N (v4.23), TP-Link TL-WR1043ND v1, and TP-Link Archer C6 v2.0
+## Native Systems Engineering Plan for ASUS RT-AXE7800, ASUS RT-N12+ (MT7620N), TP-Link TL-WR740N (v4.23), TP-Link TL-WR1043ND v1, TP-Link Archer C6 v2.0 and ASUS RT-AC57U v1
 
 > **Status: PLANNED, NOT IMPLEMENTED.** NMB is currently developed and run only on the Raspberry Pi 4 (Python). No router software or firmware exists yet. All binary sizes, memory figures, CPU loads and throughput values in this document are design targets, not measurements.
 
@@ -61,20 +61,21 @@ graph TD
 
 ### 1.2 Additional Planned Targets
 
-| Metric / Parameter | TP-Link TL-WR1043ND v1.x | TP-Link Archer C6 v2.x (EU) |
-| :--- | :--- | :--- |
-| **WikiDevi Reference** | [TP-LINK TL-WR1043ND v1.x](https://wikidevi.wi-cat.ru/TP-LINK_TL-WR1043ND_v1.x) | [TP-LINK Archer C6 v2.x](https://wikidevi.wi-cat.ru/TP-LINK_Archer_C6_v2.x) |
-| **FCC ID** | `TE7WR1043NX` | `TE7A6` |
-| **SoC** | Atheros AR9132 @ 400 MHz | Qualcomm Atheros QCA9563 @ 775 MHz |
-| **RAM** | 32 MiB | 128 MiB DDR2 |
-| **Flash** | 8 MiB | 8 MiB SPI |
-| **Switch Chip** | Realtek RTL8366RB | Qualcomm Atheros QCA8337N |
-| **Wired Network** | 1x 1GbE WAN + 4x 1GbE LAN | 1x 1GbE WAN + 4x 1GbE LAN |
-| **Wi-Fi** | 802.11b/g/n, AR9132 + AR9103 (3x3:2) | 2.4 GHz b/g/n (QCA9563), 5 GHz a/n/ac (QCA9886), AC1200 |
-| **Firmware Basis** | OpenWrt (listed as supported; target to confirm) | OpenWrt `ath79` (EU v2 support listed) |
-| **Planned Implementation** | C11 / musl, same constraints as the 32 MiB Tier 2 target | C11 / musl; more RAM than Tier 2, but the same 8 MiB flash limit |
+| Metric / Parameter | TP-Link TL-WR1043ND v1.x | TP-Link Archer C6 v2.x (EU) | ASUS RT-AC57U v1 |
+| :--- | :--- | :--- | :--- |
+| **WikiDevi Reference** | [TP-LINK TL-WR1043ND v1.x](https://wikidevi.wi-cat.ru/TP-LINK_TL-WR1043ND_v1.x) | [TP-LINK Archer C6 v2.x](https://wikidevi.wi-cat.ru/TP-LINK_Archer_C6_v2.x) | [ASUS RT-AC57U](https://wikidevi.wi-cat.ru/ASUS_RT-AC57U) |
+| **FCC ID** | `TE7WR1043NX` | `TE7A6` | none listed (EEC/RU0000040239 in the page body) |
+| **SoC** | Atheros AR9132 @ 400 MHz | Qualcomm Atheros QCA9563 @ 775 MHz | MediaTek MT7621AT, 2 cores @ 880 MHz |
+| **RAM** | 32 MiB | 128 MiB DDR2 | 128 MiB (Winbond W631GG6KB-15) |
+| **Flash** | 8 MiB | 8 MiB SPI | 16 MiB (Spansion S25FL128SAIF00) |
+| **Switch Chip** | Realtek RTL8366RB | Qualcomm Atheros QCA8337N | in the MT7621AT |
+| **Wired Network** | 1x 1GbE WAN + 4x 1GbE LAN | 1x 1GbE WAN + 4x 1GbE LAN | 1x 1GbE WAN + 4x 1GbE LAN |
+| **Wi-Fi** | 802.11b/g/n, AR9132 + AR9103 (3x3:2) | 2.4 GHz b/g/n (QCA9563), 5 GHz a/n/ac (QCA9886), AC1200 | 2.4 GHz b/g/n MT7603EN (2x2:2), 5 GHz a/n/ac MT7612EN (2x2:2), AC1200 |
+| **Other** | | | 1x USB 2.0, serial header J2, 12 V 2 A |
+| **Firmware Basis** | OpenWrt (listed as supported; target to confirm) | OpenWrt `ath79` (EU v2 support listed) | WikiDevi lists Padavan (work in progress); OpenWrt `ramips/mt7621` to confirm |
+| **Planned Implementation** | C11 / musl, same constraints as the 32 MiB Tier 2 target | C11 / musl; more RAM than Tier 2, but the same 8 MiB flash limit | C11 / musl or Go; 16 MiB flash and two MIPS cores leave room for more than Tier 2. Gigabit test throughput on 880 MHz MIPS must be measured |
 
-Notes: Archer C6 v3.0 and v3.2 use MediaTek chips and are different hardware, so this target covers v2.x only. WikiDevi warns that multiple C6 revisions exist. The gigabit ports of both routers are not a promise of gigabit test throughput; the CPU limit must be measured on real hardware.
+Notes: Archer C6 v3.0 and v3.2 use MediaTek chips and are different hardware, so this target covers v2.x only. The RT-AC57U v2 uses Qualcomm chips, so the RT-AC57U target covers v1 only (WikiDevi: PCB AP-MT0D, data from a 2019 revision of the page). WikiDevi warns that multiple C6 revisions exist. The gigabit ports of both routers are not a promise of gigabit test throughput; the CPU limit must be measured on real hardware.
 
 ---
 
@@ -522,6 +523,22 @@ Terminal interface and changelog in ports:
 - **Changelog:** each port records its support in `DePythonized/CHANGELOG.md`, using the rules in `DEPYTHONIZATION_ROADMAP.md`, and only after it has run on that hardware.
 
 ---
+
+## 7C. NMB's Own Linux Distribution (Planned)
+
+> **Status: planned only.** Nothing of this exists yet. It is the target for the Raspberry Pi 4 and small x86 boxes, built on the de-Pythonized `nmbd`, alongside the router ports.
+
+Why: on a general-purpose distribution NMB depends on that distribution's packages, NetworkManager, netplan and update cycle (most bugs found on the Box came from there: `iw` outside the PATH, NetworkManager claiming ports, polkit versions). An image of its own makes the box behave the same everywhere.
+
+Planned shape:
+
+- **Contents:** a minimal Linux kernel and userland with only what NMB uses (`nmbd`, `ip`/`nft`, `dnsmasq`, `hostapd`, `iw`, `wpa_supplicant`, `pppd`, WireGuard, OpenVPN); no Python once `nmbd` replaces it, no desktop network managers.
+- **Storage:** read-only root file system; settings and measurements on a separate data partition; the live database stays in RAM with snapshots, as now; the storage guard sizes its limits from the data partition.
+- **Updates:** two system slots (A/B); an update writes the other slot and boots it, and goes back if the box does not come up. This replaces `setup.sh` upgrades on these boxes.
+- **Targets:** Raspberry Pi 4 (arm64) first, then x86-64; routers keep OpenWrt as their base (see the targets above).
+- **To decide:** the build system (Buildroot, Yocto or an OpenWrt-based image), the init system, the C library (musl or glibc), and how settings move over from a `setup.sh` box.
+
+Testing plan (to be added to `docs/TESTING.md` when it starts): image builds reproducibly; first boot on the Pi 4 and in QEMU; every feature row of the testing record again on the image; an A/B update and a forced rollback; power cut during an update; a full data partition.
 
 ## 8. Cross-Compilation Matrix & Toolchain Setup
 

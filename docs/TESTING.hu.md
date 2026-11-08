@@ -2,7 +2,7 @@
 
 Mit, hol, hogyan és milyen eredménnyel teszteltünk. Ha egy teszt újra lefut vagy új kerül be, ezt a fájlt is frissíteni kell. A README *Tesztelési Állapot* táblázata ennek az összefoglalója. Angol változat: [TESTING.md](TESTING.md).
 
-Utolsó teljes kör: 2026-11-07.
+Utolsó teljes kör: 2026-11-07. Utolsó frissítés: 2026-11-08.
 
 ## Hol futottak a tesztek
 
@@ -13,7 +13,7 @@ Utolsó teljes kör: 2026-11-07.
 | **Box** | Raspberry Pi 4, Debian 13 (arm64), `standalone` mód, a fejlesztő routerére kötve. Napi használatban, 1000/300 Mbps-os otthoni optikai (FTTH) vonalon. |
 | **VM-D13** | QEMU/KVM x86-64 PC-n, Debian 13 felhőkép a teljes `linux-image-amd64` kernellel. Két hálókártya (felhasználói NAT mint WAN, socket-kapcsolat mint LAN). Wi-Fi `mac80211_hwsim`-mel (három szimulált rádió); a kliensek hálózati névterekben. |
 | **VM-disztró** | Tiszta Debian 13, Debian 12, Ubuntu 24.04 LTS és Alpine 3.20 (x86-64) virtuális gépek, mindegyik `setup.sh`-val nulláról telepítve. |
-| **Unit-tesztek** | `python3 -m unittest discover tests` (223 teszt) a fejlesztői gépen és rootként a VM-D13-on. |
+| **Unit-tesztek** | `python3 -m unittest discover tests` (303 teszt) a fejlesztői gépen és rootként a VM-D13-on. |
 
 A szimulált azt jelenti: valódi Linux, valódi `hostapd`, `dnsmasq`, `pppd`, WireGuard és OpenVPN, de virtuális kártyák és rádiók. A valódi hardver időzítését, meghajtóit és rádiós viselkedését ez nem fedi le.
 
@@ -121,52 +121,99 @@ Jelölés: ✅ működik · ⚠️ korláttal működik · ❌ nem működik · 
 | Frissítés a GitHubról (Git nélküli telepítés) | Egységtesztek | ⚠️ | Biztonságos kicsomagolás (útvonal-kiszökés elutasítva), ellenőrzés a GitHub ellen (szimulálva), állapotfájl, root- és commit-ellenőrzés. A valódi tárolóval dobozon még nem futott |
 | Újratelepítés `setup.sh`-val | VM-distro (Ubuntu 26.04, Alpine 3.22, Rocky 10) | ✅ | A beállítások, az admin jelszó és a mérések megmaradtak; a `/opt/nmb` alá tett elavult fájl eltűnt; a beállítás 0640 `nmb:nmb` |
 | Központi gyűjtő és távoli irányítás | Helyi gyűjtő és box-kliens, egységtesztek | ✅ | Feltöltés (ismétlés nem duplikál), keresés ügyszámra, korábbi ügyszámra és ügyfélszámra, CSV, diagnosztika és események csak hozzájárulással, távoli sebességmérés lefut és visszajelez, parancs elutasítva hozzájárulás nélkül vagy más oldalról, ismeretlen parancs mindkét oldalon elutasítva, titkok hash-ként (0600). Két gép között még nem futott |
+| Tárhelyőr | Box, egységtesztek | ⚠️ | A Boxon (116 GB) 2048 MB-ot tart szabadon, és helyesen nem törölt semmit. Egységtesztek: a cél a lemez méretétől függ, előbb a legrégebbi naplók mennek, a legújabb mentés megmarad, az utolsó 7 nap mérései megmaradnak. Valóban megtelt lemezen még nem futott |
+| Beállítások mentése két programból egyszerre | Box, egységtesztek | ✅ | A Boxon derült ki: az induló `nmb-web` és egy közben mentő `nmb-cli` sérült `nmb.conf`-ot hagyott (duplikált szakasz, levágott sor), és utána egyik program sem tudta beolvasni. Javítva (egyszerre egy mentés, saját ideiglenes fájl); egy egységteszt négy szálról 60-szor ment egy rövid és egy hosszú konfigot, és a fájl mindig olvasható |
 
-## Jelöltek
+## Hogyan kell tesztelni
 
-### Operációs rendszerek
+Minden változtatást azon a szinten kell tesztelni, ahol elromolhat. Írd le, mit futtattál, hol, és mit láttál; a rögzített teszt nélküli változtatás nincs kész (lásd [CONTRIBUTING.hu.md](../CONTRIBUTING.hu.md)).
 
-Abból gyűjtve, mit ismer fel a `setup.sh`, és mire van szüksége a kódnak (futáskor Python 3.10 vagy újabb, csak a standard könyvtár, systemd nftables-szel, vagy Alpine OpenRC-vel).
+### 1. Egységtesztek (minden változtatásnál)
+
+```sh
+python3 -m unittest discover -s tests          # kb. 1 perc; OK-val kell végződnie
+node --check nmb/web/assets/dashboard.js       # ha a webes felület szkriptje változott
+bash -n setup.sh                               # ha a setup.sh változott
+```
+
+- Az új viselkedés tesztet kap a `tests/` alatt. A rendszert mockold (`subprocess`, `/sys`, socketek); a teszteknek sima PC-n, root, hálózat és box nélkül is át kell menniük.
+- A `tests/test_tui.py` elbukik, ha a webes felület olyan végpontot hív, amit az `nmb-cli` nem ismer: vedd fel a műveletet az `nmb/tui/catalog.py`-ba.
+- Fordítások: minden kulcs mind az öt nyelven, magyar szöveg nem kerülhet a többi nyelvbe:
+  `python3 -c "from nmb.web.i18n import TRANSLATIONS as T; k=set(T['en']); print({l: len(k ^ set(v)) for l, v in T.items()})"` csak nullákat írhat ki.
+
+### 2. Valódi boxon (minden, ami a hálózathoz, a rendszerhez vagy a méréshez nyúl)
+
+1. Úgy telepítsd a változást, ahogy a felhasználók kapják: `git archive HEAD` a boxra, majd `sudo bash setup.sh` a kicsomagolt mappából. Egyes fájlokat csak gyors próbához másolj, és ezt írd is le.
+2. Ellenőrizd: `systemctl is-active nmb-web nmb-netd nmb-probe` és `systemctl list-units 'nmb*' --state=failed`.
+3. Futtasd élesben a funkciót, és ott nézd meg az eredményt, ahol a felhasználó látja: webes felület, `nmb-cli latest`, adatbázis (`sqlite3 -readonly /var/lib/nmb/live/nmb.db`), naplók (`journalctl -u nmb-web -u nmb-netd`).
+4. Azt mérd, amit a funkció állít. Hálózati funkcióknál ez a bájtszámláló: olvasd ki a `/sys/class/net/<if>/statistics/{rx,tx}_bytes` értékét előtte és utána, így tudod, melyik kapcsolaton ment valójában a forgalom.
+5. Állítsd vissza a boxot: beállítások, teszt-interfészek, szabályok. Írd le, mit változtattál, és hogy visszaállítottad.
+
+### 3. A box saját kapcsolatának kockáztatása nélkül
+
+- **LAN-kliens:** veth-pár, az egyik vége hálózati névtérben (`ip netns add t; ip link add v0 type veth peer name v1; ip link set v1 netns t`). A névtér egy a boxra dugott eszköz. DHCP-t és útválasztást soha ne azon a porton tesztelj, amelyiken keresztül csatlakozol.
+- **Második DHCP-szerver:** `dnsmasq --port=0 --interface=v1 --bind-interfaces --dhcp-range=...` a névtérben.
+- **Szimulált Wi-Fi:** `mac80211_hwsim` VM-ben (VM-D13). A valódi rádiók másképp viselkednek; az ilyen eredményt jelöld szimuláltnak.
+- **Sebességmérő motorok:** egyszerre egy motort futtass; az Ooklát ugyanarról a nyilvános IP-ről legfeljebb óránként, különben órákra letiltja.
+
+### 4. Virtuális gépekben (telepítő, más disztribúciók, hálózati módok)
+
+- Disztribúciónként tiszta felhőkép, nulláról telepítve a `setup.sh`-val; utána újratelepítés rá, majd újraindítás. Ellenőrizd, hogy a beállítások, az admin jelszó és a mérések megmaradnak, és a `/etc/nmb/nmb.conf` `0640 nmb:nmb`.
+- Hálózati módok és a hozzáférési pont a VM-D13-ban (két hálókártya, szimulált rádiók, kliensek névterekben).
+
+### Mit kell rögzíteni
+
+Minden sorhoz: hol (Box, VM neve, egységtesztek), az eredmény (✅ ⚠️ ❌), és hogyan: mit állítottál be, mit mértél, számokkal, és mit találtál és javítottál közben. Amit nem próbáltál ki, azt ki nem próbáltként írd, ne működőként.
+
+## Még tesztelendő
+
+### Valódi kábel vagy hardver kell hozzá
+
+| Mit | Hogyan |
+|---|---|
+| Wi-Fi megosztása LAN porton, élesben | A box Wi-Fi-n, Ethernet-kábel a boxtól egy laptophoz (router nélkül): a laptop 192.168.77.x címet kap, és eléri az internetet. Utána a box kábelét az otthoni routerbe dugva a boxnak másodperceken belül le kell állítania a DHCP-jét, és a routertől kell címet kapnia |
+| Wi-Fi uplink a box saját profiljával | `nmb-cli run wifi.uplink ssid=... password=... enabled=true` egy még nem Wi-Fi-s boxon; utána mérés `measurement_link = wifi` beállítással, számlálók a `wlan0`-n |
+| Vendég és fő Wi-Fi két rádión | USB Wi-Fi adapter `wlan1`-ként: egyik fő, másik vendég; mindkét sáv az eszközfelderítőben |
+| Valódi rádiók hozzáférési pontként | 2,4/5/6 GHz, Wi-Fi 6/7, valódi kliensekkel |
+| PPPoE valódi vonalon, Nighthawk M6 Pro, Pi 5 | |
+| Tervezett routerek | Routeren még semmi sem fut; lásd a portolási tervet |
+
+### Most is elvégezhető (VM vagy box)
+
+| Mit | Hogyan |
+|---|---|
+| Tárhelyőr megtelt lemezen | VM kis lemezzel (2–4 GB); töltsd meg (`fallocate -l ... /var/tmp/fill`), várj legfeljebb 10 percet, vagy rootként `storage_guard.run(cfg, force=True)`: előbb a régi naplók mennek, az utolsó 7 nap mérései maradnak, esemény íródik |
+| Telepítő kicsi vagy teli lemezen | 500 MB-nál kevesebb szabad helynél a `setup.sh`-nak érthető üzenettel meg kell állnia; 8 GB alatti lemezen az új konfig 2 × 2 MB-os naplókat kap |
+| Beállítások mentése több programból egyszerre | A webes felület és az `nmb-cli` pár percig ciklusban ment; a `nmb.conf`-nak olvashatónak kell maradnia (az egységteszt egy folyamat szálait fedi le) |
+| Fast.com nem 1000/300-as vonalon | Összevetés az RTR-NetTesttel ugyanazon a vonalon |
+| Hosszú futás | 24–72 óra percenkénti méréssel: memória, adatbázisméret, naplóforgatás, tárhelyőr |
+| Kevés memória, hosszabban | 512 MB 25 percig rendben volt; 24 óra még hátravan |
+| Frissítés és mentés régebbi kiadásról | 2.4.0 telepítése, frissítés a mostanira a konfig megtartásával; 2.4.0-s mentés visszaállítása |
+| WAN-tartalék, terheléselosztás, VLAN, link aggregáció | Két WAN-kártya, az egyiket kihúzni; Linux-híd VLAN-szűréssel |
+| Ellenséges hálózatok | Csak IPv6-os WAN, CGNAT, hibás DNS, captive portal, ki-be kapcsoló link, órabeállítás-ugrás |
+| Telegram, SMTP | Helyi mock szerverekkel, utána valódi bottal |
+| Frissítés GitHubról egy boxon | Amint a mostani kód felkerül a GitHubra |
+| Központi gyűjtő két gép között | A gyűjtő egy PC-n, a box egy másik hálózaton |
+| Webes felület | Mind az öt nyelv, több felhasználó egyszerre, hibás belépések, Firefox, Chrome és telefon |
+| firewalld-portok, Debian 12 és Fedora újraindítás, Tailscale, OONI, valódi DuckDNS-domain | |
+
+### Még nem tesztelt operációs rendszerek
+
+Abból, hogy a `setup.sh` mit ismer fel, és mi kell a kódnak (Python 3.10 vagy újabb, csak a standard könyvtár, systemd nftables-szel, vagy Alpine OpenRC-vel).
 
 | Rendszer | Várható | Miért | Hogyan tesztelhető |
 |---|---|---|---|
 | Raspberry Pi OS (arm64), Lite | Működnie kell | Debian 13 alapú, mint a Box | Pi-n, vagy Debian arm64 QEMU alatt |
-| Raspberry Pi OS (armhf, 32 bites) | Nem tudni | Az Ooklát és az RMBT-t csak arm64-en és x86-64-en futtattuk | Pi 2/3/Zero 2-n |
-| Armbian, DietPi | Működnie kell | Debian-alapú képek más egykártyás gépekre | A lapkán, vagy x86-os képükkel |
-| Linux Mint 22, Pop!_OS | Működnie kell | Ubuntu 24.04 alapú; az asztali NetworkManager lefoglalhatja a portokat | VM |
-| Devuan | Elutasítva | Nincs systemd; a `setup.sh` most érthető üzenettel leáll | — |
+| Raspberry Pi OS (armhf, 32 bites) | Ismeretlen | Az Ookla és RMBT build csak arm64-en és x86-64-en futott | Pi 2/3/Zero 2-n |
+| Armbian, DietPi | Működnie kell | Debian alapú képek más egykártyás gépekre | A lapon, vagy az x86-os képeiken |
+| Linux Mint 22, Pop!_OS | Működnie kell | Ubuntu 24.04 alapú; az asztali NetworkManager elviheti a portokat | VM |
+| Devuan | Elutasítva | Nincs systemd; a `setup.sh` érthető üzenettel megáll | — |
 | Arch, Manjaro, openSUSE, Void, NixOS | Nem támogatott | Más csomagkezelő vagy init-rendszer | Portolás kell |
-| OpenWrt | Nem támogatott | A natív újraírásban tervezett, lásd `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md` | — |
+| OpenWrt | Nem támogatott | A natív átírásban tervezett, lásd `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md` | — |
+| Az NMB saját disztribúciója | Tervezett | Lásd a portolási tervet | — |
 
-### Még nem tesztelt funkciók és helyzetek
+## Ismert korlátok
 
-Virtuális gépen elvégezhető:
-
-- **Kevés memória, hosszabban:** az 512 MB 25 percen át átment; a 24 órás futás még hátravan.
-- **Hosszú futás:** 24–72 óra percenkénti mérésekkel; memórianövekedés, adatbázisméret, naplóforgatás.
-- **Régebbi kiadás mentése:** 2.4.0-s mentés visszaállítása.
-- **Frissítés régebbi kiadásról:** 2.4.0 telepítése, majd frissítés a mostanira a konfiguráció megtartásával.
-- **WAN-átállás és multi-WAN terheléselosztás:** két WAN-kártya, az egyik kihúzása.
-- **VLAN, link aggregáció, átengedés:** szimulált switch-csel (VLAN-szűrős Linux-híd, bondolt ellenoldal).
-- **Ellenséges hálózatok:** csak IPv6-os WAN, CGNAT, hibás DNS, captive portal, ugráló kapcsolat, óraugrás (a Pi-nek nincs órája elemmel).
-- **Telegram és SMTP** helyi álszerverek ellen.
-- **Traceroute, csomagfigyelő, OONI, jelentéskészítés, meghajtótelepítő.**
-- **Webes felület:** az öt nyelv teljessége, több egyidejű felhasználó, ismételt rossz bejelentkezés, valamint Firefox, Chrome és telefonos böngésző.
-
-Hardver vagy fiók kell hozzá:
-
-- Valódi Wi-Fi rádiók (2,4/5/6 GHz, Wi-Fi 6/7), valódi PPPoE-vonal, a Nighthawk M6 Pro, USB-s Ethernet-adapter, Pi 5.
-- Tailscale, valódi DuckDNS-domain, valódi Telegram-bot.
-
-## Nyitott
-
-- **A Boxon még a régi polkit-szabály van.** Ott a vendég Wi-Fi a webes felületről „network-control: auth” hibával nem megy, amíg az új `os/90-nmb.rules` nincs telepítve (`setup.sh` újrafuttatása, vagy másolás az `/etc/polkit-1/rules.d/` mappába).
-- Nincs tesztelve: a portok megnyitása firewalldben (a Fedora és az AlmaLinux felhőképén nem futott).
-- Nincs tesztelve: Debian 12 és Fedora újraindítás, Tailscale, valódi Telegram bot, SMTP, OONI, valódi Wi-Fi és PPPoE hardver.
-- Élesben még nem futott: a GitHubos frissítés dobozon (megvárja, amíg a mostani kód felkerül a GitHubra, különben a doboz régebbi verzióra lépne vissza), és a központi gyűjtő két gép között.
-- Wi-Fi-s mérés: kábel nélkül a box már most Wi-Fi-n mér (az alapértelmezett útvonalra esik vissza); a Wi-Fi-s mérés bedugott kábel mellett, a kettő egyszerre, és a box mint Wi-Fi–Ethernet átalakító még tervezésre vár.
-
-## Újrafuttatás
-
-- Unit-tesztek: `python3 -m unittest discover tests` (kb. 3 perc).
-- Az itt használt VM-szkriptek nincsenek a repóban; minden sor leírja, mi volt beállítva.
+- Az Ookla letiltja azt a nyilvános IP-t, amelyről gyakran mérnek, az elutasított próbálkozások után is; a box ilyenkor szünetelteti az Ooklát (30 perc, duplázódva legfeljebb 4 óráig). Kikényszeríteni nem lehet; ritkán futtasd az Ooklát.
+- Áramszünetnél legfeljebb 15 perc eredménye veszhet el, szándékosan (az élő adatbázis RAM-ban van).
+- A fenti futásokhoz használt VM-szkriptek nincsenek a tárolóban; minden sor leírja, mi volt beállítva.
