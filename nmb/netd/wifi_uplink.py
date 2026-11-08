@@ -43,6 +43,17 @@ def _run(cmd: List[str], timeout: float = 15.0) -> Tuple[int, str, str]:
         return 1, "", str(e)
 
 
+def _iw() -> Optional[str]:
+    """``iw`` lives in /usr/sbin, which is not on the PATH of the ``nmb`` user."""
+    found = shutil.which("iw")
+    if found:
+        return found
+    for p in ("/usr/sbin/iw", "/sbin/iw", "/usr/bin/iw"):
+        if Path(p).exists():
+            return p
+    return None
+
+
 def wireless_interfaces() -> List[str]:
     if not SYS_CLASS_NET.exists():
         return []
@@ -97,7 +108,7 @@ def status(cfg: Any) -> Dict[str, Any]:
         return res
     ip, gw = _ipv4_and_gateway(iface)
     res.update(ip=ip, gateway=gw)
-    iw = shutil.which("iw")
+    iw = _iw()
     if iw:
         rc, out, _ = _run([iw, "dev", iface, "link"], timeout=4)
         if rc == 0 and out.startswith("Connected"):
@@ -157,7 +168,7 @@ def disconnect(cfg: Any) -> Tuple[bool, str]:
     if not nmcli:
         return False, "nmcli not found"
     rc, out, err = _run([nmcli, "connection", "down", PROFILE], timeout=15)
-    if rc != 0 and "not an active" not in (err + out):
+    if rc != 0 and not any(x in (err + out) for x in ("not an active", "unknown connection", "no such connection")):
         return False, (err or out).strip()
     return True, "Wi-Fi uplink disconnected."
 
@@ -169,9 +180,16 @@ def measurement_target(cfg: Any) -> Tuple[str, Optional[str]]:
 
 
 def sync_source_routing(cfg: Any) -> bool:
-    """Keep "from <wifi ip> lookup 150" and table 150's default route via the Wi-Fi gateway (root)."""
+    """Keep "from <wifi ip> lookup 150" and table 150's default route via the Wi-Fi gateway (root).
+
+    Also when the Wi-Fi was joined outside NMB (netplan, a saved NetworkManager profile): with Ethernet
+    and Wi-Fi on the same subnet, a test bound to the Wi-Fi address would otherwise leave over Ethernet.
+    Only "ethernet" with the uplink off removes the rule.
+    """
     iface = uplink_interface(cfg)
-    if not iface or not getattr(getattr(cfg, "wifi_uplink", None), "enabled", False):
+    enabled = bool(getattr(getattr(cfg, "wifi_uplink", None), "enabled", False))
+    link = getattr(getattr(cfg, "network", None), "measurement_link", "auto")
+    if not iface or (not enabled and link == "ethernet"):
         _run(["ip", "-4", "rule", "del", "priority", str(RULE_PRIORITY)], timeout=4)
         return False
     ip, gw = _ipv4_and_gateway(iface)

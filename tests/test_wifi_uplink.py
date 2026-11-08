@@ -51,8 +51,28 @@ class SourceRoutingTest(unittest.TestCase):
     def test_rule_removed_when_off(self):
         calls = []
         with mock.patch.object(wifi_uplink, "_run", side_effect=lambda cmd, timeout=15.0: calls.append(cmd) or (0, "", "")):
-            self.assertFalse(wifi_uplink.sync_source_routing(_cfg("auto", enabled=False)))
+            self.assertFalse(wifi_uplink.sync_source_routing(_cfg("ethernet", enabled=False)))
         self.assertIn(["ip", "-4", "rule", "del", "priority", "150"], calls)
+
+    def test_wifi_joined_outside_nmb_still_gets_the_rule(self):
+        calls = []
+
+        def run(cmd, timeout=15.0):
+            calls.append(cmd)
+            if cmd[:4] == ["ip", "-4", "-o", "addr"]:
+                return 0, "3: wlan0    inet 192.168.8.219/24 scope global wlan0", ""
+            if cmd[:4] == ["ip", "-4", "route", "show"]:
+                return 0, "default via 192.168.8.1 dev wlan0 proto dhcp metric 600", ""
+            return 0, "", ""
+
+        with mock.patch.object(wifi_uplink, "_run", side_effect=run):
+            self.assertTrue(wifi_uplink.sync_source_routing(_cfg("auto", enabled=False)))
+        self.assertIn(["ip", "-4", "rule", "add", "priority", "150", "from", "192.168.8.219", "lookup", "150"], calls)
+
+    def test_iw_found_outside_the_path(self):
+        with mock.patch("shutil.which", return_value=None), \
+             mock.patch.object(wifi_uplink.Path, "exists", lambda self: str(self) == "/usr/sbin/iw"):
+            self.assertEqual(wifi_uplink._iw(), "/usr/sbin/iw")
 
     def test_connect_needs_an_ssid(self):
         cfg = _cfg("auto")

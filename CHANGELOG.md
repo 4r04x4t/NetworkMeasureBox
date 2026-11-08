@@ -55,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The Wi-Fi status showed no network name, signal or band, and the access-point check never saw an access point, because `iw` is in `/usr/sbin`, which is not on the `nmb` user's path.
+- A test bound to Wi-Fi left over Ethernet when the Wi-Fi was joined outside NMB (netplan or a saved profile) and both links were on the same subnet; the source rule is now kept then too.
 - Cloudflare results no longer link to Cloudflare's front page as if it were the result, and a missing bufferbloat grade shows `--` instead of a made-up `A+`.
 - iPerf3 results were labelled OOKLA in the speed test list, and an upload-only iPerf3 run showed 0.00 Mbps download.
 - "Stop iPerf Server" did nothing: the server runs as the root unit `nmb-iperf3`, which the web server could not stop with `pkill`; start and stop now use `systemctl`.

@@ -28,7 +28,7 @@ VISIBILITY_NONE = "none"
 
 
 def _is_access_point(iface: str) -> bool:
-    iw = shutil.which("iw")
+    iw = shutil.which("iw") or next((p for p in ("/usr/sbin/iw", "/sbin/iw") if Path(p).exists()), None)
     if not iw or not (SYS_NET / iface / "wireless").exists():
         return False
     try:
