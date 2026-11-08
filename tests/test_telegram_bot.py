@@ -145,9 +145,9 @@ class TestTelegramBot(unittest.TestCase):
         _, text2, _ = self.mock_client.sent_messages[1]
         self.assertIn("Configured VPN Clients:", text2)
 
-    @patch("nmb.netd.wireguard.add_peer")
-    @patch("nmb.netd.wireguard.get_client_config")
-    @patch("nmb.netd.wireguard.get_client_qr_png_bytes")
+    @patch("nmb.netd.wireguard.add_peer", autospec=True)
+    @patch("nmb.netd.wireguard.get_client_config", autospec=True)
+    @patch("nmb.netd.wireguard.get_client_qr_png_bytes", autospec=True)
     def test_vpn_add_wireguard_peer(self, mock_qr, mock_conf, mock_add):
         mock_add.return_value = {
             "id": "peer-uuid-1",
@@ -172,11 +172,11 @@ class TestTelegramBot(unittest.TestCase):
         self.assertEqual(doc_fname, "testphone.conf")
         self.assertIn(b"[Interface]", doc_bytes)
 
-    @patch("nmb.netd.adblock.set_adblock_enabled")
-    @patch("nmb.netd.adblock.add_blacklist_entry")
-    @patch("nmb.netd.adblock.remove_blacklist_entry")
-    @patch("nmb.netd.adblock.add_whitelist_entry")
-    @patch("nmb.netd.adblock.trigger_gravity_update")
+    @patch("nmb.netd.adblock.set_adblock_enabled", autospec=True)
+    @patch("nmb.netd.adblock.add_blacklist_entry", autospec=True)
+    @patch("nmb.netd.adblock.remove_blacklist_entry", autospec=True)
+    @patch("nmb.netd.adblock.add_whitelist_entry", autospec=True)
+    @patch("nmb.netd.adblock.trigger_gravity_update", autospec=True)
     def test_adblock_commands(self, mock_grav, mock_wl, mock_rm_bl, mock_bl, mock_set_en):
         # /adblock status
         self.handler.handle_command(999999, "/adblock")
@@ -212,8 +212,8 @@ class TestTelegramBot(unittest.TestCase):
         self.handler.handle_command(999999, "/adblock guide")
         self.assertIn("Router DHCP DNS setup", self.mock_client.sent_messages[-1][1])
 
-    @patch("nmb.common.heal.audit_system_health")
-    @patch("nmb.common.heal.auto_heal_all")
+    @patch("nmb.common.heal.audit_system_health", autospec=True)
+    @patch("nmb.common.heal.auto_heal_all", autospec=True)
     def test_heal_commands(self, mock_heal, mock_audit):
         mock_audit.return_value = {
             "critical_issues": 0,
@@ -240,7 +240,7 @@ class TestTelegramBot(unittest.TestCase):
         self.assertIn("<b>CPU:</b>", text)
         self.assertIn("Memory:", text)
 
-    @patch("nmb.netd.guest_wifi.scan_wifi_networks")
+    @patch("nmb.netd.guest_wifi.scan_wifi_networks", autospec=True)
     def test_wifi_scan_command(self, mock_scan):
         mock_scan.return_value = [
             {"ssid": "Home-Guest", "signal": 88, "channel": 6, "security": "WPA2", "in_use": False}
@@ -249,12 +249,10 @@ class TestTelegramBot(unittest.TestCase):
         self.assertIn("Home-Guest", self.mock_client.sent_messages[1][1])
         self.assertIn("88%", self.mock_client.sent_messages[1][1])
 
-    @patch("nmb.common.backup.create_backup")
+    @patch("nmb.common.backup.create_backup", autospec=True)
     def test_backup_create_command(self, mock_create):
-        mock_create.return_value = {
-            "filename": "nmb-backup-test.tar.gz",
-            "size": 1048576,
-        }
+        from pathlib import Path
+        mock_create.return_value = (True, Path("/nonexistent/nmb-backup-test.tar.gz"), {"file_count": 3})
         self.handler.handle_command(999999, "/backup create test_snap")
         self.assertIn("System Backup Created", self.mock_client.sent_messages[1][1])
         self.assertIn("nmb-backup-test.tar.gz", self.mock_client.sent_messages[1][1])
@@ -264,7 +262,7 @@ class TestTelegramBot(unittest.TestCase):
         self.assertEqual(len(self.mock_client.sent_messages), 1)
         self.assertIn("Hardware Network Controllers & Drivers", self.mock_client.sent_messages[0][1])
 
-    @patch("nmb.report.llm_bundle.generate_llm_diagnostic_bundle")
+    @patch("nmb.report.llm_bundle.generate_llm_diagnostic_bundle", autospec=True)
     def test_ai_bundle_command(self, mock_bundle):
         mock_bundle.return_value = "# NetworkMeasureBox AI Diagnostics\nAll systems nominal."
         self.handler.handle_command(999999, "/ai")

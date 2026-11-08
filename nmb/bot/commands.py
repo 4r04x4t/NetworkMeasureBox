@@ -74,6 +74,43 @@ def format_bytes(num_bytes: int | float) -> str:
     return f"{val:.1f} PB"
 
 
+def _host_usage() -> tuple:
+    """CPU % (0.2 s sample), memory and root-disk usage, SoC temperature."""
+    def cpu_times() -> tuple:
+        with open("/proc/stat", encoding="utf-8") as f:
+            vals = [int(x) for x in f.readline().split()[1:]]
+        return sum(vals), vals[3] + (vals[4] if len(vals) > 4 else 0)
+    cpu = 0.0
+    try:
+        t1, i1 = cpu_times(); time.sleep(0.2); t2, i2 = cpu_times()
+        cpu = 100.0 * (1 - (i2 - i1) / max(1, t2 - t1))
+    except (OSError, ValueError, IndexError):
+        pass
+    mem = {"used": 0, "total": 0, "percent": 0.0}
+    try:
+        info = {}
+        with open("/proc/meminfo", encoding="utf-8") as f:
+            for line in f:
+                k, v = line.split(":", 1)
+                info[k] = int(v.split()[0]) * 1024
+        total, avail = info.get("MemTotal", 0), info.get("MemAvailable", 0)
+        mem = {"used": total - avail, "total": total, "percent": 100.0 * (total - avail) / total if total else 0.0}
+    except (OSError, ValueError):
+        pass
+    disk = {"used": 0, "total": 0, "percent": 0.0}
+    try:
+        du = shutil.disk_usage("/")
+        disk = {"used": du.used, "total": du.total, "percent": 100.0 * du.used / du.total if du.total else 0.0}
+    except OSError:
+        pass
+    temp = None
+    try:
+        temp = int(Path("/sys/class/thermal/thermal_zone0/temp").read_text().strip()) / 1000.0
+    except (OSError, ValueError):
+        pass
+    return cpu, mem, disk, temp
+
+
 class CommandHandler:
     def __init__(self, cfg: Config, client: TelegramClient):
         self.cfg = cfg
@@ -216,7 +253,7 @@ class CommandHandler:
             # Check Tailscale status
             try:
                 ts_stat = tailscale.get_tailscale_status()
-                ts_badge = f"{t('badge_up', lang)} ({ts_stat.get('tailscale_ip', '--')})" if ts_stat.get("logged_in") else (t("badge_login_req", lang) if ts_stat.get("auth_url") else t("badge_stopped", lang))
+                ts_badge = f"{t('badge_up', lang)} ({ts_stat.get('tailscale_ipv4') or '--'})" if ts_stat.get("active") else (t("badge_login_req", lang) if ts_stat.get("auth_url") else t("badge_stopped", lang))
             except Exception:
                 ts_badge = "⚫ N/A"
 
@@ -470,9 +507,9 @@ class CommandHandler:
             lang = get_chat_lang(chat_id, self.cfg)
         try:
             ts_stat = tailscale.get_tailscale_status()
-            logged_in = ts_stat.get("logged_in", False)
-            ts_ip = ts_stat.get("tailscale_ip", "--")
-            magic_dns = ts_stat.get("magic_dns", "--")
+            logged_in = bool(ts_stat.get("active"))
+            ts_ip = ts_stat.get("tailscale_ipv4") or "--"
+            magic_dns = ts_stat.get("magic_dns_name") or "--"
             auth_url = ts_stat.get("auth_url")
             backend_state = ts_stat.get("backend_state", "Unknown")
 
@@ -1149,8 +1186,9 @@ class CommandHandler:
         ))))
         self.client.send_message(chat_id, audit_wait)
         try:
-            res = heal.audit_system_health(self.cfg)
-            issues = res.get("critical_issues", 0)
+            res = heal.audit_system_health()
+            comps = res.get("components", {})
+            issues = res.get("issues_count", 0)
             verdict = (
                 ("🟢 MINDEN ÖSSZETEVŐ ÉP ÉS MŰKÖDŐKÉPES" if issues == 0 else f"⚠️ {issues} PROBLÉMA ÉSZLELVE") if lang == "hu" else (
                 ("🟢 ALLE KOMPONENTEN VOLLSTÄNDIG FUNKTIONSFÄHIG" if issues == 0 else f"⚠️ {issues} PROBLEME ERKANNT") if lang == "de" else (
@@ -1159,15 +1197,13 @@ class CommandHandler:
                 ("🟢 ALL COMPONENTS HEALTHY" if issues == 0 else f"⚠️ {issues} ISSUES DETECTED")
             ))))
 
-            services = res.get("services", {})
             svc_lines = []
-            for s_name, s_info in services.items():
-                active = s_info.get("active", False)
-                icon = "🟢" if active else "🔴"
-                svc_lines.append(f"  {icon} <code>{html.escape(s_name)}</code>")
-
-            db_info = res.get("database", {})
-            db_status = t("heal_db_ok" if db_info.get("integrity_ok") else "heal_db_bad", lang)
+            for item in comps.get("services", {}).get("items", []):
+                icon = "🟢" if item.get("status") == "ok" else ("🔴" if item.get("severity") == "critical" else "🟡")
+                svc_lines.append(f"  {icon} <code>{html.escape(str(item.get('id', '')).split(':', 1)[-1])}</code>")
+            def _bad(cat: str) -> int:
+                return sum(1 for i in comps.get(cat, {}).get("items", []) if i.get("status") != "ok")
+            db_status = t("heal_db_ok" if comps.get("database", {}).get("status") == "ok" else "heal_db_bad", lang)
 
             title = (
                 "🩺 Rendszer-egészségügyi & Öngyógyítási Audit" if lang == "hu" else (
@@ -1187,8 +1223,8 @@ class CommandHandler:
 
             msg = t(
                 "heal_body", lang, title=title, verdict=verdict, daemons=daemons_hdr, services=chr(10).join(svc_lines),
-                db=db_status, tables=db_info.get("table_count", 0),
-                binaries=len(res.get("missing_binaries", [])), symlinks=len(res.get("missing_symlinks", [])),
+                db=db_status, tables=len(comps.get("database", {}).get("items", [])),
+                binaries=_bad("binaries"), symlinks=_bad("symlinks"),
             )
             self.client.send_message(chat_id, msg)
         except Exception as e:
@@ -1202,7 +1238,7 @@ class CommandHandler:
         try:
             res = heal.auto_heal_all(force_tier=tier)
             repairs = res.get("repairs_executed", [])
-            remaining = res.get("audit_after", {}).get("critical_issues", 0)
+            remaining = res.get("post_issues_count", 0)
 
             if repairs:
                 repair_list = "\n".join(f"• {html.escape(r)}" for r in repairs)
@@ -1263,12 +1299,8 @@ class CommandHandler:
             procs_data = tasks.get_processes_list(limit=8)
             procs = procs_data[0] if isinstance(procs_data, tuple) else procs_data
 
-            cpu_pct = summary.get("cpu_percent", 0.0)
-            load_avg = summary.get("load_avg", [0, 0, 0])
-            mem = summary.get("memory", {})
-            swap = summary.get("swap", {})
-            disk = summary.get("disk", {})
-            temp = summary.get("temperature_c")
+            load_avg = [summary.get("loadavg_1m", 0.0), summary.get("loadavg_5m", 0.0), summary.get("loadavg_15m", 0.0)]
+            cpu_pct, mem, disk, temp = _host_usage()
             temp_str = t("tasks_temp", lang, temp=f"{temp:.1f}") if temp is not None else ""
 
             mem_used_h = format_bytes(mem.get("used", 0))
@@ -1288,7 +1320,7 @@ class CommandHandler:
                 load=f"{load_avg[0]:.2f}, {load_avg[1]:.2f}, {load_avg[2]:.2f}", temp=temp_str,
                 mem=f"{mem_used_h} / {mem_tot_h}", mem_pct=f"{mem.get('percent', 0.0):.1f}",
                 disk=f"{disk_used_h} / {disk_tot_h}", disk_pct=f"{disk.get('percent', 0.0):.1f}",
-                uptime=html.escape(summary.get("uptime_human", "--")), count=summary.get("processes_count", 0),
+                uptime=html.escape(summary.get("uptime_human", "--")), count=summary.get("total_entities", 0),
                 procs=chr(10).join(proc_lines),
             )
             inline_tasks = {
@@ -1310,11 +1342,11 @@ class CommandHandler:
         sig = int(args[1]) if len(args) > 1 and args[1].isdigit() else 15
 
         try:
-            res = tasks.kill_process(pid, signal_num=sig)
+            res = tasks.kill_process(pid, sig_num=sig)
             if res.get("status") == "ok":
                 self._say(chat_id, "kill_ok", pid=pid, sig=sig)
             else:
-                self._say(chat_id, "kill_failed", pid=pid, error=html.escape(res.get("error") or self._tr(chat_id, "unknown_error")))
+                self._say(chat_id, "kill_failed", pid=pid, error=html.escape(res.get("message") or self._tr(chat_id, "unknown_error")))
         except Exception as e:
             self._say_error(chat_id, "Kill", e)
 
@@ -1347,7 +1379,7 @@ class CommandHandler:
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
         try:
-            stat = gw.get_guest_wifi_status(self.cfg)
+            stat = gw.get_guest_wifi_status("wlan0", self.cfg.network.wan_interface, getattr(self.cfg, "guest_wifi", None))
             is_conn = stat.get("connected", False)
 
             if is_conn:
@@ -1382,7 +1414,7 @@ class CommandHandler:
     def _wifi_scan(self, chat_id: int) -> None:
         self._say(chat_id, "wifi_scanning")
         try:
-            nets = gw.scan_wifi_networks(interface="wlan0")
+            nets = gw.scan_wifi_networks("wlan0")
             if not nets:
                 self._say(chat_id, "wifi_no_networks")
                 return
@@ -1406,17 +1438,11 @@ class CommandHandler:
     def _wifi_connect(self, chat_id: int, ssid: str, pw: str) -> None:
         self._say(chat_id, "wifi_connecting", ssid=html.escape(ssid))
         try:
-            res = gw.connect_guest_wifi(
-                ssid=ssid,
-                password=pw,
-                interface="wlan0",
-                metric=600,
-                save=True
-            )
-            if res.get("status") == "ok":
+            ok, message = gw.connect_guest_wifi(ssid=ssid, password=pw or None, iface="wlan0", metric=600)
+            if ok:
                 self._say(chat_id, "wifi_conn_ok", ssid=html.escape(ssid))
             else:
-                self._say(chat_id, "wifi_conn_failed", ssid=html.escape(ssid), error=html.escape(res.get("message") or self._tr(chat_id, "unknown_error")))
+                self._say(chat_id, "wifi_conn_failed", ssid=html.escape(ssid), error=html.escape(message or self._tr(chat_id, "unknown_error")))
         except Exception as e:
             self._say_error(chat_id, "Wi-Fi", e)
 
@@ -1469,10 +1495,10 @@ class CommandHandler:
 
             lines = [t("backup_title", lang)]
             for b in backups[:10]:
-                sz = format_bytes(b.get("size", 0))
-                dt = b.get("created_at", "")
+                sz = format_bytes(b.get("size_bytes", 0))
+                dt = b.get("created_at_iso", "")
                 fname = b.get("filename", "")
-                type_label = b.get("type", "full")
+                type_label = b.get("backup_type", "full")
                 lines.append(f"• <code>{html.escape(fname)}</code>\n  {dt} | {sz} | {t('backup_type', lang)}: {type_label}")
 
             tip_label = (
@@ -1499,9 +1525,11 @@ class CommandHandler:
         ))))
         self.client.send_message(chat_id, wait_label)
         try:
-            res = backup.create_backup(self.cfg, backup_type="full", label=label)
-            fname = res.get("filename", "")
-            sz = format_bytes(res.get("size", 0))
+            ok, path, meta = backup.create_backup(backup_type="full", comment=label)
+            if not ok:
+                raise RuntimeError(meta.get("error") or meta.get("message") or "backup failed")
+            fname = path.name
+            sz = format_bytes(path.stat().st_size if path.exists() else 0)
 
             msg = t("backup_created", lang, fname=html.escape(fname), size=sz)
             self.client.send_message(chat_id, msg)
@@ -1550,7 +1578,10 @@ class CommandHandler:
             lang = get_chat_lang(chat_id, self.cfg)
         try:
             stat = drivers.get_full_driver_status()
-            controllers = stat.get("controllers", [])
+            controllers = stat.get("controllers") or [
+                {"chipset_name": i.get("chipset_name"), "interface": i.get("name"), "driver": i.get("driver"), "bus_type": i.get("bus_type") or "-"}
+                for i in stat.get("interfaces", [])
+            ]
             missing_fw = stat.get("missing_firmware", [])
             recommended = stat.get("recommended_packages", [])
 
@@ -1582,7 +1613,7 @@ class CommandHandler:
                 ))))
                 lines.append(f"\n⚠️ <b>{fw_label}:</b> {len(missing_fw)} blobs")
 
-            if recommended:
+            if recommended and not stat.get("all_drivers_ready"):
                 pkg_names = [p.get("package", str(p)) if isinstance(p, dict) else str(p) for p in recommended]
                 pkgs = ", ".join(f"<code>{html.escape(p)}</code>" for p in pkg_names)
                 rec_label = (

@@ -500,6 +500,8 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
 
     systemctl start nmb.target
     systemctl restart nmb-db.service nmb-tune.service nmb-netd.service nmb-probe.service nmb-web.service nmb-iperf3.service nmb-adblock.service
+    # The Telegram bot is optional: restart it only if it runs, so it never keeps old code in memory after an upgrade.
+    systemctl try-restart nmb-telegram.service 2>/dev/null || true
     # Restart, not start, so an upgrade applies changed timer schedules.
     systemctl restart nmb-maintain.timer nmb-snapshot.timer nmb-report.timer nmb-invasive-log.timer nmb-ooni.timer nmb-adblock-update.timer nmb-heal.timer
 
