@@ -177,12 +177,14 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
     "tab-portscan": (("/api/status",), (
         A("port.check", "Run port check", "/api/portcheck"),
     )),
-    "tab-script": (("/api/scheduler/status", "/api/speedtest/servers", "/api/user-agent", "/api/wifi-uplink/status", "/api/wifi-share/status"), (
+    "tab-script": (("/api/scheduler/status", "/api/speedtest/servers", "/api/user-agent", "/api/wifi-uplink/status", "/api/wifi-share/status", "/api/storage/status"), (
         A("wifi.uplink", "Measurement link and Wi-Fi uplink", "/api/wifi-uplink/save",
           "measurement_link:choice(auto|ethernet|wifi) ssid password:secret interface hidden:bool enabled:bool"),
         A("wifi.uplink.disconnect", "Disconnect the Wi-Fi uplink", "/api/wifi-uplink/disconnect"),
         A("wifi.share", "Share the Wi-Fi internet on a LAN port (own DHCP)", "/api/wifi-share/save",
           "enabled:bool lan_interface address"),
+        A("storage.save", "Automatic disk cleanup settings", "/api/storage/save", "auto_cleanup:bool min_free_mb:int keep_days:int"),
+        A("storage.cleanup", "Check the disk and clean up now", "/api/storage/cleanup"),
         A("server.default", "Set scheduled server", "/api/speedtest/scheduled-server", "server_id:int server_name server_host"),
         A("schedule.set", "Change schedule", "/api/speedtest/schedule", SCHEDULE),
         A("engine.set", "Set engine", "/api/speedtest/engine", "engine:choice(ookla|cloudflare|fastcom|rtr|iperf3|all)"),
@@ -198,6 +200,8 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
     "tab-syslog/devlog": (("/api/dev/logs", "/api/dev/crashes"), (
         A("log.level", "Set log level", "/api/dev/loglevel", "level:choice(DEBUG|INFO|WARNING|ERROR) persist:bool"),
         A("log.clear", "Clear developer log", "/api/dev/logs/clear", confirm="YES"),
+        A("dev.bundle", "Download the diagnostic bundle", "/api/dev/diagnostic-bundle.tar.gz", method="GET", download=True),
+        A("dev.snapshot", "Download the deep system snapshot", "/api/dev/invasive-log.md", method="GET", download=True),
         A("crash.clear", "Clear crash reports", "/api/dev/crashes/clear", confirm="YES"),
         A("log.dl", "Download developer log", "/api/dev/logs/download", method="GET", download=True),
         A("log.purge", "Purge all logs", "/api/system/logs/purge", "include_db:bool include_journal:bool", confirm="PURGE"),
@@ -235,7 +239,7 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
         A("guest.save", "Save guest settings", "/api/config", "guest_wifi_enabled:bool guest_wifi_interface guest_wifi_ssid guest_wifi_security guest_wifi_metric:int guest_wifi_auto_reconnect:bool"),
     )),
     "tab-info/rsub-ports": (("/api/system/ports", "/api/network/lan-topology", "/api/system/drivers", "/api/system/drivers/status"), (
-        A("ports.roles", "Set port roles", "/api/system/interface_roles", "wan1 wan2 wan_mode lan_ports guest dmz measurement_interface", confirm="YES"),
+        A("ports.roles", "Set port roles", "/api/system/interface_roles", "wan1 wan2 wan_mode lan_ports guest wifi_main dmz measurement_interface", confirm="YES"),
         A("topology.save", "Set passthrough and LAG", "/api/network/lan-topology", "lan_passthrough_enabled:bool passthrough_ports lag_enabled:bool lag_ports lag_mode lag_hash_policy lacp_rate", confirm="YES"),
         A("driver.install", "Install driver", "/api/system/install_drivers", "package", confirm="YES"),
     )),

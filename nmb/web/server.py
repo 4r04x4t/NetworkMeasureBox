@@ -775,6 +775,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 17b. DuckDNS / dynv6 DynDNS Status
+        if path == "/api/storage/status":
+            import shutil as _sh
+            from nmb.common import storage_guard
+            st = self.server.cfg.storage
+            base = storage_guard.DATA_DIR if storage_guard.DATA_DIR.exists() else Path("/")
+            du = _sh.disk_usage(str(base))
+            self._send_json({"auto_cleanup": st.auto_cleanup, "min_free_mb": st.min_free_mb, "keep_days": st.keep_days,
+                             "path": str(base), "total_mb": du.total // 2**20, "free_mb": du.free // 2**20,
+                             "target_free_mb": storage_guard.free_target_bytes(du.total, st.min_free_mb) // 2**20,
+                             "last_cleanup": storage_guard.status()})
+            return
+
         if path == "/api/wifi-share/status":
             from nmb.netd import wifi_share
             self._send_json(wifi_share.status(self.server.cfg))
@@ -2371,6 +2383,30 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # Wi-Fi uplink (the box on the owner's Wi-Fi) and where speed tests run
+        if path == "/api/storage/save":
+            st = self.server.cfg.storage
+            try:
+                if "auto_cleanup" in body_json:
+                    st.auto_cleanup = str(body_json["auto_cleanup"]).lower() in ("1", "true", "yes", "on")
+                if "min_free_mb" in body_json:
+                    st.min_free_mb = max(0, min(100_000, int(body_json["min_free_mb"])))
+                if "keep_days" in body_json:
+                    st.keep_days = max(1, min(3650, int(body_json["keep_days"])))
+            except (TypeError, ValueError):
+                self._send_json({"status": "error", "message": "min_free_mb and keep_days must be whole numbers."}, status=400)
+                return
+            save_config(self.server.cfg)
+            self._notify_daemon_reload()
+            self._send_json({"status": "ok", "auto_cleanup": st.auto_cleanup, "min_free_mb": st.min_free_mb, "keep_days": st.keep_days})
+            return
+
+        if path == "/api/storage/cleanup":
+            from nmb.common import storage_guard
+            res = storage_guard.run(self.server.cfg, force=True)
+            res.setdefault("status", "ok")
+            self._send_json(dict(res, result=res.get("status"), status="ok"))
+            return
+
         if path == "/api/wifi-share/save":
             import ipaddress as _ip
             from nmb.netd import wifi_share, wifi_uplink
