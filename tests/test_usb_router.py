@@ -84,6 +84,17 @@ class UsbRouterModeTest(unittest.TestCase):
         svc.stop_all.assert_called()
         self.assertTrue(mode.needs_resetup)
 
+    def test_link_local_only_wan_switches_to_usb(self):
+        # 2026-11-08: the cable moved from the home router to a laptop; eth0 kept only fe80:: and the
+        # check never fired because any address counted as internet.
+        mode, svc, ifs = self._setup(dhcp_on_wan=True)
+        self.assertIsNone(mode.usb_wan)
+        ifs.get_ip_addresses.return_value = ["fe80::1/64"]
+        mode._usb_guard_ts = 0.0
+        with patch("nmb.netd.wifi_share.probe_dhcp_servers", return_value=[]):
+            mode.check_usb_wan()
+        self.assertTrue(mode.needs_resetup)
+
 
 class UsbFallbackRouteTest(unittest.TestCase):
     def setUp(self):

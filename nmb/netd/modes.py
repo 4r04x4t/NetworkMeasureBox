@@ -180,7 +180,9 @@ class ModeA(NetworkMode):
                     # Never keep serving DHCP onto another network: stop it now, rebuild next loop.
                     self.svc_mgr.stop_all()
                 self.needs_resetup = True
-        elif self.full_cfg is not None and not interfaces.get_ip_addresses(self.cfg.wan_interface):
+        elif self.full_cfg is not None and not [a for a in interfaces.get_ip_addresses(self.cfg.wan_interface)
+                                                if ":" not in a]:
+            # Only an IPv4 lease means internet on the port; the IPv6 link-local address is always there.
             if self._usb_wan_candidate():
                 log.warning("Mode A: no internet on %s; switching the WAN to USB tethering", self.cfg.wan_interface)
                 self.needs_resetup = True
