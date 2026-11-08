@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The porting plan requires for every port and the native `nmbd` on all devices: an owner-enabled maintenance mode with full access for developers and developer LLM agents (keys only, audit log, time limit), detailed structured logging that spares flash, crash evidence kept across reboots, and fixes applied next to the running version with automatic rollback and a written recovery path per device. Planned only.
 - Storage guard (`[storage]`, on by default): before the disk fills up, the box deletes the oldest logs, backups, reports and journal, and only then the oldest measurements (the last 7 days are kept). The free space it keeps depends on the size of the disk. `setup.sh` stops with a clear message when less than 500 MB is free, and uses smaller logs on disks under 8 GB.
 - CONTRIBUTING.md (English and Hungarian) and a pull request template: how to test a change and what to write down about it.
 - The testing record says how to test (unit tests, on a box, without risking the box's own connection, in VMs) and lists what is still to test and how.

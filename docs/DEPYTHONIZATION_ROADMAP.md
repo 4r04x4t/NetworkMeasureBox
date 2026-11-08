@@ -690,3 +690,7 @@ For detailed hardware-specific porting guidelines, memory budgets, and binary si
 
 Please consult the dedicated document:  
 📄 **[`ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`](ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md)**.
+
+## Required for every port: development access and safe fixes
+
+Every port and the native `nmbd` on all devices must keep the device open to developers and developer LLM agents after release (owner-enabled maintenance mode, keys only, every session in an audit log), log in detail without wearing out flash, and take fixes while running with automatic rollback, so a fix cannot brick the device. The full requirement is section 7D of `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`; a port that does not meet it is not finished.

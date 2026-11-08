@@ -524,6 +524,40 @@ Terminal interface and changelog in ports:
 
 ---
 
+## 7D. Development Access, Detailed Logging and Safe Fixes in the Field (Required for Every Target)
+
+> **Status: planned requirement.** It applies to every port and to the de-Pythonized `nmbd` on all devices: routers, the Raspberry Pi 4, x86 boxes and NMB's own distribution. A port that does not meet it is not finished.
+
+NMB is developed the agile way: it keeps changing after it ships, and many bugs only show on the real device in the real network (most fixes in `docs/TESTING.md` were found that way). So every device must stay open to its developers and to the developer LLM agents working with them, also after release, and a fix must be possible while the device runs, with as little risk of breaking (bricking) it as the hardware allows.
+
+### Access
+
+- **Full access for developers, with the owner's consent.** A maintenance mode, off by default, that the owner turns on (Web UI, `nmb-cli`, or a button/serial console where there is no network). It gives a root shell over SSH with keys only (no passwords), on the LAN or through the box's VPN/Tailscale; never open on the WAN.
+- **The same access for developer LLM agents.** An agent uses the same channel and the same rights as a human developer, plus the machine interface it needs: `nmb-cli` with JSON output for every Web UI function, the full logs, the configuration and the database (read-only by default). No separate, weaker path that behaves differently.
+- **Every session is recorded.** Who connected (key name: a person or an agent), when, and every command and file change, in an audit log the session itself cannot erase. The owner sees it in the Web UI and can end a session or turn maintenance mode off at any time.
+- **Time limit.** Maintenance mode turns itself off after a set time (for example 24 h) unless renewed.
+
+### Detailed logging that stays useful in the field
+
+- **Structured logs** (one JSON object per line: time, level, component, event, values) from every component, so people and LLM agents can search and parse them.
+- **Debug level switchable at run time,** per component, without a restart, and back to normal automatically after a set time.
+- **Flash-safe:** on routers with small NOR/NAND flash the logs live in a RAM ring buffer (as already required for `nmbd-micro`); they are written to flash only in small, rare blocks, or sent out (syslog, the central collector, or a developer's machine). The storage guard rules of the Pi version apply: logs never fill the disk.
+- **Crash evidence survives a reboot:** the last log lines, the stack/core summary and the reason of the last restart are kept (in a reserved RAM area or a small dedicated file) and shown after boot.
+- **One command for a full report:** `nmb-cli bundle` (or the Web UI) packs logs, configuration with secrets masked, versions, interfaces, routes and recent events for the developer.
+
+### Fixing without bricking
+
+- **Never change the only working copy.** Every update or fix goes beside the running version: A/B system slots where flash allows (Pi, x86, own distribution, routers with 16 MB or more), or a second copy of the NMB binary and its config on small routers (the router firmware itself stays untouched).
+- **Automatic rollback.** After an update or a hot fix, the device must confirm itself healthy (services up, network reachable, Web UI answering) within a set time; otherwise it goes back to the previous version on its own, without a person present.
+- **Fixes at the right level.** Most fixes should replace only the NMB binary or its configuration, not the kernel or the bootloader. The bootloader is never written by NMB.
+- **A configuration check before applying,** and the previous configuration kept, so a wrong setting cannot cut the device off; network changes that could lock out the developer (firewall, routes, addresses) are applied with a timed confirm, and undone if the developer does not confirm (as with commit-confirmed on network equipment).
+- **A recovery path for each target, written down before the port starts:** the vendor's rescue mode, OpenWrt failsafe, TFTP/U-Boot recovery, or the serial console (for example J2 on the RT-AC57U), with the steps tested once on the real device.
+- **Brick risk stated per target.** Each target table gets a line: how updates are applied, how rollback works, and what recovery needs (network only, a button, or a serial cable). Targets with 4 MB flash (TL-WR740N) cannot hold two full copies; there only the NMB binary is swapped, and the firmware is never rewritten from the field.
+
+### Testing these requirements
+
+Before a port counts as done, on the real device: turn maintenance mode on and off; connect with a key as a person and as an agent and check both appear in the audit log; switch a component to debug and back; force a crash and read the evidence after the reboot; install a deliberately broken update and see the automatic rollback; apply a network change without confirming it and see it undone; and go through the written recovery path once. Each result goes into `docs/TESTING.md`.
+
 ## 7C. NMB's Own Linux Distribution (Planned)
 
 > **Status: planned only.** Nothing of this exists yet. It is the target for the Raspberry Pi 4 and small x86 boxes, built on the de-Pythonized `nmbd`, alongside the router ports.
