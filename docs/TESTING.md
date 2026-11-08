@@ -111,7 +111,7 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | `nmb-cli` TUI | Box, unit tests | ✅ | |
 | Security: firewall guard, web server as `nmb`, secrets on the boot partition | VM-distro, Box | ✅ | |
 | Kernel network tuning | Box, VM-distro | ✅ | Done by `nmb-netd` (root) |
-| Telegram bot and alerts | Unit tests | ⚠️ | Not against a real bot |
+| Telegram bot and alerts | Unit tests (mocks keep the real signatures); on the Pi 4 every command, menu button and inline button in all 11 languages through the real handler (338 runs, 0 failures, 2026-11-08); a mixed speed test started from the real bot | ✅ | Destructive commands (reboot, kill, purge, heal fix, updates, VPN and Wi-Fi changes) not run; alerts not triggered for real |
 | SMTP, OONI, drive swap | — | — | |
 | 512 MB RAM | VM-D13 (463 MB usable) | ✅ | 25 min, all services, a test every minute: 26 of 26 tests ok, 182–222 MB available, no swap, no OOM, no restarts; web server 40 MB, probe 31 MB, both flat |
 | Backup and restore | VM-D13 | ✅ | Create, download, list, restore from the list and from an uploaded file; config and all measurements come back; a truncated upload is refused and changes nothing. Fixed: the restored database could be lost to its old `-wal` journal, the older boot partition copy overwrote the restored config, the restored config was not readable by `nmb`, and an uploaded backup was world-readable |

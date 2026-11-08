@@ -111,7 +111,7 @@ Jelölés: ✅ működik · ⚠️ korláttal működik · ❌ nem működik · 
 | `nmb-cli` TUI | Box, unit-tesztek | ✅ | |
 | Biztonság: tűzfal, `nmb`-ként futó webszerver, titkok a boot-partíción | VM-disztró, Box | ✅ | |
 | Kernel hálózati finomhangolás | Box, VM-disztró | ✅ | Az `nmb-netd` (root) végzi |
-| Telegram bot és riasztások | Unit-tesztek | ⚠️ | Valódi bottal nem |
+| Telegram bot és riasztások | Unit-tesztek (a mockok a valódi szignatúrát követik); a Pi 4-en minden parancs, menügomb és inline gomb mind a 11 nyelven a valódi kezelőn át (338 futás, 0 hiba, 2026-11-08); vegyes sebességmérés a valódi botról indítva | ✅ | A romboló parancsok (újraindítás, kill, purge, heal fix, frissítés, VPN- és Wi-Fi-módosítás) nem futottak; riasztás élesben nem váltódott ki |
 | SMTP, OONI, meghajtócsere | — | — | |
 | 512 MB RAM | VM-D13 (463 MB használható) | ✅ | 25 perc, minden szolgáltatás, percenkénti mérés: 26-ból 26 mérés sikeres, 182–222 MB szabad, nincs swap, nincs OOM, nincs újraindulás; webszerver 40 MB, szonda 31 MB, egyik sem nő |
 | Mentés és visszaállítás | VM-D13 | ✅ | Létrehozás, letöltés, listázás, visszaállítás a listából és feltöltött fájlból; a beállítás és minden mérés visszajön; a csonka feltöltést elutasítja, és nem változtat semmit. Javítva: a visszaállított adatbázist a régi `-wal` napló eltüntethette, a régebbi boot-partíciós másolat felülírta a visszaállított beállítást, az `nmb` nem tudta olvasni a visszaállított beállítást, és a feltöltött mentést bárki olvashatta |

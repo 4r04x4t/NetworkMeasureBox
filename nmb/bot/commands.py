@@ -126,7 +126,10 @@ class CommandHandler:
         self.client.send_message(chat_id, self._tr(chat_id, key, **kwargs))
 
     def _say_error(self, chat_id: int, op: str, error: object) -> None:
-        self._say(chat_id, "op_error", op=op, error=html.escape(str(error)))
+        # Some exceptions carry no text; then the type is the most useful thing to show.
+        text = str(error).strip() or type(error).__name__
+        log.error("error in %s: %s", op, text)
+        self._say(chat_id, "op_error", op=op, error=html.escape(text))
 
     def handle_command(self, chat_id: int, text: str) -> None:
         raw_text = text.strip()

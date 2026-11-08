@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `nmb-cli`: automatic disk cleanup settings and "clean up now" (`storage.save`, `storage.cleanup`, new `/api/storage/*` endpoints; before, only by editing `nmb.conf`), the main Wi-Fi client port role in `ports.roles`, and the diagnostic bundle and deep snapshot downloads.
 - The de-Pythonization roadmap and the porting plan set a quality bar: the native build must run at least as flawlessly as the Python version, fix the bugs it finds instead of carrying them over, and be measurably better, with the evidence written down before it replaces a Python component.
 - A release checklist in the testing record (English and Hungarian): 18 areas, each with what to do and what counts as passed.
 - The de-Pythonization roadmap and the porting plan list the features added in November 2026 and the rules learned from their fixes, which the native build must keep.
@@ -69,6 +70,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Telegram bot: `/heal`, `/wifi`, `/wifi scan`, `/wifi connect`, `/tasks` (showed 0 for CPU, memory and disk), `/kill`, `/tailscale` (showed a running Tailscale as inactive), `/backup` and `/drivers` (listed no adapters) called functions whose arguments or results had changed.
+- The installer now restarts the Telegram bot when it runs, so the bot no longer keeps old code after an upgrade (this caused "cannot import name 'bridge_master'").
+- A bot error with no text now names the error type instead of an empty message.
 - The Telegram bot showed a non-compliant SLA result ("NEM MEGFELELŐ") as compliant, because it matched the shorter word inside it first.
 - Seven Web UI texts described older behaviour (no Fast.com in the mixed run, "falls back to RTR-NetTest" while Ookla is paused, "RTR/Cloudflare failover" on a refusal, no main Wi-Fi client role); corrected in every language.
 - The Ookla CLI could not keep its settings since the Web UI runs as `nmb` (its home `/home/nmb` does not exist and systemd keeps homes read-only), so every Ookla test started as a brand-new client. It now has its own home, `/var/lib/nmb/ookla`, and `setup.sh` carries over the licence accepted earlier as root. Whether this is what made Ookla refuse the box is not yet proven.
