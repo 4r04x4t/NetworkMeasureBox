@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Porting plan: candidates for the base of NMB's own distribution compared against fixed criteria (Debian, Raspberry Pi OS Lite, OpenWrt, Alpine, VyOS, IPFire; pfSense and OPNsense excluded as FreeBSD), with an evaluation plan.
 - Porting plan, NMB's own distribution: the distribution is NMB's own, the kernel is not; it ships the stock Raspberry Pi kernel on the Pi 4 and the base distribution's LTS kernel on x86-64, unchanged, so kernel fixes come from their maintainers. Recommended build: a Debian-based image (`mmdebstrap`/`debos`).
 - De-Pythonization roadmap and porting plan: *Generic First* — the native code is written platform- and architecture-independent and proven on a PC (x86-64) and the Raspberry Pi 4 (ARM64) before any router work, with a build matrix (amd64 and arm64 built and tested, arm, mips and mipsle cross-compiled from the start).
 - Testing record (`docs/TESTING.md`, `docs/TESTING.hu.md`): the bot, settings-merge, Wi-Fi password, CLI coverage, service restart and secrets results; new rules for mocks, restarted processes, long checks on the box and secrets; the release checklist grows from 18 to 24 steps.
