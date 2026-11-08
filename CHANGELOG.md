@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Testing record (`docs/TESTING.md`, `docs/TESTING.hu.md`): the bot, settings-merge, Wi-Fi password, CLI coverage, service restart and secrets results; new rules for mocks, restarted processes, long checks on the box and secrets; the release checklist grows from 18 to 24 steps.
 - Web UI: a *Disk space* card in the settings (automatic cleanup on/off, minimum free space, days of measurements always kept, "Check and clean up now" and the current free space), in all 11 languages.
 - `nmb-cli`: automatic disk cleanup settings and "clean up now" (`storage.save`, `storage.cleanup`, new `/api/storage/*` endpoints), the main Wi-Fi client port role in `ports.roles`, and the diagnostic bundle and deep snapshot downloads.
 - The de-Pythonization roadmap and the porting plan set a quality bar: the native build must run at least as flawlessly as the Python version, fix the bugs it finds instead of carrying them over, and be measurably better, with the evidence written down before it replaces a Python component.

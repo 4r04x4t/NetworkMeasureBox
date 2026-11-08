@@ -111,7 +111,7 @@ Jelölés: ✅ működik · ⚠️ korláttal működik · ❌ nem működik · 
 | `nmb-cli` TUI | Box, unit-tesztek | ✅ | |
 | Biztonság: tűzfal, `nmb`-ként futó webszerver, titkok a boot-partíción | VM-disztró, Box | ✅ | |
 | Kernel hálózati finomhangolás | Box, VM-disztró | ✅ | Az `nmb-netd` (root) végzi |
-| Telegram bot és riasztások | Unit-tesztek (a mockok a valódi szignatúrát követik); a Pi 4-en minden parancs, menügomb és inline gomb mind a 11 nyelven a valódi kezelőn át (338 futás, 0 hiba, 2026-11-08); vegyes sebességmérés a valódi botról indítva | ✅ | A romboló parancsok (újraindítás, kill, purge, heal fix, frissítés, VPN- és Wi-Fi-módosítás) nem futottak; riasztás élesben nem váltódott ki |
+| Telegram bot és riasztások | Box, egységtesztek | ✅ | 2026-11-08, Pi 4, a valódi parancskezelőn át, helyettesítő klienssel: minden parancs, menügomb és inline gomb mind a 11 nyelven (338 futás, 0 hiba); a `/mode`, `/heal`, `/backup`, `/drivers` jó és hibás bemenettel mind a 11 nyelven (66 futás, 0 hiba, magyar szöveg csak magyarul). Visszafordítható parancsok élesben, utána visszaállítva: `/kill` egy saját `sleep`-re, `/backup create` + `send` (39 MB) + törlés, `/vpn add`/`qr`/`conf`/`del` tesztklienssel, `/heal fix`. Vegyes sebességmérés a valódi botról (Cloudflare 860/293, Fast.com 814/320, RTR 607/310, iPerf3 503/315). Egy tesztként jelölt valódi riasztás megérkezett a chatbe. Talált és javított hibák: kilenc parancs olyan függvényt hívott, aminek közben megváltoztak a paraméterei (a régi mockok kitalált értékeket adtak vissza, ezért voltak zöldek a tesztek); a bot napokkal régebbi kódot futtatott, mert a telepítő sosem indította újra. Nem futott: újraindítás, purge, frissítés, módváltás, Wi-Fi-csatlakozás, VPN indítás/leállítás |
 | SMTP, OONI, meghajtócsere | — | — | |
 | 512 MB RAM | VM-D13 (463 MB használható) | ✅ | 25 perc, minden szolgáltatás, percenkénti mérés: 26-ból 26 mérés sikeres, 182–222 MB szabad, nincs swap, nincs OOM, nincs újraindulás; webszerver 40 MB, szonda 31 MB, egyik sem nő |
 | Mentés és visszaállítás | VM-D13 | ✅ | Létrehozás, letöltés, listázás, visszaállítás a listából és feltöltött fájlból; a beállítás és minden mérés visszajön; a csonka feltöltést elutasítja, és nem változtat semmit. Javítva: a visszaállított adatbázist a régi `-wal` napló eltüntethette, a régebbi boot-partíciós másolat felülírta a visszaállított beállítást, az `nmb` nem tudta olvasni a visszaállított beállítást, és a feltöltött mentést bárki olvashatta |
@@ -121,8 +121,12 @@ Jelölés: ✅ működik · ⚠️ korláttal működik · ❌ nem működik · 
 | Frissítés a GitHubról (Git nélküli telepítés) | Egységtesztek | ⚠️ | Biztonságos kicsomagolás (útvonal-kiszökés elutasítva), ellenőrzés a GitHub ellen (szimulálva), állapotfájl, root- és commit-ellenőrzés. A valódi tárolóval dobozon még nem futott |
 | Újratelepítés `setup.sh`-val | VM-distro (Ubuntu 26.04, Alpine 3.22, Rocky 10) | ✅ | A beállítások, az admin jelszó és a mérések megmaradtak; a `/opt/nmb` alá tett elavult fájl eltűnt; a beállítás 0640 `nmb:nmb` |
 | Központi gyűjtő és távoli irányítás | Helyi gyűjtő és box-kliens, egységtesztek | ✅ | Feltöltés (ismétlés nem duplikál), keresés ügyszámra, korábbi ügyszámra és ügyfélszámra, CSV, diagnosztika és események csak hozzájárulással, távoli sebességmérés lefut és visszajelez, parancs elutasítva hozzájárulás nélkül vagy más oldalról, ismeretlen parancs mindkét oldalon elutasítva, titkok hash-ként (0600). Két gép között még nem futott |
-| Tárhelyőr | Box, egységtesztek | ⚠️ | A Boxon (116 GB) 2048 MB-ot tart szabadon, és helyesen nem törölt semmit. Egységtesztek: a cél a lemez méretétől függ, előbb a legrégebbi naplók mennek, a legújabb mentés megmarad, az utolsó 7 nap mérései megmaradnak. Valóban megtelt lemezen még nem futott |
-| Beállítások mentése két programból egyszerre | Box, egységtesztek | ✅ | A Boxon derült ki: az induló `nmb-web` és egy közben mentő `nmb-cli` sérült `nmb.conf`-ot hagyott (duplikált szakasz, levágott sor), és utána egyik program sem tudta beolvasni. Javítva (egyszerre egy mentés, saját ideiglenes fájl); egy egységteszt négy szálról 60-szor ment egy rövid és egy hosszú konfigot, és a fájl mindig olvasható |
+| Tárhelyőr | Box, egységtesztek | ⚠️ | A Boxon (116 GB) 2048 MB-ot tart szabadon, és helyesen nem törölt semmit. Az `nmb-cli` `storage.save` (a hibás számot elutasítja), `storage.cleanup` és az `/api/storage/status` a Boxon lefutott. Egységtesztek: a cél a lemez méretétől függ, előbb a legrégebbi naplók mennek, a legújabb mentés megmarad, az utolsó 7 nap mérései megmaradnak. Valóban megtelt lemezen még nem futott; a webes *Tárhely* kártyát böngészőben még nem nyitottuk meg |
+| Beállítások mentése két programból egyszerre | Box, egységtesztek | ✅ | A Boxon derült ki: az induló `nmb-web` és egy közben mentő `nmb-cli` sérült `nmb.conf`-ot hagyott (duplikált szakasz, levágott sor), és utána egyik program sem tudta beolvasni. Javítva (egyszerre egy mentés, saját ideiglenes fájl); egy egységteszt négy szálról 60-szor ment egy rövid és egy hosszú konfigot, és a fájl mindig olvasható. Később derült ki: eltűnt a Telegram-token, mert minden program a beállítások teljes, régi másolatát írta vissza. Háromutas összefésüléssel javítva (egy mentés csak azt írja, amit az adott program változtatott); a `tests/test_config_merge.py` az egyik másolatból tokent, egy régebbiből más beállítást ment, és mindkettő megmarad. A Boxon azóta a token négy telepítést és több mentést túlélt |
+| Wi-Fi hozzáférési pont jelszava | Box, egységtesztek | ✅ | A közös gyári jelszót a hozzáférési pont és a webes mentés is elutasítja; az üreset és a 8–63 karakteren kívülit is; az `/api/config` csak a `wifi_psk_set` jelzőt adja vissza, a jelszót soha; a telepítési naplóban nincs jelszósor. A Boxon: a jelszó egyedi és érvényes (kiolvasás nélkül ellenőrizve); a hozzáférési pont ki van kapcsolva |
+| Az `nmb-cli` lefedi a webes felületet | Box, egységtesztek | ✅ | A `tests/test_tui.py` elbukik, ha egy webes végpontnak nincs CLI-művelete; a webes felület által ténylegesen hívott végpontokat kézzel is összevetettük a katalógussal (az aliasokat és előtagokat leszámítva): a két diagnosztikai letöltés, a fő Wi-Fi szerep és a tárhelybeállítások hiányoztak, ezeket felvettük |
+| A telepítő minden szolgáltatást újraindít | Box | ✅ | A `setup.sh` után az `nmb-web`, `nmb-netd` és `nmb-telegram` `ActiveEnterTimestamp` értéke későbbi a telepítés kezdeténél; a javítás előtt a bot két nappal korábbi kódot futtatott |
+| Nincs titok a kimenetekben | Box, átnézés | ✅ | A telepítési napló, az `/api/config`, a bot válaszai és a diagnosztikai csomag átnézve tokenekre és jelszavakra: csak meglétet jelző mezők. A dobozon futó tesztek a titkoknál csak azt nézik, üres-e, illetve a gyári érték-e, kiírni soha nem írják ki |
 
 ## Hogyan kell tesztelni
 
@@ -161,6 +165,26 @@ bash -n setup.sh                               # ha a setup.sh változott
 - Disztribúciónként tiszta felhőkép, nulláról telepítve a `setup.sh`-val; utána újratelepítés rá, majd újraindítás. Ellenőrizd, hogy a beállítások, az admin jelszó és a mérések megmaradnak, és a `/etc/nmb/nmb.conf` `0640 nmb:nmb`.
 - Hálózati módok és a hozzáférési pont a VM-D13-ban (két hálókártya, szimulált rádiók, kliensek névterekben).
 
+### 5. A mockoknak egyezniük kell a valódi kóddal
+
+Ha egy mock kitalált értéket ad vissza, a teszt zöld marad, miközben a valódi hívás elbukik. Használd az `autospec=True`-t (`@patch("nmb.x.y", autospec=True)`), így egy átnevezett paraméter elbuktatja a tesztet, és a mock azt a formát adja vissza, amit a valódi függvény (a tuple maradjon tuple). Ha nem vagy biztos benne, egyszer írasd ki a valódi eredményt a dobozon, és annak a formáját vedd át a tesztbe.
+
+### 6. Minden folyamatnak az új kódot kell futtatnia
+
+A feltelepített fájl hatástalan, amíg egy régi folyamat a memóriájában tartja a régit. Telepítés után vesd össze minden szolgáltatás indulási idejét a telepítés idejével (`systemctl show -p ActiveEnterTimestamp nmb-web nmb-netd nmb-probe nmb-telegram`); mindegyiknek későbbinek kell lennie. Ugyanígy az olyan beállításváltozás után, amit egy szolgáltatás csak induláskor olvas be.
+
+### 7. Hosszú ellenőrzések futtatása a dobozon
+
+- Átmeneti egységként futtasd, ne az SSH-munkamenetben: `sudo systemd-run --unit=nmb-check --uid=nmb -p StandardOutput=file:/tmp/nmb-check.out python3 -u /tmp/check.py`. A kimeneti fájlt ne hozd létre előre (a systemd nem tudja megnyitni a `/tmp`-ben egy másik felhasználó által létrehozott fájlt).
+- Minden lépésnek legyen saját időkorlátja, és lépésenként írjon ki egy sort, így egy elakadásnál látszik, hol tart.
+- Soha ne `pkill -f`-elj olyan mintára, ami a saját SSH-parancsodra is illeszkedik.
+- Hagyd ki, ami a vonalat vagy a dobozt változtatja (menügombról indított sebességmérés, újraindítás, purge, frissítés), hacsak éppen nem az a teszt; a döntés előtt a gombfeliratot fordítsd le parancsra.
+- Olyan teszt-chatazonosítókat használj, amelyek nem valódi chatek, és írd le, milyen valódi üzenetek mentek ki.
+
+### 8. Titkok
+
+Tesztelés közben soha ne olvass ki, ne írj ki és ne másolj tokent, jelszót vagy kulcsot, naplóba sem. Csak azt ellenőrizd, ami számít: üres-e, egyezik-e egy ismert gyári értékkel, jó-e a hossza. Ha egy titok elveszett, kérd meg a tulajdonost, hogy írja be újra.
+
 ### Mit kell rögzíteni
 
 Minden sorhoz: hol (Box, VM neve, egységtesztek), az eredmény (✅ ⚠️ ❌), és hogyan: mit állítottál be, mit mértél, számokkal, és mit találtál és javítottál közben. Amit nem próbáltál ki, azt ki nem próbáltként írd, ne működőként.
@@ -172,7 +196,7 @@ Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Mind
 | # | Terület | Mit kell csinálni | Akkor sikeres, ha |
 |---|---|---|---|
 | 1 | Egységtesztek | `python3 -m unittest discover -s tests`, `node --check nmb/web/assets/dashboard.js`, `bash -n setup.sh` | Minden OK |
-| 2 | Frissítő telepítés | `git archive HEAD` a boxra, `sudo bash setup.sh` | Kilépési kód 0; az `nmb-web`, `nmb-netd`, `nmb-probe` aktív; nincs hibás `nmb*` egység; az `/opt/nmb/.source-commit` az új commit; a beállítások, az admin jelszó és a mérések megmaradtak; a `nmb.conf` olvasható és `0640 nmb:nmb` |
+| 2 | Frissítő telepítés | `git archive HEAD` a boxra, `sudo bash setup.sh` | Kilépési kód 0; az `nmb-web`, `nmb-netd`, `nmb-probe` (és ha használt, az `nmb-telegram`) aktív, és a telepítés után indult; nincs hibás `nmb*` egység; az `/opt/nmb/.source-commit` az új commit; a beállítások, az admin jelszó, a Telegram-token és a mérések megmaradtak; a `nmb.conf` olvasható és `0640 nmb:nmb`; a `/root/nmb-setup.log`-ban nincs jelszó vagy token |
 | 3 | Tiszta telepítés | Támogatott családonként egy VM nulláról (Debian/Ubuntu, Fedora/RHEL, Alpine) | Mint a 2., és a műszerfal válaszol, és lefut egy első RTR-mérés |
 | 4 | Ookla | Egy ütemezett futás, legfeljebb óránként | Van sor letöltéssel, feltöltéssel, pinggel és a választott szerverrel; elutasításkor: egy hibasor, szünet, és nem kerül a helyére más motor eredménye |
 | 5 | RTR-NetTest, Cloudflare, Fast.com | Mindegyikből egy kézi futás (`nmb-cli run speed.run engine=...`) | A sor a saját motorneve alatt van; a sebesség hihető a vonalhoz (a tesztvonalon 850–940 le, 300–330 fel); a Fast.com sor `raw_json`-jában ott vannak a szerverek, a minták és a terhelés alatti késleltetés |
@@ -182,13 +206,19 @@ Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Mind
 | 9 | Wi-Fi megosztása LAN porton | veth-pár + névtér a *Hogyan kell tesztelni* szerint; utána egy második DHCP-szerver a névtérben | A kliens címet kap és a Wi-Fi-n át eléri az internetet; a második szerverrel a box kb. 2 percen belül leállítja a DHCP-jét, címét, NAT-ját és szabályát; kikapcsoláskor minden eltűnik |
 | 10 | Vezeték nélküli szerepek | Portok és driverek: `wlan0` legyen fő, mentés; utána vendég | Az eszközfelderítő a megfelelő sávot mutatja; a vendégállapot nem állítja a fő hálózatot vendégnek |
 | 11 | Tárhelyőr | Rootként `storage_guard.run(cfg, force=True)` a Boxon; VM-en megtöltött lemezzel | Box: semmi sem törlődik, a cél látszik; VM: előbb a régi naplók mennek, az utolsó 7 nap mérései megmaradnak, esemény íródik |
-| 12 | Beállítások | Mentés a webes felületről és az `nmb-cli`-ből egyszerre, néhányszor | A `nmb.conf` olvasható marad; nincs duplikált szakasz |
-| 13 | Nyelvek | Mind a 11 nyelv végigváltása a műszerfalon, a beállításokban, a kijelentkezési oldalon és a `/results` oldalon; a jelentés megnyitása `?lang=` paraméterrel mindegyiken | Nincs nyers kulcs, nincs szétesett elrendezés, nincs magyar szöveg a magyaron kívül; a bot a hat újabb nyelven angolul válaszol |
+| 12 | Beállítások | Mentés a webes felületről és az `nmb-cli`-ből egyszerre, néhányszor; egy beállítás módosítása a webes felületen, utána egy másiké az `nmb-cli`-vel | A `nmb.conf` olvasható marad; nincs duplikált szakasz; mindkét változás megvan, a Telegram-token és a többi titok változatlan (a bot továbbra is elindul) |
+| 13 | Nyelvek | Mind a 11 nyelv végigváltása a műszerfalon, a beállításokban, a kijelentkezési oldalon és a `/results` oldalon; a jelentés megnyitása `?lang=` paraméterrel mindegyiken; a botban `/lang` mindegyikre | Nincs nyers kulcs vagy `{helyőrző}`, nincs szétesett elrendezés, nincs magyar szöveg a magyaron kívül, sem a webes felületen, sem a botban |
 | 14 | Webes felület | Minden fül megnyitása nyitott böngészőkonzollal | Nincs JavaScript-hiba; minden fül betölti az adatait |
 | 15 | Jelentések, exportok | A jelentés, a sebesség-CSV, a részletes CSV és a ping-CSV letöltése | A fájlok megnyílnak; az új motorok és az iPerf3-nevek megjelennek |
-| 16 | Telegram (ha be van állítva) | `/test fastcom`, `/report`, `/lang` | A chat nyelvén válaszol; megjön a Fast.com eredménye |
+| 16 | Telegram (ha be van állítva) | Minden menügomb, valamint a `/status`, `/ping`, `/report`, `/tailscale`, `/vpn`, `/wifi`, `/wifi scan`, `/tasks`, `/heal`, `/backup`, `/drivers`, `/mode` parancs; egy `/test`; `/kill` egy saját `sleep`-re; `/backup create`, utána törlés; `/vpn add` és `/vpn del` tesztnévvel; egy tesztriasztás | Minden válasz a chat nyelvén, valódi adatokkal (nincs `0.0 B`, nincs „nincs vezérlő”, a Tailscale-állapot egyezik a `tailscale status`-szal); nincs „Hiba (...)” szöveg; megjön a sebességmérés; minden létrehozott dolog törölve. A helyettesítő klienses szkripttel: minden parancs és gomb mind a 11 nyelven, 0 hiba |
 | 17 | Újraindítás | `sudo reboot`, 3 perc várakozás | Minden szolgáltatás fut; a beállítások, az utolsó pillanatkép és az Ookla-szünet állapota megmarad |
-| 18 | Visszaállítás | A tesztbeállítások, teszt-interfészek és szabályok visszaállítása | A box olyan, mint az ellenőrzőlista előtt |
+| 18 | Wi-Fi hozzáférési pont | Próbáld elmenteni a gyári jelszót és egy 6 karakteresat; nézd meg az `/api/config`-ot | Mindkettőt elutasítja; az `/api/config`-ban `wifi_psk_set` van, jelszó nincs; érvényes jelszó nélkül a hozzáférési pont nem indul |
+| 19 | `nmb-cli` | `nmb-cli menu`; `nmb-cli run storage.save keep_days=7`, `storage.cleanup`, `dev.bundle`; egy hibás érték | Az új műveletek szerepelnek a listában és működnek; a hibás értéket üzenettel elutasítja |
+| 20 | Tárhely kártya | Megnyitás a webes felületen, mentés, „Ellenőrzés és takarítás most” | Az értékek betöltődnek, mentődnek, és újratöltés után is megmaradnak; a szabad hely sora frissül |
+| 21 | Újraindult szolgáltatások | `systemctl show -p ActiveEnterTimestamp` minden `nmb*` szolgáltatásra | Mind későbbi a telepítésnél |
+| 22 | Titkok | `grep -iE 'token\|password\|psk' /root/nmb-setup.log`; `nmb-cli api GET /api/config` | Csak jelzők, például `wifi_psk_set`, értékek nincsenek |
+| 23 | Naplók a futás után | `journalctl -p err -u 'nmb*' --since <kezdés>` | Nincs új hiba, csak amit a teszt szándékosan okozott |
+| 24 | Visszaállítás | A tesztbeállítások, teszt-interfészek, szabályok, tesztkliensek és a teszt-chatek nyelvének visszaállítása | A box olyan, mint az ellenőrzőlista előtt |
 
 ## Még tesztelendő
 
@@ -216,7 +246,10 @@ Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Mind
 | Frissítés és mentés régebbi kiadásról | 2.4.0 telepítése, frissítés a mostanira a konfig megtartásával; 2.4.0-s mentés visszaállítása |
 | WAN-tartalék, terheléselosztás, VLAN, link aggregáció | Két WAN-kártya, az egyiket kihúzni; Linux-híd VLAN-szűréssel |
 | Ellenséges hálózatok | Csak IPv6-os WAN, CGNAT, hibás DNS, captive portal, ki-be kapcsoló link, órabeállítás-ugrás |
-| Telegram, SMTP | Helyi mock szerverekkel, utána valódi bottal |
+| A dobozt módosító Telegram-parancsok | Tartalék dobozon: `/reboot now`, `/purge ... confirm`, `/heal apply`, `/mode`, `/wifi connect`, `/vpn start`/`stop` |
+| 50 MB-nál nagyobb mentés Telegramon | A Telegram elutasítja a nagyobb fájlt; a botnak ezt jeleznie kell, nem csendben elbuknia |
+| Elveszett beállítások valódi folyamatok között | A webes felület, az `nmb-cli`, a bot és az `nmb-netd` egy órán át felváltva ment; minden beállított érték megmarad (az egységteszt egy folyamaton belül két másolatot fed le) |
+| SMTP | Helyi mock szerverrel, utána valódi postafiókkal |
 | Frissítés GitHubról egy boxon | Amint a mostani kód felkerül a GitHubra |
 | Központi gyűjtő két gép között | A gyűjtő egy PC-n, a box egy másik hálózaton |
 | Webes felület | Mind a 11 nyelv (a hat újabb gépi segítséggel készült fordítás: anyanyelvi lektor nézze át), több felhasználó egyszerre, hibás belépések, Firefox, Chrome és telefon |
@@ -241,4 +274,6 @@ Abból, hogy a `setup.sh` mit ismer fel, és mi kell a kódnak (Python 3.10 vagy
 
 - Az Ookla letiltja azt a nyilvános IP-címet, amelyről túl gyakran mérnek, és az elutasított próbálkozások fenntartják a tiltást; ez 2026. nov. 8-án igazolódott, amikor egy új nyilvános IP-vel (a főrouter újraindítása után) a mérés azonnal sikerült. A box ilyenkor szünetelteti az Ooklát (30 perc, duplázódva legfeljebb 4 óráig). Az NMB nem cserél IP-t a megkerüléshez; az Ooklát legfeljebb óránként futtasd.
 - Áramszünetnél legfeljebb 15 perc eredménye veszhet el, szándékosan (az élő adatbázis RAM-ban van).
-- A fenti futásokhoz használt VM-szkriptek nincsenek a tárolóban; minden sor leírja, mi volt beállítva.
+- A fenti futásokhoz használt VM-szkriptek és bot-ellenőrző szkriptek nincsenek a tárolóban; minden sor leírja, mi volt beállítva.
+- A bot mentést csak a Telegram botokra vonatkozó 50 MB-os korlátjáig tud elküldeni.
+- Az a doboz, amelyen a régi gyári Wi-Fi-jelszó volt, és nem kapott újat, addig nem indít hozzáférési pontot, amíg nem állítanak be jelszót.

@@ -28,10 +28,12 @@ Every pull request says how it was tested. A pull request without a test record 
    node --check nmb/web/assets/dashboard.js   # if it changed
    bash -n setup.sh                           # if it changed
    ```
-   New behaviour gets new tests. Tests mock the system and run without root, network or a box.
+   New behaviour gets new tests. Tests mock the system and run without root, network or a box. Patch with `autospec=True` and return what the real function returns: a mock that invents its result hides a broken call.
 2. **On a real device, for anything that touches the network, the system or measuring.** Install it the way users get it (`git archive` and `setup.sh`), run the feature for real, and measure what it claims (for network features: the interface byte counters before and after). Use a veth pair and a network namespace instead of the port you are connected through. Put the device back as it was.
 3. **In a VM, for installer and distribution changes:** clean install, install again over it, reboot.
 4. **Update [docs/TESTING.md](docs/TESTING.md) and [docs/TESTING.hu.md](docs/TESTING.hu.md)** with a row: where, result, how.
+
+Never read, print or copy a token, password or key while testing; check only whether it is set. After installing, check that every service restarted (`ActiveEnterTimestamp`), not only that it is active.
 
 Write down what you did **not** test. "Not tried on real hardware" is a useful sentence; "works" without saying where is not.
 

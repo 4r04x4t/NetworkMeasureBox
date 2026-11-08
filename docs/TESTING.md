@@ -111,7 +111,7 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | `nmb-cli` TUI | Box, unit tests | ✅ | |
 | Security: firewall guard, web server as `nmb`, secrets on the boot partition | VM-distro, Box | ✅ | |
 | Kernel network tuning | Box, VM-distro | ✅ | Done by `nmb-netd` (root) |
-| Telegram bot and alerts | Unit tests (mocks keep the real signatures); on the Pi 4 every command, menu button and inline button in all 11 languages through the real handler (338 runs, 0 failures, 2026-11-08); a mixed speed test started from the real bot | ✅ | Destructive commands (reboot, kill, purge, heal fix, updates, VPN and Wi-Fi changes) not run; alerts not triggered for real |
+| Telegram bot and alerts | Box, unit tests | ✅ | 2026-11-08 on the Pi 4, through the real command handler with a stand-in client: every command, menu button and inline button in all 11 languages (338 runs, 0 failures); `/mode`, `/heal`, `/backup`, `/drivers` with good and bad input in all 11 (66 runs, 0 failures, no Hungarian outside Hungarian). Reversible commands for real, then undone: `/kill` on an own `sleep`, `/backup create` + `send` (39 MB) + delete, `/vpn add`/`qr`/`conf`/`del` with a test client, `/heal fix`. A mixed speed test started from the real bot (Cloudflare 860/293, Fast.com 814/320, RTR 607/310, iPerf3 503/315). One real alert, marked as a test, reached the chat. Found and fixed: nine commands called functions whose arguments had changed (the old mocks invented return values, so the tests were green); the bot ran week-old code because the installer never restarted it. Not run: reboot, purge, updates, mode change, Wi-Fi connect, VPN start/stop |
 | SMTP, OONI, drive swap | — | — | |
 | 512 MB RAM | VM-D13 (463 MB usable) | ✅ | 25 min, all services, a test every minute: 26 of 26 tests ok, 182–222 MB available, no swap, no OOM, no restarts; web server 40 MB, probe 31 MB, both flat |
 | Backup and restore | VM-D13 | ✅ | Create, download, list, restore from the list and from an uploaded file; config and all measurements come back; a truncated upload is refused and changes nothing. Fixed: the restored database could be lost to its old `-wal` journal, the older boot partition copy overwrote the restored config, the restored config was not readable by `nmb`, and an uploaded backup was world-readable |
@@ -121,8 +121,12 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | Update from GitHub (no Git install) | Unit tests | ⚠️ | Safe unpacking (path traversal refused), check against GitHub (mocked), status file, root and commit checks. Not yet run against the real repository on a box |
 | Reinstall with `setup.sh` | VM-distro (Ubuntu 26.04, Alpine 3.22, Rocky 10) | ✅ | Settings, admin password and measurements kept; a stale file in `/opt/nmb` removed; config 0640 `nmb:nmb` |
 | Central collector and remote control | Local collector and box client, unit tests | ✅ | Upload (repeat adds nothing), search by case number, earlier case number and customer number, CSV, diagnostics and events only with consent, remote speed test run and reported, commands refused without consent or from another site, unknown commands refused on both sides, secrets stored as hashes (0600). Not yet run between two machines |
-| Storage guard | Box, unit tests | ⚠️ | On the Box (116 GB) it keeps 2048 MB free and deleted nothing, as it should. Unit tests: target by disk size, oldest logs first, newest backup kept, measurements of the last 7 days kept. Not yet run on a really full disk |
-| Saving settings from two programs at once | Box, unit tests | ✅ | Found on the Box: `nmb-web` starting while `nmb-cli` saved left a broken `nmb.conf` (a duplicated section and a cut line), and every program failed to read it. Fixed (one save at a time, own temporary file); a unit test saves a short and a long config from four threads 60 times and the file always parses |
+| Storage guard | Box, unit tests | ⚠️ | On the Box (116 GB) it keeps 2048 MB free and deleted nothing, as it should. `nmb-cli` `storage.save` (a wrong number is refused), `storage.cleanup` and `/api/storage/status` run on the Box. Unit tests: target by disk size, oldest logs first, newest backup kept, measurements of the last 7 days kept. Not yet run on a really full disk; the Web UI *Disk space* card not yet opened in a browser |
+| Saving settings from two programs at once | Box, unit tests | ✅ | Found on the Box: `nmb-web` starting while `nmb-cli` saved left a broken `nmb.conf` (a duplicated section and a cut line), and every program failed to read it. Fixed (one save at a time, own temporary file); a unit test saves a short and a long config from four threads 60 times and the file always parses. Found later: the Telegram token vanished, because each program wrote back its whole old copy of the settings. Fixed with a three-way merge (a save writes only what that program changed); `tests/test_config_merge.py` saves a token from one copy and another setting from an older copy, and both survive. On the Box the token survived four installs and several saves since |
+| Wi-Fi access point password | Box, unit tests | ✅ | The shared factory password is refused by the access point and by the Web UI save; an empty one or one outside 8–63 characters too; `/api/config` reports only `wifi_psk_set`, never the password; the installer log has no password line. On the Box: the password is unique and valid (checked without reading it); the access point is off |
+| `nmb-cli` covers the Web UI | Box, unit tests | ✅ | `tests/test_tui.py` fails for a Web UI endpoint without a CLI action; the endpoints the Web UI really calls were compared by hand with the catalog (aliases and prefixes aside): the two diagnostic downloads, the main Wi-Fi role and the disk settings were missing and were added |
+| Installer restarts every service | Box | ✅ | After `setup.sh` the `ActiveEnterTimestamp` of `nmb-web`, `nmb-netd` and `nmb-telegram` is later than the start of the install; before the fix the bot kept running code from two days earlier |
+| No secrets in output | Box, review | ✅ | Install log, `/api/config`, bot answers and the diagnostic bundle checked for tokens and passwords: only presence flags. Tests on the box check secrets only for being empty or the factory value, never print them |
 
 ## How to test
 
@@ -161,6 +165,26 @@ bash -n setup.sh                               # when setup.sh changed
 - A clean cloud image per distribution, installed from scratch with `setup.sh`; then install again over it and reboot. Check that settings, the admin password and measurements survive, and that `/etc/nmb/nmb.conf` is `0640 nmb:nmb`.
 - Network modes and the access point in VM-D13 (two NICs, simulated radios, clients in namespaces).
 
+### 5. Mocks must match the real code
+
+A mock that invents a return value keeps a test green while the real call fails. Patch with `autospec=True` (`@patch("nmb.x.y", autospec=True)`), so a renamed argument fails the test, and give the mock the shape the real function returns (a tuple stays a tuple). When in doubt, print the real result on the box once and copy its shape into the test.
+
+### 6. Every process must run the new code
+
+An installed file does nothing while an old process keeps the old one in memory. After an install compare each service's start time with the install time (`systemctl show -p ActiveEnterTimestamp nmb-web nmb-netd nmb-probe nmb-telegram`); every one must be newer. The same after a settings change that a service only reads at start.
+
+### 7. Running long checks on the box
+
+- Run them as a transient unit, not in the SSH session: `sudo systemd-run --unit=nmb-check --uid=nmb -p StandardOutput=file:/tmp/nmb-check.out python3 -u /tmp/check.py`. Do not create the output file beforehand (systemd cannot open a file another user made in `/tmp`).
+- Give every step its own time limit and print one line per step, so a hang shows where it is.
+- Never `pkill -f` a pattern that also matches your own SSH command line.
+- Skip what changes the line or the box (speed tests from a menu button, reboot, purge, updates) unless that is the test; map a button label to its command before deciding.
+- Use test chat IDs that are not real chats, and say in the record which real messages were sent.
+
+### 8. Secrets
+
+Never read, print or copy a token, password or key while testing, not even into a log. Check only what matters: empty or not, equal to a known factory value or not, the right length. Ask the owner to enter a lost secret again.
+
 ### What to record
 
 For every row: where (Box, VM name, unit tests), the result (✅ ⚠️ ❌), and how: what was set up, what was measured, numbers, and what was found and fixed on the way. Something that was not tried is written as not tried, not as working.
@@ -172,7 +196,7 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | # | Area | What to do | Passed when |
 |---|---|---|---|
 | 1 | Unit tests | `python3 -m unittest discover -s tests`, `node --check nmb/web/assets/dashboard.js`, `bash -n setup.sh` | All OK |
-| 2 | Upgrade install | `git archive HEAD` to the box, `sudo bash setup.sh` | Exit 0; `nmb-web`, `nmb-netd`, `nmb-probe` active; no failed `nmb*` unit; `/opt/nmb/.source-commit` is the new commit; settings, admin password and measurements kept; `nmb.conf` readable and `0640 nmb:nmb` |
+| 2 | Upgrade install | `git archive HEAD` to the box, `sudo bash setup.sh` | Exit 0; `nmb-web`, `nmb-netd`, `nmb-probe` (and `nmb-telegram` if used) active and started after the install; no failed `nmb*` unit; `/opt/nmb/.source-commit` is the new commit; settings, admin password, Telegram token and measurements kept; `nmb.conf` readable and `0640 nmb:nmb`; no password or token in `/root/nmb-setup.log` |
 | 3 | Clean install | One VM per supported family (Debian/Ubuntu, Fedora/RHEL, Alpine) from scratch | Same as 2, plus the dashboard answers and a first RTR test runs |
 | 4 | Ookla | One scheduled run, at most once an hour | A row with download, upload, ping and the chosen server; if refused: one error row, a pause, no other engine's result in its place |
 | 5 | RTR-NetTest, Cloudflare, Fast.com | One manual run each (`nmb-cli run speed.run engine=...`) | A row under its own engine name; speeds plausible for the line (on the test line 850–940 down, 300–330 up); Fast.com row has `raw_json` with servers, samples and loaded latency |
@@ -182,13 +206,19 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | 9 | Wi-Fi shared on a LAN port | veth pair + namespace as in *How to test*; then a second DHCP server in the namespace | Client gets an address and reaches the internet through Wi-Fi; with the second server the box stops its DHCP, address, NAT and rule within about 2 minutes; everything removed when turned off |
 | 10 | Wireless roles | Ports & Drivers: set `wlan0` to main, save; then guest | The device explorer shows the right banner; guest status no longer claims the main network |
 | 11 | Storage guard | `storage_guard.run(cfg, force=True)` as root on the Box; on a VM with a filled disk | Box: nothing deleted, target shown; VM: rotated logs first, measurements of the last 7 days kept, an event written |
-| 12 | Settings | Save from the Web UI and `nmb-cli` at the same time a few times | `nmb.conf` still parses; no duplicated section |
-| 13 | Languages | Switch through all 11 languages on the dashboard, the settings tabs, the logout page and `/results`; open the report with `?lang=` for each | No raw keys, no broken layout, no Hungarian outside Hungarian; the bot answers in English in the six newer languages |
+| 12 | Settings | Save from the Web UI and `nmb-cli` at the same time a few times; change one setting in the Web UI, then another with `nmb-cli` | `nmb.conf` still parses; no duplicated section; both changes are there, and the Telegram token and other secrets are unchanged (the bot still starts) |
+| 13 | Languages | Switch through all 11 languages on the dashboard, the settings tabs, the logout page and `/results`; open the report with `?lang=` for each; `/lang` in the bot for each | No raw keys or `{placeholders}`, no broken layout, no Hungarian outside Hungarian, in the Web UI and the bot |
 | 14 | Web UI | Open every tab with the browser console open | No JavaScript errors; every tab loads its data |
 | 15 | Reports and exports | Download the report, speed CSV, detailed CSV and ping CSV | Files open; the new engines and iPerf3 names appear |
-| 16 | Telegram (if configured) | `/test fastcom`, `/report`, `/lang` | Answers in the chat's language; Fast.com result arrives |
+| 16 | Telegram (if configured) | Every menu button and the commands `/status`, `/ping`, `/report`, `/tailscale`, `/vpn`, `/wifi`, `/wifi scan`, `/tasks`, `/heal`, `/backup`, `/drivers`, `/mode`; one `/test`; `/kill` on an own `sleep`; `/backup create` then delete it; `/vpn add` and `/vpn del` with a test name; one test alert | Every answer in the chat's language with real data (no `0.0 B`, no "no controllers", Tailscale state matching `tailscale status`); no "Error (...)" text; the speed test arrives; everything created is removed. With the stand-in client script: every command and button in all 11 languages, 0 failures |
 | 17 | Reboot | `sudo reboot`, wait 3 minutes | All services up; settings, the last snapshot and the Ookla pause state survive |
-| 18 | Put back | Undo test settings, test interfaces and rules | The box is as it was before the checklist |
+| 18 | Wi-Fi access point | Try to save the factory password and a 6-character one; check `/api/config` | Both refused; `/api/config` has `wifi_psk_set` and no password; the access point does not start without a valid password |
+| 19 | `nmb-cli` | `nmb-cli menu`; `nmb-cli run storage.save keep_days=7`, `storage.cleanup`, `dev.bundle`; one bad value | The new actions are listed and work; a bad value is refused with a message |
+| 20 | Disk space card | Open it in the Web UI, save, press "Check and clean up now" | Values load, save and come back after a reload; the free space line updates |
+| 21 | Services restarted | `systemctl show -p ActiveEnterTimestamp` for every `nmb*` service | All later than the install |
+| 22 | Secrets | `grep -iE 'token\|password\|psk' /root/nmb-setup.log`; `nmb-cli api GET /api/config` | Only flags such as `wifi_psk_set`, no values |
+| 23 | Logs after the run | `journalctl -p err -u 'nmb*' --since <start>` | No new errors except the ones the test caused on purpose |
+| 24 | Put back | Undo test settings, test interfaces, rules, test clients and test chat languages | The box is as it was before the checklist |
 
 ## Still to test
 
@@ -216,7 +246,10 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | Upgrade and backup from an older release | Install 2.4.0, update to the current one with its config; restore a 2.4.0 backup |
 | WAN failover, load balancing, VLAN, link aggregation | Two WAN NICs, pull one; a Linux bridge with VLAN filtering |
 | Hostile networks | IPv6-only WAN, CGNAT, broken DNS, captive portal, flapping link, clock jump |
-| Telegram, SMTP | Against local mock servers, then a real bot |
+| Telegram commands that change the box | On a spare box: `/reboot now`, `/purge ... confirm`, `/heal apply`, `/mode`, `/wifi connect`, `/vpn start`/`stop` |
+| Telegram backup over 50 MB | Telegram refuses bigger files; the bot must say so instead of failing quietly |
+| Lost settings across real processes | Web UI, `nmb-cli`, bot and `nmb-netd` saving in turns for an hour; every value set stays (the unit test covers two copies in one process) |
+| SMTP | Against a local mock server, then a real mailbox |
 | Update from GitHub on a box | Once the current code is on GitHub |
 | Central collector between two machines | Collector on one PC, box on another network |
 | Web UI | All 11 languages (the six newer ones were machine-assisted translations: a native speaker should read them), several users at once, wrong logins, Firefox, Chrome and a phone |
@@ -241,4 +274,6 @@ Found by checking what `setup.sh` detects and what the code needs (Python 3.10 o
 
 - Ookla blocks the public IP address that tests too often, and refused attempts keep the block going; shown on 8 Nov 2026 when a new public IP (main router restarted) passed at once. The box then pauses Ookla (30 min, doubling up to 4 h). NMB does not change the IP to get around it; run Ookla at most hourly.
 - Up to 15 minutes of results can be lost on a power cut, by design (the live database is in RAM).
-- The VM scripts used for the runs above are not part of the repository; each row says what was set up.
+- The VM scripts and the bot check scripts used for the runs above are not part of the repository; each row says what was set up.
+- The bot can send a backup only up to Telegram's 50 MB limit for bots.
+- A box that had the old factory Wi-Fi password and no new one gets no access point until a password is set.

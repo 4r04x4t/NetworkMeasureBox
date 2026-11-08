@@ -28,10 +28,12 @@ Minden pull request leírja, hogyan lett tesztelve. Tesztleírás nélküli pull
    node --check nmb/web/assets/dashboard.js   # ha változott
    bash -n setup.sh                           # ha változott
    ```
-   Az új viselkedés új teszteket kap. A tesztek mockolják a rendszert, és root, hálózat vagy box nélkül futnak.
+   Az új viselkedés új teszteket kap. A tesztek mockolják a rendszert, és root, hálózat vagy box nélkül futnak. Használd az `autospec=True`-t, és azt add vissza, amit a valódi függvény: a kitalált eredményt adó mock elrejti a hibás hívást.
 2. **Valódi eszközön mindennél, ami a hálózathoz, a rendszerhez vagy a méréshez nyúl.** Úgy telepítsd, ahogy a felhasználók kapják (`git archive` és `setup.sh`), futtasd élesben a funkciót, és mérd meg, amit állít (hálózati funkcióknál: az interfész bájtszámlálói előtte és utána). Ne azon a porton tesztelj, amelyiken csatlakozol, hanem veth-párral és hálózati névtérrel. Utána állítsd vissza az eszközt.
 3. **VM-ben a telepítő és a disztribúciók változásainál:** tiszta telepítés, újratelepítés rá, újraindítás.
 4. **Frissítsd a [docs/TESTING.md](docs/TESTING.md)-t és a [docs/TESTING.hu.md](docs/TESTING.hu.md)-t** egy sorral: hol, milyen eredménnyel, hogyan.
+
+Tesztelés közben soha ne olvass ki, ne írj ki és ne másolj tokent, jelszót vagy kulcsot; csak azt nézd, be van-e állítva. Telepítés után azt is ellenőrizd, hogy minden szolgáltatás újraindult (`ActiveEnterTimestamp`), ne csak azt, hogy fut.
 
 Írd le azt is, amit **nem** teszteltél. A „valódi hardveren nem próbáltam” hasznos mondat; a „működik” anélkül, hogy hol, nem az.
 
