@@ -356,12 +356,49 @@ def get_default_gateway_iface() -> Optional[str]:
     return None
 
 
+# USB network functions of phones, mobile hotspots (e.g. Netgear Nighthawk) and cellular modems.
+# They are named like Ethernet (usb0, enx<MAC>, eth1), so the name alone would let a 5G link be
+# measured and stored as the wired line.
+_ALWAYS_TETHER_DRIVERS = {"rndis_host", "ipheth", "qmi_wwan", "cdc_mbim", "huawei_cdc_ncm", "cdc_eem"}
+_CDC_DRIVERS = {"cdc_ether", "cdc_ncm", "cdc_subset"}
+# USB Ethernet dongle makers whose chips can fall back to the generic CDC drivers.
+_DONGLE_VENDORS = {"0bda", "0b95", "0424", "2001", "13b1", "0fe6", "17ef"}
+
+
+def usb_tether_kind(iface: str) -> Optional[str]:
+    """'modem' or 'tether' for a phone, hotspot or modem on USB; None for anything else."""
+    dev = SYS_CLASS_NET / iface / "device"
+    try:
+        uevent = (SYS_CLASS_NET / iface / "uevent").read_text()
+    except OSError:
+        uevent = ""
+    if "DEVTYPE=wwan" in uevent:
+        return "modem"
+    try:
+        driver = os.path.basename(os.path.realpath(dev / "driver"))
+    except OSError:
+        return None
+    if driver in ("qmi_wwan", "cdc_mbim"):
+        return "modem"
+    if driver in _ALWAYS_TETHER_DRIVERS:
+        return "tether"
+    if driver in _CDC_DRIVERS:
+        try:
+            vendor = (dev.resolve().parent / "idVendor").read_text().strip().lower()
+        except OSError:
+            vendor = ""
+        return None if vendor in _DONGLE_VENDORS else "tether"
+    return None
+
+
 def is_wired_interface(iface: str) -> bool:
-    """Return True if interface is a wired Ethernet controller."""
+    """Return True if interface is a wired Ethernet controller (not a USB phone, hotspot or modem)."""
     name = iface.lower()
     if name == "br-pass" or name.startswith("bond"):
         return True
-    return name.startswith(("eth", "en", "end", "eno", "ens", "enp")) and not name.startswith(("wl", "ww", "br", "lo", "docker", "tun", "wg"))
+    if not (name.startswith(("eth", "en", "end", "eno", "ens", "enp")) and not name.startswith(("wl", "ww", "br", "lo", "docker", "tun", "wg"))):
+        return False
+    return usb_tether_kind(iface) is None
 
 
 def bridge_master(iface: str) -> Optional[str]:

@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A phone, mobile hotspot (for example a Netgear Nighthawk) or cellular modem on USB was treated as wired Ethernet when its interface was named like one (`enx…`, `eth1`), so speed tests could run over the mobile link and be stored as the wired line, and it could take the box's default route. Such interfaces are now recognised by their driver (`rndis_host`, `cdc_ncm`, `cdc_ether`, `ipheth`, `qmi_wwan`, `cdc_mbim`) and are never used as the wired line; USB Ethernet dongles stay wired.
 - Wi-Fi access point password: the shared factory password (`NetworkMeasureBox123`, public in the repository) is no longer a fallback anywhere; the access point does not start with it, with an empty one or with one outside 8-63 characters, and the Web UI refuses to save such a password. The settings show only whether a password is set (it never leaves the box through the API), and the installer no longer prints the generated password into its log.
 - Saving the settings from one service (web, network daemon, bot, `nmb-cli`) could undo what another service had saved, because each wrote its whole in-memory copy; this is how an entered Telegram token could disappear. A save now only writes the settings that service changed itself.
 - The installer warns when Telegram is enabled without a bot token (it only checks that the value is empty).
