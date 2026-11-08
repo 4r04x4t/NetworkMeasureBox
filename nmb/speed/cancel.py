@@ -51,13 +51,13 @@ def check() -> None:
         raise MeasurementCancelled()
 
 
-def run(cmd: List[str], timeout: float) -> subprocess.CompletedProcess:
+def run(cmd: List[str], timeout: float, env: Optional[dict] = None) -> subprocess.CompletedProcess:
     """Like subprocess.run(capture_output, text), but kills the process on cancellation."""
     if getattr(_local, "token", None) is None:
-        return subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=timeout)
+        return subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=timeout, env=env)
 
     check()
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
     deadline = time.monotonic() + timeout
     while True:
         try:

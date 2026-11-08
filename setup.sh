@@ -451,6 +451,12 @@ PYTHONPATH="$INSTALL_DIR" python3 -m nmb.db.database restore
 
 # Set ownership and group sticky bits for cross-process access
 install -d -m 2775 -o "$NMB_USER" -g "$NMB_USER" /var/lib/nmb /var/lib/nmb/live /var/lib/nmb/persist /var/lib/nmb/persist/reports /var/lib/nmb/adblock /var/log/nmb /run/nmb 2>/dev/null || true
+# The Ookla CLI keeps its accepted licence in $HOME/.config/ookla; the nmb user has no writable home,
+# so it gets one here, starting from root's settings where the CLI was used before.
+install -d -m 0750 -o "$NMB_USER" -g "$NMB_USER" /var/lib/nmb/ookla /var/lib/nmb/ookla/.config /var/lib/nmb/ookla/.config/ookla 2>/dev/null || true
+if [ -f /root/.config/ookla/speedtest-cli.json ] && [ ! -f /var/lib/nmb/ookla/.config/ookla/speedtest-cli.json ]; then
+    install -m 0640 -o "$NMB_USER" -g "$NMB_USER" /root/.config/ookla/speedtest-cli.json /var/lib/nmb/ookla/.config/ookla/speedtest-cli.json || true
+fi
 chown -R "$NMB_USER:$NMB_USER" /var/lib/nmb /var/log/nmb /run/nmb 2>/dev/null || true
 chmod -R u+rwX,g+rwX /var/lib/nmb /var/log/nmb /run/nmb 2>/dev/null || true
 chmod 2775 /var/lib/nmb /var/lib/nmb/live /var/lib/nmb/persist /var/lib/nmb/persist/reports /var/lib/nmb/adblock /var/log/nmb /run/nmb 2>/dev/null || true

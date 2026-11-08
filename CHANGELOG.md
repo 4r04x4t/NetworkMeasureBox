@@ -64,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The Ookla CLI could not keep its settings since the Web UI runs as `nmb` (its home `/home/nmb` does not exist and systemd keeps homes read-only), so every Ookla test started as a brand-new client. It now has its own home, `/var/lib/nmb/ookla`, and `setup.sh` carries over the licence accepted earlier as root. Whether this is what made Ookla refuse the box is not yet proven.
 - Saving the settings from two programs at once (for example the Web UI starting while `nmb-cli` saves) could leave a broken `nmb.conf`: both wrote the same temporary file, so the start of one config ended up over the end of the other, and every program then failed to read it. Saves now run one at a time, each with its own temporary file.
 - The Wi-Fi status showed no network name, signal or band, and the access-point check never saw an access point, because `iw` is in `/usr/sbin`, which is not on the `nmb` user's path.
 - A test bound to Wi-Fi left over Ethernet when the Wi-Fi was joined outside NMB (netplan or a saved profile) and both links were on the same subnet; the source rule is now kept then too.

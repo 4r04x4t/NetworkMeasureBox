@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 import logging
 import os
 import shutil
@@ -361,6 +362,26 @@ def find_or_install_ookla_binary() -> Optional[str]:
     return None
 
 
+OOKLA_HOME = Path(os.environ.get("NMB_OOKLA_HOME", "/var/lib/nmb/ookla"))
+
+
+def ookla_env() -> Optional[dict]:
+    """A home the Ookla CLI can write to, so it keeps its accepted licence between runs.
+
+    The Web UI runs as ``nmb``, whose home (/home/nmb) does not exist and is read-only under
+    systemd's ProtectHome; without this every run started as a brand-new client.
+    """
+    cfg_dir = OOKLA_HOME / ".config" / "ookla"
+    try:
+        cfg_dir.mkdir(parents=True, exist_ok=True)
+        if not os.access(cfg_dir, os.W_OK):
+            raise PermissionError(str(cfg_dir))
+    except OSError as e:
+        log.warning("Ookla CLI cannot keep its settings (%s); it starts as a new client every run", e)
+        return None
+    return dict(os.environ, HOME=str(OOKLA_HOME), XDG_CONFIG_HOME=str(OOKLA_HOME / ".config"))
+
+
 def run_official_ookla(server_id: Optional[int] = None, interface: Optional[str] = None, bind_ip: Optional[str] = None) -> Optional[SpeedtestResult]:
     """Run official Ookla Speedtest binary (--format=json), optionally bound to interface/IP and targeted at server_id."""
     bin_path = find_or_install_ookla_binary()
@@ -382,7 +403,7 @@ def run_official_ookla(server_id: Optional[int] = None, interface: Optional[str]
             log.info("executing official Ookla speedtest (auto-server, iface=%s, ip=%s): %s",
                      interface, bind_ip, bin_path)
 
-        res = cancel.run(cmd, timeout=120)
+        res = cancel.run(cmd, timeout=120, env=ookla_env())
 
         if res.returncode != 0:
             log.warning("ookla speedtest failed (code %d): %s", res.returncode, res.stderr.strip())

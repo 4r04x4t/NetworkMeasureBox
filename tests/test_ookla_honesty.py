@@ -338,3 +338,20 @@ class IperfServerNameTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OoklaHomeTest(unittest.TestCase):
+    def test_cli_gets_a_writable_home(self):
+        import tempfile
+        from pathlib import Path
+        from nmb.speed import ookla
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(ookla, "OOKLA_HOME", Path(d)):
+            env = ookla.ookla_env()
+            self.assertEqual(env["HOME"], d)
+            self.assertTrue((Path(d) / ".config" / "ookla").is_dir())
+
+    def test_unwritable_home_falls_back_to_the_normal_environment(self):
+        from pathlib import Path
+        from nmb.speed import ookla
+        with mock.patch.object(ookla, "OOKLA_HOME", Path("/proc/nmb-no-such-dir")):
+            self.assertIsNone(ookla.ookla_env())
