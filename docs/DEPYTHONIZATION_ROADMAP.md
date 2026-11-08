@@ -437,7 +437,9 @@ Symlinking the binary allows full backwards compatibility with existing systemd/
 
 ## 6. Four-Phase Hybrid Migration Roadmap
 
-To avoid disruption to existing installations, the migration follows a phased hybrid approach. Every phase is first built as generic, architecture-independent code and proven on a PC (x86-64) and the Raspberry Pi 4 (ARM64) before any router work (see *Generic First* below):
+To avoid disruption to existing installations, the migration follows a phased hybrid approach. Every phase is first built as generic, architecture-independent code and proven on a PC (x86-64) and the Raspberry Pi 4 (ARM64) before any router work (see *Generic First* below) and the Python-free end state in section 6A):
+
+> **"Hybrid" applies only to the transition on today's Python boxes**: there, native components replace Python ones one by one, so a box keeps working during the migration. The end state is no Python on any device. Devices that NMB does not run on yet (the routers, NMB's own distribution) never get Python at all: they start with the native `nmbd`.
 
 ```mermaid
 timeline
@@ -644,6 +646,55 @@ Replacing a Python component is done when it passes the Phase 0 checks and these
 - **Step 4.1**: Implement `nmb-heal` watchdog with atomic binary replacement and `/dev/watchdog` hardware support.
 - **Step 4.2**: Implement sysfs driver autodiscovery table in Go/C.
 - **Step 4.3**: Produce official OpenWrt package Makefile (`nmb.ipk`) with a procd init script, allowing one-click installation via `opkg install nmb`.
+
+---
+
+## 6A. NMB's Own Linux Distribution: Python-Free (Planned)
+
+> **Status: planned only.** Nothing of this exists yet. It is the target for the Raspberry Pi 4 and small x86 boxes, built on the de-Pythonized `nmbd`, alongside the router ports.
+>
+> **No Python on any device.** De-Pythonization means exactly that: the routers, the Raspberry Pi 4, x86-64 boxes and NMB's own distribution run only the native `nmbd`. No Python interpreter, no Python package and no Python script is shipped or needed on any of them. The distribution is therefore built only once `nmbd` covers every feature and meets the *Quality Bar* above; the Python version stays the reference for development, not a runtime on a device.
+
+Why: on a general-purpose distribution NMB depends on that distribution's packages, NetworkManager, netplan and update cycle (most bugs found on the Box came from there: `iw` outside the PATH, NetworkManager claiming ports, polkit versions). An image of its own makes the box behave the same everywhere.
+
+Planned shape:
+
+- **Kernel: not our own.** NMB does not build, patch or configure its own Linux kernel. The image ships the kernel its base maintains, unchanged: the Raspberry Pi kernel (with its firmware and device tree) on the Pi 4, the base distribution's LTS kernel on x86-64. Kernel security fixes and new hardware support then come from that maintainer, not from NMB. Anything NMB needs from the kernel (bridge, bonding, nftables, WireGuard, `mac80211_hwsim` for tests, the common USB network adapters) is checked against the stock kernel's configuration; a feature the stock kernel lacks is not used, rather than adding a custom kernel.
+- **The distribution is NMB's own:** its own image, package selection, defaults, service setup, update channel and release cycle, built on top of that kernel. **Contents:** only what NMB uses (`nmbd`, `ip`/`nft`, `dnsmasq`, `hostapd`, `iw`, `wpa_supplicant`, `pppd`, WireGuard, OpenVPN, the needed firmware files); no Python at all, no desktop network managers, no NetworkManager or netplan.
+- **Storage:** read-only root file system; settings and measurements on a separate data partition; the live database stays in RAM with snapshots, as now; the storage guard sizes its limits from the data partition.
+- **Updates:** two system slots (A/B); an update writes the other slot and boots it, and goes back if the box does not come up. This replaces `setup.sh` upgrades on these boxes.
+- **Targets:** Raspberry Pi 4 (arm64) first, then x86-64; routers keep OpenWrt as their base (see the targets above).
+- **Build approach (recommended, to confirm):** a Debian-based image assembled with `mmdebstrap`/`debos` from Debian packages plus the Raspberry Pi kernel and firmware packages, because it keeps the stock kernels and their security updates and matches the Debian 13 the Box already runs. Buildroot or Yocto would build everything from source, which mainly pays off when the kernel is also customised; that is not planned.
+- **To decide:** the init system (systemd, as now, or something smaller), how the A/B update is done (RAUC or SWUpdate), image signing, and how settings move over from a `setup.sh` box.
+
+#### Choosing the base: candidates to evaluate
+
+The base is open; Debian is the recommendation so far, not a decision. Other distributions, including the ones made for networking, are evaluated against the same criteria before the choice. Each keeps its own stock kernel (see above).
+
+Criteria:
+
+1. Stock, maintained kernel for the Raspberry Pi 4 (arm64) and x86-64, with bridge, bonding, VLAN, nftables, WireGuard, `mac80211`/`nl80211` and the common USB network adapters.
+2. Security updates for several years, without a paid subscription.
+3. Fits what `nmbd` needs: systemd, OpenRC or procd, nftables, `dnsmasq`, `hostapd`, `wpa_supplicant`, `iw`, `pppd`, WireGuard, OpenVPN. No Python is needed or shipped. The Python reference's Wi-Fi client parts call NetworkManager (`nmcli`); `nmbd` talks to `wpa_supplicant` directly, so no base needs NetworkManager.
+4. Can be built into a read-only image with A/B updates, reproducibly.
+5. Does not fight NMB for the network: no own firewall or interface manager that rewrites NMB's rules, or one that can be switched off cleanly.
+6. Size and memory on the Pi 4; Ookla and RTR binaries available for its C library (glibc or musl).
+7. Licence lets NMB ship its own image.
+
+| Base | Type | First assessment (to verify) |
+| :--- | :--- | :--- |
+| **Debian** (`mmdebstrap`/`debos`) | General purpose | Recommended so far: the Box already runs Debian 13, Raspberry Pi kernel and firmware are packaged, long security support, glibc, systemd. Biggest image of the candidates |
+| **Raspberry Pi OS Lite** | Debian derivative for the Pi | Same packages as Debian with the Pi kernel by default; Pi-only, so x86-64 would need a second base |
+| **OpenWrt** (`bcm27xx/bcm2711`, `x86/64`) | Router / network OS | Made for networking: `procd`, `netifd`, `fw4` (nftables), excellent `hostapd`/Wi-Fi, small, has A/B-style sysupgrade and is already the base planned for the routers, so one base could cover routers and boxes. To check: musl (Ookla and RTR builds), `netifd`/`fw4` coexisting with NMB's own routing and firewall, security support length |
+| **Alpine Linux** | Small general purpose | musl, OpenRC, `apk`, diskless/read-only mode; the Python reference's `setup.sh` already runs on Alpine 3.22, which shows the userland fits. To check: Pi 4 support quality, Ookla/RTR on musl |
+| **VyOS** | Router / network OS (Debian-based) | Strong routing (FRR), nftables; its configuration system owns the network, which would conflict with NMB; long-term releases need a subscription. Probably unsuitable |
+| **IPFire** | Firewall distribution | Built around its own firewall and web UI, which would compete with NMB's; own package manager. Probably unsuitable |
+| **pfSense, OPNsense** | Firewall distributions | FreeBSD, not Linux: NMB is Linux-only (netlink, nftables, nl80211). Excluded |
+
+Evaluation plan: for each remaining candidate, build a minimal image for the Pi 4 and an x86-64 VM. Before `nmbd` is ready, check only the base: kernel features, size, boot time, Wi-Fi and the tools listed in criterion 3. Once `nmbd` passes the Quality Bar, install it (and nothing Python-based), run the release checklist of `docs/TESTING.md`, and record image size, idle memory, boot time, speed results on the test line and every change NMB needed. Choose by the criteria above, and write the result and the reasons here.
+- **What the stock kernel means for NMB:** the driver finder cannot install firmware packages on a read-only image, so every supported adapter's firmware is in the image; kernel updates arrive as part of an NMB image update (the A/B slot), tested before release like any other change.
+
+Testing plan (to be added to `docs/TESTING.md` when it starts): image builds reproducibly; the kernel in the image is byte-identical to the base's package; first boot on the Pi 4 and in QEMU; every feature row of the testing record again on the image; an A/B update and a forced rollback; power cut during an update; a full data partition.
 
 ---
 

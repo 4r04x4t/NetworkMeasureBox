@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- NMB's own distribution moved from the porting plan into the de-Pythonization roadmap (section 6A) and made explicitly Python-free: no device (router, Raspberry Pi 4, x86-64, own distribution) ships or needs Python; the distribution is built once `nmbd` meets the Quality Bar.
 - Scheduled iPerf3 tests run at most hourly by default (`iperf3_interval_min = 60`), since public iPerf3 servers take one client at a time.
 - The home page only shows results: buttons choose the newest result of any engine (mixed) or of one engine. The engine, the Ookla server, the interface and the schedule are set under Measurement & Servers, which the home page links to. In `nmb-cli` the schedule moved to the same screen.
 - Recommended iPerf3 defaults for automatic tests: 4 parallel TCP streams, 10 s, download and then upload one after the other (`auto_direction = both`), with a short pause and a retry before the upload, since many public servers take one client at a time.
