@@ -84,6 +84,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Settings: an update could wipe the Telegram token. The editable copy on the boot partition counted as newer after an update, and its empty token replaced the real one. The copy is now taken over only when it was really edited, and an empty secret there never replaces a set one.
+- `nmb-netd` logs a loop part that takes longer than 15 s, and `kill -USR1` dumps its stacks to the journal (on the box the loop went silent for 8 minutes while the cable moved, and USB never took over).
+- `nmb-selftest`: a weak or factory Wi-Fi password is a failure even with the access point off.
 - `nmb-speed --interface` (`-i`) was read but never used, so a test asked for USB (or any other link) ran on the default link. Found by the USB scenario.
 - Central collector: a box with a wrong token and a large backlog got "Broken pipe" instead of "the collector refused the token", because the collector answered before reading the upload. Found box → collector over Tailscale; the collector between two machines now tested (8592 speed tests, 560 ping hours).
 - Web router settings: the save button, card titles, WAN type, DNS mode, DHCP and Wi-Fi on/off choices and the MAC/DNS buttons were English in every language; now translated into all 11 languages.

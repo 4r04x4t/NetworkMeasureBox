@@ -99,6 +99,11 @@ def unique_wifi_password(text: str) -> str:
     return re.sub(r"(?m)^(wifi_psk\s*=\s*)NetworkMeasureBox123\s*$", lambda m: m.group(1) + secrets.token_urlsafe(12), text)
 
 
+def _drive_body(text: str) -> str:
+    """The settings of a drive file without its comment header and blank lines, for comparing."""
+    return "\n".join(ln.rstrip() for ln in text.splitlines() if ln.strip() and not ln.lstrip().startswith("#"))
+
+
 def merge_drive_config(drive_text: str, current_text: str) -> str:
     """Apply an edited drive file, keeping current secrets wherever it still has the mark."""
     current = _TolerantParser()
@@ -118,6 +123,11 @@ def merge_drive_config(drive_text: str, current_text: str) -> str:
             if not current.has_option(section, key):
                 continue
             line = f"{match.group(1)}{key}{match.group(3)}{current.get(section, key)}"
+        elif match and not match.group(4).strip() and _SECRET_KEY.search(match.group(2)) \
+                and current.has_option(section, match.group(2)) and current.get(section, match.group(2)).strip():
+            # An empty secret on the drive never wipes a set one (2026-11-08: a stale drive copy with an
+            # empty Telegram token replaced the real token during an update). Clearing one is done in the Web UI.
+            line = f"{match.group(1)}{match.group(2)} = {current.get(section, match.group(2))}"
         out.append(line)
     # With no current file the marked secrets are gone, so at least avoid the shared default.
     return unique_wifi_password("\n".join(out) + "\n")
@@ -749,7 +759,14 @@ def load_config(path: Path | None = None) -> Config:
                     drive_mtime = drive_path.stat().st_mtime
                     default_mtime = DEFAULT_CONFIG_PATH.stat().st_mtime
                     # If drive was edited more recently than /etc/nmb/nmb.conf, load & update
+                    edited = False
                     if drive_mtime > default_mtime + 2.0:
+                        # Only a real edit counts: the box writes this file itself, so a newer time alone
+                        # (an update, the clock, FAT time stamps) must not replace newer settings.
+                        cur_text = DEFAULT_CONFIG_PATH.read_text(encoding="utf-8")
+                        drive_body = _drive_body(drive_path.read_text(encoding="utf-8"))
+                        edited = drive_body != _drive_body(mask_secrets(cur_text))
+                    if edited:
                         log.info("detected newer configuration on drive (%s); applying to %s", drive_path, DEFAULT_CONFIG_PATH)
                         DEFAULT_CONFIG_PATH.write_text(
                             merge_drive_config(drive_path.read_text(encoding="utf-8"), DEFAULT_CONFIG_PATH.read_text(encoding="utf-8")),

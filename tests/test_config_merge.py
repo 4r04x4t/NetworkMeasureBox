@@ -48,3 +48,36 @@ class ConfigMergeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DriveConfigSecretsTest(unittest.TestCase):
+    def test_empty_drive_secret_never_wipes_a_set_one(self):
+        # 2026-11-08 on the box: a stale drive copy had "token =" and replaced the real Telegram token.
+        from nmb.config import merge_drive_config
+        current = "[telegram]\ntoken = 123:abc\n[network]\nwifi_psk = longenough1\n"
+        drive = "[telegram]\ntoken =\n[network]\nwifi_psk = __KEEP_CURRENT__\n"
+        out = merge_drive_config(drive, current)
+        self.assertIn("token = 123:abc", out)
+        self.assertIn("wifi_psk = longenough1", out)
+
+    def test_a_new_secret_on_the_drive_still_applies(self):
+        from nmb.config import merge_drive_config
+        out = merge_drive_config("[telegram]\ntoken = 999:new\n", "[telegram]\ntoken = 123:abc\n")
+        self.assertIn("token = 999:new", out)
+
+    def test_unchanged_drive_copy_is_not_applied(self):
+        import os
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        import nmb.config as C
+        d = Path(tempfile.mkdtemp())
+        etc, drive = d / "nmb.conf", d / "drive.conf"
+        etc.write_text("[telegram]\ntoken = 123:abc\n[system]\nbox_id = a\n")
+        drive.write_text("# header\n" + C.mask_secrets(etc.read_text()))
+        os.utime(drive, (etc.stat().st_mtime + 60, etc.stat().st_mtime + 60))
+        before = etc.read_text()
+        with patch.object(C, "DEFAULT_CONFIG_PATH", etc), patch.object(C, "find_drive_config_path", return_value=drive), \
+             patch.object(C, "sync_drive_config"):
+            C.load_config()
+        self.assertEqual(etc.read_text(), before)

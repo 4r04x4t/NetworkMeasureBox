@@ -154,8 +154,21 @@ class NetworkDaemon:
             log.info("received SIGHUP, scheduling configuration reload")
             self.reload_requested = True
 
+    def _timed(self, name: str, fn, *args) -> None:
+        """Run one part of the loop; a slow part is logged, since the loop also keeps the box online."""
+        t0 = time.monotonic()
+        try:
+            fn(*args)
+        except Exception as e:
+            log.debug("%s: %s", name, e)
+        took = time.monotonic() - t0
+        if took > 15:
+            log.warning("netd loop: %s took %.0f s (the network is not supervised meanwhile)", name, took)
+
     def run(self) -> None:
         self.running = True
+        import faulthandler
+        faulthandler.register(signal.SIGUSR1, all_threads=True)  # `kill -USR1 <pid>`: stacks to the journal
         signal.signal(signal.SIGTERM, self.handle_signal)
         signal.signal(signal.SIGINT, self.handle_signal)
         if hasattr(signal, "SIGHUP"):
@@ -184,6 +197,7 @@ class NetworkDaemon:
                 time.sleep(self.cfg.network.check_interval_sec)
                 if self.reload_requested:
                     self._apply_reload()
+                loop_t0 = time.monotonic()
                 override = self._get_override_mode()
                 target_mode, reason, is_ready = self.detector.get_debounced_mode(override)
 
@@ -197,36 +211,26 @@ class NetworkDaemon:
                         self.current_mode_inst.teardown()
                         self.current_mode_inst.setup()
                 # Tests bound to the Wi-Fi address must leave over Wi-Fi, even with a cable in.
-                try:
-                    from nmb.netd.wifi_uplink import sync_source_routing
-                    sync_source_routing(self.cfg)
-                except Exception as e:
-                    log.debug("wifi uplink routing: %s", e)
+                from nmb.netd import usb_uplink
+                from nmb.netd.wifi_uplink import sync_source_routing
+                from nmb.netd.wifi_share import sync as wifi_share_sync
+                from nmb.common.storage_guard import run as storage_guard_run
+                self._timed("wifi uplink routing", sync_source_routing, self.cfg)
                 # A phone, hotspot or modem on USB: its own profile, never the default route.
-                try:
-                    from nmb.netd import usb_uplink
-                    usb_uplink.keep_up(self.cfg)
-                    usb_uplink.sync_source_routing(self.cfg)
-                    usb_uplink.sync_default_fallback(self.cfg)
-                except Exception as e:
-                    log.debug("usb uplink: %s", e)
+                self._timed("usb keep_up", usb_uplink.keep_up, self.cfg)
+                self._timed("usb source routing", usb_uplink.sync_source_routing, self.cfg)
+                self._timed("usb default fallback", usb_uplink.sync_default_fallback, self.cfg)
                 # The Wi-Fi internet on the LAN port, only while that port has no upstream.
-                try:
-                    from nmb.netd.wifi_share import sync as wifi_share_sync
-                    wifi_share_sync(self.cfg)
-                except Exception as e:
-                    log.debug("wifi share: %s", e)
+                self._timed("wifi share", wifi_share_sync, self.cfg)
                 # Free space before the disk fills up (checks every 10 minutes).
-                try:
-                    from nmb.common.storage_guard import run as storage_guard_run
-                    storage_guard_run(self.cfg)
-                except Exception as e:
-                    log.warning("storage guard: %s", e)
+                self._timed("storage guard", storage_guard_run, self.cfg)
 
                 if is_ready and target_mode != self.current_mode_name:
                     self.switch_mode(target_mode, reason)
                 else:
                     self._dump_state()
+                if time.monotonic() - loop_t0 > 30:
+                    log.warning("netd loop took %.0f s", time.monotonic() - loop_t0)
             except Exception as e:
                 log.error("unexpected error in netd loop: %s", e, exc_info=True)
 

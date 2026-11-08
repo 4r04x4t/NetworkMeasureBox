@@ -233,13 +233,12 @@ def g_internet(rep: Report, cfg) -> None:
 def g_config(rep: Report, cfg) -> None:
     from nmb.netd.wifi import weak_wifi_password
     weak = weak_wifi_password(getattr(cfg.network, "wifi_psk", ""))
-    if cfg.network.wifi_enabled:
-        rep.add("config", "Wi-Fi password", FAIL if weak else PASS,
-                "weak or factory: the access point refuses to start" if weak else "set, not the factory one")
-    else:
-        rep.add("config", "Wi-Fi password", PASS if not weak else WARN,
-                "access point off" + ("; no password set yet" if weak else ""))
-    rep.add("config", "Telegram token", PASS if getattr(cfg.telegram, "token", "") else WARN,
+    # A weak or factory password is a failure even with the access point off: it could not be turned on.
+    rep.add("config", "Wi-Fi password", FAIL if weak else PASS,
+            "weak, empty or the factory one: the access point cannot start; set one in Settings > Wi-Fi" if weak
+            else "set, not the factory one")
+    rep.add("config", "Telegram token", PASS if getattr(cfg.telegram, "token", "") else
+            (FAIL if getattr(cfg.telegram, "enabled", False) else WARN),
             "set" if getattr(cfg.telegram, "token", "") else "not set: the bot stays off")
     p = Path("/etc/nmb/nmb.conf")
     if p.exists():
