@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- De-Pythonization roadmap 4.27: USB tethering in the native build (sysfs driver detection, netlink hotplug, built-in DHCP client, table 152, fallback, router mode, data limit), with kernel packages per platform (Pi 4, x86-64, own distribution, OpenWrt, flash-limited targets, MikroTik); porting plan 7G for routers; the USB tethering drivers added to the base distribution criteria.
 - USB tethering as the only internet: with no wired or Wi-Fi default route the box adds one through USB (metric 900) and removes it when another is back; both switches are events. In router mode (Mode A) USB becomes the WAN when no DHCP server answers on the Ethernet port, which then joins the LAN with the Wi-Fi access point; a DHCP server on that port stops the box's DHCP at once. LAN-port sharing takes USB as its upstream when the Wi-Fi uplink is down.
 - De-Pythonization roadmap: the central collector server is ported to a native static binary too, with the same protocol and data layout; USB tethering, fallback and router mode added to the features the native build must match.
 - USB tethering (`[usb_uplink]`): a phone, mobile hotspot or modem on USB as a measuring link, with its own profile that never takes the default route, a source rule (table 152), the measurement link `usb`, its own daily data limit, results stored as mobile; Web UI card, `nmb-cli` (`usb.uplink`, `usb.off`), all 11 languages. Tested on the Pi 4 over 5G with a Netgear Nighthawk M6 Pro (US AT&T model).

@@ -554,6 +554,10 @@ Terminal interface and changelog in ports:
 
 ---
 
+## 7G. USB Tethering on Routers
+
+Routers with a USB port get the USB tethering link of the native build (phone, 5G/4G hotspot or modem as a measuring link, as the only internet, and as backup WAN), with the same rules as on the Raspberry Pi 4: never the wired line, never a LAN port, no default route unless nothing else has one, its own data limit, results stored as mobile, and the DHCP guard in router mode. Kernel packages per target, flash limits and the MikroTik container limitation are in `DEPYTHONIZATION_ROADMAP.md` (section 4.27). Targets without USB (TL-WR740N, RT-N12+) do not have it; on the RT-AXE7800, RT-AC57U v1, RB5009 and the Filogic boards it is planned.
+
 ## 7F. Generic Code First, Routers After
 
 The native code is first written platform- and architecture-independent and proven on a PC (x86-64) and the Raspberry Pi 4 (ARM64), where development continues. The router targets in this plan are added afterwards as backends of the same code (service control, firewall, Wi-Fi, flash layout), not as separate programs. Rules and the build matrix (amd64 and arm64 built and tested; arm, mips and mipsle cross-compiled from the start) are in `DEPYTHONIZATION_ROADMAP.md` (*Generic First*).

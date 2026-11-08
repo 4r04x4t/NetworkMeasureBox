@@ -387,6 +387,32 @@ Each of these runs on the Raspberry Pi 4 test box and is recorded in `docs/TESTI
 
 ---
 
+### 4.27 USB Tethering & Mobile Uplink (Phones, 5G/4G Hotspots, Cellular Modems)
+
+The Python reference (`nmb/netd/usb_uplink.py`, tested on the Pi 4 over 5G with a Netgear Nighthawk M6 Pro, US AT&T model) defines the behaviour; the native `nmbd` reproduces it on every device with a USB port, without NetworkManager and without Python.
+
+**Detection (sysfs, no tools):**
+- An interface is a USB phone, hotspot or modem when its driver (`/sys/class/net/<if>/device/driver`) is `rndis_host`, `ipheth`, `cdc_eem`, `huawei_cdc_ncm`, `qmi_wwan` or `cdc_mbim`, or its `uevent` has `DEVTYPE=wwan`; for the generic `cdc_ether`, `cdc_ncm` and `cdc_subset` drivers, unless the USB vendor ID (`idVendor`) is a known Ethernet dongle maker (Realtek `0bda`, ASIX `0b95`, Microchip `0424`, D-Link `2001`, Linksys `13b1`, ICS `0fe6`, Lenovo `17ef`).
+- The name never decides: these interfaces are called `usb0`, `enx<MAC>` or `eth1`, and `eth1` is the default LAN name.
+- Hotplug comes from netlink (`RTM_NEWLINK`/`RTM_DELLINK`), so plugging the device in or out is seen at once, not on the next poll.
+
+**Rules that must hold everywhere:**
+1. A tethering interface is **never the wired line** (never chosen by "strict wired priority", never takes the measurement as Ethernet) and **never a LAN port** (never bridged, never gets the box's DHCP server).
+2. **Its own address, no default route by default.** `nmbd` runs the DHCP client on it itself (a small built-in DHCPv4 client, as `nmbd` does elsewhere); the lease's router goes into routing table 152 with the source rule `from <usb address> lookup 152`, not into the main table. The box's traffic and the outage probe stay on the wired or Wi-Fi line.
+3. **Measuring over it** with `measurement_link = usb`, or a test aimed at that interface. Results are stored with `connection_type = fwa` and the mobile public IP; per-engine binding to the USB address.
+4. **Its own daily data limit** (`[usb_uplink] daily_limit_mb`, default 1024 MB, 0 = none), counted on the interface's own byte counters, for every trigger (scheduled and manual).
+5. **Only internet:** with no default route through Ethernet or Wi-Fi, a default route through USB with metric 900, removed as soon as another one returns; each switch is an event (`uplink_usb_fallback`, `uplink_usb_fallback_end`, severity `warn`), so reports show when the box ran on the mobile link. Remote access (Tailscale) keeps working over it.
+6. **Router mode on USB:** when no DHCP server answers on the WAN port (a PC plugged in is fine, a router is not), USB becomes the WAN and the Ethernet port joins the LAN bridge with the Wi-Fi access point; checked every minute, and a DHCP server appearing on the port stops the box's DHCP at once and makes the port the WAN again. PPPoE or a static WAN always keep the port as WAN.
+7. **Sharing on the LAN port** (`wifi_share`) takes USB as its upstream when the Wi-Fi uplink is down, with the same DHCP guard.
+
+**Per platform:**
+- **Raspberry Pi 4, x86-64, NMB's own distribution:** the stock kernel's `rndis_host`, `cdc_ether`, `cdc_ncm`, `ipheth`, `qmi_wwan`, `cdc_mbim` modules are part of the image (criterion 1 of section 6A); iPhones also need `usbmuxd` for the pairing ("Trust this computer"), which is the only userspace helper.
+- **OpenWrt routers:** `kmod-usb-net-rndis`, `kmod-usb-net-cdc-ether`, `kmod-usb-net-cdc-ncm`, `kmod-usb-net-ipheth` (+ `usbmuxd`), and for modems `kmod-usb-net-qmi-wwan` / `kmod-usb-net-cdc-mbim`; `nmbd` configures the link itself instead of `netifd`/`uqmi`/`umbim` where possible, or through `ubus` when `netifd` owns the interface. A hotspot on the router's USB port is the natural backup WAN.
+- **Flash-limited targets (4 MiB, 8 MiB):** only `rndis_host` and `cdc_ether`/`cdc_ncm` (the common phones and hotspots) fit; the modem drivers and `usbmuxd` are optional packages. Targets without USB (TL-WR740N, RT-N12+) do not have the feature.
+- **MikroTik RouterOS container:** the container cannot see USB devices; USB tethering there is RouterOS's own (its LTE/USB-Ethernet interfaces), measured as any other WAN.
+
+**Tests for the native build:** the same as the Python reference (`tests/test_usb_tether.py`, `tests/test_usb_uplink.py`, `tests/test_usb_router.py`) plus a real device per platform: plug in, measure over USB with the byte counters, pull the cable and the Wi-Fi (fallback and back), router mode with a PC on the Ethernet port and a Wi-Fi client, and the home router on the port (the box must stop its DHCP).
+
 ## 5. Architectural Proposal: The Unified Single-Binary Monolith (`nmbd`)
 
 Instead of maintaining multiple distinct daemons and spawning external helper binaries with high process overhead, the ultimate embedded architecture unifies all components into a single multi-call static binary:
@@ -675,7 +701,7 @@ The base is open; Debian is the recommendation so far, not a decision. Other dis
 
 Criteria:
 
-1. Stock, maintained kernel for the Raspberry Pi 4 (arm64) and x86-64, with bridge, bonding, VLAN, nftables, WireGuard, `mac80211`/`nl80211` and the common USB network adapters.
+1. Stock, maintained kernel for the Raspberry Pi 4 (arm64) and x86-64, with bridge, bonding, VLAN, nftables, WireGuard, `mac80211`/`nl80211`, the common USB network adapters and the USB tethering drivers (`rndis_host`, `cdc_ether`, `cdc_ncm`, `ipheth`, `qmi_wwan`, `cdc_mbim`; see 4.27).
 2. Security updates for several years, without a paid subscription.
 3. Fits what `nmbd` needs: systemd, OpenRC or procd, nftables, `dnsmasq`, `hostapd`, `wpa_supplicant`, `iw`, `pppd`, WireGuard, OpenVPN. No Python is needed or shipped. The Python reference's Wi-Fi client parts call NetworkManager (`nmcli`); `nmbd` talks to `wpa_supplicant` directly, so no base needs NetworkManager.
 4. Can be built into a read-only image with A/B updates, reproducibly.
