@@ -1914,6 +1914,31 @@
     selectEngine(val);
   }
 
+  // Fast.com: every Netflix server with its latency and share of the transfer.
+  function renderFastcomDetail(det) {
+    const box = document.getElementById('home-fastcom-detail');
+    if (!box) return;
+    if (!det || !det.servers || !det.servers.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const n = v => (v === null || v === undefined || v === '') ? '--' : escapeHtml(String(v));
+    const c = det.client || {};
+    const rows = det.servers.map(s => `<tr${s.host === det.closest_server ? ' style="color:#f8fafc; font-weight:600;"' : ''}>
+        <td title="${n(s.host)}">${n(s.label)}</td><td>${n([s.city, s.country].filter(Boolean).join(', '))}</td>
+        <td style="text-align:right;">${n(s.latency_ms)}</td><td style="text-align:right;">${n(s.tcp_connect_ms)}</td>
+        <td style="text-align:right;">${n(s.download_mbps)}</td><td style="text-align:right;">${n(s.upload_mbps)}</td></tr>`).join('');
+    const d = det.download || {}, u = det.upload || {};
+    box.innerHTML = `
+      <div style="font-size: 12px; color:#94a3b8; margin-bottom: 6px;">${escapeHtml(t('fc_seen_as', 'Fast.com sees you as'))}: <b style="color:#e2e8f0;">${n(c.isp)}</b> (AS${n(c.asn)}), ${n([c.city, c.country].filter(Boolean).join(', '))}, ${n(c.ip)}</div>
+      <div style="font-size: 12px; color:#94a3b8; margin-bottom: 6px;">⬇️ ${escapeHtml(t('fc_stable', 'stable'))} ${n(d.stable_mbps)} · ${escapeHtml(t('fc_mean', 'mean'))} ${n(d.mean_mbps)} · ${escapeHtml(t('fc_peak', 'peak'))} ${n(d.peak_mbps)} Mbps &nbsp; ⬆️ ${escapeHtml(t('fc_stable', 'stable'))} ${n(u.stable_mbps)} · ${escapeHtml(t('fc_mean', 'mean'))} ${n(u.mean_mbps)} · ${escapeHtml(t('fc_peak', 'peak'))} ${n(u.peak_mbps)} Mbps</div>
+      <div style="font-size: 12px; color:#94a3b8; margin-bottom: 6px;">${escapeHtml(t('fc_loaded', 'Latency under load'))}: ⬇️ ${n(det.loaded_latency_down_ms)} ms · ⬆️ ${n(det.loaded_latency_up_ms)} ms</div>
+      <table class="data-table" style="font-size: 12px; width: 100%;">
+        <thead><tr><th>${escapeHtml(t('fc_col_server', 'Netflix server'))}</th><th>${escapeHtml(t('fc_col_place', 'Place'))}</th>
+          <th style="text-align:right;">${escapeHtml(t('fc_col_latency', 'Latency ms'))}</th><th style="text-align:right;">TCP ms</th>
+          <th style="text-align:right;">⬇️ Mbps</th><th style="text-align:right;">⬆️ Mbps</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    box.style.display = 'block';
+  }
+
   function renderHomeEngineCard(engine, dataOverride) {
     const data = dataOverride || window.lastStatusData;
     if (!data) return;
@@ -2041,7 +2066,9 @@
         srvDisplay += ` <span style="color:#94a3b8; font-size: 11.5px;">(${escapeHtml(t('cf_no_result_page', 'Cloudflare gives no page for a single result'))})</span>`;
       }
       if (elServerLink) elServerLink.innerHTML = srvDisplay;
+      renderFastcomDetail((latest.engine || '').toLowerCase() === 'fastcom' ? latest.fastcom_detail : null);
     } else {
+      renderFastcomDetail(null);
       const fallbackIp = escapeHtml((data.system_info && (data.system_info.public_ipv4 || data.system_info.wan_ip)) || data.public_ip || '--');
       if (elPublicIp) elPublicIp.innerText = fallbackIp;
       if (elEngine) elEngine.innerHTML = `<span class="badge badge-ok">${targetEng.toUpperCase()}</span>`;

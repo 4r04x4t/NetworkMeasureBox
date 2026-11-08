@@ -27,7 +27,8 @@ from http import HTTPStatus
 import functools
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Optional
+import sqlite3
+from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, urlparse
 
 from nmb.config import Config, load_config, save_config, CONNECTION_TYPES, find_drive_config_path, get_writable_drive_config_target, DEFAULT_CONFIG_PATH
@@ -142,6 +143,28 @@ def has_control_characters(value: Any) -> bool:
     if isinstance(value, list):
         return any(has_control_characters(v) for v in value)
     return False
+
+
+def _fastcom_detail(conn, ts: int) -> Optional[Dict[str, Any]]:
+    """The parts of a Fast.com row's raw_json the home page shows: client, servers, peak and mean."""
+    try:
+        row = conn.execute("SELECT raw_json FROM speedtest WHERE ts = ? AND engine = 'fastcom'", (ts,)).fetchone()
+        raw = json.loads(row[0]) if row and row[0] else {}
+    except (ValueError, TypeError, sqlite3.Error):
+        return None
+    if not raw:
+        return None
+    pick = lambda d: {k: (d or {}).get(k) for k in ("stable_mbps", "mean_mbps", "peak_mbps")}
+    return {
+        "client": raw.get("client") or {},
+        "servers": [{k: s.get(k) for k in ("label", "host", "city", "country", "tcp_connect_ms", "latency_ms",
+                                           "download_mbps", "upload_mbps")} for s in raw.get("servers") or []],
+        "closest_server": raw.get("closest_server"),
+        "download": pick(raw.get("download")),
+        "upload": pick(raw.get("upload")),
+        "loaded_latency_down_ms": raw.get("loaded_latency_down_ms"),
+        "loaded_latency_up_ms": raw.get("loaded_latency_up_ms"),
+    }
 
 
 class WebRequestHandler(BaseHTTPRequestHandler):
@@ -3147,6 +3170,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 if eng == "iperf3":
                     from nmb.speed.iperf_directory import label_iperf_row
                     label_iperf_row(d)
+                if eng == "fastcom":
+                    d["fastcom_detail"] = _fastcom_detail(conn, row["ts"])
                 # A failed run after the last result is mentioned, not shown as a result.
                 fail = conn.execute(
                     "SELECT ts, error FROM speedtest WHERE LOWER(engine) = ? AND status = 'error' AND ts > ? ORDER BY ts DESC LIMIT 1",

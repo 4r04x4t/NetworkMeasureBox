@@ -81,3 +81,22 @@ class IperfRowLabelTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FastcomDetailTest(unittest.TestCase):
+    def test_home_page_detail_comes_from_raw_json(self):
+        import sqlite3
+        from nmb.web.server import _fastcom_detail
+        conn = sqlite3.connect(":memory:")
+        conn.execute("CREATE TABLE speedtest (ts INTEGER, engine TEXT, raw_json TEXT)")
+        raw = {"client": {"isp": "Example ISP"}, "closest_server": "a",
+               "servers": [{"host": "a", "label": "bud001", "latency_ms": 9.0, "download_mbps": 400, "upload_mbps": 100, "errors": []}],
+               "download": {"stable_mbps": 500, "mean_mbps": 480, "peak_mbps": 520, "samples_mbps": [1, 2]},
+               "upload": {}, "loaded_latency_down_ms": 20.0}
+        conn.execute("INSERT INTO speedtest VALUES (1, 'fastcom', ?)", (json.dumps(raw),))
+        d = _fastcom_detail(conn, 1)
+        self.assertEqual(d["client"]["isp"], "Example ISP")
+        self.assertEqual(d["servers"][0]["label"], "bud001")
+        self.assertNotIn("errors", d["servers"][0])
+        self.assertEqual(d["download"], {"stable_mbps": 500, "mean_mbps": 480, "peak_mbps": 520})
+        self.assertIsNone(_fastcom_detail(conn, 2))
