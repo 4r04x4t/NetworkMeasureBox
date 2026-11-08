@@ -14,7 +14,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 log = logging.getLogger("nmb.netd.iface")
 
@@ -893,3 +893,35 @@ def sync_gateway_ping_targets(conn, iface: Optional[str] = None) -> None:
 
 
 
+
+
+def dead_default_routes(route_lines: str, has_ipv4: Callable[[str], bool]) -> List[List[str]]:
+    """Default routes (with a gateway) through a link that is down or has no IPv4 address.
+
+    2026-11-08: a static default route on eth0 (metric 50) stayed after the cable moved from the router to a
+    laptop. eth0 had a carrier but no address, the gateway was gone, and the route still beat Wi-Fi and USB,
+    so the box lost its internet and Tailscale.
+    """
+    dead = []
+    for line in route_lines.splitlines():
+        parts = line.split()
+        if not parts or parts[0] != "default" or "via" not in parts or "dev" not in parts:
+            continue
+        dev = parts[parts.index("dev") + 1]
+        if "linkdown" in parts or not has_ipv4(dev):
+            dead.append(parts)
+    return dead
+
+
+def reap_dead_default_routes() -> List[str]:
+    """Remove dead default routes from the main table (root, nmb-netd loop). Returns the devices."""
+    res = run_cmd(["ip", "-4", "route", "show", "default"], check=False)
+    gone = []
+    for parts in dead_default_routes(getattr(res, "stdout", "") or "",
+                                     lambda d: any(":" not in a for a in get_ip_addresses(d))):
+        cmd = [p for p in parts if p != "linkdown"]
+        run_cmd(["ip", "-4", "route", "del"] + cmd, check=False)
+        dev = parts[parts.index("dev") + 1]
+        log.warning("removed a dead default route through %s (%s): no link or no address", dev, " ".join(parts))
+        gone.append(dev)
+    return gone

@@ -165,6 +165,11 @@ class Scenario:
 
     # ---- snapshot and restore ----
     def snapshot(self) -> None:
+        try:
+            from nmb.common import secret_keep
+            secret_keep.update()   # the secrets as they are now, before anything changes
+        except Exception:
+            pass
         if SNAPSHOT.exists():
             return  # an earlier run did not finish: keep the original settings
         conn = live._db()
@@ -213,6 +218,13 @@ def restore(verbose: bool = True) -> bool:
         time.sleep(5)
         live.run(["nmcli", "device", "connect", "wlan0"], timeout=60)
     SNAPSHOT.unlink(missing_ok=True)
+    # A secret wiped during the run (a bug, not the owner) comes back too.
+    try:
+        from nmb.common import secret_keep
+        if secret_keep.lost():
+            live._secrets_restore()
+    except Exception as e:
+        print(f"secrets: {e}")
     live.run(["logger", "-t", "nmb-selftest", "scenario: settings restored"])
     if verbose:
         print("restored: mode override, access point, Wi-Fi sharing, NetworkManager devices, Wi-Fi client")

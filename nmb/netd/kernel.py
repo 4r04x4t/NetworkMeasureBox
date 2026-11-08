@@ -171,6 +171,11 @@ def apply_kernel_network_tuning() -> Dict[str, Any]:
             "/proc/sys/vm/min_free_kbytes": "65536",
         }
 
+    # A route through a port without a cable must not carry traffic: a static default route on eth0 stayed
+    # after the cable was pulled and swallowed everything, Tailscale included (2026-11-08).
+    direct_sysctls["/proc/sys/net/ipv4/conf/all/ignore_routes_with_linkdown"] = "1"
+    direct_sysctls["/proc/sys/net/ipv4/conf/default/ignore_routes_with_linkdown"] = "1"
+    direct_sysctls["/proc/sys/net/ipv6/conf/all/ignore_routes_with_linkdown"] = "1"
     for path_str, val in direct_sysctls.items():
         _write_kernel_param(path_str, val)
 

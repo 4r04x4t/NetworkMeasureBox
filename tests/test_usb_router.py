@@ -177,3 +177,14 @@ class FallbackEventSchemaTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DeadRouteTest(unittest.TestCase):
+    def test_static_route_on_a_port_without_address_is_dead(self):
+        from nmb.netd import interfaces
+        routes = ("default via 192.168.8.1 dev eth0 proto boot metric 50\n"
+                  "default via 192.168.8.1 dev wlan0 proto dhcp src 192.168.8.219 metric 600\n"
+                  "default via 192.168.1.1 dev eth1 metric 900 linkdown\n"
+                  "default dev ppp0 scope link\n")
+        dead = interfaces.dead_default_routes(routes, lambda d: d in ("wlan0", "eth1"))
+        self.assertEqual([p[p.index("dev") + 1] for p in dead], ["eth0", "eth1"])

@@ -389,7 +389,7 @@ Each of these runs on the Raspberry Pi 4 test box and is recorded in `docs/TESTI
 
 ### 4.27 USB Tethering & Mobile Uplink (Phones, 5G/4G Hotspots, Cellular Modems)
 
-The Python reference (`nmb/netd/usb_uplink.py`, tested on the Pi 4 over 5G with a Netgear Nighthawk M6 Pro, US AT&T model) defines the behaviour; the native `nmbd` reproduces it on every device with a USB port, without NetworkManager and without Python.
+The Python reference (`nmb/netd/usb_uplink.py`, partly tested on the Pi 4 over 5G with a Netgear Nighthawk M6 Pro, US AT&T model: detection, measuring and the box's own fallback work; sharing the USB internet to clients has not passed a live test yet) defines the behaviour; the native `nmbd` reproduces it on every device with a USB port, without NetworkManager and without Python.
 
 **Detection (sysfs, no tools):**
 - An interface is a USB phone, hotspot or modem when its driver (`/sys/class/net/<if>/device/driver`) is `rndis_host`, `ipheth`, `cdc_eem`, `huawei_cdc_ncm`, `qmi_wwan` or `cdc_mbim`, or its `uevent` has `DEVTYPE=wwan`; for the generic `cdc_ether`, `cdc_ncm` and `cdc_subset` drivers, unless the USB vendor ID (`idVendor`) is a known Ethernet dongle maker (Realtek `0bda`, ASIX `0b95`, Microchip `0424`, D-Link `2001`, Linksys `13b1`, ICS `0fe6`, Lenovo `17ef`).

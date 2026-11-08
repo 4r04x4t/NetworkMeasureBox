@@ -215,6 +215,11 @@ def g_internet(rep: Report, cfg) -> None:
     routes = _default_routes()
     rep.add("internet", "default route", PASS if routes else FAIL,
             ", ".join(f"{_route_dev(r)} metric {_metric(r)}" for r in routes) or "none")
+    from nmb.netd import interfaces
+    dead = interfaces.dead_default_routes("\n".join(" ".join(r) for r in routes),
+                                          lambda d: any(":" not in a for a in interfaces.get_ip_addresses(d)))
+    rep.add("internet", "no dead default route", PASS if not dead else FAIL,
+            "" if not dead else "through a port with no link or no address: " + ", ".join(_route_dev(r) for r in dead))
     ping = run(["ping", "-c", "3", "-W", "2", "1.1.1.1"], timeout=15)
     m = re.search(r"= [\d.]+/([\d.]+)/", ping.stdout)
     rep.add("internet", "ping 1.1.1.1", PASS if ping.returncode == 0 else FAIL,
@@ -240,6 +245,12 @@ def g_config(rep: Report, cfg) -> None:
     rep.add("config", "Telegram token", PASS if getattr(cfg.telegram, "token", "") else
             (FAIL if getattr(cfg.telegram, "enabled", False) else WARN),
             "set" if getattr(cfg.telegram, "token", "") else "not set: the bot stays off")
+    from nmb.common import secret_keep
+    gone = secret_keep.lost() if secret_keep.KEEP_FILE.exists() else []
+    rep.add("config", "no secret lost", PASS if not gone else FAIL,
+            "kept copies match" if gone == [] else
+            "empty or factory now, set before: " + ", ".join(f"{n} (seen {time.strftime('%m-%d %H:%M', time.localtime(t))})" for n, t in gone)
+            + "; restore with: sudo nmb-selftest secrets-restore")
     p = Path("/etc/nmb/nmb.conf")
     if p.exists():
         mode = p.stat().st_mode & 0o777
@@ -710,6 +721,30 @@ GROUPS: Dict[str, Callable] = {
 QUICK = [g for g in GROUPS if g != "telegram"]
 
 
+def _secrets_restore() -> int:
+    """Put back secrets that are empty or factory now but were set before (names only are printed)."""
+    if os.geteuid() != 0:
+        print("Run as root.", file=sys.stderr)
+        return 2
+    from nmb.common import secret_keep
+    text, names = secret_keep.restore()
+    if not names:
+        print("No lost secret to restore.")
+        return 0
+    path = secret_keep.CONFIG
+    st = path.stat()
+    tmp = path.with_suffix(".restore")
+    tmp.write_text(text, encoding="utf-8")
+    os.chown(tmp, st.st_uid, st.st_gid)
+    os.chmod(tmp, st.st_mode & 0o777)
+    os.replace(tmp, path)
+    for unit in ("nmb-web", "nmb-telegram"):
+        run(["systemctl", "try-restart", unit], timeout=60)
+    run(["systemctl", "reload", "nmb-netd"], timeout=30)
+    print("Restored: " + ", ".join(names))
+    return 0
+
+
 def _scenario_main(argv: List[str]) -> int:
     from nmb.selftest import scenario
     p = argparse.ArgumentParser(prog="nmb-selftest scenario", description=scenario.__doc__,
@@ -735,6 +770,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:1] == ["scenario"]:
         return _scenario_main(argv[1:])
+    if argv[:1] == ["secrets-restore"]:
+        return _secrets_restore()
     if argv[:1] == ["restore"]:
         from nmb.selftest import scenario
         return 0 if scenario.restore() else 1

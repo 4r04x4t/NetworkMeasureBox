@@ -210,6 +210,12 @@ class NetworkDaemon:
                         log.info("Mode A: WAN source changed; rebuilding the router setup")
                         self.current_mode_inst.teardown()
                         self.current_mode_inst.setup()
+                # A default route through a port with no cable or no address leads nowhere but still wins.
+                from nmb.netd import interfaces as _ifs
+                self._timed("dead route reaper", _ifs.reap_dead_default_routes)
+                # Keep a root-only copy of the secrets the owner typed, to restore them if a bug wipes them.
+                from nmb.common import secret_keep
+                self._timed("secret keep", secret_keep.update)
                 # Tests bound to the Wi-Fi address must leave over Wi-Fi, even with a cable in.
                 from nmb.netd import usb_uplink
                 from nmb.netd.wifi_uplink import sync_source_routing
