@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `nmb-selftest`: live checks on a running box (services, internet, settings, web and terminal interfaces, USB tethering, router mode with a simulated LAN client, the DHCP guard against a throwaway server, speed engines against each other, the Wi-Fi access point, the central collector, and with `--full` the Telegram bot in all 11 languages). Throwaway namespaces only; never prints secrets. See TESTING.md, 2a.
 - De-Pythonization roadmap 4.27: USB tethering in the native build (sysfs driver detection, netlink hotplug, built-in DHCP client, table 152, fallback, router mode, data limit), with kernel packages per platform (Pi 4, x86-64, own distribution, OpenWrt, flash-limited targets, MikroTik); porting plan 7G for routers; the USB tethering drivers added to the base distribution criteria.
 - USB tethering as the only internet: with no wired or Wi-Fi default route the box adds one through USB (metric 900) and removes it when another is back; both switches are events. In router mode (Mode A) USB becomes the WAN when no DHCP server answers on the Ethernet port, which then joins the LAN with the Wi-Fi access point; a DHCP server on that port stops the box's DHCP at once. LAN-port sharing takes USB as its upstream when the Wi-Fi uplink is down.
 - De-Pythonization roadmap: the central collector server is ported to a native static binary too, with the same protocol and data layout; USB tethering, fallback and router mode added to the features the native build must match.
@@ -82,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Central collector: a box with a wrong token and a large backlog got "Broken pipe" instead of "the collector refused the token", because the collector answered before reading the upload. Found box → collector over Tailscale; the collector between two machines now tested (8592 speed tests, 560 ping hours).
 - Web router settings: the save button, card titles, WAN type, DNS mode, DHCP and Wi-Fi on/off choices and the MAC/DNS buttons were English in every language; now translated into all 11 languages.
 - Router mode now moves its WAN to USB tethering when the WAN port keeps only an IPv6 link-local address (cable moved from the home router to a PC). Live-tested: USB WAN, laptop via cable and Wi-Fi, home router plugged back in → DHCP stopped within a minute, eth0 back as WAN.
 - The DHCP guard (Wi-Fi sharing and router mode) never saw a router on a bridged port, and could miss one on any port: the DISCOVER went through the IP stack, which gave it another interface's address as the source (DHCP servers such as dnsmasq ignore that), and the offers were read with an IPv4-only packet socket, which gets a bridge port's frames only after the bridge has taken them. The probe now sends a complete frame from 0.0.0.0 and reads with `ETH_P_ALL`; reproduced and verified on the box with a test DHCP server in a network namespace, plain and bridged.

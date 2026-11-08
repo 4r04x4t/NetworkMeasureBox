@@ -435,7 +435,7 @@ if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
 fi
 
 # Symlink executables into /usr/local/bin
-for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper nmb-vpn nmb-wifi nmb-iperf nmb-ooni nmb-invasive-log nmb-factory-reset nmb-driver nmb-adblock nmb-heal nmb-cli; do
+for b in nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper nmb-vpn nmb-wifi nmb-iperf nmb-ooni nmb-invasive-log nmb-factory-reset nmb-driver nmb-adblock nmb-heal nmb-cli nmb-selftest; do
     if [ -f "$INSTALL_DIR/bin/$b" ]; then
         ln -sf "$INSTALL_DIR/bin/$b" "/usr/local/bin/$b"
     fi

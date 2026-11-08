@@ -620,10 +620,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         auth = self.headers.get("Authorization", "")
         name = self.server.settings.token_name(auth[7:]) if auth.startswith("Bearer ") else None  # type: ignore[attr-defined]
+        length = int(self.headers.get("Content-Length") or 0)
         if not name:
+            # Read the upload first: answering before it is read resets the connection, and the box then
+            # reports "Broken pipe" instead of the refused token (seen box -> collector, 2026-11-08).
+            if 0 < length <= MAX_BODY:
+                self.rfile.read(length)
             self._json(401, {"ok": False, "error": "invalid token"})
             return
-        length = int(self.headers.get("Content-Length") or 0)
         if not 0 < length <= MAX_BODY:
             self._json(413, {"ok": False, "error": "body too large"})
             return

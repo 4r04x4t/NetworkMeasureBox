@@ -119,6 +119,21 @@ class CollectorTest(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError):
             self._get("/", password="wrong")
 
+    def test_wrong_token_with_a_big_upload_says_token(self):
+        # A long backlog makes a large first upload; the answer must still name the token.
+        conn = _box_db()
+        row = conn.execute("SELECT * FROM speedtest LIMIT 1").fetchone()
+        cols = [d[0] for d in conn.execute("SELECT * FROM speedtest LIMIT 1").description]
+        for i in range(499):
+            vals = list(row)
+            vals[cols.index("id")] = 1000 + i
+            vals[cols.index("error")] = "x" * 16000   # about 8 MB in one batch, more than the socket buffers hold
+            conn.execute(f"INSERT INTO speedtest VALUES ({','.join('?' * len(vals))})", vals)
+        conn.commit()
+        res = client.send_now(_cfg(self.url, "nmbc_wrong"), conn)
+        self.assertFalse(res["ok"])
+        self.assertIn("token", res["message"])
+
     def _admin_post(self, path, form, origin=True):
         data = "&".join(f"{k}={v}" for k, v in form.items()).encode()
         req = urllib.request.Request(self.url + path, data=data, method="POST")

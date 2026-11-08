@@ -156,6 +156,27 @@ bash -n setup.sh                               # ha a setup.sh változott
 4. Azt mérd, amit a funkció állít. Hálózati funkcióknál ez a bájtszámláló: olvasd ki a `/sys/class/net/<if>/statistics/{rx,tx}_bytes` értékét előtte és utána, így tudod, melyik kapcsolaton ment valójában a forgalom.
 5. Állítsd vissza a boxot: beállítások, teszt-interfészek, szabályok. Írd le, mit változtattál, és hogy visszaállítottad.
 
+### 2a. Élő önteszt a boxon (`nmb-selftest`)
+
+A `sudo nmb-selftest` kb. egy perc alatt ellenőrzi a futó boxot; a `--full` a Telegram botot is végigviszi minden parancson és gombon mind a 11 nyelven (néhány perc). Csak egy csoport: `sudo nmb-selftest router usb`. A jelentés a `/var/log/nmb/selftest-<idő>.json` fájlba kerül; a kilépési kód 1, ha valami elbukott.
+
+| Csoport | Mit ellenőriz |
+|---|---|
+| services | nmb szolgáltatások futnak, nincs traceback az utolsó órában, netd állapotfájl |
+| internet | alapértelmezett útvonal, ping, DNS, HTTPS |
+| config | a Wi-Fi jelszó nem gyenge és nem gyári, a Telegram token be van állítva (sosem írja ki), az `nmb.conf` nem olvasható mindenkinek, az események súlyossága a sémának megfelel |
+| web | mind a 11 nyelv teljes és nincs bennük magyar szöveg (a magyaron kívül); status, USB, tárhely és config végpontok; a `/api/config` nem ad vissza titkot |
+| cli | `nmb-cli menu`, minden képernyő, `latest` minden motorra |
+| usb | eszköztípus, cím, a profil sosem alapértelmezett útvonal, forrásszabály a 152-es táblába, USB alapútvonal csak más internet nélkül, ping és HTTPS az USB-n |
+| router | csak router módban: hídtagok, DHCP-szerver, NAT a WAN-on, a box saját útvonala; majd egy szimulált LAN kliens (hálózati névtér egy `br-lan`-ba kötött veth-en) címet kap, és eléri az internetet, a DNS-t és a HTTPS-t |
+| dhcp-probe | a DHCP-őr egy eldobható dnsmasq ellen: megtalálja sima porton és hídtag porton, és nem jelez, ha nincs szerver |
+| speed | utolsó 48 óra motoronként: hibák a leggyakoribb üzenetekkel, rate limit szünetek, kliens IP nélküli sorok, egyetlen ping minta, a medián letöltés az Ookla/Cloudflare-hez képest ugyanazon a vonalon |
+| wifi-ap | a rádió sávjai (HT40/VHT sávonként) a futó `hostapd.conf`-hoz képest, visszautasított hostapd indítások |
+| collector | az adatbázis egy másolata feltöltve egy helyi gyűjtőre (vagy `--collector-url`, token a `NMB_SELFTEST_COLLECTOR_TOKEN` változóból): minden mérés egyszer érkezik meg, az újraküldés nem ad hozzá semmit. A box saját feltöltési pozíciója érintetlen marad |
+| telegram | csak `--full` vagy név szerint |
+
+Az ellenőrzések csak eldobható objektumokat hoznak létre (névterek, veth párok, tesztbridge, adatbázis-másolat), és utána eltávolítják őket; sosem váltanak módot, nem változtatnak beállítást vagy uplinket, és sosem írnak ki titkot vagy nyilvános címet.
+
 ### 3. A box saját kapcsolatának kockáztatása nélkül
 
 - **LAN-kliens:** veth-pár, az egyik vége hálózati névtérben (`ip netns add t; ip link add v0 type veth peer name v1; ip link set v1 netns t`). A névtér egy a boxra dugott eszköz. DHCP-t és útválasztást soha ne azon a porton tesztelj, amelyiken keresztül csatlakozol.
@@ -255,7 +276,6 @@ Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Mind
 | Elveszett beállítások valódi folyamatok között | A webes felület, az `nmb-cli`, a bot és az `nmb-netd` egy órán át felváltva ment; minden beállított érték megmarad (az egységteszt egy folyamaton belül két másolatot fed le) |
 | SMTP | Helyi mock szerverrel, utána valódi postafiókkal |
 | Frissítés GitHubról egy boxon | Amint a mostani kód felkerül a GitHubra |
-| Központi gyűjtő két gép között | A gyűjtő egy PC-n, a box egy másik hálózaton |
 | Webes felület | Mind a 11 nyelv (a hat újabb gépi segítséggel készült fordítás: anyanyelvi lektor nézze át), több felhasználó egyszerre, hibás belépések, Firefox, Chrome és telefon |
 | firewalld-portok, Debian 12 és Fedora újraindítás, Tailscale, OONI, valódi DuckDNS-domain | |
 

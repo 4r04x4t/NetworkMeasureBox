@@ -156,6 +156,27 @@ bash -n setup.sh                               # when setup.sh changed
 4. Measure what the feature claims. For network features this means byte counters: read `/sys/class/net/<if>/statistics/{rx,tx}_bytes` before and after, so you know which link the traffic really took.
 5. Put the box back as it was: settings, test interfaces, rules. Say what you changed and that you undid it.
 
+### 2a. Live self-test on the box (`nmb-selftest`)
+
+`sudo nmb-selftest` checks the running box in about a minute; `--full` also drives the Telegram bot through every command and button in all 11 languages (a few minutes). One group: `sudo nmb-selftest router usb`. The report goes to `/var/log/nmb/selftest-<time>.json`; the exit code is 1 when a check failed.
+
+| Group | What it checks |
+|---|---|
+| services | nmb units active, no tracebacks in the last hour, netd state file |
+| internet | default route, ping, DNS, HTTPS |
+| config | Wi-Fi password not weak or factory, Telegram token set (never shown), `nmb.conf` not world-readable, event severities fit the schema |
+| web | all 11 languages complete and without Hungarian outside Hungarian; status, USB, storage and config endpoints; `/api/config` returns no secrets |
+| cli | `nmb-cli menu`, every screen, `latest` for every engine |
+| usb | device kind, address, profile never default, source rule to table 152, USB default route only without other internet, ping and HTTPS over USB |
+| router | only in router mode: bridge members, DHCP server, NAT on the WAN, the box's own route; then a simulated LAN client (network namespace on a veth in `br-lan`) gets a lease and reaches the internet, DNS and HTTPS |
+| dhcp-probe | the DHCP guard against a throwaway dnsmasq: found on a plain port, found on a bridge port, no false alarm without it |
+| speed | last 48 h per engine: errors with the most common messages, rate-limit pauses, rows without the client IP, single ping samples, median download against Ookla/Cloudflare on the same link |
+| wifi-ap | radio bands (HT40/VHT per band) against the running `hostapd.conf`, refused hostapd starts |
+| collector | a copy of the database uploaded to a local collector (or `--collector-url`, token from `NMB_SELFTEST_COLLECTOR_TOKEN`): every speed test arrives once, sending again adds nothing. The box's own upload position is not touched |
+| telegram | only with `--full` or by name |
+
+The checks only build throwaway objects (namespaces, veth pairs, a test bridge, a database copy) and remove them; they never change the mode, the settings or the uplinks, and never print secrets or public addresses.
+
 ### 3. Without risking the box's own connection
 
 - **A LAN client:** a veth pair with one end in a network namespace (`ip netns add t; ip link add v0 type veth peer name v1; ip link set v1 netns t`). The namespace is a device plugged into the box. Never test DHCP or routing on the port you are connected through.
@@ -255,7 +276,6 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | Lost settings across real processes | Web UI, `nmb-cli`, bot and `nmb-netd` saving in turns for an hour; every value set stays (the unit test covers two copies in one process) |
 | SMTP | Against a local mock server, then a real mailbox |
 | Update from GitHub on a box | Once the current code is on GitHub |
-| Central collector between two machines | Collector on one PC, box on another network |
 | Web UI | All 11 languages (the six newer ones were machine-assisted translations: a native speaker should read them), several users at once, wrong logins, Firefox, Chrome and a phone |
 | firewalld ports, Debian 12 and Fedora reboot, Tailscale, OONI, a real DuckDNS domain | |
 
