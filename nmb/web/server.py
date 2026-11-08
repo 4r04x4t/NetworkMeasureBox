@@ -6,6 +6,8 @@ Serves dashboard UI, live status JSON, speedtest triggers, and dossier downloads
 from __future__ import annotations
 
 import argparse
+import copy
+from types import SimpleNamespace
 import datetime
 import errno
 import json
@@ -1433,6 +1435,29 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     pass
             if "iperf_target_host" in body_json and str(body_json["iperf_target_host"]).strip():
                 self.server.cfg.iperf.target_host = str(body_json["iperf_target_host"]).strip()
+            ipc = self.server.cfg.iperf
+            if "iperf_duration" in body_json:
+                try:
+                    ipc.duration = max(3, min(60, int(body_json["iperf_duration"])))
+                except (ValueError, TypeError):
+                    pass
+            if str(body_json.get("iperf_protocol", "")).lower() in ("tcp", "udp"):
+                ipc.protocol = str(body_json["iperf_protocol"]).lower()
+            if "iperf_parallel" in body_json:
+                try:
+                    ipc.parallel = max(1, min(16, int(body_json["iperf_parallel"])))
+                except (ValueError, TypeError):
+                    pass
+            if "iperf_extra_servers" in body_json:
+                from nmb.speed.runner import iperf3_servers
+                probe = copy.copy(ipc)
+                probe.target_host = ""
+                probe.extra_servers = str(body_json["iperf_extra_servers"])[:1000]
+                ipc.extra_servers = ", ".join(f"{h}:{p}" for h, p in iperf3_servers(SimpleNamespace(iperf=probe)))
+            direction = str(body_json.get("iperf_direction", "")).lower()
+            if direction in ("both", "download", "upload", "bidir"):
+                ipc.bidir = direction == "bidir"
+                ipc.auto_direction = "both" if direction == "bidir" else direction
             if "iperf_port" in body_json:
                 try:
                     p_val = int(body_json["iperf_port"])
@@ -1497,6 +1522,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "ookla_interval_min": self.server.cfg.speedtest.ookla_interval_min,
                 "rtr_interval_min": self.server.cfg.speedtest.rtr_interval_min,
                 "cloudflare_interval_min": self.server.cfg.speedtest.cloudflare_interval_min,
+                "iperf_auto": {
+                    "duration": self.server.cfg.iperf.duration, "protocol": self.server.cfg.iperf.protocol,
+                    "parallel": self.server.cfg.iperf.parallel,
+                    "direction": "bidir" if self.server.cfg.iperf.bidir else self.server.cfg.iperf.auto_direction,
+                    "extra_servers": self.server.cfg.iperf.extra_servers,
+                },
                 "idle_threshold_mode": self.server.cfg.speedtest.idle_threshold_mode,
                 "idle_threshold_percent": self.server.cfg.speedtest.idle_threshold_percent,
                 "idle_threshold_kbps": self.server.cfg.speedtest.idle_threshold_kbps,
@@ -3253,6 +3284,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             },
             "iperf_target_host": getattr(self.server.cfg.iperf, "target_host", ""),
             "iperf_port": getattr(self.server.cfg.iperf, "target_port", getattr(self.server.cfg.iperf, "port", 5201)),
+            "iperf_auto": {
+                "duration": self.server.cfg.iperf.duration, "protocol": self.server.cfg.iperf.protocol,
+                "parallel": self.server.cfg.iperf.parallel,
+                "direction": "bidir" if self.server.cfg.iperf.bidir else self.server.cfg.iperf.auto_direction,
+                "extra_servers": self.server.cfg.iperf.extra_servers,
+            },
             "traceroute": {
                 "is_running": is_traceroute_running(),
                 "latest": get_latest_traceroute(),

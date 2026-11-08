@@ -2105,26 +2105,32 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     }
   }
 
+  function markViewPill(eng) {
+    document.querySelectorAll('.engine-pill').forEach(el => { el.classList.remove('active'); el.setAttribute('aria-pressed', 'false'); });
+    const pill = document.getElementById('pill-engine-' + eng);
+    if (pill) { pill.classList.add('active'); pill.setAttribute('aria-pressed', 'true'); }
+  }
+
+  // Home page: show the latest result of one engine, or the newest of any ("all"). Changes no setting.
+  function viewEngine(eng) {
+    window.homeViewEngine = eng;
+    try { localStorage.setItem('nmb_home_view', eng); } catch (e) {}
+    markViewPill(eng);
+    renderHomeEngineCard(eng);
+  }
+
   async function selectEngine(eng, skipSave) {
     if (!eng) return;
     selectedEngine = eng.toLowerCase();
 
-    // 1. Instantly switch visual pill state (0 ms)
-    document.querySelectorAll('.engine-pill').forEach(el => el.classList.remove('active'));
-    const pill = document.getElementById('pill-engine-' + selectedEngine);
-    if (pill) pill.classList.add('active');
+    // The home page buttons only choose which result is shown (viewEngine); this follows the setting.
 
     // 1b. Update active engine badge on Dashboard
     const activeBadge = document.getElementById('home-active-engine-badge');
     if (activeBadge) {
-      const labels = {
-        ookla: t('engine_ookla_badge', '⚡ OOKLA ACTIVE'),
-        cloudflare: t('engine_cloudflare_badge', '☁️ CLOUDFLARE ACTIVE'),
-        rtr: t('engine_rtr_badge', '🇦🇹 RTR-NETTEST ACTIVE'),
-        iperf3: t('engine_iperf3_badge', '⚡ IPERF3 ACTIVE'),
-        all: t('engine_all_badge', '🏆 COMBINED ACTIVE')
-      };
-      activeBadge.innerText = labels[selectedEngine] || (selectedEngine.toUpperCase() + ' ' + t('status_active', 'ACTIVE'));
+      const labels = { ookla: 'Ookla', cloudflare: 'Cloudflare', rtr: 'RTR-NetTest', iperf3: 'iPerf3',
+                       all: t('home_view_mixed_short', 'Mixed') };
+      activeBadge.innerText = labels[selectedEngine] || selectedEngine;
       if (selectedEngine === 'ookla') {
         activeBadge.style.background = 'rgba(2,132,199,0.25)';
         activeBadge.style.color = '#38bdf8';
@@ -2167,8 +2173,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     // 3. Update server / target input row visibility
     updateServerSelectVisibility(selectedEngine);
 
-    // 4. Instantly switch dashboard results card and command preview to this engine (0 ms)
-    renderHomeEngineCard(selectedEngine);
+    // 4. The results card follows the setting until a view button was pressed
+    if (!window.homeViewEngine) { markViewPill(selectedEngine); renderHomeEngineCard(selectedEngine); }
 
     // 5. Synchronize Schedule & Settings dropdowns
     if (document.getElementById('sched-engine-select')) {
@@ -2329,7 +2335,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       if (defPassEl) defPassEl.style.display = isDefPass ? 'flex' : 'none';
 
       // Render Dashboard speedtest card based on selected engine
-      renderHomeEngineCard(selectedEngine, data);
+      renderHomeEngineCard(window.homeViewEngine || selectedEngine, data);
 
       // Script preview box (in Schedule tab)
       if (data.latest_script && document.getElementById('script-preview-box')) {
@@ -2479,6 +2485,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
             if (customInp) customInp.value = data.schedule_cron;
           }
         }
+        if (data.iperf_target_host !== undefined) showIperfAutoCurrent(data.iperf_target_host, data.iperf_port, data.iperf_auto);
         if (data.engine_intervals && !schedFormDirty && !isScheduleInputActive()) {
           for (const k of ['ookla', 'rtr', 'cloudflare', 'iperf3']) {
             const el = document.getElementById('sched-int-' + k);
@@ -2641,8 +2648,12 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           }
           const bb = st.bufferbloat_grade ? `<span class="badge badge-ok">${escapeHtml(st.bufferbloat_grade)} (+${st.bufferbloat_delta_ms || 0}ms)</span>` : '--';
           
-          let engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;">OOKLA</span>';
-          if (st.engine === 'cloudflare') {
+          let engineBadge = `<span class="badge">${escapeHtml(String(st.engine || '?').toUpperCase())}</span>`;
+          if (st.engine === 'ookla') {
+            engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;">OOKLA</span>';
+          } else if (st.engine === 'iperf3') {
+            engineBadge = '<span class="badge" style="background:rgba(168,85,247,0.2);color:#c084fc;border:1px solid #a855f7;">IPERF3</span>';
+          } else if (st.engine === 'cloudflare') {
             engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;">CLOUDFLARE ${st.colo ? '[' + escapeHtml(st.colo) + ']' : ''}</span>`;
           } else if (st.engine === 'rtr' || st.engine === 'rtr-nettest') {
             engineBadge = '<span class="badge" style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;">RTR-NETTEST</span>';
@@ -6149,6 +6160,98 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       showToast(`Selected iPerf3 target: ${host}:${port}`);
     }
     closePublicServersModal();
+  }
+
+  // Saves the host and port from the iPerf3 tab as the server of scheduled iPerf3 tests.
+  async function saveIperfForAutomatic() {
+    const host = (document.getElementById('iperf-host').value || '').trim();
+    const port = parseInt(document.getElementById('iperf-port').value) || 5201;
+    if (!host) { showToast(t('iperf_need_host', 'Enter or pick an iPerf3 server first.')); return; }
+    const btn = document.getElementById('btn-iperf-save-auto');
+    if (btn) btn.disabled = true;
+    try {
+      let reachable = false;
+      try {
+        const pr = await fetch(`/api/iperf/probe?host=${encodeURIComponent(host)}&port=${port}`);
+        if (pr.ok) reachable = !!(await pr.json()).reachable;
+      } catch (e) {}
+      const res = await fetch('/api/speedtest/schedule', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          iperf_target_host: host, iperf_port: port,
+          iperf_duration: parseInt(document.getElementById('iperf-duration').value) || 10,
+          iperf_protocol: document.getElementById('iperf-protocol').value,
+          iperf_parallel: parseInt(document.getElementById('iperf-parallel').value) || 4,
+          iperf_direction: ({ 'false': 'upload', 'true': 'download', 'bidir': 'bidir', 'both': 'both' })[document.getElementById('iperf-reverse').value] || 'both',
+        })
+      });
+      if (!res.ok) { showToast(t('iperf_save_failed', 'Could not save the iPerf3 server.')); return; }
+      const sh = document.getElementById('sched-iperf-host');
+      const sp = document.getElementById('sched-iperf-port');
+      if (sh) sh.value = host;
+      if (sp) sp.value = port;
+      showIperfAutoCurrent(host, port, (await res.json()).iperf_auto);
+      showToast(reachable
+        ? t('iperf_saved_ok', '✅ Saved: automatic iPerf3 tests use {host}:{port}.').replace('{host}', host).replace('{port}', port)
+        : t('iperf_saved_unreachable', '⚠️ Saved {host}:{port}, but it does not answer now; automatic iPerf3 tests wait until it does.').replace('{host}', host).replace('{port}', port));
+    } catch (e) {
+      showToast('Error: ' + e);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  let iperfExtraServers = [];
+
+  function renderIperfExtraList() {
+    const el = document.getElementById('iperf-extra-list');
+    if (!el) return;
+    if (!iperfExtraServers.length) { el.textContent = ''; return; }
+    el.innerHTML = escapeHtml(t('iperf_extra_label', 'Also tested one after the other:')) + ' ' + iperfExtraServers.map((sv, i) =>
+      `<code>${escapeHtml(sv)}</code> <button type="button" class="btn-secondary" style="padding: 0 6px; font-size: 11px;" aria-label="${escapeHtml(t('remove', 'Remove'))} ${escapeHtml(sv)}" onclick="removeIperfExtraServer(${i})">✖</button>`
+    ).join(' ');
+  }
+
+  async function saveIperfExtraServers() {
+    const res = await fetch('/api/speedtest/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ iperf_extra_servers: iperfExtraServers.join(', ') }) });
+    if (res.ok) {
+      const d = await res.json();
+      iperfExtraServers = ((d.iperf_auto && d.iperf_auto.extra_servers) || '').split(',').map(x => x.trim()).filter(Boolean);
+      renderIperfExtraList();
+    }
+    return res.ok;
+  }
+
+  async function addIperfExtraServer() {
+    const host = (document.getElementById('iperf-host').value || '').trim();
+    const port = parseInt(document.getElementById('iperf-port').value) || 5201;
+    if (!host) { showToast(t('iperf_need_host', 'Enter or pick an iPerf3 server first.')); return; }
+    const item = host + ':' + port;
+    if (!iperfExtraServers.includes(item)) iperfExtraServers.push(item);
+    showToast(await saveIperfExtraServers() ? t('iperf_extra_added', 'Added to the automatic list: {server}').replace('{server}', item)
+                                            : t('iperf_save_failed', 'Could not save the iPerf3 server.'));
+  }
+
+  async function removeIperfExtraServer(i) {
+    iperfExtraServers.splice(i, 1);
+    await saveIperfExtraServers();
+  }
+
+  function showIperfAutoCurrent(host, port, auto) {
+    const el = document.getElementById('iperf-auto-current');
+    if (!el) return;
+    let txt = host ? t('iperf_auto_current', 'Automatic tests use: {server}').replace('{server}', host + ':' + (port || 5201)) : '';
+    if (host && auto) {
+      const dirs = { both: t('iperf_dir_both_short', 'download, then upload'), download: t('iperf_dir_down_short', 'download'),
+                     upload: t('iperf_dir_up_short', 'upload'), bidir: t('iperf_dir_bidir_short', 'both ways at once') };
+      txt += ` · ${auto.parallel}× ${String(auto.protocol || 'tcp').toUpperCase()}, ${auto.duration} s, ${dirs[auto.direction] || auto.direction}`;
+    }
+    el.textContent = txt;
+    if (auto && auto.extra_servers !== undefined) {
+      iperfExtraServers = String(auto.extra_servers || '').split(',').map(x => x.trim()).filter(Boolean);
+      renderIperfExtraList();
+    }
   }
 
   async function probeCurrentIperfServer() {
@@ -9660,6 +9763,7 @@ ${pkgList}`;
     loadMacInfo();
   }, 2500);
   setInterval(refreshStatus, 3000);
+  try { const v = localStorage.getItem('nmb_home_view'); if (v) { window.homeViewEngine = v; markViewPill(v); } } catch (e) {}
   loadHomeOoklaServers();
   loadCollector();
   setInterval(() => loadHomeOoklaServers(false), 5 * 60 * 1000);

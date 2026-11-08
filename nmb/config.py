@@ -518,12 +518,17 @@ class IPerfConfig:
     enabled: bool = False
     target_host: str = ""
     target_port: int = 5201
-    duration: int = 10
+    duration: int = 10      # seconds per direction
     protocol: str = "tcp"
-    parallel: int = 1
+    parallel: int = 4       # one TCP stream rarely fills a fast line over a long path
+    # Automatic tests: "both" measures download (-R) and then upload, one after the other;
+    # "download" or "upload" measures one direction only.
+    auto_direction: str = "both"
+    # More servers for automatic tests, tested one after the other: "host:port, host:port".
+    extra_servers: str = ""
     reverse: bool = False
     bidir: bool = False
-    schedule_cron: str = "0 */12 * * *"
+    schedule_cron: str = "0 */12 * * *"  # kept for older configs; scheduled iPerf3 uses [speedtest] iperf3_interval_min
 
 
 @dataclass
@@ -929,6 +934,9 @@ def load_config(path: Path | None = None) -> Config:
         cfg.iperf.parallel = ipf.getint("parallel", fallback=cfg.iperf.parallel)
         cfg.iperf.reverse = ipf.getboolean("reverse", fallback=cfg.iperf.reverse)
         cfg.iperf.bidir = ipf.getboolean("bidir", fallback=cfg.iperf.bidir)
+        direction = ipf.get("auto_direction", cfg.iperf.auto_direction).strip().lower()
+        cfg.iperf.auto_direction = direction if direction in ("both", "download", "upload") else "both"
+        cfg.iperf.extra_servers = ipf.get("extra_servers", "").strip()
         cfg.iperf.schedule_cron = ipf.get("schedule_cron", cfg.iperf.schedule_cron)
 
     if parser.has_section("web"):
@@ -1184,6 +1192,8 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["iperf"]["parallel"] = str(cfg.iperf.parallel)
     parser["iperf"]["reverse"] = str(cfg.iperf.reverse).lower()
     parser["iperf"]["bidir"] = str(cfg.iperf.bidir).lower()
+    parser["iperf"]["auto_direction"] = str(cfg.iperf.auto_direction)
+    parser["iperf"]["extra_servers"] = str(cfg.iperf.extra_servers)
     parser["iperf"]["schedule_cron"] = str(cfg.iperf.schedule_cron)
 
     # Web

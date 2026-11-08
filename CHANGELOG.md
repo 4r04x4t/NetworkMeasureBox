@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Several iPerf3 servers for automatic tests, tested one after the other, each in its own row ("Add to the automatic list" in the iPerf3 tab, `extra_servers` under `[iperf]`, `nmb-cli run iperf.auto`). Servers that do not answer are left out.
+- "Use this server for automatic tests" in the iPerf3 tab saves the server with its streams, duration, protocol and direction.
+- `nmb-cli latest [engine]`: the newest result of every engine, or of one.
+- iPerf3 can be the only automatic engine, and joins the mixed run, when an iPerf3 server is set and answers; it has its own interval (`iperf3_interval_min`). Without a working server it is left out without an empty row.
 - Central measurement collector (`nmb-collector`) for an ISP or a specialist: boxes whose owner turns it on send speed tests and hourly ping summaries; with separate consent also events and hourly full network diagnostics, and remote control (speed test, fresh diagnostics, upload; nothing else). Boxes are found by a permanent unique ID, name, current or earlier case number, customer number or ISP. Web UI card and `nmb-cli run collector.save` / `collector.send` on the box.
 - Each engine has its own minimum interval for scheduled tests (`ookla_interval_min`, at least 60; `rtr_interval_min`, `cloudflare_interval_min`), set in the Web UI under the schedule.
 - A "Refresh from Ookla" button next to the Ookla server choice on the home page and in the server list.
@@ -30,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The home page only shows results: buttons choose the newest result of any engine (mixed) or of one engine. The engine, the Ookla server, the interface and the schedule are set under Measurement & Servers, which the home page links to. In `nmb-cli` the schedule moved to the same screen.
+- Recommended iPerf3 defaults for automatic tests: 4 parallel TCP streams, 10 s, download and then upload one after the other (`auto_direction = both`), with a short pause and a retry before the upload, since many public servers take one client at a time.
 - No country is built in: the Ookla server choice comes only from Ookla's current list of servers near the box (the built-in list had wrong IDs, such as 10390 for Yettel, which Ookla answers with "No servers defined"); the Wi-Fi country defaults to automatic; the ISP name, examples and placeholders no longer name Hungarian providers; regulator-specific status codes are now neutral status codes with English descriptions.
 - The Ookla server choice is labelled as the Ookla Speedtest server everywhere, with a note that RTR-NetTest, Cloudflare and iPerf3 choose their own servers.
 - Scheduled Ookla tests run at most once an hour, however often the schedule runs, since Ookla blocks boxes that test more often. RTR-NetTest, Cloudflare and iPerf3 still run every time, and manual Ookla tests are not held back.
@@ -43,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- iPerf3 results were labelled OOKLA in the speed test list, and an upload-only iPerf3 run showed 0.00 Mbps download.
+- "Stop iPerf Server" did nothing: the server runs as the root unit `nmb-iperf3`, which the web server could not stop with `pkill`; start and stop now use `systemctl`.
+- A busy or unreachable iPerf3 server no longer adds failed rows to scheduled runs.
+- The home card showed a failed run ("-- Mbps", "Upload only", "A+"); it now shows the last real result, says when a newer attempt failed, when the next Ookla test can run, and when the result is from an earlier chosen server.
 - The home page schedule line overflowed with the full Ookla warning and showed the label twice ("Accuracy Gate::"); it now shows a short note with the full text on hover, and wraps.
 - When Ookla failed or paused, the box ran RTR-NetTest or Cloudflare instead and the home page kept showing an old Ookla result. Ookla failures are now reported as such, and while Ookla is paused no rows are added.
 - The Ookla pause was kept only in memory, so every restart asked Ookla again early and made its block longer. It is now kept in `/var/lib/nmb/ookla_cooldown.json`.

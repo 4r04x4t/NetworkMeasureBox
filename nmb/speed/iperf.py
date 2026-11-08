@@ -13,7 +13,8 @@ import shutil
 import subprocess
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from nmb.speed import cancel
 
@@ -410,6 +411,24 @@ def is_iperf_running() -> bool:
     return _iperf_running
 
 
+IPERF_UNIT = "nmb-iperf3.service"
+IPERF_UNIT_PORT = 5201
+
+
+def _unit_present() -> bool:
+    """setup.sh installs the server as a root systemd unit; nmb-web may control it via polkit."""
+    return Path("/run/systemd/system").is_dir() and any(
+        (Path(d) / IPERF_UNIT).exists() for d in ("/etc/systemd/system", "/lib/systemd/system", "/usr/lib/systemd/system"))
+
+
+def _systemctl(action: str) -> Tuple[bool, str]:
+    try:
+        r = subprocess.run(["systemctl", action, IPERF_UNIT], capture_output=True, text=True, timeout=15)
+        return r.returncode == 0, (r.stderr or r.stdout).strip()
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, str(e)
+
+
 def start_iperf_server(port: int = 5201) -> Dict[str, Any]:
     """Start local iperf3 server daemon on the box."""
     global _iperf_server_proc, _iperf_server_port
@@ -420,6 +439,13 @@ def start_iperf_server(port: int = 5201) -> Dict[str, Any]:
         port = max(1024, min(65535, int(port)))
     except (ValueError, TypeError):
         port = 5201
+
+    if port == IPERF_UNIT_PORT and _unit_present():
+        ok, err = _systemctl("start")
+        _iperf_server_port = port
+        if not ok:
+            return {"status": "error", "message": f"Could not start {IPERF_UNIT}: {err}"}
+        return {"status": "ok", "message": f"iPerf3 server started on port {port}.", "server": get_iperf_server_status()}
 
     if _iperf_server_proc and _iperf_server_proc.poll() is None:
         return {
@@ -468,6 +494,13 @@ def stop_iperf_server() -> Dict[str, Any]:
     """Stop local iperf3 server daemon."""
     global _iperf_server_proc
     stopped_any = False
+    if _unit_present():
+        # The unit runs as root, so pkill from nmb-web cannot stop it; systemctl can.
+        ok, err = _systemctl("stop")
+        if ok:
+            stopped_any = True
+        else:
+            log.warning("could not stop %s: %s", IPERF_UNIT, err)
     if _iperf_server_proc and _iperf_server_proc.poll() is None:
         try:
             _iperf_server_proc.terminate()
@@ -480,13 +513,16 @@ def stop_iperf_server() -> Dict[str, Any]:
             stopped_any = True
 
     # If port is still listening from external or orphaned process, try pkill
-    if is_iperf_port_listening(_iperf_server_port):
+    if is_iperf_port_listening(_iperf_server_port) and not _unit_present():
         try:
             subprocess.run(["pkill", "-f", "iperf3 -s"], timeout=2.0)
             stopped_any = True
         except Exception:
             log.debug("suppressed exception", exc_info=True)
 
+    if is_iperf_port_listening(_iperf_server_port):
+        return {"status": "error", "message": "The iPerf3 server is still running; it could not be stopped.",
+                "server": get_iperf_server_status()}
     msg = "iPerf3 server stopped." if stopped_any else "iPerf3 server was not running."
     return {"status": "ok", "message": msg, "server": get_iperf_server_status()}
 

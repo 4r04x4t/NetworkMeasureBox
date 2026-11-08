@@ -213,7 +213,8 @@ class OoklaOnlyFallbackTest(unittest.TestCase):
         cfg.speedtest.automated_engine = "ookla"
         with mock.patch.object(runner, "_run_single_engine", side_effect=lambda eng, *a, **k: ran.append(eng) or SpeedtestResult(status="ok")), \
              mock.patch.object(runner, "_engine_due", return_value=True), \
-             mock.patch.object(runner, "_iperf3_usable", return_value=self.iperf_ok):
+             mock.patch.object(runner, "_iperf3_usable", return_value=self.iperf_ok), \
+             mock.patch.object(runner, "_usable_iperf3_servers", return_value=[("iperf.example", 5201)] if self.iperf_ok else []):
             runner.run_measurement_cycle(cfg, trigger="schedule", force=True, run_port_check=False, engine=self.engine)
         return ran
 
@@ -230,6 +231,30 @@ class OoklaOnlyFallbackTest(unittest.TestCase):
         anti_ban.mark_client_rate_limited()
         self.iperf_ok = True
         self.assertEqual(self._cycle(), ["cloudflare", "rtr", "iperf3"])
+
+    def test_iperf3_alone_runs_only_with_a_working_server(self):
+        self.engine, self.iperf_ok = "iperf3", True
+        self.assertEqual(self._cycle(), ["iperf3"])
+        self.iperf_ok = False
+        self.assertEqual(self._cycle(), [])
+
+    def test_several_iperf3_servers_each_get_a_run(self):
+        from types import SimpleNamespace
+        from nmb.speed.runner import iperf3_servers
+        cfg = SimpleNamespace(iperf=SimpleNamespace(target_host="a.example", target_port=5201,
+                                                    extra_servers="b.example:5202, a.example:5201, -bad, c.example"))
+        self.assertEqual(iperf3_servers(cfg), [("a.example", 5201), ("b.example", 5202), ("c.example", 5201)])
+        self.engine = "iperf3"
+        from nmb.speed import runner
+        with mock.patch.object(runner, "_usable_iperf3_servers", return_value=[("a", 1), ("b", 2)]):
+            self.iperf_ok = True
+            ran = []
+            cfg2 = load_cfg()
+            with mock.patch.object(runner, "_run_single_engine", side_effect=lambda eng, c, *a, **k: ran.append(c.iperf.target_host) or SpeedtestResult(status="ok")), \
+                 mock.patch.object(runner, "_engine_due", return_value=True), \
+                 mock.patch.object(runner, "_iperf3_usable", return_value=True):
+                runner.run_measurement_cycle(cfg2, trigger="schedule", force=True, run_port_check=False, engine="iperf3")
+        self.assertEqual(ran, ["a", "b"])
 
     def test_iperf3_needs_a_server(self):
         from types import SimpleNamespace
@@ -250,6 +275,50 @@ def load_cfg():
     from pathlib import Path
     from nmb.config import load_config
     return load_config(Path(tempfile.mkdtemp()) / "nmb.conf")
+
+
+class BusyIperfTest(unittest.TestCase):
+    def test_busy_iperf_server_adds_no_row(self):
+        import sqlite3
+        from pathlib import Path
+        from types import SimpleNamespace
+        from nmb.speed import runner
+        conn = sqlite3.connect(":memory:")
+        conn.executescript((Path(runner.__file__).resolve().parent.parent / "db" / "schema.sql").read_text())
+        cfg = SimpleNamespace(isp=SimpleNamespace(connection_type="fiber"),
+                              iperf=SimpleNamespace(target_host="iperf.example", target_port=5201, duration=10, protocol="tcp",
+                                                    parallel=1, reverse=False, bidir=False))
+        busy = {"status": "error", "error": "the server is busy running a test. try again later"}
+        with mock.patch("nmb.speed.iperf.run_iperf_client_test", return_value=busy), \
+             mock.patch("nmb.netd.interfaces.find_preferred_measurement_interface", return_value=("eth0", "192.0.2.2", True)):
+            runner._run_single_engine("iperf3", cfg, "schedule", None, conn, 1, target_iface=None)
+        self.assertEqual(conn.execute("SELECT COUNT(*) FROM speedtest").fetchone()[0], 0)
+
+
+class IperfBothDirectionsTest(unittest.TestCase):
+    def test_download_then_upload_in_one_row(self):
+        import sqlite3
+        from pathlib import Path
+        from types import SimpleNamespace
+        from nmb.speed import runner
+        conn = sqlite3.connect(":memory:")
+        conn.executescript((Path(runner.__file__).resolve().parent.parent / "db" / "schema.sql").read_text())
+        cfg = SimpleNamespace(isp=SimpleNamespace(connection_type="fiber"),
+                              iperf=SimpleNamespace(target_host="iperf.example", target_port=5201, duration=10, protocol="tcp",
+                                                    parallel=4, reverse=False, bidir=False, auto_direction="both"))
+        calls = []
+
+        def fake(**kw):
+            calls.append(kw["reverse"])
+            return {"status": "ok", "bps": 900_000_000 if kw["reverse"] else 300_000_000, "rtt_ms": 12.0}
+
+        with mock.patch("nmb.speed.iperf.run_iperf_client_test", side_effect=fake), \
+             mock.patch.object(runner.time, "sleep"), \
+             mock.patch("nmb.netd.interfaces.find_preferred_measurement_interface", return_value=("eth0", "192.0.2.2", True)):
+            runner._run_single_engine("iperf3", cfg, "schedule", None, conn, 1, target_iface=None)
+        self.assertEqual(calls, [True, False])
+        row = conn.execute("SELECT engine, down_bps, up_bps FROM speedtest").fetchone()
+        self.assertEqual(row, ("iperf3", 900_000_000, 300_000_000))
 
 
 if __name__ == "__main__":

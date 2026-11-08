@@ -119,102 +119,25 @@
       </button>
     </div>
 
-    <!-- Engine Selector & Active Control Box -->
+    <!-- Latest results view (display only; settings are under Measurement & Servers) -->
     <div class="engine-selector-box">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <span style="font-weight: 700; font-size: 13.5px; color: #f1f5f9;" data-i18n="engine_select_title">🎯 Select Active Measurement Engine:</span>
-          <span id="home-active-engine-badge" class="badge" style="background: rgba(2,132,199,0.25); color: #38bdf8; border: 1px solid #0284c7; font-weight: 700; font-size: 11.5px; padding: 3px 8px;" data-i18n="engine_ookla_badge">
-            ⚡ OOKLA ACTIVE
-          </span>
-        </div>
-        <span style="font-size: 12px; color: #94a3b8;" data-i18n="engine_select_desc">Selected engine applies immediately to manual runs and automated schedule</span>
+        <span style="font-weight: 700; font-size: 13.5px; color: #f1f5f9;" data-i18n="home_view_title">📊 Show the latest result of:</span>
+        <span style="font-size: 12px; color: #94a3b8;"><span data-i18n="home_auto_engine">Automatic tests use:</span>
+          <span id="home-active-engine-badge" class="badge" style="background: rgba(2,132,199,0.25); color: #38bdf8; border: 1px solid #0284c7; font-weight: 700; font-size: 11.5px; padding: 3px 8px;">--</span></span>
       </div>
-
-      <div class="engine-pills">
-        <div class="engine-pill active" id="pill-engine-ookla" onclick="selectEngine('ookla')">
-          <span>⚡</span> Ookla Speedtest
-        </div>
-        <div class="engine-pill" id="pill-engine-cloudflare" onclick="selectEngine('cloudflare')">
-          <span>☁️</span> Cloudflare Edge
-        </div>
-        <div class="engine-pill" id="pill-engine-rtr" onclick="selectEngine('rtr')">
-          <span>🇦🇹</span> RTR-NetTest (netztest.at)
-        </div>
-        <div class="engine-pill" id="pill-engine-iperf3" onclick="selectEngine('iperf3')">
-          <span>⚡</span> iPerf3 Bandwidth
-        </div>
-        <div class="engine-pill" id="pill-engine-all" onclick="selectEngine('all')">
-          <span>🏆</span> <span data-i18n="engine_all_label">Combined (All Engines)</span>
-        </div>
+      <div class="engine-pills" role="group" aria-label="Latest results">
+        <button type="button" class="engine-pill" id="pill-engine-all" onclick="viewEngine('all')"><span>🏆</span> <span data-i18n="home_view_mixed">Mixed (newest of any engine)</span></button>
+        <button type="button" class="engine-pill" id="pill-engine-ookla" onclick="viewEngine('ookla')"><span>⚡</span> Ookla</button>
+        <button type="button" class="engine-pill" id="pill-engine-cloudflare" onclick="viewEngine('cloudflare')"><span>☁️</span> Cloudflare</button>
+        <button type="button" class="engine-pill" id="pill-engine-rtr" onclick="viewEngine('rtr')"><span>📶</span> RTR-NetTest</button>
+        <button type="button" class="engine-pill" id="pill-engine-iperf3" onclick="viewEngine('iperf3')"><span>🔁</span> iPerf3</button>
       </div>
-
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
-        <div class="engine-desc" id="engine-desc-text" style="margin: 0; flex: 1; min-width: 260px;" data-i18n-html="engine_desc_ookla">
-          ⚡ <b>Ookla Speedtest:</b> Global server fleet, selectable target server, detailed download/upload and bufferbloat.
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 11.5px; color: #64748b;" data-i18n="settings_synced">(Settings synchronized)</span>
-          <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchTab('tab-script')" data-i18n="btn_schedule_settings">⚙️ Schedule Settings ➔</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Target Server & Operating Mode Quick Settings -->
-    <div style="background: #090e1a; border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
-      <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-        <div id="home-target-server-container" style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="target_server" title="Only Ookla uses this server; RTR-NetTest and Cloudflare choose their own.">🎯 Ookla Speedtest server:</span>
-          <select id="home-target-server-select" class="form-input" style="width: auto; min-width: 250px; padding: 7px 12px; font-size: 13px;" onchange="onHomeServerSelect(this.value)">
-            <option value="auto" data-i18n="target_server_auto">🌐 Automatic (Closest Server)</option>
-            <optgroup id="home-ookla-server-group" label="Ookla Speedtest servers" data-i18n-label="ookla_servers_group"></optgroup>
-            <option value="custom" data-i18n="target_server_custom">✏️ Enter Custom Server ID...</option>
-          </select>
-          <button type="button" id="btn-home-ookla-refresh" class="btn-secondary" style="padding: 7px 10px; font-size: 12px;" onclick="loadHomeOoklaServers(true)" data-i18n="ookla_servers_refresh">🔄 Refresh from Ookla</button>
-          <div id="home-custom-server-wrap" style="display: none; align-items: center; gap: 6px;">
-            <input type="text" id="home-custom-server-id" placeholder="Ookla server ID" class="form-input" style="width: 100px; padding: 7px 10px; font-size: 13px;">
-            <button type="button" class="btn-primary" style="padding: 7px 12px; font-size: 12px;" onclick="applyHomeCustomServer()">Select</button>
-          </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-        <div style="display: flex; align-items: center; gap: 8px;" id="home-target-iface-wrap">
-          <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="speedtest_target_iface">🌐 Interface:</span>
-          <select id="speedtest-target-iface" class="form-input" style="width: auto; min-width: 170px; padding: 7px 12px; font-size: 13px;">
-            <option value="auto" data-i18n="target_iface_default">🌐 Default (Routing)</option>
-          </select>
-        </div>
-                  <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="script_interval">⏱️ Interval:</span>
-          <select id="home-interval-select" class="form-input" style="width: auto; min-width: 170px; padding: 7px 12px; font-size: 13px;" onchange="onHomeIntervalSelect(this.value)">
-            <optgroup label="⏱️ Seconds" data-i18n-label="sched_group_seconds">
-              <option value="*/5 * * * * *">⚡ 5s (Ultra)</option>
-              <option value="*/10 * * * * *">⚡ 10s</option>
-              <option value="*/15 * * * * *">⚡ 15s</option>
-              <option value="*/20 * * * * *">⚡ 20s</option>
-              <option value="*/30 * * * * *">⏱️ 30s</option>
-              <option value="*/45 * * * * *">⏱️ 45s</option>
-            </optgroup>
-            <optgroup label="🕒 Minutes &amp; Hours" data-i18n-label="sched_group_standard">
-              <option value="*/1 * * * *">⚡ 1m (60s)</option>
-              <option value="*/5 * * * *">⚡ 5m (&lt; 2%)</option>
-              <option value="*/10 * * * *">⚡ 10m</option>
-              <option value="*/15 * * * *">⏱️ 15m</option>
-              <option value="*/30 * * * *">⏱️ 30m</option>
-              <option value="0 * * * *" selected>🕐 1h</option>
-              <option value="0 */2 * * *">🕑 2h</option>
-              <option value="0 */4 * * *">🕓 4h</option>
-              <option value="0 */6 * * *">🕕 6h</option>
-              <option value="0 */12 * * *">🕛 12h</option>
-              <option value="0 3 * * *">🌙 24h</option>
-              <option value="manual">🔴 Manual Only</option>
-            </optgroup>
-          </select>
-        </div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <span id="home-mode-badge" class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">
           🟢 Automated Schedule Active
         </span>
-        <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-script')">⚙️ Configure Schedule</button>
+        <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="switchTab('tab-script')" data-i18n="btn_meas_settings">⚙️ Engines, servers and schedule ➔</button>
       </div>
     </div>
 
@@ -432,6 +355,12 @@
         </div>
         <div id="iperf-selected-server-badge" style="display: none; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; color: #38bdf8;">
         </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+          <button type="button" id="btn-iperf-save-auto" class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="saveIperfForAutomatic()" data-i18n="iperf_save_auto">💾 Use this server for automatic tests</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="addIperfExtraServer()" data-i18n="iperf_add_extra">➕ Add to the automatic list</button>
+          <span id="iperf-auto-current" class="form-hint" style="margin: 0;"></span>
+        </div>
+        <div id="iperf-extra-list" class="form-hint" style="margin: -6px 0 12px 0;"></div>
         <div class="router-row-3">
           <div class="form-group">
             <label class="form-label" data-i18n="iperf_target_host">Target iPerf3 Server Host / IP:</label>
@@ -2551,9 +2480,32 @@
               <option value="cloudflare">☁️ Cloudflare Edge (speed.cloudflare.com)</option>
               <option value="rtr">🇦🇹 RTR-NetTest (netztest.at / Open-RMBT)</option>
               <option value="iperf3">⚡ iPerf3 Symmetrical Bandwidth & Jitter</option>
-              <option value="all">🏆 All 3 engines sequentially (Combined)</option>
+              <option value="all">🏆 All engines in turn (iPerf3 too, if its server answers)</option>
             </select>
             <div id="sched-ookla-warning" role="alert" style="display: none; margin-top: 8px; padding: 10px 12px; border-radius: 6px; border: 1px solid #f59e0b; background: rgba(245, 158, 11, 0.12); color: #fbbf24; font-size: 12.5px; line-height: 1.45;"></div>
+          </div>
+
+          <!-- Ookla server from Ookla's live list, and the measurement interface (moved from the home page) -->
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div id="home-target-server-container" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="target_server" title="Only Ookla uses this server; RTR-NetTest and Cloudflare choose their own.">🎯 Ookla Speedtest server:</span>
+          <select id="home-target-server-select" class="form-input" style="width: auto; min-width: 250px; padding: 7px 12px; font-size: 13px;" onchange="onHomeServerSelect(this.value)">
+            <option value="auto" data-i18n="target_server_auto">🌐 Automatic (Closest Server)</option>
+            <optgroup id="home-ookla-server-group" label="Ookla Speedtest servers" data-i18n-label="ookla_servers_group"></optgroup>
+            <option value="custom" data-i18n="target_server_custom">✏️ Enter Custom Server ID...</option>
+          </select>
+          <button type="button" id="btn-home-ookla-refresh" class="btn-secondary" style="padding: 7px 10px; font-size: 12px;" onclick="loadHomeOoklaServers(true)" data-i18n="ookla_servers_refresh">🔄 Refresh from Ookla</button>
+          <div id="home-custom-server-wrap" style="display: none; align-items: center; gap: 6px;">
+            <input type="text" id="home-custom-server-id" placeholder="Ookla server ID" class="form-input" style="width: 100px; padding: 7px 10px; font-size: 13px;">
+            <button type="button" class="btn-primary" style="padding: 7px 12px; font-size: 12px;" onclick="applyHomeCustomServer()">Select</button>
+          </div>
+        </div>
+            <div style="display: flex; align-items: center; gap: 8px;" id="home-target-iface-wrap">
+          <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="speedtest_target_iface">🌐 Interface:</span>
+          <select id="speedtest-target-iface" class="form-input" style="width: auto; min-width: 170px; padding: 7px 12px; font-size: 13px;">
+            <option value="auto" data-i18n="target_iface_default">🌐 Default (Routing)</option>
+          </select>
+        </div>
           </div>
 
           <!-- Per-engine minimum intervals -->
@@ -3447,7 +3399,7 @@
                 <option value="ookla" selected>⚡ Ookla Speedtest CLI</option>
                 <option value="cloudflare">☁️ Cloudflare Edge (speed.cloudflare.com)</option>
                 <option value="rtr">🇦🇹 RTR-NetTest (netztest.at / Open-RMBT)</option>
-                <option value="all">🏆 All 3 engines sequentially (Combined)</option>
+                <option value="all">🏆 All engines in turn (iPerf3 too, if its server answers)</option>
               </select>
             </div>
           </div>

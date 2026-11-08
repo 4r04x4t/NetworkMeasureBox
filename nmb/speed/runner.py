@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import logging
 import sys
 import threading
@@ -162,23 +163,48 @@ def _run_single_engine(
             target_port = cfg.iperf.target_port or 5201
             duration = cfg.iperf.duration or 10
             protocol = (cfg.iperf.protocol or "tcp").lower()
-            # Automata iPerf3: minimum 4 streams, download reverse mode default
-            parallel = max(4, int(cfg.iperf.parallel or 4))
-            bidir = getattr(cfg.iperf, "bidir", False)
-            reverse = (True if cfg.iperf.reverse is None else cfg.iperf.reverse) and not bidir
-            log.debug("starting iPerf3 test: target=%s:%s, proto=%s, streams=%s, duration=%ss, reverse=%s, bidir=%s, bind=%s",
-                      target_host, target_port, protocol, parallel, duration, reverse, bidir, bound_ip or bound_iface)
+            parallel = max(1, int(cfg.iperf.parallel or 4))
+            bidir = bool(getattr(cfg.iperf, "bidir", False))
+            direction = getattr(cfg.iperf, "auto_direction", "both")
+            log.debug("starting iPerf3 test: target=%s:%s, proto=%s, streams=%s, duration=%ss, direction=%s, bidir=%s, bind=%s",
+                      target_host, target_port, protocol, parallel, duration, direction, bidir, bound_ip or bound_iface)
 
-            raw_res = run_iperf_client_test(
-                host=target_host,
-                port=target_port,
-                duration=duration,
-                protocol=protocol,
-                parallel=parallel,
-                reverse=reverse,
-                bidir=bidir,
-                bind_address=bound_ip or bound_iface,
-            )
+            def _one(rev: bool, both: bool = False) -> dict:
+                return run_iperf_client_test(
+                    host=target_host, port=target_port, duration=duration, protocol=protocol,
+                    parallel=parallel, reverse=rev, bidir=both, bind_address=bound_ip or bound_iface,
+                )
+
+            if bidir:
+                raw_res = _one(False, True)
+                reverse = False
+            elif direction == "both":
+                # Download (-R) and then upload, one after the other, so they do not compete.
+                down_raw = _one(True)
+                if down_raw.get("status") == "ok":
+                    # Many public servers take one client at a time and need a moment to free it.
+                    up_raw = {}
+                    for wait in (3, 8):
+                        time.sleep(wait)
+                        up_raw = _one(False)
+                        if up_raw.get("status") == "ok":
+                            break
+                    raw_res = dict(up_raw)
+                    raw_res.update({
+                        "is_bidirectional": True,
+                        "download_bps": down_raw.get("bps"),
+                        "upload_bps": up_raw.get("bps") if up_raw.get("status") == "ok" else None,
+                        "rtt_ms": down_raw.get("rtt_ms") if down_raw.get("rtt_ms") is not None else up_raw.get("rtt_ms"),
+                        "status": "ok",
+                        "error": None if up_raw.get("status") == "ok" else f"upload not measured: {up_raw.get('error') or 'no answer'}",
+                        "raw_output": json.dumps({"download": down_raw.get("raw_output"), "upload": up_raw.get("raw_output")}),
+                    })
+                else:
+                    raw_res = down_raw
+                reverse = True
+            else:
+                reverse = direction == "download"
+                raw_res = _one(reverse)
 
             status = raw_res.get("status", "error")
             bps = int(raw_res.get("bps", 0))
@@ -192,8 +218,8 @@ def _run_single_engine(
 
             # In iPerf, reverse=True indicates download stream; reverse=False indicates upload stream; bidir provides both
             if raw_res.get("is_bidirectional"):
-                down_bps = int(raw_res.get("download_bps") or 0)
-                up_bps = int(raw_res.get("upload_bps") or 0)
+                down_bps = int(raw_res["download_bps"]) if raw_res.get("download_bps") else None
+                up_bps = int(raw_res["upload_bps"]) if raw_res.get("upload_bps") else None
             else:
                 down_bps = bps if reverse else None
                 up_bps = bps if not reverse else None
@@ -271,6 +297,11 @@ def _run_single_engine(
 
     if res is None or cancel.is_requested():
         return _record_aborted(conn, trigger, engine, now_ms, cancel.current_reason())
+    if (engine == "iperf3" and trigger == "schedule" and res.status != "ok"
+            and any(m in (res.error or "").lower() for m in ("busy", "unable to connect", "connection refused", "timed out"))):
+        # A busy or unreachable iPerf3 server is no measurement; the next run tries again.
+        log.info("scheduled iPerf3 test not stored: %s", res.error)
+        return res
     if ookla_paused:
         # Ookla was not asked, so there is no measurement to store. The refusal that started
         # the pause is stored once, and the pause is shown on the schedule and the home page.
@@ -507,20 +538,45 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
     return res
 
 
-def _iperf3_usable(cfg: Config) -> bool:
-    """An iPerf3 server is set and accepts a connection on its port."""
-    import socket
+def iperf3_servers(cfg: Config) -> List[tuple]:
+    """The iPerf3 servers of automatic tests: the main one, then the extra ones, without repeats."""
     ip = getattr(cfg, "iperf", None)
-    host = str(getattr(ip, "target_host", "") or "").strip()
-    if not host:
-        return False
-    port = int(getattr(ip, "target_port", 5201) or 5201)
+    out: List[tuple] = []
+    main = str(getattr(ip, "target_host", "") or "").strip()
+    if main:
+        out.append((main, int(getattr(ip, "target_port", 5201) or 5201)))
+    for item in str(getattr(ip, "extra_servers", "") or "").replace(";", ",").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        host, _, port = item.rpartition(":") if item.count(":") == 1 else (item, "", "")
+        host = host or item
+        try:
+            p = int(port) if port else 5201
+        except ValueError:
+            continue
+        if re.match(r"^[A-Za-z0-9.\-_]+$", host) and not host.startswith("-") and 0 < p < 65536 and (host, p) not in out:
+            out.append((host, p))
+    return out[:8]
+
+
+def _answers(host: str, port: int) -> bool:
+    import socket
     try:
         with socket.create_connection((host, port), timeout=3):
             return True
     except OSError as e:
-        log.info("iPerf3 left out of the mixed run: %s:%d does not answer (%s)", host, port, e)
+        log.info("iPerf3 server %s:%d left out: it does not answer (%s)", host, port, e)
         return False
+
+
+def _usable_iperf3_servers(cfg: Config) -> List[tuple]:
+    return [hp for hp in iperf3_servers(cfg) if _answers(*hp)]
+
+
+def _iperf3_usable(cfg: Config) -> bool:
+    """At least one iPerf3 server is set and accepts a connection on its port."""
+    return bool(_usable_iperf3_servers(cfg))
 
 
 def _ookla_blocked_now(cfg: Config) -> bool:
@@ -768,6 +824,11 @@ def run_measurement_cycle(
         log.info("Ookla cannot run now; this scheduled run uses Cloudflare and RTR-NetTest instead")
         engines_to_run = ["cloudflare", "rtr"]
         mixed = True
+    if trigger == "schedule" and engines_to_run == ["iperf3"] and not _iperf3_usable(cfg):
+        # iPerf3-only schedule: run only against a set server that answers; no empty rows.
+        log.info("scheduled iPerf3 test skipped: no iPerf3 server is set, or it does not answer")
+        conn.close()
+        return True
     if mixed and _iperf3_usable(cfg):
         # A mixed run includes iPerf3 when an iPerf3 server is set and answers.
         engines_to_run.append("iperf3")
@@ -791,10 +852,23 @@ def run_measurement_cycle(
     try:
         with cancel.scope(token):
             for eng in engines_to_run:
-                res = _run_single_engine(eng, cfg, trigger, target_server_id, conn, now_ms, target_iface=target_iface)
-                last_res = res
-                if res.status != "ok":
-                    all_ok = False
+                runs = [cfg]
+                if eng == "iperf3" and trigger == "schedule":
+                    # Each set iPerf3 server that answers, one after the other, each in its own row.
+                    import copy
+                    runs = []
+                    for host, port in _usable_iperf3_servers(cfg) or iperf3_servers(cfg)[:1]:
+                        c2 = copy.copy(cfg)
+                        c2.iperf = copy.copy(cfg.iperf)
+                        c2.iperf.target_host, c2.iperf.target_port = host, port
+                        runs.append(c2)
+                for run_cfg in runs:
+                    res = _run_single_engine(eng, run_cfg, trigger, target_server_id, conn, now_ms, target_iface=target_iface)
+                    last_res = res
+                    if res.status != "ok":
+                        all_ok = False
+                    if token.is_set():
+                        break
                 if token.is_set():
                     break
     finally:

@@ -18,6 +18,7 @@ EPILOG = """examples:
   nmb-cli run sys.reboot --yes           actions that need confirmation require --yes
   nmb-cli api GET /api/status            call any API path
   nmb-cli logs dev -n 50 --level warning developer log; also: system, events, speed, crashes
+  nmb-cli latest                         newest result of every engine; nmb-cli latest ookla for one
   nmb-cli update                         is a newer version on GitHub?
   nmb-cli update --apply --yes           download and install it, keeping settings and measurements
 
@@ -32,6 +33,34 @@ def _menu_json(menu: List[catalog.Tab]) -> list:
 
 def _print(data) -> None:
     print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def _latest(client: ApiClient, engine: str, as_json: bool) -> int:
+    import time
+    st = client.call("GET", "/api/status", timeout=30)
+    per = st.get("latest_per_engine") or {}
+    names = ["ookla", "cloudflare", "rtr", "iperf3"] if engine == "all" else [engine]
+    rows = {n: per.get(n) for n in names}
+    if as_json:
+        _print(rows)
+        return 0
+
+    def mbps(v):
+        return f"{v / 1e6:.1f}" if v else "--"
+    print(f"{'engine':<11} {'time':<16} {'down Mbps':>9} {'up Mbps':>8} {'ping ms':>8}  server")
+    for n in names:
+        r = rows.get(n)
+        if not r:
+            print(f"{n:<11} {'no result yet':<16}")
+            continue
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime((r.get("ts") or 0) / 1000))
+        ping = f"{r['ping_us'] / 1000:.1f}" if r.get("ping_us") else "--"
+        print(f"{n:<11} {when:<16} {mbps(r.get('down_bps')):>9} {mbps(r.get('up_bps')):>8} {ping:>8}  {r.get('server_name') or ''}")
+        if r.get("newer_failure"):
+            print(f"{'':<11} newer attempt gave no result: {r['newer_failure'].get('error', '')}")
+        if r.get("next_possible_ts"):
+            print(f"{'':<11} next Ookla test from {time.strftime('%H:%M', time.localtime(r['next_possible_ts'] / 1000))}")
+    return 0
 
 
 def _update(client: ApiClient, apply: bool, yes: bool) -> int:
@@ -96,6 +125,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     api.add_argument("method", choices=["GET", "POST"])
     api.add_argument("path")
     api.add_argument("body", nargs="?", default="{}", help="JSON body")
+    lat = sub.add_parser("latest", help="Show the newest speed test result, mixed or per engine")
+    lat.add_argument("engine", nargs="?", default="all", choices=["all", "ookla", "cloudflare", "rtr", "iperf3"])
+    lat.add_argument("--json", action="store_true")
     upd = sub.add_parser("update", help="Check for a newer version on GitHub, or install it")
     upd.add_argument("--apply", action="store_true", help="Download and install the newest version")
     upd.add_argument("--yes", action="store_true", help="Confirm --apply")
@@ -129,6 +161,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 for line in logs.read_lines(client, args.source, args.lines, args.level, args.grep):
                     print(line)
             return 0
+        if args.command == "latest":
+            return _latest(client, args.engine, args.json)
         if args.command == "update":
             return _update(client, args.apply, args.yes)
         if args.command == "api":

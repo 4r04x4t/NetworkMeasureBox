@@ -223,7 +223,7 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 * Heti cenzúra- és hálózatsemlegességi mérés, a webes felületen vagy az `[ooni]` szakasz `enabled = true` beállításával kapcsolható be. A forgalmi kaput nem használja.
 
 ### Sebességmérés ütemezése
-* Az új telepítések óránként mérnek (`schedule_cron = 0 * * * *`), ez a webes felületen módosítható. Az ütemezés azt adja meg, milyen gyakran néz rá a box; emellett minden motornak saját minimális időköze van (`ookla_interval_min`, legalább 60; `rtr_interval_min` és `cloudflare_interval_min`, 0 = minden futáskor) a `[speedtest]` részben vagy a webes felületen. Így az RTR-NetTest mérhet percenként, az Ookla pedig óránként. Az iPerf3-nak saját `schedule_cron` beállítása van az `[iperf]` részben. A mérési lista csak valódi méréseket mutat; a kihagyott és sikertelen futásokat egy sor számolja. Az ütemezett méréseket az `nmb-web` indítja, ezért annak futnia kell; frissítéskor a beállított ütemezés megmarad.
+* Az új telepítések óránként mérnek (`schedule_cron = 0 * * * *`), ez a webes felületen módosítható. Az ütemezés azt adja meg, milyen gyakran néz rá a box; emellett minden motornak saját minimális időköze van (`ookla_interval_min`, legalább 60; `rtr_interval_min` és `cloudflare_interval_min`, 0 = minden futáskor) a `[speedtest]` részben vagy a webes felületen. Így az RTR-NetTest mérhet percenként, az Ookla pedig óránként. Az iPerf3 ugyanezzel az ütemezéssel fut, saját `iperf3_interval_min` időközzel, egy vagy több szerverrel (`target_host` és `extra_servers`; alapból 4 TCP-szál, 10 mp, előbb letöltés, majd feltöltés), önmagában vagy a vegyes mérésben, de csak ha az `[iperf]` részben be van állítva iPerf3-szerver, és az válaszol; különben üres sor nélkül kimarad. A mérési lista csak valódi méréseket mutat; a kihagyott és sikertelen futásokat egy sor számolja. Az ütemezett méréseket az `nmb-web` indítja, ezért annak futnia kell; frissítéskor a beállított ütemezés megmarad.
 
 ---
 
@@ -502,7 +502,7 @@ A szoftver moduláris felépítésű, az egyes feladatokat különálló, jól t
 | `nmb-heal` | Önjavító watchdog és biztonsági visszaállás | `nmb-heal audit`<br>`nmb-heal status`<br>`nmb-heal fix` |
 | `nmb-driver` | Hardveres driver és firmware felderítő | `nmb-driver scan`<br>`nmb-driver missing`<br>`sudo nmb-driver install` |
 | `nmb-telegram` | Telegram menedzsment és riasztási bot | `nmb-telegram` |
-| `nmb-cli` | A WebGUI menüi terminálban (SSH, egér, gyorsbillentyűk) és JSON-parancsok | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli logs dev -n 50 --level warning`<br>`nmb-cli update` / `nmb-cli update --apply --yes`<br>`nmb-cli run collector.send` |
+| `nmb-cli` | A WebGUI menüi terminálban (SSH, egér, gyorsbillentyűk) és JSON-parancsok | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli logs dev -n 50 --level warning`<br>`nmb-cli latest` / `nmb-cli latest ookla`<br>`nmb-cli update` / `nmb-cli update --apply --yes`<br>`nmb-cli run collector.send` |
 | `nmb-collector` | Központi mérésgyűjtő szolgáltatónak vagy szakembernek (az ő szerverén fut, nem a boxon) | `nmb-collector set-password`<br>`nmb-collector token-add <név>`<br>`nmb-collector serve --port 8600` |
 | `nmb-web` | Beépített kezelőfelület és REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Emelt szintű hálózati és driver műveletek segédprogramja | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
