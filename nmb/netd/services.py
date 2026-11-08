@@ -217,6 +217,12 @@ pid-file={pid_file}
         if nmcli:
             subprocess.run([nmcli, "device", "set", iface, "managed", "no"], capture_output=True, timeout=10, check=False)
 
+    def return_to_network_manager(self, iface: str) -> None:
+        """Give an interface back to NetworkManager (its saved Wi-Fi or Ethernet profile reconnects)."""
+        nmcli = shutil.which("nmcli")
+        if nmcli:
+            subprocess.run([nmcli, "device", "set", iface, "managed", "yes"], capture_output=True, timeout=10, check=False)
+
     def start_hostapd(self, iface: str, bridge: Optional[str] = None) -> bool:
         hostapd_bin = shutil.which("hostapd")
         if not hostapd_bin:
@@ -254,6 +260,7 @@ pid-file={pid_file}
         if "hostapd" in self.processes:
             self.processes["hostapd"].stop()
             del self.processes["hostapd"]
+            self.return_to_network_manager(self.cfg.wlan_interface or "wlan0")
 
     def start_pppd(self, iface: str) -> bool:
         pppd_bin = shutil.which("pppd")

@@ -224,6 +224,12 @@ class ModeA(NetworkMode):
 
         # Wi-Fi clients share the LAN subnet through the bridge, so a Wi-Fi failure cannot take down wired DHCP.
         wifi_ap = self.cfg.wifi_enabled and interfaces.interface_exists(self.cfg.wlan_interface)
+        # NetworkManager would run DHCP on a LAN port (its netplan profile), fail with no server there,
+        # and pull the port out of the bridge; the router owns these ports while Mode A runs.
+        self.nm_released = []
+        for p in lan_ports:
+            self.svc_mgr._release_from_network_manager(p)
+            self.nm_released.append(p)
         if len(lan_ports) > 1 or wifi_ap:
             br_name = "br-lan"
             log.info("multi-LAN detected (%s): establishing bridge %s", lan_ports, br_name)
@@ -304,6 +310,9 @@ class ModeA(NetworkMode):
             interfaces.teardown_bridge("br-lan", [p for p in lan_ports if p != "br-lan" and not interfaces.usb_tether_kind(p)])
         if self.usb_wan and interfaces.interface_exists(self.cfg.wan_interface):
             interfaces.flush_ip_addresses(self.cfg.wan_interface)
+        for p in getattr(self, "nm_released", []):
+            self.svc_mgr.return_to_network_manager(p)
+        self.nm_released = []
         self.usb_wan = None
 
         if interfaces.interface_exists(self.cfg.lan_interface) and not interfaces.usb_tether_kind(self.cfg.lan_interface):
