@@ -168,9 +168,11 @@ class ModeA(NetworkMode):
             gone = not (full and getattr(full.usb_uplink, "enabled", False)) or usb_uplink.uplink_interface(full) != self.usb_wan
             servers = []
             wan = self.cfg.wan_interface
-            if not gone and interfaces.get_carrier(wan):
+            carrier = interfaces.get_carrier(wan)
+            if not gone and carrier:
                 from nmb.netd.wifi_share import probe_dhcp_servers
                 servers = [x for x in probe_dhcp_servers(wan) if x != self.cfg.gateway_ip]
+            log.info("Mode A USB WAN check: %s carrier=%s, foreign DHCP servers=%s", wan, carrier, servers or "none")
             if gone or servers:
                 why = "the USB device is gone or turned off" if gone else f"a DHCP server answers on {wan} ({', '.join(servers)})"
                 log.warning("Mode A: leaving USB WAN: %s", why)
@@ -188,8 +190,17 @@ class ModeA(NetworkMode):
         self.lan_ifaces = []
         self.needs_resetup = False
         self.usb_wan = self._usb_wan_candidate()
+        from nmb.netd import usb_uplink
+        usb_uplink.set_router_wan(self.usb_wan)
         if self.usb_wan:
-            return self._setup_lan_and_nat(self.usb_wan, extra_lan=[self.cfg.wan_interface])
+            ok = self._setup_lan_and_nat(self.usb_wan, extra_lan=[self.cfg.wan_interface])
+            # A default route through a LAN port (NetworkManager's old lease on the WAN port) would swallow
+            # every packet the box sends; the box's own internet is USB now.
+            for port in self.lan_ifaces + [self.cfg.wan_interface]:
+                interfaces.run_cmd(["ip", "-4", "route", "del", "default", "dev", port], check=False)
+            if self.full_cfg is not None:
+                usb_uplink.sync_default_fallback(self.full_cfg)
+            return ok
 
         # 1. Bring up WAN
         if getattr(self.cfg, "wan_mac", None):
@@ -314,6 +325,8 @@ class ModeA(NetworkMode):
             self.svc_mgr.return_to_network_manager(p)
         self.nm_released = []
         self.usb_wan = None
+        from nmb.netd import usb_uplink
+        usb_uplink.set_router_wan(None)
 
         if interfaces.interface_exists(self.cfg.lan_interface) and not interfaces.usb_tether_kind(self.cfg.lan_interface):
             interfaces.flush_ip_addresses(self.cfg.lan_interface)

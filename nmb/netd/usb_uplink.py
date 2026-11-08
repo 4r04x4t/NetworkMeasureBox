@@ -223,13 +223,34 @@ FALLBACK_METRIC = 900
 _fallback_active: Optional[bool] = None
 
 
+_router_wan: Optional[str] = None
+
+
+def set_router_wan(iface: Optional[str]) -> None:
+    """Router mode (Mode A) uses this USB interface as its WAN: its default route must stay."""
+    global _router_wan
+    _router_wan = iface
+
+
+def _is_bridge_port(dev: str) -> bool:
+    return (SYS_CLASS_NET / dev / "brport").exists() or (SYS_CLASS_NET / dev / "master").exists()
+
+
 def _other_default_route(iface: str) -> bool:
-    """A default route in the main table through anything but the USB interface."""
+    """A usable default route in the main table through anything but the USB interface.
+
+    A route on a link that is down, or through a bridge port (a LAN port of router mode, where a stale
+    DHCP route from NetworkManager can linger), carries nothing, so it does not count.
+    """
     rc, out, _ = _run(["ip", "-4", "route", "show", "default"], timeout=4)
     for line in out.splitlines() if rc == 0 else []:
         parts = line.split()
-        if "dev" in parts and parts[parts.index("dev") + 1] != iface:
-            return True
+        if "dev" not in parts:
+            continue
+        dev = parts[parts.index("dev") + 1]
+        if dev == iface or "linkdown" in parts or _is_bridge_port(dev):
+            continue
+        return True
     return False
 
 
@@ -258,7 +279,10 @@ def sync_default_fallback(cfg: Any) -> bool:
     enabled = bool(getattr(getattr(cfg, "usb_uplink", None), "enabled", False))
     iface = uplink_interface(cfg) if enabled else None
     ip, gw = _address_and_gateway(iface) if iface else (None, None)
-    want = bool(iface and ip and gw and not _other_default_route(iface))
+    if _router_wan and _router_wan == iface and ip and gw:
+        want = True     # router mode on USB: this is the WAN, whatever else the routing table holds
+    else:
+        want = bool(iface and ip and gw and not _other_default_route(iface))
     rc, out, _ = _run(["ip", "-4", "route", "show", "default", "metric", str(FALLBACK_METRIC)], timeout=4)
     have = rc == 0 and "default" in out
     if want:

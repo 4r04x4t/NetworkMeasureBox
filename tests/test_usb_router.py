@@ -101,6 +101,25 @@ class UsbFallbackRouteTest(unittest.TestCase):
         self.assertFalse(any("route replace default" in c for c in self.calls))
 
 
+class RouterWanRouteTest(UsbFallbackRouteTest):
+    def tearDown(self):
+        usb_uplink.set_router_wan(None)
+
+    def test_router_mode_keeps_the_usb_route_despite_a_stale_lan_route(self):
+        usb_uplink.set_router_wan("eth1")
+        with patch.object(usb_uplink, "_is_bridge_port", return_value=False):
+            self.assertTrue(self._sync("default via 192.168.8.1 dev eth0 proto dhcp metric 102\n"))
+        self.assertFalse(any("route del default metric 900" in c for c in self.calls))
+
+    def test_dead_or_bridged_routes_are_not_another_internet(self):
+        with patch.object(usb_uplink, "_is_bridge_port", side_effect=lambda d: d == "eth0"):
+            self.assertTrue(self._sync("default via 192.168.8.1 dev eth0 metric 102\n"))
+        self.calls.clear()
+        usb_uplink._fallback_active = None
+        with patch.object(usb_uplink, "_is_bridge_port", return_value=False):
+            self.assertTrue(self._sync("default via 192.168.8.1 dev wlan0 metric 600 linkdown\n"))
+
+
 class ShareFromUsbTest(unittest.TestCase):
     def test_upstream_falls_back_to_usb(self):
         cfg = Config()
