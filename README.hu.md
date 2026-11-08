@@ -610,7 +610,7 @@ A projekt az **MIT Licenc** alatt érhető el — szabadon használható, módos
 
 Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz. A részletes jegyzőkönyv (hol, mit, hogyan, milyen eredménnyel): [docs/TESTING.hu.md](docs/TESTING.hu.md).
 
-**Tesztvonal:** az NMB-t egyetlen otthoni optikai (FTTH) internetkapcsolaton fejlesztjük és teszteljük: 1000/300 Mbps-os csomag, magyar szolgáltatónál, a box az otthoni router mögött. A README-ben és a tesztelési jegyzőkönyvben szereplő minden sebesség-, CPU- és időadat erről a vonalról és egy Raspberry Pi 4-ről származik. Sokkal lassabb (DSL, mobilnet) és gyorsabb (2,5 vagy 10 Gbps) vonalon nincs tesztelve; kb. 1 Gbps fölött előbb a Pi 4 egyetlen gigabites portja és a CPU-ja lesz a korlát, mint a vonal.
+**Tesztvonal:** az NMB-t egyetlen otthoni optikai (FTTH) internetkapcsolaton fejlesztjük és teszteljük: 1000/300 Mbps-os csomag, magyar szolgáltatónál, a box az otthoni router, egy GL.iNet Flint 4 mögött. A README-ben és a tesztelési jegyzőkönyvben szereplő minden sebesség-, CPU- és időadat erről a vonalról és egy Raspberry Pi 4-ről származik. Sokkal lassabb (DSL, mobilnet) és gyorsabb (2,5 vagy 10 Gbps) vonalon nincs tesztelve; kb. 1 Gbps fölött előbb a Pi 4 egyetlen gigabites portja és a CPU-ja lesz a korlát, mint a vonal.
 
 | Terület | Állapot |
 |---|---|

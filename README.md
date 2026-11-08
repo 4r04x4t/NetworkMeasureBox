@@ -284,7 +284,7 @@ The plan for running NetworkMeasureBox on commercial routers with as little as *
 
 What has actually been run, so you can judge what to rely on. The full record (where, what, how, with what result): [docs/TESTING.md](docs/TESTING.md).
 
-**Test line:** NMB is developed and tested on one home fibre (FTTH) connection with a 1000/300 Mbps plan, from a Hungarian ISP, with the box behind the home router. Every speed, CPU and timing figure in this README and in the testing record comes from that line and a Raspberry Pi 4. Much slower lines (DSL, mobile) and faster ones (2.5 or 10 Gbps) have not been tested; above about 1 Gbps the Pi 4's single gigabit port and its CPU become the limit before the line does.
+**Test line:** NMB is developed and tested on one home fibre (FTTH) connection with a 1000/300 Mbps plan, from a Hungarian ISP, with the box behind the home router, a GL.iNet Flint 4. Every speed, CPU and timing figure in this README and in the testing record comes from that line and a Raspberry Pi 4. Much slower lines (DSL, mobile) and faster ones (2.5 or 10 Gbps) have not been tested; above about 1 Gbps the Pi 4's single gigabit port and its CPU become the limit before the line does.
 
 | Area | Status |
 |---|---|
