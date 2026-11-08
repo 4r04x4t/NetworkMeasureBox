@@ -43,6 +43,7 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | Ookla | Box | ⚠️ | Works hourly. Every minute, Ookla refuses the box ("Limit reached"); the box then pauses Ookla (30 min, up to 4 h) and measures with RTR-NetTest, stored under RTR's own name |
 | RTR-NetTest | Box, VM-distro | ✅ | ~910/320 Mbps on the 1000/300 line |
 | Cloudflare | Box | ✅ | |
+| Measuring over Wi-Fi (`measurement_link = wifi`) | Box | ✅ | Box on its 5 GHz Wi-Fi (joined by netplan) with the cable in: a Fast.com test moved 149/145 MB over `wlan0` and nothing over `eth0`, 104/110 Mbps. Joining a network with the box's own `nmb-uplink` profile not yet tried |
 | Fast.com | Box, dev machine | ✅ | 884/314 Mbps on the 1000/300 line, 5 Netflix servers, bufferbloat A |
 | iPerf3 | Box, VM-D13 | ✅ | |
 | Ping probe, outages | Box | ✅ | Continuous since install |
