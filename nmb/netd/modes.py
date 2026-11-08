@@ -48,6 +48,10 @@ class ModeA(NetworkMode):
         self.lan_ifaces: List[str] = []
         self.wan_fail_count = 0
         self.wan_ok_count = 0
+        self.full_cfg = None          # set by the daemon: the USB tethering settings live outside [network]
+        self.usb_wan = None           # USB interface when it is the WAN (nothing upstream on the WAN port)
+        self.needs_resetup = False
+        self._usb_guard_ts = 0.0
         self.on_wan2 = False
 
     def _setup_vlan_if_needed(self) -> str:
@@ -123,9 +127,69 @@ class ModeA(NetworkMode):
             interfaces.run_cmd([ip_bin, "route", "del", "default", "dev", wan2, "metric", "10"], check=False)
             self.on_wan2 = False
 
+    def _usb_wan_candidate(self) -> Optional[str]:
+        """USB tethering as the WAN: only when it is up and nothing upstream answers on the WAN port.
+
+        "Nothing upstream" means no DHCP server answers there (a PC plugged into the port is fine,
+        the home router is not); PPPoE or a static WAN always keep the port as WAN.
+        """
+        full = self.full_cfg
+        if full is None or not getattr(getattr(full, "usb_uplink", None), "enabled", False):
+            return None
+        if (self.cfg.pppoe_enabled and self.cfg.pppoe_user) or str(self.cfg.wan_proto).lower() == "static":
+            return None
+        from nmb.netd import usb_uplink
+        ui = usb_uplink.uplink_interface(full)
+        if not ui or ui == self.cfg.wan_interface:
+            return None
+        uip, ugw = usb_uplink._address_and_gateway(ui)
+        if not (uip and ugw):
+            return None
+        from nmb.netd.wifi_share import probe_dhcp_servers
+        wan = self.cfg.wan_interface
+        if interfaces.interface_exists(wan) and interfaces.get_carrier(wan):
+            interfaces.set_link_up(wan)
+            servers = [x for x in probe_dhcp_servers(wan) if x != self.cfg.gateway_ip]
+            if servers:
+                log.info("Mode A: a DHCP server answers on %s (%s); it stays the WAN", wan, ", ".join(servers))
+                return None
+        return ui
+
+    def check_usb_wan(self) -> None:
+        """Every minute: rebuild the mode when the WAN source must change (USB <-> the WAN port)."""
+        import time as _t
+        now = _t.monotonic()
+        if now - self._usb_guard_ts < 60:
+            return
+        self._usb_guard_ts = now
+        full = self.full_cfg
+        if self.usb_wan:
+            from nmb.netd import usb_uplink
+            gone = not (full and getattr(full.usb_uplink, "enabled", False)) or usb_uplink.uplink_interface(full) != self.usb_wan
+            servers = []
+            wan = self.cfg.wan_interface
+            if not gone and interfaces.get_carrier(wan):
+                from nmb.netd.wifi_share import probe_dhcp_servers
+                servers = [x for x in probe_dhcp_servers(wan) if x != self.cfg.gateway_ip]
+            if gone or servers:
+                why = "the USB device is gone or turned off" if gone else f"a DHCP server answers on {wan} ({', '.join(servers)})"
+                log.warning("Mode A: leaving USB WAN: %s", why)
+                if servers:
+                    # Never keep serving DHCP onto another network: stop it now, rebuild next loop.
+                    self.svc_mgr.stop_all()
+                self.needs_resetup = True
+        elif self.full_cfg is not None and not interfaces.get_ip_addresses(self.cfg.wan_interface):
+            if self._usb_wan_candidate():
+                log.warning("Mode A: no internet on %s; switching the WAN to USB tethering", self.cfg.wan_interface)
+                self.needs_resetup = True
+
     def setup(self) -> bool:
         log.info("initializing Mode A (Active Gateway / NAT)")
         self.lan_ifaces = []
+        self.needs_resetup = False
+        self.usb_wan = self._usb_wan_candidate()
+        if self.usb_wan:
+            return self._setup_lan_and_nat(self.usb_wan, extra_lan=[self.cfg.wan_interface])
 
         # 1. Bring up WAN
         if getattr(self.cfg, "wan_mac", None):
@@ -141,10 +205,22 @@ class ModeA(NetworkMode):
             self.active_wan = "ppp0"
         else:
             self._configure_wan_ip(wan, self.cfg.wan_proto, self.cfg.wan_ip, self.cfg.wan_netmask, self.cfg.wan_gateway)
+        return self._setup_lan_and_nat(self.active_wan)
+
+    def _setup_lan_and_nat(self, wan_out: str, extra_lan: Optional[List[str]] = None) -> bool:
+        """LAN ports, the Wi-Fi access point, DMZ, DHCP and NAT towards wan_out."""
+        self.active_wan = wan_out
+        if extra_lan:
+            log.info("Mode A on USB tethering: WAN %s; %s joins the LAN", wan_out, ", ".join(extra_lan))
 
         # 2. Configure LAN interfaces (Single LAN or Bridge br-lan for Multi-LAN ports)
-        lan_ports = getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]
-        lan_ports = [p.strip() for p in lan_ports if p.strip() and interfaces.interface_exists(p.strip())]
+        lan_ports = list(getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface])
+        for extra in extra_lan or []:
+            if extra not in lan_ports:
+                lan_ports.append(extra)
+        # A phone, hotspot or modem on USB is never a LAN port (often named eth1, the default LAN name).
+        lan_ports = [p.strip() for p in lan_ports if p.strip() and interfaces.interface_exists(p.strip())
+                     and not interfaces.usb_tether_kind(p.strip()) and p.strip() != wan_out]
 
         # Wi-Fi clients share the LAN subnet through the bridge, so a Wi-Fi failure cannot take down wired DHCP.
         wifi_ap = self.cfg.wifi_enabled and interfaces.interface_exists(self.cfg.wlan_interface)
@@ -166,7 +242,8 @@ class ModeA(NetworkMode):
             interfaces.set_link_up(single_lan)
             interfaces.add_ip_address(single_lan, f"{self.cfg.gateway_ip}/24")
             self.lan_ifaces.append(single_lan)
-        elif interfaces.interface_exists(self.cfg.lan_interface):
+        elif interfaces.interface_exists(self.cfg.lan_interface) and not interfaces.usb_tether_kind(self.cfg.lan_interface) \
+                and self.cfg.lan_interface != wan_out:
             log.info("configuring fallback LAN interface %s with %s", self.cfg.lan_interface, self.cfg.gateway_ip)
             interfaces.flush_ip_addresses(self.cfg.lan_interface)
             interfaces.set_link_up(self.cfg.lan_interface)
@@ -185,7 +262,7 @@ class ModeA(NetworkMode):
         # 3b. DMZ port: its own subnet, isolated from the LAN by the firewall rules below
         self.dmz_iface = ""
         dmz = getattr(self.cfg, "dmz_interface", "")
-        if dmz and interfaces.interface_exists(dmz) and dmz not in lan_ports and dmz != self.cfg.wan_interface:
+        if dmz and interfaces.interface_exists(dmz) and dmz not in lan_ports and dmz != self.cfg.wan_interface and dmz != wan_out:
             from nmb.netd.services import DMZ_GATEWAY
             interfaces.flush_ip_addresses(dmz)
             interfaces.set_link_up(dmz)
@@ -203,7 +280,7 @@ class ModeA(NetworkMode):
 
         # 6. Bring up Secondary WAN2 if configured
         wan2 = getattr(self.cfg, "wan2_interface", "")
-        if wan2 and interfaces.interface_exists(wan2):
+        if wan2 and interfaces.interface_exists(wan2) and not self.usb_wan:
             interfaces.set_link_up(wan2)
             log.info("secondary WAN2 interface %s brought up", wan2)
             self._configure_wan_ip(wan2, self.cfg.wan2_proto, self.cfg.wan2_ip, self.cfg.wan2_netmask, "")
@@ -221,10 +298,15 @@ class ModeA(NetworkMode):
         self.svc_mgr.stop_all()
 
         if interfaces.interface_exists("br-lan"):
-            lan_ports = getattr(self.cfg, "lan_ports", None) or []
-            interfaces.teardown_bridge("br-lan", [p for p in lan_ports if p != "br-lan"])
+            lan_ports = list(getattr(self.cfg, "lan_ports", None) or [])
+            if self.usb_wan and self.cfg.wan_interface not in lan_ports:
+                lan_ports.append(self.cfg.wan_interface)
+            interfaces.teardown_bridge("br-lan", [p for p in lan_ports if p != "br-lan" and not interfaces.usb_tether_kind(p)])
+        if self.usb_wan and interfaces.interface_exists(self.cfg.wan_interface):
+            interfaces.flush_ip_addresses(self.cfg.wan_interface)
+        self.usb_wan = None
 
-        if interfaces.interface_exists(self.cfg.lan_interface):
+        if interfaces.interface_exists(self.cfg.lan_interface) and not interfaces.usb_tether_kind(self.cfg.lan_interface):
             interfaces.flush_ip_addresses(self.cfg.lan_interface)
 
         if self.cfg.pppoe_vlan > 0:
@@ -305,7 +387,7 @@ class ModeB(NetworkMode):
     def _bridge_members(self) -> List[str]:
         """WAN plus every physical LAN port; br-lan is only a Mode A device."""
         lan_ports = getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]
-        return [self.cfg.wan_interface] + [p for p in lan_ports if p != "br-lan"]
+        return [self.cfg.wan_interface] + [p for p in lan_ports if p != "br-lan" and not interfaces.usb_tether_kind(p)]
 
     def _request_management_ip(self) -> None:
         """Attempt to obtain an IP on br0 using dhclient / udhcpc / dhcpcd if present."""

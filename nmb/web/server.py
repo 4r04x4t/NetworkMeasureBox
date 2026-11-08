@@ -2417,7 +2417,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from nmb.netd import wifi_share, wifi_uplink
             ws = self.server.cfg.wifi_share
             lan = str(body_json.get("lan_interface", ws.lan_interface) or "").strip()
-            if not lan or not Path(f"/sys/class/net/{lan}").exists() or lan in wifi_uplink.wireless_interfaces():
+            from nmb.netd.interfaces import usb_tether_kind
+            if not lan or not Path(f"/sys/class/net/{lan}").exists() or lan in wifi_uplink.wireless_interfaces() or usb_tether_kind(lan):
                 self._send_json({"status": "error", "message": f"{lan or '?'} is not a wired port of this box."}, status=400)
                 return
             addr = str(body_json.get("address", ws.address) or "").strip()

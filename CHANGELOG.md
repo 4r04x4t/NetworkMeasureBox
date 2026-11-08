@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- USB tethering as the only internet: with no wired or Wi-Fi default route the box adds one through USB (metric 900) and removes it when another is back; both switches are events. In router mode (Mode A) USB becomes the WAN when no DHCP server answers on the Ethernet port, which then joins the LAN with the Wi-Fi access point; a DHCP server on that port stops the box's DHCP at once. LAN-port sharing takes USB as its upstream when the Wi-Fi uplink is down.
+- De-Pythonization roadmap: the central collector server is ported to a native static binary too, with the same protocol and data layout; USB tethering, fallback and router mode added to the features the native build must match.
 - USB tethering (`[usb_uplink]`): a phone, mobile hotspot or modem on USB as a measuring link, with its own profile that never takes the default route, a source rule (table 152), the measurement link `usb`, its own daily data limit, results stored as mobile; Web UI card, `nmb-cli` (`usb.uplink`, `usb.off`), all 11 languages. Tested on the Pi 4 over 5G with a Netgear Nighthawk M6 Pro (US AT&T model).
 - Porting plan 1.3: MikroTik devices (container on RouterOS v7, or OpenWrt instead of RouterOS) and MediaTek SoC families (MT7620/MT7628, MT7621, MT7622, Filogic MT7981B, MT7986A, MT7988A) as planned targets, with offload notes; figures to verify.
 - De-Pythonization roadmap 6A: more base candidates (Fedora IoT, Ubuntu Core, NixOS, Buildroot/Yocto, balenaOS), an eighth criterion (the base itself brings no Python) and an evaluation order (OpenWrt, Debian, Alpine, Fedora IoT).
@@ -79,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Router and bridge modes could use a USB phone, hotspot or modem as a LAN port (the default LAN name `eth1` is often the hotspot) and serve DHCP to it; such interfaces are now never LAN ports, and tearing down router mode no longer removes their address.
 - A phone, mobile hotspot (for example a Netgear Nighthawk) or cellular modem on USB was treated as wired Ethernet when its interface was named like one (`enx…`, `eth1`), so speed tests could run over the mobile link and be stored as the wired line, and it could take the box's default route. Such interfaces are now recognised by their driver (`rndis_host`, `cdc_ncm`, `cdc_ether`, `ipheth`, `qmi_wwan`, `cdc_mbim`) and are never used as the wired line; USB Ethernet dongles stay wired.
 - Wi-Fi access point password: the shared factory password (`NetworkMeasureBox123`, public in the repository) is no longer a fallback anywhere; the access point does not start with it, with an empty one or with one outside 8-63 characters, and the Web UI refuses to save such a password. The settings show only whether a password is set (it never leaves the box through the API), and the installer no longer prints the generated password into its log.
 - Saving the settings from one service (web, network daemon, bot, `nmb-cli`) could undo what another service had saved, because each wrote its whole in-memory copy; this is how an entered Telegram token could disappear. A save now only writes the settings that service changed itself.

@@ -44,6 +44,7 @@ class NetworkDaemon:
             "mode_b": ModeB(network, self.svc_mgr),
             "standalone": ModeStandalone(network, self.svc_mgr),
         }
+        self.modes["mode_a"].full_cfg = self.cfg
         self.detector = NetworkDetector(network)
 
     def _apply_reload(self) -> None:
@@ -188,6 +189,13 @@ class NetworkDaemon:
 
                 if isinstance(self.current_mode_inst, ModeA):
                     self.current_mode_inst.check_wan_failover()
+                    # USB tethering as the WAN when nothing upstream answers on the WAN port, and back.
+                    self.current_mode_inst.full_cfg = self.cfg
+                    self.current_mode_inst.check_usb_wan()
+                    if self.current_mode_inst.needs_resetup:
+                        log.info("Mode A: WAN source changed; rebuilding the router setup")
+                        self.current_mode_inst.teardown()
+                        self.current_mode_inst.setup()
                 # Tests bound to the Wi-Fi address must leave over Wi-Fi, even with a cable in.
                 try:
                     from nmb.netd.wifi_uplink import sync_source_routing
@@ -199,6 +207,7 @@ class NetworkDaemon:
                     from nmb.netd import usb_uplink
                     usb_uplink.keep_up(self.cfg)
                     usb_uplink.sync_source_routing(self.cfg)
+                    usb_uplink.sync_default_fallback(self.cfg)
                 except Exception as e:
                     log.debug("usb uplink: %s", e)
                 # The Wi-Fi internet on the LAN port, only while that port has no upstream.

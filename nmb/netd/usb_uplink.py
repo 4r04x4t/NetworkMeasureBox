@@ -217,3 +217,65 @@ def keep_up(cfg: Any) -> None:
         connect(cfg)
     else:
         _run([nmcli, "connection", "up", PROFILE, "ifname", iface], timeout=45)
+
+
+FALLBACK_METRIC = 900
+_fallback_active: Optional[bool] = None
+
+
+def _other_default_route(iface: str) -> bool:
+    """A default route in the main table through anything but the USB interface."""
+    rc, out, _ = _run(["ip", "-4", "route", "show", "default"], timeout=4)
+    for line in out.splitlines() if rc == 0 else []:
+        parts = line.split()
+        if "dev" in parts and parts[parts.index("dev") + 1] != iface:
+            return True
+    return False
+
+
+def _log_event(kind: str, detail: str) -> None:
+    try:
+        from nmb.db import database as db
+        conn = db.connect()
+        try:
+            with db.tx(conn):
+                conn.execute("INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warning', 'netd', ?, ?)",
+                             (db.now_ms(), kind, detail))
+        finally:
+            conn.close()
+    except Exception:
+        log.debug("usb fallback event not written", exc_info=True)
+
+
+def sync_default_fallback(cfg: Any) -> bool:
+    """The USB link becomes the box's internet only when nothing else is (root, nmb-netd).
+
+    No default route through Ethernet or Wi-Fi, USB up: a default route via the hotspot with metric 900.
+    As soon as another default route is back it is removed, so the cable or Wi-Fi wins again.
+    Every switch is written as an event, so reports show when the box ran on the mobile link.
+    """
+    global _fallback_active
+    enabled = bool(getattr(getattr(cfg, "usb_uplink", None), "enabled", False))
+    iface = uplink_interface(cfg) if enabled else None
+    ip, gw = _address_and_gateway(iface) if iface else (None, None)
+    want = bool(iface and ip and gw and not _other_default_route(iface))
+    rc, out, _ = _run(["ip", "-4", "route", "show", "default", "metric", str(FALLBACK_METRIC)], timeout=4)
+    have = rc == 0 and "default" in out
+    if want:
+        if not have or f"dev {iface}" not in out:
+            _run(["ip", "-4", "route", "replace", "default", "via", gw, "dev", iface, "metric", str(FALLBACK_METRIC)], timeout=4)
+    elif have:
+        _run(["ip", "-4", "route", "del", "default", "metric", str(FALLBACK_METRIC)], timeout=4)
+    if want != _fallback_active:
+        if want:
+            log.warning("no wired or Wi-Fi internet: the box now uses USB tethering on %s", iface)
+            _log_event("uplink_usb_fallback", f"No wired or Wi-Fi internet: using USB tethering on {iface}")
+        elif _fallback_active:
+            log.info("wired or Wi-Fi internet is back: USB fallback route removed")
+            _log_event("uplink_usb_fallback_end", "Wired or Wi-Fi internet is back: USB tethering is no longer the box's internet")
+        _fallback_active = want
+    return want
+
+
+def fallback_active() -> bool:
+    return bool(_fallback_active)

@@ -504,7 +504,10 @@ def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface
         if wan and interface_exists(wan):
             addrs = get_ip_addresses(wan)
             ip = addrs[0].split("/")[0] if addrs else None
-            return wan, ip, is_wired_interface(wan)
+            # Without an address the WAN port cannot carry a test; fall through to the link that has the
+            # default route (Wi-Fi, or the USB tethering fallback), so "auto" really measures that link.
+            if ip or not get_default_gateway_iface():
+                return wan, ip, is_wired_interface(wan)
 
     # 4. Fallback to default gateway interface
     gw_iface = get_default_gateway_iface()

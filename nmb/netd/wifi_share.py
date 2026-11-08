@@ -1,4 +1,7 @@
-"""Share the box's Wi-Fi internet on its LAN port, with its own DHCP (``[wifi_share]``).
+"""Share the box's Wi-Fi (or USB tethering) internet on its LAN port, with its own DHCP (``[wifi_share]``).
+
+The upstream is the Wi-Fi uplink when it is up, otherwise a phone, hotspot or modem on USB
+(``[usb_uplink]``), so the single Ethernet port of a box on 5G can still serve a PC.
 
 When the box is on Wi-Fi and its Ethernet port has no upstream (no default route through it and no
 other DHCP server answering on it), ``nmb-netd`` (root) makes the port a small router:
@@ -340,14 +343,35 @@ def stop(cfg: Any, reason: str = "") -> None:
     _write_state(active=False, lan=lan, reason=reason)
 
 
+def upstream(cfg: Any) -> Tuple[Optional[str], Optional[str], Optional[str], str]:
+    """What the shared port gets its internet from: the Wi-Fi uplink if it is up, else USB tethering.
+
+    Returns (interface, address, gateway, "wifi"|"usb"|"").
+    """
+    from nmb.netd.wifi_uplink import uplink_interface, _ipv4_and_gateway
+    wifi = uplink_interface(cfg)
+    ip, gw = _ipv4_and_gateway(wifi) if wifi else (None, None)
+    if wifi and ip and gw:
+        return wifi, ip, gw, "wifi"
+    try:
+        from nmb.netd import usb_uplink
+        if getattr(getattr(cfg, "usb_uplink", None), "enabled", False):
+            ui = usb_uplink.uplink_interface(cfg)
+            if ui:
+                uip, ugw = usb_uplink._address_and_gateway(ui)
+                if uip and ugw:
+                    return ui, uip, ugw, "usb"
+    except Exception:
+        log.debug("usb upstream check failed", exc_info=True)
+    return wifi, ip, gw, "wifi" if wifi else ""
+
+
 def sync(cfg: Any) -> Dict[str, Any]:
     """Start, keep or stop sharing; called by nmb-netd every loop (root)."""
     global _last_probe, _last_probe_servers, _last_carrier
     s = _settings(cfg)
     st = _state()
-    from nmb.netd.wifi_uplink import uplink_interface, _ipv4_and_gateway
-    wifi = uplink_interface(cfg)
-    wifi_ip, wifi_gw = _ipv4_and_gateway(wifi) if wifi else (None, None)
+    wifi, wifi_ip, wifi_gw, kind = upstream(cfg)
 
     def off(code: str, reason: str) -> Dict[str, Any]:
         if st.get("active") or _dnsmasq_running():
@@ -358,9 +382,9 @@ def sync(cfg: Any) -> Dict[str, Any]:
     if not s["enabled"]:
         return off("off", "turned off")
     if s["lan"] == wifi:
-        return off("same_iface", "the LAN port is the Wi-Fi interface")
+        return off("same_iface", "the LAN port is the upstream interface")
     if not (wifi_ip and wifi_gw):
-        return off("no_wifi", "Wi-Fi has no internet connection")
+        return off("no_wifi", "neither Wi-Fi nor USB tethering has an internet connection")
     if not Path(f"/sys/class/net/{s['lan']}").exists():
         return off("no_port", f"{s['lan']} does not exist")
     if _default_route_dev(s["lan"]):
@@ -393,8 +417,8 @@ def sync(cfg: Any) -> Dict[str, Any]:
         return {"active": False, "reason": "dnsmasq did not start", "code": "dhcp_failed"}
     if not st.get("active"):
         log.info("wifi share started: %s (%s) -> %s, DHCP %s-%s", s["lan"], s["address"], wifi, s["start"], s["end"])
-    _write_state(active=True, lan=s["lan"], address=s["address"], wifi=wifi, reason="")
-    return {"active": True, "lan": s["lan"], "wifi": wifi}
+    _write_state(active=True, lan=s["lan"], address=s["address"], wifi=wifi, upstream=kind, reason="")
+    return {"active": True, "lan": s["lan"], "wifi": wifi, "upstream": kind}
 
 
 def leases() -> List[Dict[str, str]]:
@@ -414,8 +438,10 @@ def wired_ports() -> List[str]:
     base = Path("/sys/class/net")
     if not base.exists():
         return []
+    from nmb.netd.interfaces import usb_tether_kind
     return sorted(p.name for p in base.iterdir()
-                  if (p / "device").exists() and not (p / "wireless").exists() and not (p / "phy80211").exists())
+                  if (p / "device").exists() and not (p / "wireless").exists() and not (p / "phy80211").exists()
+                  and not usb_tether_kind(p.name))
 
 
 def status(cfg: Any) -> Dict[str, Any]:
@@ -426,7 +452,7 @@ def status(cfg: Any) -> Dict[str, Any]:
         "dhcp_range": f"{s['start']} - {s['end']}",
         "active": bool(st.get("active")), "reason": st.get("reason") or "", "code": st.get("code") or "",
         "dhcp_servers": list(_last_probe_servers),
-        "wifi": st.get("wifi"), "carrier": _has_carrier(s["lan"]),
+        "wifi": st.get("wifi"), "upstream": st.get("upstream") or "", "carrier": _has_carrier(s["lan"]),
         "leases": leases() if st.get("active") else [],
         "ports": wired_ports(),
     }
