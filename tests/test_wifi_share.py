@@ -36,6 +36,17 @@ class DhcpPacketTest(unittest.TestCase):
         self.assertIsNone(wifi_share.parse_offer_server(b"short", 7))
 
 
+class PacketFrameTest(unittest.TestCase):
+    def test_udp_payload_is_cut_out_of_an_ethernet_frame(self):
+        payload = _offer(9)
+        udp = struct.pack("!HHHH", 67, 68, 8 + len(payload), 0) + payload
+        ip = bytes([0x45, 0]) + struct.pack("!H", 20 + len(udp)) + b"\0" * 5 + bytes([17]) + b"\0" * 10
+        frame = b"\xff" * 6 + b"\x02" * 6 + b"\x08\x00" + ip + udp
+        self.assertEqual(wifi_share.udp_payload_to_port(frame, 68), payload)
+        self.assertIsNone(wifi_share.udp_payload_to_port(frame, 67))
+        self.assertIsNone(wifi_share.udp_payload_to_port(frame[:30], 68))
+
+
 class SyncTest(unittest.TestCase):
     def setUp(self):
         wifi_share._last_probe = 0.0
@@ -72,7 +83,7 @@ class SyncTest(unittest.TestCase):
         with mock.patch.object(wifi_share, "_default_route_dev", return_value=False), \
              mock.patch.object(wifi_share, "probe_dhcp_servers", return_value=["192.168.77.1"]), \
              mock.patch.object(wifi_share, "_addresses", return_value=[]), \
-             mock.patch.object(wifi_share, "_run", return_value=(1, "", "")), \
+             mock.patch.object(wifi_share, "_run", return_value=(1, "", "")) as run, \
              mock.patch.object(wifi_share, "_apply_nat", return_value=True) as nat, \
              mock.patch.object(wifi_share, "_start_dnsmasq", return_value=True) as start:
             res = wifi_share.sync(_cfg())
@@ -80,6 +91,9 @@ class SyncTest(unittest.TestCase):
         nat.assert_called_once()
         start.assert_called_once()
         self.assertTrue(self.states[-1]["active"])
+        cmds = [c.args[0] for c in run.call_args_list]
+        self.assertIn(["ip", "-4", "route", "replace", "default", "via", "192.168.8.1", "dev", "wlan0", "table", "151"], cmds)
+        self.assertIn(["ip", "-4", "rule", "add", "priority", "151", "from", "192.168.77.0/24", "lookup", "151"], cmds)
 
     def test_off_when_disabled(self):
         self.assertEqual(wifi_share.sync(_cfg(enabled=False))["code"], "off")

@@ -5,6 +5,7 @@ Supports 5 languages: en (English), hu (Hungarian), de (German), uk (Ukrainian),
 
 TRANSLATIONS = {
     "de": {
+        "ws_r_dhcp_failed": "der DHCP-Dienst (dnsmasq) startete nicht",
         "ws_r_off": "ausgeschaltet",
         "ws_r_same_iface": "der LAN-Port ist die WLAN-Schnittstelle",
         "ws_r_no_wifi": "das WLAN hat keine Internetverbindung",
@@ -1266,6 +1267,7 @@ TRANSLATIONS = {
         "yes": "Ja",
     },
     "en": {
+        "ws_r_dhcp_failed": "the DHCP service (dnsmasq) did not start",
         "ws_r_off": "turned off",
         "ws_r_same_iface": "the LAN port is the Wi-Fi interface",
         "ws_r_no_wifi": "Wi-Fi has no internet connection",
@@ -2527,6 +2529,7 @@ TRANSLATIONS = {
         "yes": "Yes",
     },
     "fr": {
+        "ws_r_dhcp_failed": "le service DHCP (dnsmasq) n'a pas démarré",
         "ws_r_off": "désactivé",
         "ws_r_same_iface": "le port LAN est l'interface Wi-Fi",
         "ws_r_no_wifi": "le Wi-Fi n'a pas de connexion internet",
@@ -3788,6 +3791,7 @@ TRANSLATIONS = {
         "yes": "Oui",
     },
     "hu": {
+        "ws_r_dhcp_failed": "a DHCP-szolgáltatás (dnsmasq) nem indult el",
         "ws_r_off": "kikapcsolva",
         "ws_r_same_iface": "a LAN port maga a Wi-Fi-interfész",
         "ws_r_no_wifi": "a Wi-Fi-n nincs internet",
@@ -5049,6 +5053,7 @@ TRANSLATIONS = {
         "yes": "Igen",
     },
     "uk": {
+        "ws_r_dhcp_failed": "служба DHCP (dnsmasq) не запустилася",
         "ws_r_off": "вимкнено",
         "ws_r_same_iface": "порт LAN — це інтерфейс Wi-Fi",
         "ws_r_no_wifi": "Wi-Fi не має з'єднання з інтернетом",

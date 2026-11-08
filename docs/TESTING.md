@@ -45,6 +45,7 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | Ookla | Box | ⚠️ | Works hourly. Every minute, Ookla refuses the box ("Limit reached"); the box then pauses Ookla (30 min, up to 4 h) and measures with RTR-NetTest, stored under RTR's own name |
 | RTR-NetTest | Box, VM-distro | ✅ | ~910/320 Mbps on the 1000/300 line |
 | Cloudflare | Box | ✅ | |
+| Wi-Fi shared on a LAN port | Box (veth + network namespace, `eth0` untouched) | ✅ | A client in the namespace got 192.168.77.116 by DHCP, pinged 1.1.1.1 (11 ms) and downloaded 20 MB over HTTPS through `wlan0`. With a second DHCP server started on the client side, the box stopped its own DHCP, address, NAT and routing rule; when that server went away, sharing came back within 15 s. Found and fixed on the way: replies of the other server were dropped before reaching a normal socket (now a packet socket), dnsmasq offers after up to 3 s (now 8 s with three requests), and `--log-facility=-` kept dnsmasq in the foreground. Not yet tried with a real cable and no Ethernet uplink |
 | Measuring over Wi-Fi (`measurement_link = wifi`) | Box | ✅ | Box on its 5 GHz Wi-Fi (joined by netplan) with the cable in: a Fast.com test moved 149/145 MB over `wlan0` and nothing over `eth0`, 104/110 Mbps. Joining a network with the box's own `nmb-uplink` profile not yet tried |
 | Fast.com | Box, dev machine | ✅ | 884/314 Mbps on the 1000/300 line, 5 Netflix servers, bufferbloat A |
 | iPerf3 | Box, VM-D13 | ✅ | |

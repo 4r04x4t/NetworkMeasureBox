@@ -35,6 +35,7 @@ STATE_FILE = Path("/run/nmb/wifi_share.json")
 PID_FILE = Path("/run/nmb/wifi_share_dnsmasq.pid")
 LEASE_FILE = Path("/run/nmb/wifi_share.leases")
 NFT_TABLE = "nmb_wifishare"
+TABLE = 151          # the shared subnet always leaves over Wi-Fi, even when Ethernet has the default route
 PROBE_EVERY_SEC = 60.0
 
 _last_probe = 0.0
@@ -158,31 +159,61 @@ def parse_offer_server(data: bytes, xid: int) -> Optional[str]:
     return server or socket.inet_ntoa(data[20:24])
 
 
-def probe_dhcp_servers(iface: str, timeout: float = 3.0) -> List[str]:
-    """Send a DHCPDISCOVER on ``iface`` and return the servers that offer an address (needs root)."""
+def udp_payload_to_port(frame: bytes, port: int) -> Optional[bytes]:
+    """The UDP payload of an Ethernet/IPv4 frame sent to ``port``, or None."""
+    if len(frame) < 42 or frame[12:14] != b"\x08\x00":
+        return None
+    ip = frame[14:]
+    ihl = (ip[0] & 0x0F) * 4
+    if ip[0] >> 4 != 4 or ip[9] != 17 or len(ip) < ihl + 8:
+        return None
+    if struct.unpack("!H", ip[ihl + 2:ihl + 4])[0] != port:
+        return None
+    return ip[ihl + 8:]
+
+
+def probe_dhcp_servers(iface: str, timeout: float = 8.0) -> List[str]:
+    """Send a DHCPDISCOVER on ``iface`` and return the servers that offer an address (needs root).
+
+    Offers are read from a packet socket: the box's firewall or reverse-path filter may drop a
+    reply from a server the box has no route to, and that is exactly the server to find.
+    The DISCOVER goes out three times and the box waits 8 s: dnsmasq and many routers ping an
+    address for up to 3 s before they offer it.
+    """
     xid = random.getrandbits(32)
     servers: List[str] = []
+    rx = None
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     try:
+        rx = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0800))
+        rx.bind((iface, 0))
+        rx.settimeout(0.5)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         s.setsockopt(socket.SOL_SOCKET, 25, iface.encode() + b"\0")  # SO_BINDTODEVICE
         s.bind(("0.0.0.0", 68))
-        s.settimeout(0.5)
-        s.sendto(build_discover(_mac(iface), xid), ("255.255.255.255", 67))
-        end = time.monotonic() + timeout
+        packet = build_discover(_mac(iface), xid)
+        start = time.monotonic()
+        end = start + timeout
+        resend = [start, start + 2.0, start + 4.0]
         while time.monotonic() < end:
+            if resend and time.monotonic() >= resend[0]:
+                resend.pop(0)
+                s.sendto(packet, ("255.255.255.255", 67))
             try:
-                data, _ = s.recvfrom(1500)
+                frame = rx.recv(2048)
             except socket.timeout:
                 continue
-            srv = parse_offer_server(data, xid)
+            payload = udp_payload_to_port(frame, 68)
+            srv = parse_offer_server(payload, xid) if payload else None
             if srv and srv not in servers:
                 servers.append(srv)
     except OSError as e:
-        log.debug("dhcp probe on %s failed: %s", iface, e)
+        log.warning("dhcp probe on %s failed: %s", iface, e)
     finally:
         s.close()
+        if rx:
+            rx.close()
     return servers
 
 
@@ -229,7 +260,7 @@ def _start_dnsmasq(s: Dict[str, Any], dns: List[str]) -> bool:
            f"--dhcp-range={s['start']},{s['end']},255.255.255.0,12h",
            f"--dhcp-option=3,{s['ip']}", f"--dhcp-option=6,{','.join(dns)}",
            f"--dhcp-leasefile={LEASE_FILE}", f"--pid-file={PID_FILE}",
-           "--conf-file=/dev/null", "--log-facility=-"]
+           "--conf-file=/dev/null"]   # no --log-facility=-: that keeps dnsmasq in the foreground
     rc, out, err = _run(cmd, timeout=10)
     if rc != 0:
         log.warning("wifi share: dnsmasq did not start: %s", (err or out).strip()[:200])
@@ -240,6 +271,10 @@ def _stop_dnsmasq() -> None:
     try:
         pid = int(PID_FILE.read_text().strip())
         os.kill(pid, signal.SIGTERM)
+        for _ in range(30):            # wait until it is gone, so a restart can bind port 67
+            time.sleep(0.1)
+            os.kill(pid, 0)
+        os.kill(pid, signal.SIGKILL)
     except (OSError, ValueError):
         pass
     try:
@@ -279,11 +314,21 @@ def _apply_nat(s: Dict[str, Any], wifi: str) -> bool:
     return True
 
 
+def _sync_routing(network: str, wifi: str, gw: str) -> None:
+    _run(["ip", "-4", "route", "replace", "default", "via", gw, "dev", wifi, "table", str(TABLE)], timeout=4)
+    rc, out, _ = _run(["ip", "-4", "rule", "show", "priority", str(TABLE)], timeout=4)
+    if f"from {network} " not in out + " ":
+        _run(["ip", "-4", "rule", "del", "priority", str(TABLE)], timeout=4)
+        _run(["ip", "-4", "rule", "add", "priority", str(TABLE), "from", network, "lookup", str(TABLE)], timeout=4)
+
+
 def stop(cfg: Any, reason: str = "") -> None:
     s = _settings(cfg)
     st = _state()
     lan = st.get("lan") or s["lan"]
     _stop_dnsmasq()
+    _run(["ip", "-4", "rule", "del", "priority", str(TABLE)], timeout=4)
+    _run(["ip", "-4", "route", "flush", "table", str(TABLE)], timeout=4)
     nft = _bin("nft")
     if nft:
         _run([nft, "delete", "table", "ip", NFT_TABLE], timeout=5)
@@ -338,12 +383,14 @@ def sync(cfg: Any) -> Dict[str, Any]:
     if s["address"] not in _addresses(s["lan"]):
         _run(["ip", "link", "set", s["lan"], "up"], timeout=4)
         _run(["ip", "addr", "add", s["address"], "dev", s["lan"]], timeout=4)
+    _sync_routing(s["network"], wifi, wifi_gw)
     nft = _bin("nft")
     rc, out, _ = _run([nft, "list", "table", "ip", NFT_TABLE], timeout=5) if nft else (1, "", "")
     if rc != 0 or f'oifname "{wifi}"' not in out or s["network"] not in out:
         _apply_nat(s, wifi)
-    if not _dnsmasq_running():
-        _start_dnsmasq(s, _wifi_dns())
+    if not _dnsmasq_running() and not _start_dnsmasq(s, _wifi_dns()):
+        _write_state(active=False, lan=s["lan"], reason="dnsmasq did not start", code="dhcp_failed")
+        return {"active": False, "reason": "dnsmasq did not start", "code": "dhcp_failed"}
     if not st.get("active"):
         log.info("wifi share started: %s (%s) -> %s, DHCP %s-%s", s["lan"], s["address"], wifi, s["start"], s["end"])
     _write_state(active=True, lan=s["lan"], address=s["address"], wifi=wifi, reason="")
