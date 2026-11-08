@@ -82,3 +82,27 @@ class SourceRoutingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WifiRoleTest(unittest.TestCase):
+    def test_auto_skips_the_radio_of_the_guest_client(self):
+        cfg = SimpleNamespace(wifi_uplink=SimpleNamespace(interface="auto"),
+                              guest_wifi=SimpleNamespace(enabled=True, interface="wlan0"))
+        with mock.patch.object(wifi_uplink, "wireless_interfaces", return_value=["wlan0", "wlan1"]):
+            self.assertEqual(wifi_uplink.uplink_interface(cfg), "wlan1")
+            cfg.guest_wifi.enabled = False
+            self.assertEqual(wifi_uplink.uplink_interface(cfg), "wlan0")
+
+    def test_port_matrix_names_the_main_wifi_client(self):
+        from nmb.netd import drivers
+        cfg = SimpleNamespace(
+            network=SimpleNamespace(wan_interface="eth0", wan2_interface="", lan_ports=[], lan_interface="eth1",
+                                    dmz_interface="", wan_mode="single"),
+            guest_wifi=SimpleNamespace(interface="wlan1", enabled=True),
+            wifi_uplink=SimpleNamespace(interface="wlan0"))
+        ifaces = [{"name": "eth0"}, {"name": "wlan0", "is_wireless": True}, {"name": "wlan1", "is_wireless": True}]
+        with mock.patch.object(drivers, "detect_all_physical_interfaces", return_value=ifaces):
+            res = drivers.get_interfaces_matrix(cfg)
+        roles = {i["name"]: i["role"] for i in res["interfaces"]}
+        self.assertEqual(roles, {"eth0": "wan1", "wlan0": "wifi_main", "wlan1": "guest"})
+        self.assertEqual(res["wifi_main_interface"], "wlan0")

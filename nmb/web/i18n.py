@@ -5,6 +5,8 @@ Supports 5 languages: en (English), hu (Hungarian), de (German), uk (Ukrainian),
 
 TRANSLATIONS = {
     "de": {
+        "role_guest_wifi": "WLAN-Client für Gastnetz",
+        "role_main_wifi": "Haupt-WLAN-Client (Messung)",
         "fc_seen_as": "Fast.com sieht Sie als",
         "fc_stable": "stabil",
         "fc_mean": "Mittel",
@@ -1245,6 +1247,8 @@ TRANSLATIONS = {
         "yes": "Ja",
     },
     "en": {
+        "role_guest_wifi": "Guest Wi-Fi client",
+        "role_main_wifi": "Main Wi-Fi client (measuring)",
         "fc_seen_as": "Fast.com sees you as",
         "fc_stable": "stable",
         "fc_mean": "mean",
@@ -2485,6 +2489,8 @@ TRANSLATIONS = {
         "yes": "Yes",
     },
     "fr": {
+        "role_guest_wifi": "Client Wi-Fi invité",
+        "role_main_wifi": "Client Wi-Fi principal (mesure)",
         "fc_seen_as": "Fast.com vous voit comme",
         "fc_stable": "stable",
         "fc_mean": "moyenne",
@@ -3725,6 +3731,8 @@ TRANSLATIONS = {
         "yes": "Oui",
     },
     "hu": {
+        "role_guest_wifi": "Vendég Wi-Fi-kliens",
+        "role_main_wifi": "Fő Wi-Fi-kliens (mérés)",
         "fc_seen_as": "A Fast.com így lát",
         "fc_stable": "stabil",
         "fc_mean": "átlag",
@@ -4965,6 +4973,8 @@ TRANSLATIONS = {
         "yes": "Igen",
     },
     "uk": {
+        "role_guest_wifi": "Клієнт гостьової Wi-Fi",
+        "role_main_wifi": "Основний клієнт Wi-Fi (вимірювання)",
         "fc_seen_as": "Fast.com бачить вас як",
         "fc_stable": "стабільна",
         "fc_mean": "середня",

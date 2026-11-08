@@ -2276,8 +2276,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     cfg.network.lan_interface = "br-lan"
                 elif len(cfg.network.lan_ports) == 1:
                     cfg.network.lan_interface = cfg.network.lan_ports[0]
-            if "guest" in body_json:
-                cfg.guest_wifi.interface = str(body_json["guest"]).strip()
+            if "guest" in body_json or "wifi_main" in body_json:
+                guest = str(body_json.get("guest", cfg.guest_wifi.interface) or "").strip()
+                main = str(body_json.get("wifi_main", "") or "").strip()
+                if guest and guest == main:
+                    self._send_json({"status": "error", "message": f"{guest} cannot be the guest and the main Wi-Fi client at once."}, status=400)
+                    return
+                if "guest" in body_json:
+                    if not guest:
+                        cfg.guest_wifi.enabled = False   # no radio left for the guest client
+                    cfg.guest_wifi.interface = guest
+                if "wifi_main" in body_json:
+                    cfg.wifi_uplink.interface = main or "auto"
             if "dmz" in body_json:
                 cfg.network.dmz_interface = str(body_json["dmz"]).strip()
             if "measurement_interface" in body_json:

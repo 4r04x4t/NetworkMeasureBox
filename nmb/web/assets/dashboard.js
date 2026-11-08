@@ -566,7 +566,8 @@
             <option value="wan1" ${iface.role === 'wan1' ? 'selected' : ''}>🌐 WAN 1 (Primary)</option>
             <option value="wan2" ${iface.role === 'wan2' ? 'selected' : ''}>🌐 WAN 2 (Secondary)</option>
             <option value="lan" ${iface.role === 'lan' ? 'selected' : ''}>🏠 LAN (br-lan Bridge)</option>
-            <option value="guest" ${iface.role === 'guest' ? 'selected' : ''}>📶 Guest Wi-Fi</option>
+            <option value="guest" ${iface.role === 'guest' ? 'selected' : ''}>📶 ${escapeHtml(t('role_guest_wifi', 'Guest Wi-Fi client'))}</option>
+            ${iface.is_wireless || /^wl/.test(iface.name || '') ? `<option value="wifi_main" ${iface.role === 'wifi_main' ? 'selected' : ''}>📡 ${escapeHtml(t('role_main_wifi', 'Main Wi-Fi client (measuring)'))}</option>` : ''}
             <option value="dmz" ${iface.role === 'dmz' ? 'selected' : ''}>🛡️ DMZ (Isolated)</option>
             <option value="unassigned" ${iface.role === 'unassigned' ? 'selected' : ''}>⚪ Unassigned / Disabled</option>
           </select>
@@ -604,6 +605,7 @@
     let wan2 = '';
     const lanPorts = [];
     let guest = '';
+    let wifiMain = '';
     let dmz = '';
 
     selects.forEach(sel => {
@@ -613,6 +615,7 @@
       else if (role === 'wan2') wan2 = iface;
       else if (role === 'lan') lanPorts.push(iface);
       else if (role === 'guest') guest = iface;
+      else if (role === 'wifi_main') wifiMain = iface;
       else if (role === 'dmz') dmz = iface;
     });
 
@@ -627,6 +630,7 @@
       wan_mode: wanMode,
       lan_ports: lanPorts,
       guest: guest,
+      wifi_main: wifiMain,
       dmz: dmz,
     };
 

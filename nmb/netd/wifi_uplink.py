@@ -61,12 +61,14 @@ def wireless_interfaces() -> List[str]:
 
 
 def uplink_interface(cfg: Any) -> Optional[str]:
-    """The configured Wi-Fi interface, or the first wireless one."""
+    """The configured Wi-Fi interface, or the first wireless one the guest client does not use."""
     up = getattr(cfg, "wifi_uplink", None)
     name = str(getattr(up, "interface", "") or "").strip()
     if name and name != "auto":
         return name
-    found = wireless_interfaces()
+    guest = getattr(cfg, "guest_wifi", None)
+    taken = str(getattr(guest, "interface", "") or "") if getattr(guest, "enabled", False) else ""
+    found = [i for i in wireless_interfaces() if i != taken]
     return found[0] if found else None
 
 

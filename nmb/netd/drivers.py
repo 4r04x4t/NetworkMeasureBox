@@ -638,6 +638,9 @@ def get_interfaces_matrix(cfg: Any) -> Dict[str, Any]:
     lan_single = getattr(cfg.network, "lan_interface", "eth1")
     guest_iface = getattr(getattr(cfg, "guest_wifi", None), "interface", "wlan0")
     dmz_iface = getattr(cfg.network, "dmz_interface", "")
+    main_wifi = str(getattr(getattr(cfg, "wifi_uplink", None), "interface", "") or "")
+    if main_wifi == "auto":
+        main_wifi = ""
 
     annotated = []
     for iface in physical_ifaces:
@@ -649,6 +652,8 @@ def get_interfaces_matrix(cfg: Any) -> Dict[str, Any]:
             role = "wan2"
         elif name in lan_ports_list or (not lan_ports_list and name == lan_single):
             role = "lan"
+        elif main_wifi and name == main_wifi:
+            role = "wifi_main"
         elif guest_iface and name == guest_iface:
             role = "guest"
         elif dmz_iface and name == dmz_iface:
@@ -668,6 +673,7 @@ def get_interfaces_matrix(cfg: Any) -> Dict[str, Any]:
         "lan_interface": lan_single,
         "lan_ports": lan_ports_str,
         "guest_interface": guest_iface,
+        "wifi_main_interface": main_wifi,
         "dmz_interface": dmz_iface,
         "interfaces": annotated,
     }
