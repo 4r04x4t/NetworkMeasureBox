@@ -30,6 +30,18 @@ TEXTS = {
            "Actualisation auto", "oui", "non", "Saisissez {} pour confirmer", "Lancer", "Annuler", "vide = valeur actuelle conservée", "Enregistré dans {}"),
     "uk": ("Дії", "На цьому екрані немає дій", "Завантаження...", "Tab підекран  Вліво/Вправо екран  Вгору/Вниз вибір  PgUp/PgDn прокрутка  Enter запуск  r оновити  a авто  ? довідка  q вихід",
            "Автооновлення", "увімк", "вимк", "Введіть {} для підтвердження", "Запуск", "Скасувати", "порожньо = значення не зміниться", "Збережено в {}"),
+    "ro": ("Acțiuni", "Nicio acțiune pe acest ecran", "Se încarcă...", "Tab subecran  Stânga/Dreapta ecran  Sus/Jos selectare  PgUp/PgDn derulare  Enter rulare  r reîmprospătare  a auto  ? ajutor  q ieșire",
+           "Reîmprospătare automată", "pornit", "oprit", "Tastați {} pentru confirmare", "Rulează", "Anulează", "gol = păstrează valoarea actuală", "Salvat în {}"),
+    "it": ("Azioni", "Nessuna azione in questa schermata", "Caricamento...", "Tab sottoschermata  Sinistra/Destra schermata  Su/Giù seleziona  PgUp/PgDn scorri  Invio esegui  r aggiorna  a auto  ? aiuto  q esci",
+           "Aggiornamento automatico", "attivo", "disattivo", "Digita {} per confermare", "Esegui", "Annulla", "vuoto = mantieni il valore attuale", "Salvato in {}"),
+    "es": ("Acciones", "No hay acciones en esta pantalla", "Cargando...", "Tab subpantalla  Izq/Der pantalla  Arriba/Abajo elegir  RePág/AvPág desplazar  Intro ejecutar  r actualizar  a auto  ? ayuda  q salir",
+           "Actualización automática", "sí", "no", "Escriba {} para confirmar", "Ejecutar", "Cancelar", "vacío = mantener el valor actual", "Guardado en {}"),
+    "pt": ("Ações", "Nenhuma ação neste ecrã", "A carregar...", "Tab subecrã  Esq/Dir ecrã  Cima/Baixo escolher  PgUp/PgDn deslocar  Enter executar  r atualizar  a auto  ? ajuda  q sair",
+           "Atualização automática", "ligado", "desligado", "Escreva {} para confirmar", "Executar", "Cancelar", "vazio = manter o valor atual", "Guardado em {}"),
+    "pt-br": ("Ações", "Nenhuma ação nesta tela", "Carregando...", "Tab subtela  Esq/Dir tela  Cima/Baixo escolher  PgUp/PgDn rolar  Enter executar  r atualizar  a auto  ? ajuda  q sair",
+           "Atualização automática", "ligado", "desligado", "Digite {} para confirmar", "Executar", "Cancelar", "vazio = manter o valor atual", "Salvo em {}"),
+    "zh": ("操作", "此界面没有可用操作", "加载中...", "Tab 子页面  左/右 页面  上/下 选择  PgUp/PgDn 滚动  Enter 执行  r 刷新  a 自动  ? 帮助  q 退出",
+           "自动刷新", "开", "关", "输入 {} 以确认", "执行", "取消", "留空 = 保持当前值", "已保存到 {}"),
 }
 ACTIONS, NO_ACTIONS, LOADING, KEYS, AUTO, ON, OFF, TYPE_CONFIRM, RUN, CANCEL, BLANK, SAVED = range(12)
 

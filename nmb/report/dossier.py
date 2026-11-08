@@ -692,6 +692,14 @@ for _lang, _note in VERDICT_NOTE.items():
     for _key in ("verdict_compliant_desc", "verdict_degraded_desc", "verdict_breached_desc"):
         DOSSIER_I18N[_lang][_key] += _note
 
+# More languages, one JSON file each in nmb/report/locales/ (their verdict texts already carry the note).
+for _code in ("ro", "it", "es", "pt", "pt-br", "zh"):
+    try:
+        _data = __import__("json").loads((__import__("pathlib").Path(__file__).with_name("locales") / f"{_code.replace('-', '_')}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        continue
+    DOSSIER_I18N[_code] = {**DOSSIER_I18N["en"], **{k: v for k, v in _data.items() if k in DOSSIER_I18N["en"]}}
+
 
 def _escape_value(value):
     """Escape strings inside stored measurement data before they are placed into HTML."""

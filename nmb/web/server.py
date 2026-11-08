@@ -88,7 +88,7 @@ from nmb.speed.ookla import get_available_servers
 from nmb.speed.runner import run_measurement_cycle
 from nmb.speed.scheduler import AutonomousScheduler, get_cron_description, normalize_cron_expression
 from nmb.speed.traceroute import run_traceroute, get_latest_traceroute, is_traceroute_running, stop_traceroute
-from nmb.web.i18n import get_translations_for_lang, TRANSLATIONS
+from nmb.web.i18n import get_translations_for_lang, TRANSLATIONS, SUPPORTED_LANGUAGES
 from nmb.web.templates import get_dashboard_html, get_logout_html
 
 log = logging.getLogger("nmb.web.server")
@@ -418,7 +418,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if path in ("/dossier", "/dossier.html", "/export/report.html", "/report.html", "/api/export/dossier"):
             qs = parse_qs(parsed.query) if parsed.query else {}
             req_lang = qs.get("lang", [None])[0]
-            if not req_lang or req_lang not in ("hu", "en", "de", "fr", "uk"):
+            if not req_lang or req_lang not in SUPPORTED_LANGUAGES:
                 req_lang = getattr(self.server.cfg.web, "language", "hu") or "hu"
             conn = db.connect(readonly=True)
             report = aggregate_report_data(conn, self.server.cfg, window_hours=24.0)

@@ -138,7 +138,7 @@ bash -n setup.sh                               # ha a setup.sh változott
 
 - Az új viselkedés tesztet kap a `tests/` alatt. A rendszert mockold (`subprocess`, `/sys`, socketek); a teszteknek sima PC-n, root, hálózat és box nélkül is át kell menniük.
 - A `tests/test_tui.py` elbukik, ha a webes felület olyan végpontot hív, amit az `nmb-cli` nem ismer: vedd fel a műveletet az `nmb/tui/catalog.py`-ba.
-- Fordítások: minden kulcs mind az öt nyelven, magyar szöveg nem kerülhet a többi nyelvbe:
+- Fordítások: minden kulcs minden nyelven (a `tests/test_i18n_locales.py` ellenőrzi a JSON-nyelveket: minden kulcs, ugyanazok a helyőrzők és HTML, mint az angolban), magyar szöveg nem kerülhet a többi nyelvbe:
   `python3 -c "from nmb.web.i18n import TRANSLATIONS as T; k=set(T['en']); print({l: len(k ^ set(v)) for l, v in T.items()})"` csak nullákat írhat ki.
 
 ### 2. Valódi boxon (minden, ami a hálózathoz, a rendszerhez vagy a méréshez nyúl)
@@ -194,7 +194,7 @@ Minden sorhoz: hol (Box, VM neve, egységtesztek), az eredmény (✅ ⚠️ ❌)
 | Telegram, SMTP | Helyi mock szerverekkel, utána valódi bottal |
 | Frissítés GitHubról egy boxon | Amint a mostani kód felkerül a GitHubra |
 | Központi gyűjtő két gép között | A gyűjtő egy PC-n, a box egy másik hálózaton |
-| Webes felület | Mind az öt nyelv, több felhasználó egyszerre, hibás belépések, Firefox, Chrome és telefon |
+| Webes felület | Mind a 11 nyelv (a hat újabb gépi segítséggel készült fordítás: anyanyelvi lektor nézze át), több felhasználó egyszerre, hibás belépések, Firefox, Chrome és telefon |
 | firewalld-portok, Debian 12 és Fedora újraindítás, Tailscale, OONI, valódi DuckDNS-domain | |
 
 ### Még nem tesztelt operációs rendszerek

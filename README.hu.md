@@ -92,7 +92,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 * **Tárhelyőr** (`[storage]`, alapból bekapcsolva): az `nmb-netd` 10 percenként ellenőrzi a lemezt, és a mérete szerinti részt tartja szabadon (2 GB-ig 15%, 16 GB-ig 10%, fölötte 5%; legalább 200 MB, legfeljebb 2 GB; a `min_free_mb` felülírja). Ha ennél kevesebb a szabad hely, a legrégebbivel kezdve töröl: elforgatott naplók, diagnosztikai csomagok és összeomlás-jelentések; a frissítési mentések a legújabb kivételével; régi jelentések; a rendszernapló 32 MB-ig; a nagy aktív NMB-naplók; és csak legvégül mérések, naponként, az utolsó `keep_days` (7) napot megtartva. A törölt mérésekről esemény készül. A `setup.sh` megáll, ha 500 MB-nál kevesebb a szabad hely, és 8 GB alatti lemezen kisebb naplókat használ.
 * **Mérés Wi-Fi-n**: A box a saját Wi-Fi-hálózatodra is csatlakozhat, hogy azon mérjen (`[wifi_uplink]`: `ssid`, `password`, `interface`, `hidden`, `enabled`; saját NetworkManager-profil, `nmb-uplink`, a vendégklienstől külön). A `[network] measurement_link` adja meg, hol fut a sebességmérés: `auto` (Etherneten, ha van kábel, különben Wi-Fi-n), `ethernet` vagy `wifi`. Ha a kábel és a Wi-Fi is él, az alapútvonal az Etherneten marad, és egy forrásszabály (150-es tábla) gondoskodik róla, hogy a Wi-Fi-hez kötött mérés tényleg Wi-Fi-n menjen ki. A webes felületen az ütemezés alatt, vagy `nmb-cli run wifi.uplink` paranccsal állítható. NetworkManager kell hozzá. Minden vezeték nélküli interfész szerepe a Portok és driverek alatt választható: 📶 *Vendég Wi-Fi-kliens* vagy 📡 *Fő Wi-Fi-kliens (mérés)*; egy interfész nem lehet egyszerre mindkettő, és `interface = auto` esetén a fő kliens kihagyja a bekapcsolt vendégkliens rádióját.
 * **Wi-Fi megosztása LAN porton** (`[wifi_share]`, alapból kikapcsolva): ha a box Wi-Fi-n van, és egy vezetékes portjának nincs saját internetje, a portra dugott eszközök a boxtól kapnak címet (alapból `address = 192.168.77.1/24`, DHCP .100–.200, a Wi-Fi DNS-szerverei), és a box Wi-Fi-jén érik el az internetet (NAT, saját 151-es útválasztási tábla). A box soha nem oszt címet olyan hálózatban, ahol saját DHCP van: indulás előtt, futás közben percenként és kábel bedugásakor azonnal (előbb a saját DHCP-jét leállítva) DHCP-kérést küld a porton, és leáll, ha bármely más szerver válaszol, vagy a port alapútvonalat kap. A válaszokat csomagszinten olvassa, így a box tűzfala nem rejtheti el őket. A webes felületen az ütemezés alatt, vagy `nmb-cli run wifi.share enabled=true lan_interface=eth0`.
-* **Többnyelvű Reszponzív WebGUI**: Sötét módú irányítópult, több fül és alfül, valós idejű SVG diagramok, jelszavas védelem, Logout funkció és azonos kulcskészletű fordítás 5 nyelven (magyar, angol, német, ukrán, francia).
+* **Többnyelvű Reszponzív WebGUI**: Sötét módú irányítópult, több fül és alfül, valós idejű SVG diagramok, jelszavas védelem, Logout funkció és azonos kulcskészletű fordítás 11 nyelven (magyar, angol, német, ukrán, francia, román, olasz, spanyol, európai és brazil portugál, egyszerűsített kínai); a Telegram bot egyelőre az első ötöt beszéli, a többiben angolul válaszol.
 * **Telegram Távfelügyelet**: Valós idejű push riasztások szakadás vagy >5% csomagvesztés esetén, távoli parancsok (`/status`, `/ping`, `/test`, `/report`, `/mode`).
 
 ---
@@ -134,7 +134,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Telegram Távfelügyeleti Bot (nmb-telegram)   │          │ Beépített Kezelő WebGUI & REST API (nmb-web)     │  │
 │  │ • /status, /ping, /test, /report, /mode      │          │ • Szabványos router port 80 felület (dev 8080)   │  │
-│  │ • Azonnali push riasztások kimaradáskor      │          │ • 14+ alrendszer, 5 nyelvű fordítás, Logout     │  │
+│  │ • Azonnali push riasztások kimaradáskor      │          │ • 14+ alrendszer, 11 nyelvű fordítás, Logout    │  │
 │  └──────────────────────────────────────────────┘          └──────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
                                                            │
@@ -311,13 +311,21 @@ A beépített webes felület a **szabványos 80-as HTTP router porton** érhető
     * Adminisztrátori hitelesítés és jelszókezelés.
 14. **Kijelentkezés (Logout)**: Biztonsági kijelentkezés a böngésző hitelesítési gyorsítótárának törlésével.
 
-### 5 Támogatott Nyelv (néhány kifejezés angolul marad)
-A felület jobb felső sarkában egyetlen kattintással váltható a nyelv. Az összes felirat, magyarázat és mérési státusz teljesen le van fordítva:
+### 11 Támogatott Nyelv (néhány szakkifejezés angolul marad)
+A felület jobb felső sarkában egyetlen kattintással váltható a nyelv. A webes felület, a terminálos felület, az eredményoldal, a grafikonok és a jelentés minden felirata le van fordítva; a Telegram bot egyelőre az első öt nyelvet beszéli, a többiben angolul válaszol:
 * 🇭🇺 **Magyar (HU)**
 * 🇬🇧 **Angol (EN)**
 * 🇩🇪 **Német (DE)**
 * 🇺🇦 **Ukrán (UK)**
 * 🇫🇷 **Francia (FR)**
+* 🇷🇴 **Román (RO)**
+* 🇮🇹 **Olasz (IT)**
+* 🇪🇸 **Spanyol (ES)**
+* 🇵🇹 **Portugál, Portugália (PT)**
+* 🇧🇷 **Portugál, Brazília (PT-BR)**
+* 🇨🇳 **Kínai, egyszerűsített (ZH)**
+
+A hat újabb nyelv nyelvenként egy JSON-fájl az `nmb/web/locales/` és az `nmb/report/locales/` alatt; ha egy szöveg hiányzik, angolul jelenik meg, sosem más nyelven.
 
 ---
 
@@ -420,7 +428,7 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 * **Tiszta Matematikai Vektoros SVG Motor**:
   * Külső diagramkönyvtárak nélkül generál reszponzív, retina-éles `<svg viewBox="0 0 800 380">` grafikonokat Bézier-görbékkel, kettős Y-tengellyel (Mbps és ms) és érintőpontokkal.
   * Generálási idő: **< 1.5 ezredmásodperc**.
-  * Közvetlenül letölthető 5 nyelven a `/dossier?lang=...` végponton vagy Telegramon.
+  * Közvetlenül letölthető 11 nyelven a `/dossier?lang=...` végponton vagy Telegramon.
 
 ---
 

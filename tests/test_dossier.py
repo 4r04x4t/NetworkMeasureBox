@@ -4,6 +4,10 @@ from pathlib import Path
 import tempfile
 
 from nmb.report.dossier import DOSSIER_I18N, generate_html_dossier, save_html_dossier
+from nmb.web.i18n import SUPPORTED_LANGUAGES
+
+ALL_LANGS = tuple(SUPPORTED_LANGUAGES)
+FOREIGN_LANGS = tuple(l for l in ALL_LANGS if l != "hu")
 from nmb.report.metrics import (
     OutageRecord,
     PingSummary,
@@ -116,7 +120,7 @@ class TestDossierI18n(unittest.TestCase):
         )
 
     def test_all_languages_supported(self):
-        for lang in ("hu", "en", "de", "fr", "uk"):
+        for lang in ALL_LANGS:
             html = generate_html_dossier(self.sample_report, lang=lang)
             self.assertIn(f'<html lang="{lang}">', html)
             self.assertIn(DOSSIER_I18N[lang]["header_title"], html)
@@ -125,14 +129,14 @@ class TestDossierI18n(unittest.TestCase):
 
     def test_neutral_branding(self):
         """Report title should not claim to be the official government body NMHH in title."""
-        for lang in ("hu", "en", "de", "fr", "uk"):
+        for lang in ALL_LANGS:
             html = generate_html_dossier(self.sample_report, lang=lang)
             self.assertNotIn("Nemzeti Média- és Hírközlési Hatóság (NMHH) & Szélessáv.net Riport", html)
             self.assertIn(DOSSIER_I18N[lang]["header_title"], html)
 
     def test_no_hungarian_leakage_in_foreign_languages(self):
         """English, German, French, and Ukrainian dossiers must not contain untranslated Hungarian terms."""
-        for lang in ("en", "de", "fr", "uk"):
+        for lang in FOREIGN_LANGS:
             html = generate_html_dossier(self.sample_report, lang=lang)
             self.assertNotIn("MÉRŐPONT:", html)
             self.assertNotIn("Helyhez kötött", html)
@@ -200,7 +204,7 @@ class TestDossierI18n(unittest.TestCase):
             circuit_id="",
         )
 
-        for lang in ("hu", "en", "de", "fr", "uk"):
+        for lang in ALL_LANGS:
             html = generate_html_dossier(unconfigured_report, lang=lang)
             # Must NOT display misleading 0 Mb/s cards
             self.assertNotIn("0 Mb/s", html)

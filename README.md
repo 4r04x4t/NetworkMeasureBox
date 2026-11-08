@@ -60,7 +60,7 @@ NMB records independent measurements at your network edge. It can run behind you
 │  ┌──────────────────────────────────────────────┐          ┌──────────────────────────────────────────────────┐  │
 │  │ Telegram Management Bot (nmb-telegram)       │          │ Embedded Web Management UI & API (nmb-web)       │  │
 │  │ • /status, /ping, /test, /report, /mode      │          │ • Standard router Port 80 dashboard (dev 8080)   │  │
-│  │ • Proactive push alerts (outages & loss >5%) │          │ • Tabs and subtabs in 5 languages, Logout        │  │
+│  │ • Proactive push alerts (outages & loss >5%) │          │ • Tabs and subtabs in 11 languages, Logout       │  │
 │  └──────────────────────────────────────────────┘          └──────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
                                                            │
@@ -136,12 +136,19 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 * Modern dark-themed router dashboard on **standard HTTP port 80** (with automatic unprivileged fallback to port 8080 for development).
 * **Mobile-First Ergonomics**: Sub-navigation bars (`.router-subnav`, `.remote-subnav`, `.adblock-subnav`) are styled as resilient horizontal swipe ribbons (`flex: 0 0 auto`, `nowrap`) with container-relative `scrollTo`, eliminating vertical pill squeezing and letter-wrapping on small smartphone screens (360px–420px).
 * Live inline SVG graphs, historical speed records, network device explorer (ARP sweep & MAC vendor lookup), real-time syslog inspector, and one-click diagnostic LLM bundle generation.
-* **Translations**: The Web UI has the same text keys in 5 languages, but some terms stay in English. Action names in `nmb-cli` are English:
+* **Translations**: The Web UI, the terminal UI (`nmb-cli`), the results page, the charts and the report (dossier) have the same text keys in 11 languages; some technical terms stay in English, and action names in `nmb-cli` are English. The Telegram bot speaks the first 5 so far; in the others it answers in English.
   * 🇬🇧 English (EN)
   * 🇭🇺 Hungarian (HU)
   * 🇩🇪 German (DE)
   * 🇺🇦 Ukrainian (UK)
   * 🇫🇷 French (FR)
+  * 🇷🇴 Romanian (RO)
+  * 🇮🇹 Italian (IT)
+  * 🇪🇸 Spanish (ES)
+  * 🇵🇹 Portuguese, Portugal (PT)
+  * 🇧🇷 Portuguese, Brazil (PT-BR)
+  * 🇨🇳 Chinese, Simplified (ZH)
+  The six newer languages live in `nmb/web/locales/` and `nmb/report/locales/`, one JSON file each; a missing text is shown in English, never in another language.
 * HTTP Basic Authentication with dedicated secure Logout functionality.
 
 ### 8. Universal Remote Access, VPN Hub & Tailscale Mesh
@@ -209,7 +216,7 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
   * **Prominent IP & ISP Attribution**: Every measurement sample and telemetry table prominently highlights the detected client IPv4/IPv6 addresses alongside the verified ISP provider identity.
 * **Pure Mathematical SVG Vector Engine**:
   * Zero external charting dependencies: emits responsive `<svg viewBox="0 0 800 380">` with cubic bezier curves, dual y-axes (Mbps & ms), SLA threshold baselines, and touch dot overlays.
-  * Exportable directly in 5 languages via `/dossier?lang=...` or Telegram `/report`.
+  * Exportable directly in 11 languages via `/dossier?lang=...` or Telegram `/report`.
 
 ### 13. Real-Time Task Manager (Embedded htop Engine)
 * Direct `/proc` virtual filesystem reader replacing heavy `ps` process spawning.

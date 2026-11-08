@@ -15,7 +15,7 @@ Köszönjük a segítséget. Az NMB-vel azt lehet megmutatni a szolgáltatónak,
 - **Ne árts annak a hálózatnak, amelyen a box van.** Ami címet oszt, útvonalat módosít vagy forgalmat küld, annak előbb ellenőriznie kell, hogy ez biztonságos (lásd a Wi-Fi-megosztást: soha nem oszt DHCP-t ott, ahol másik szerver válaszol), és kikapcsoláskor vissza kell állítania mindent.
 - **Tiszteld a szolgáltatásokat, amelyek felé mérsz.** Tartsd a korlátaikat (Ookla legfeljebb óránként), és a kliens azonosítsa magát őszintén.
 - **Beállítások:** minden új beállításnak olyan alapértéke legyen, ami akkor is biztonságos, ha a felhasználó soha nem nyúl hozzá; a `load_config` olvassa, a `save_config` írja, és dokumentálva van.
-- **Webes felület:** minden új szöveg a `t('kulcs', 'English fallback')` hívással megy, a kulcs mind az öt nyelven megvan (`nmb/web/i18n.py`); magyar szöveg nem kerülhet a többi nyelvbe. Minden végpont, amit a webes felület hív, az `nmb-cli`-ben is művelet (`nmb/tui/catalog.py`).
+- **Webes felület:** minden új szöveg a `t('kulcs', 'English fallback')` hívással megy, a kulcs minden nyelven megvan (`nmb/web/i18n.py`, és a JSON-fájlok az `nmb/web/locales/` alatt); magyar szöveg nem kerülhet a többi nyelvbe. Minden végpont, amit a webes felület hív, az `nmb-cli`-ben is művelet (`nmb/tui/catalog.py`).
 - **Kicsi, olvasható változtatások.** Pull requestenként egy téma. A megjegyzés azt írja le, miért, nem azt, hogy mit.
 
 ## Tesztelés (kötelező)

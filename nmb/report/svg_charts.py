@@ -505,3 +505,40 @@ def render_speedtest_chart(
     <text x="198" y="10" fill="#cbd5e1" font-size="11">{_t("measured_up", lang)}</text>
   </g>
 </svg>"""
+
+
+# More languages (same keys as English).
+_CHART_KEYS = ("no_speed_data", "no_compliance_data", "no_latency_data", "no_loss_data", "no_jitter_data", "offered_down", "guar_down",
+               "offered_up", "guar_up", "measured_down", "measured_up", "compliance_100", "compliance_80", "compliance_down", "compliance_up",
+               "latency_rtt", "jitter", "packet_loss", "jitter_ms", "outage", "loss_at", "download", "upload")
+for _lang, _texts in {
+    "ro": ("Nicio măsurare de viteză reușită în această perioadă", "Nu există date despre respectarea SLA", "Nicio telemetrie de latență în această perioadă",
+           "Nicio telemetrie de pierdere a pachetelor", "Nicio telemetrie de jitter", "Descărcare contractată", "Descărcare garantată", "Încărcare contractată",
+           "Încărcare garantată", "Descărcare măsurată (Mbps)", "Încărcare măsurată (Mbps)", "100% din viteza contractată", "Prag așteptat de 80%",
+           "% respectare la descărcare", "% respectare la încărcare", "Latență (RTT)", "Jitter", "Pierdere de pachete (%)", "Jitter de latență (ms)",
+           "Întrerupere", "pierdere la", "Descărcare", "Încărcare"),
+    "it": ("Nessun test di velocità riuscito in questo periodo", "Nessun dato sul rispetto dello SLA", "Nessuna telemetria di latenza in questo periodo",
+           "Nessuna telemetria di perdita di pacchetti", "Nessuna telemetria di jitter", "Download contrattuale", "Download garantito", "Upload contrattuale",
+           "Upload garantito", "Download misurato (Mbps)", "Upload misurato (Mbps)", "100% della velocità contrattuale", "Soglia attesa dell'80%",
+           "% rispetto in download", "% rispetto in upload", "Latenza (RTT)", "Jitter", "Perdita di pacchetti (%)", "Jitter della latenza (ms)",
+           "Interruzione", "perdita alle", "Download", "Upload"),
+    "es": ("No hay pruebas de velocidad correctas en este periodo", "No hay datos de cumplimiento del SLA", "No hay telemetría de latencia en este periodo",
+           "No hay telemetría de pérdida de paquetes", "No hay telemetría de jitter", "Descarga contratada", "Descarga garantizada", "Subida contratada",
+           "Subida garantizada", "Descarga medida (Mbps)", "Subida medida (Mbps)", "100% de la velocidad contratada", "Umbral esperado del 80%",
+           "% de cumplimiento en descarga", "% de cumplimiento en subida", "Latencia (RTT)", "Jitter", "Pérdida de paquetes (%)", "Jitter de la latencia (ms)",
+           "Corte", "pérdida a las", "Descarga", "Subida"),
+    "pt": ("Não há testes de velocidade bem-sucedidos neste período", "Não há dados de cumprimento do SLA", "Não há telemetria de latência neste período",
+           "Não há telemetria de perda de pacotes", "Não há telemetria de jitter", "Download contratado", "Download garantido", "Upload contratado",
+           "Upload garantido", "Download medido (Mbps)", "Upload medido (Mbps)", "100% da velocidade contratada", "Limiar esperado de 80%",
+           "% de cumprimento no download", "% de cumprimento no upload", "Latência (RTT)", "Jitter", "Perda de pacotes (%)", "Jitter da latência (ms)",
+           "Falha", "perda às", "Download", "Upload"),
+    "pt-br": ("Nenhum teste de velocidade bem-sucedido neste período", "Não há dados de cumprimento do SLA", "Nenhuma telemetria de latência neste período",
+              "Nenhuma telemetria de perda de pacotes", "Nenhuma telemetria de jitter", "Download contratado", "Download garantido", "Upload contratado",
+              "Upload garantido", "Download medido (Mbps)", "Upload medido (Mbps)", "100% da velocidade contratada", "Limite esperado de 80%",
+              "% de cumprimento no download", "% de cumprimento no upload", "Latência (RTT)", "Jitter", "Perda de pacotes (%)", "Jitter da latência (ms)",
+              "Queda", "perda às", "Download", "Upload"),
+    "zh": ("此期间没有成功的测速记录", "没有 SLA 达标数据", "此期间没有延迟遥测数据", "没有丢包遥测数据", "没有延迟抖动遥测数据",
+           "合同下载速度", "保证下载速度", "合同上传速度", "保证上传速度", "实测下载（Mbps）", "实测上传（Mbps）", "合同速度的 100%",
+           "预期门槛 80%", "下载达标率 %", "上传达标率 %", "延迟（RTT）", "抖动", "丢包（%）", "延迟抖动（ms）", "中断", "丢包于", "下载", "上传"),
+}.items():
+    CHART_I18N[_lang] = dict(zip(_CHART_KEYS, _texts))

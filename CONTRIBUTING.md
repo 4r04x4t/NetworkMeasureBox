@@ -15,7 +15,7 @@ Thank you for helping. NMB is used to show an internet provider what a line real
 - **Do not harm the network the box is on.** Anything that hands out addresses, changes routes or sends traffic must check first that it is safe (see the Wi-Fi sharing: it never serves DHCP where another server answers) and must undo itself when switched off.
 - **Respect the services you measure against.** Keep to their limits (Ookla at most hourly) and identify the client honestly.
 - **Settings:** every new setting has a default that is safe when the user never touches it, is read in `load_config`, written in `save_config`, and is documented.
-- **Web UI:** every new text goes through `t('key', 'English fallback')` with the key in all five languages (`nmb/web/i18n.py`); no Hungarian text in the other languages. Every endpoint the Web UI calls is also an action of `nmb-cli` (`nmb/tui/catalog.py`).
+- **Web UI:** every new text goes through `t('key', 'English fallback')` with the key in every language (`nmb/web/i18n.py`, and the JSON files in `nmb/web/locales/`); no Hungarian text in the other languages. Every endpoint the Web UI calls is also an action of `nmb-cli` (`nmb/tui/catalog.py`).
 - **Small, readable changes.** One topic per pull request. Comments say why, not what.
 
 ## Testing (required)

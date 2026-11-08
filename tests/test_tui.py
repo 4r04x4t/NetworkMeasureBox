@@ -109,7 +109,8 @@ class RenderTest(unittest.TestCase):
 
     def test_all_languages_have_all_texts(self):
         self.assertEqual({len(v) for v in TEXTS.values()}, {12})
-        self.assertEqual(set(TEXTS), {"en", "hu", "de", "fr", "uk"})
+        from nmb.web.i18n import SUPPORTED_LANGUAGES
+        self.assertEqual(set(TEXTS), set(SUPPORTED_LANGUAGES))   # the terminal speaks every Web UI language
 
 
 if __name__ == "__main__":

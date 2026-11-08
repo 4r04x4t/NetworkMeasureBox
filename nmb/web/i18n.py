@@ -6429,8 +6429,76 @@ for _key, _values in _EXTRA_TRANSLATIONS.items():
     for _lang, _value in zip(("en", "hu", "de", "fr", "uk"), _values):
         TRANSLATIONS[_lang].setdefault(_key, _value)
 
+# Texts that described older behaviour, corrected in every language (en, hu, de, fr, uk).
+_CORRECTIONS = {
+    "engine_desc_all": (
+        "🏆 <b>Combined:</b> Runs Ookla, Cloudflare Edge, Fast.com and RTR-NetTest in turn, and iPerf3 too when an iPerf3 server is set and answers.",
+        "🏆 <b>Vegyes:</b> sorban futtatja az Ooklát, a Cloudflare Edge-et, a Fast.com-ot és az RTR-NetTestet, az iPerf3-at pedig akkor, ha be van állítva egy válaszoló iPerf3-szerver.",
+        "🏆 <b>Kombiniert:</b> führt nacheinander Ookla, Cloudflare Edge, Fast.com und RTR-NetTest aus, und iPerf3, wenn ein antwortender iPerf3-Server eingestellt ist.",
+        "🏆 <b>Combiné :</b> exécute tour à tour Ookla, Cloudflare Edge, Fast.com et RTR-NetTest, ainsi qu'iPerf3 si un serveur iPerf3 qui répond est défini.",
+        "🏆 <b>Комбінований:</b> по черзі запускає Ookla, Cloudflare Edge, Fast.com і RTR-NetTest, а також iPerf3, якщо задано сервер iPerf3, що відповідає."),
+    "invasive_antiban_sub": (
+        "When Ookla refuses the box (HTTP 429 / \"Limit reached\"), Ookla is paused; no other engine's result is stored in its place.",
+        "Ha az Ookla elutasítja a boxot (HTTP 429 / „Limit reached”), az Ookla szünetel; a helyére nem kerül más motor eredménye.",
+        "Wenn Ookla die Box ablehnt (HTTP 429 / „Limit reached“), pausiert Ookla; an seiner Stelle wird kein Ergebnis eines anderen Motors gespeichert.",
+        "Quand Ookla refuse le boîtier (HTTP 429 / « Limit reached »), Ookla est mis en pause ; aucun résultat d'un autre moteur n'est enregistré à sa place.",
+        "Коли Ookla відмовляє пристрою (HTTP 429 / «Limit reached»), Ookla призупиняється; замість нього не зберігається результат іншого рушія."),
+    "ookla_warn_paused": (
+        "Ookla is paused for {paused} min; until then the box measures with the other engines.",
+        "Az Ookla még {paused} percig szünetel; addig a box a többi motorral mér.",
+        "Ookla ist für {paused} Min. pausiert; bis dahin misst die Box mit den anderen Motoren.",
+        "Ookla est en pause pendant {paused} min ; d'ici là, le boîtier mesure avec les autres moteurs.",
+        "Ookla призупинено на {paused} хв; до того часу пристрій вимірює іншими рушіями."),
+    "ookla_server_only_hint": (
+        "Only Ookla uses this server. RTR-NetTest, Cloudflare, Fast.com and iPerf3 choose their own servers.",
+        "Ezt a szervert csak az Ookla használja. Az RTR-NetTest, a Cloudflare, a Fast.com és az iPerf3 maga választ szervert.",
+        "Nur Ookla nutzt diesen Server. RTR-NetTest, Cloudflare, Fast.com und iPerf3 wählen ihre eigenen Server.",
+        "Seul Ookla utilise ce serveur. RTR-NetTest, Cloudflare, Fast.com et iPerf3 choisissent leurs propres serveurs.",
+        "Цей сервер використовує лише Ookla. RTR-NetTest, Cloudflare, Fast.com і iPerf3 обирають власні сервери."),
+    "ookla_warn_risk": (
+        "This schedule runs every {interval} min. Ookla blocks boxes that test too often, so the box runs Ookla at most every {safe} min; RTR-NetTest, Cloudflare, Fast.com and iPerf3 run every time.",
+        "Ez az ütemezés {interval} percenként fut. Az Ookla letiltja a túl gyakran mérő eszközöket, ezért a box legfeljebb {safe} percenként futtatja az Ooklát; az RTR-NetTest, a Cloudflare, a Fast.com és az iPerf3 minden alkalommal fut.",
+        "Dieser Zeitplan läuft alle {interval} Min. Ookla sperrt Boxen, die zu oft messen, deshalb führt die Box Ookla höchstens alle {safe} Min. aus; RTR-NetTest, Cloudflare, Fast.com und iPerf3 laufen jedes Mal.",
+        "Cette planification s'exécute toutes les {interval} min. Ookla bloque les boîtiers qui mesurent trop souvent, donc le boîtier lance Ookla au plus toutes les {safe} min ; RTR-NetTest, Cloudflare, Fast.com et iPerf3 s'exécutent à chaque fois.",
+        "Цей розклад запускається кожні {interval} хв. Ookla блокує пристрої, що вимірюють надто часто, тому пристрій запускає Ookla не частіше ніж кожні {safe} хв; RTR-NetTest, Cloudflare, Fast.com і iPerf3 запускаються щоразу."),
+    "port_matrix_desc": (
+        "Map physical NICs, USB adapters, and PCIe ports to WAN1, Secondary WAN2, Bridged LAN (br-lan), Guest Wi-Fi client, Main Wi-Fi client or DMZ.",
+        "A fizikai hálókártyák, USB-adapterek és PCIe-portok szerepe: WAN1, másodlagos WAN2, hidalt LAN (br-lan), vendég Wi-Fi-kliens, fő Wi-Fi-kliens vagy DMZ.",
+        "Ordnen Sie physische Netzwerkkarten, USB-Adapter und PCIe-Ports den Rollen WAN1, sekundäres WAN2, LAN-Brücke (br-lan), Gast-WLAN-Client, Haupt-WLAN-Client oder DMZ zu.",
+        "Attribuez les cartes réseau physiques, adaptateurs USB et ports PCIe aux rôles WAN1, WAN2 secondaire, LAN ponté (br-lan), client Wi-Fi invité, client Wi-Fi principal ou DMZ.",
+        "Призначте фізичним мережевим картам, USB-адаптерам і портам PCIe ролі WAN1, резервний WAN2, LAN-міст (br-lan), гостьовий клієнт Wi-Fi, основний клієнт Wi-Fi або DMZ."),
+    "sniffer_desc": (
+        "Inspect raw network packets across WAN, LAN, or Wi-Fi interfaces simultaneously.",
+        "Nyers hálózati csomagok vizsgálata a WAN, LAN vagy Wi-Fi interfészeken, akár egyszerre.",
+        "Rohe Netzwerkpakete auf WAN-, LAN- oder WLAN-Schnittstellen untersuchen, auch gleichzeitig.",
+        "Inspectez les paquets réseau bruts sur les interfaces WAN, LAN ou Wi-Fi, y compris simultanément.",
+        "Перегляд сирих мережевих пакетів на інтерфейсах WAN, LAN або Wi-Fi, також одночасно."),
+}
+for _key, _values in _CORRECTIONS.items():
+    for _lang, _value in zip(("en", "hu", "de", "fr", "uk"), _values):
+        TRANSLATIONS[_lang][_key] = _value
+
+# More languages, one JSON file each in nmb/web/locales/ (key -> text). A key missing there is shown
+# in English, never in another language.
+LOCALE_LANGUAGES = ("ro", "it", "es", "pt", "pt-br", "zh")
+_LOCALE_DIR = __import__("pathlib").Path(__file__).with_name("locales")
+for _code in LOCALE_LANGUAGES:
+    _file = _LOCALE_DIR / f"{_code.replace('-', '_')}.json"
+    try:
+        _data = __import__("json").loads(_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        _data = {}
+    TRANSLATIONS[_code] = {k: v for k, v in _data.items() if isinstance(v, str) and k in TRANSLATIONS["en"]}
+
+# Native names for the language menus, in menu order.
+LANGUAGE_NAMES = {
+    "en": "English", "hu": "Magyar", "de": "Deutsch", "fr": "Français", "uk": "Українська",
+    "ro": "Română", "it": "Italiano", "es": "Español", "pt": "Português (Portugal)",
+    "pt-br": "Português (Brasil)", "zh": "中文（简体）",
+}
+
 DEFAULT_LANGUAGE = "en"
-SUPPORTED_LANGUAGES = ["en", "hu", "de", "uk", "fr"]
+SUPPORTED_LANGUAGES = list(LANGUAGE_NAMES)
 
 def get_translation(key: str, lang: str = DEFAULT_LANGUAGE) -> str:
     """Retrieve translated string with fallback chain."""

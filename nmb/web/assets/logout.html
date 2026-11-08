@@ -171,6 +171,12 @@
         <option value="de">Deutsch (DE)</option>
         <option value="uk">Українська (UK)</option>
         <option value="fr">Français (FR)</option>
+        <option value="ro">Română (RO)</option>
+        <option value="it">Italiano (IT)</option>
+        <option value="es">Español (ES)</option>
+        <option value="pt">Português (PT)</option>
+        <option value="pt-br">Português (BR)</option>
+        <option value="zh">中文 (ZH)</option>
       </select>
     </div>
   </div>
@@ -209,8 +215,9 @@
     }
 
     // Auto-detect language
-    const preferredLang = (navigator.language || 'en').slice(0, 2).toLowerCase();
-    const activeLang = ['en', 'hu', 'de', 'uk', 'fr'].includes(preferredLang) ? preferredLang : 'en';
+    const navLang = (navigator.language || 'en').toLowerCase();
+    const preferredLang = navLang === 'pt-br' ? 'pt-br' : navLang.slice(0, 2);
+    const activeLang = ['en', 'hu', 'de', 'uk', 'fr', 'ro', 'it', 'es', 'pt', 'pt-br', 'zh'].includes(preferredLang) ? preferredLang : 'en';
     const sel = document.getElementById('lang-select');
     if (sel) sel.value = activeLang;
     loadTranslations(activeLang);

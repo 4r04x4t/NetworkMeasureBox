@@ -128,3 +128,27 @@ def render_results_page(lang: str, box_id: str = "") -> str:
 </body>
 </html>
 """
+
+
+# More languages (same keys as English).
+TEXT.update({
+    "ro": {"title": "Rezultatele măsurătorilor", "intro": "Descărcați rezultatele acestui dispozitiv de măsurare și trimiteți-le specialistului care le-a cerut.",
+           "report": "Raport complet (HTML, ultimele 24 de ore)", "speed": "Teste de viteză (CSV)", "speed_detailed": "Teste de viteză cu toate detaliile (CSV)",
+           "ping": "Rezumat ping (CSV, ultimele 24 de ore)", "note": "Doar citire. Schimbarea setărilor cere parola administratorului."},
+    "it": {"title": "Risultati delle misurazioni", "intro": "Scarica i risultati di questo dispositivo di misurazione e inviali allo specialista che li ha richiesti.",
+           "report": "Rapporto completo (HTML, ultime 24 ore)", "speed": "Test di velocità (CSV)", "speed_detailed": "Test di velocità con tutti i dettagli (CSV)",
+           "ping": "Riepilogo ping (CSV, ultime 24 ore)", "note": "Sola lettura. Per cambiare le impostazioni serve la password dell'amministratore."},
+    "es": {"title": "Resultados de las mediciones", "intro": "Descargue los resultados de este dispositivo de medición y envíelos al especialista que los pidió.",
+           "report": "Informe completo (HTML, últimas 24 horas)", "speed": "Pruebas de velocidad (CSV)", "speed_detailed": "Pruebas de velocidad con todos los detalles (CSV)",
+           "ping": "Resumen de ping (CSV, últimas 24 horas)", "note": "Solo lectura. Para cambiar los ajustes hace falta la contraseña del administrador."},
+    "pt": {"title": "Resultados das medições", "intro": "Transfira os resultados deste dispositivo de medição e envie-os ao especialista que os pediu.",
+           "report": "Relatório completo (HTML, últimas 24 horas)", "speed": "Testes de velocidade (CSV)", "speed_detailed": "Testes de velocidade com todos os detalhes (CSV)",
+           "ping": "Resumo do ping (CSV, últimas 24 horas)", "note": "Só de leitura. Para alterar as definições é precisa a palavra-passe do administrador."},
+    "pt-br": {"title": "Resultados das medições", "intro": "Baixe os resultados deste dispositivo de medição e envie-os ao especialista que os pediu.",
+              "report": "Relatório completo (HTML, últimas 24 horas)", "speed": "Testes de velocidade (CSV)", "speed_detailed": "Testes de velocidade com todos os detalhes (CSV)",
+              "ping": "Resumo do ping (CSV, últimas 24 horas)", "note": "Somente leitura. Para alterar as configurações é preciso a senha do administrador."},
+    "zh": {"title": "测量结果", "intro": "下载本测量设备的结果，并发送给向您索取结果的专家。",
+           "report": "完整报告（HTML，最近 24 小时）", "speed": "测速记录（CSV）", "speed_detailed": "包含全部详情的测速记录（CSV）",
+           "ping": "Ping 汇总（CSV，最近 24 小时）", "note": "只读。更改设置需要管理员密码。"},
+})
+LANGS = tuple(TEXT)

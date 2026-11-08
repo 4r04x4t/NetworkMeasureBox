@@ -138,7 +138,7 @@ bash -n setup.sh                               # when setup.sh changed
 
 - New behaviour gets a test in `tests/`. Mock the system (`subprocess`, `/sys`, sockets); tests must pass on a normal PC without root, without network and without the box.
 - `tests/test_tui.py` fails when the Web UI calls an endpoint `nmb-cli` does not know: add the action to `nmb/tui/catalog.py`.
-- Translations: every key in all five languages, no Hungarian text in the other languages:
+- Translations: every key in every language (`tests/test_i18n_locales.py` checks the JSON languages: all keys, same placeholders and HTML as English), no Hungarian text in the other languages:
   `python3 -c "from nmb.web.i18n import TRANSLATIONS as T; k=set(T['en']); print({l: len(k ^ set(v)) for l, v in T.items()})"` must print only zeros.
 
 ### 2. On a real box (anything that touches the network, the system or measuring)
@@ -194,7 +194,7 @@ For every row: where (Box, VM name, unit tests), the result (✅ ⚠️ ❌), an
 | Telegram, SMTP | Against local mock servers, then a real bot |
 | Update from GitHub on a box | Once the current code is on GitHub |
 | Central collector between two machines | Collector on one PC, box on another network |
-| Web UI | All five languages, several users at once, wrong logins, Firefox, Chrome and a phone |
+| Web UI | All 11 languages (the six newer ones were machine-assisted translations: a native speaker should read them), several users at once, wrong logins, Firefox, Chrome and a phone |
 | firewalld ports, Debian 12 and Fedora reboot, Tailscale, OONI, a real DuckDNS domain | |
 
 ### Operating systems not yet tested
