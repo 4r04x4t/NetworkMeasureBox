@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- De-Pythonization roadmap and porting plan: *Generic First* — the native code is written platform- and architecture-independent and proven on a PC (x86-64) and the Raspberry Pi 4 (ARM64) before any router work, with a build matrix (amd64 and arm64 built and tested, arm, mips and mipsle cross-compiled from the start).
 - Testing record (`docs/TESTING.md`, `docs/TESTING.hu.md`): the bot, settings-merge, Wi-Fi password, CLI coverage, service restart and secrets results; new rules for mocks, restarted processes, long checks on the box and secrets; the release checklist grows from 18 to 24 steps.
 - Web UI: a *Disk space* card in the settings (automatic cleanup on/off, minimum free space, days of measurements always kept, "Check and clean up now" and the current free space), in all 11 languages.
 - `nmb-cli`: automatic disk cleanup settings and "clean up now" (`storage.save`, `storage.cleanup`, new `/api/storage/*` endpoints), the main Wi-Fi client port role in `ports.roles`, and the diagnostic bundle and deep snapshot downloads.

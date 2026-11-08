@@ -437,7 +437,7 @@ Symlinking the binary allows full backwards compatibility with existing systemd/
 
 ## 6. Four-Phase Hybrid Migration Roadmap
 
-To avoid disruption to existing installations, the migration follows a phased hybrid approach:
+To avoid disruption to existing installations, the migration follows a phased hybrid approach. Every phase is first built as generic, architecture-independent code and proven on a PC (x86-64) and the Raspberry Pi 4 (ARM64) before any router work (see *Generic First* below):
 
 ```mermaid
 timeline
@@ -460,6 +460,22 @@ timeline
         Hardware Driver Autodiscovery : Direct sysfs scanning
         OpenWrt .ipk & procd Init : Official feed distribution for routers
 ```
+
+### Generic First: Platform- and Architecture-Independent Code
+
+The native code is written generic first. Development continues on an ordinary PC (Linux, x86-64) and on the Raspberry Pi 4 (Linux, ARM64), so the first native build must run on both from the same source, with the same results. Router targets (MIPS, 32-bit ARM, Broadcom) come only after this generic build passes the Quality Bar below on both machines; nothing router-specific is written before that.
+
+Rules for every component:
+
+1. **One source tree, no per-architecture code paths in the core.** Measuring, the database, the web server, the API, the bot, alerts and reports are plain portable code: Go without cgo (`CGO_ENABLED=0`), or C11 with POSIX only. No inline assembly, no CPU-specific instructions, no `#ifdef __aarch64__` in the core.
+2. **Platform specifics behind small interfaces.** Netlink routes, nl80211 Wi-Fi, firewall (nftables), service control (systemd, OpenRC, later procd) and hardware discovery each sit behind one interface with a generic Linux implementation first. A router backend is added later as another implementation of the same interface, not as changes spread through the code.
+3. **Detect at run time, not at build time.** Interface names, radios, firmware, available tools and memory are discovered on the running system (as the Python version does); nothing assumes `eth0`, `wlan0`, a fixed path or a fixed amount of RAM.
+4. **Portable data handling.** Byte order is explicit in every network protocol and file format (later targets such as the TL-WR740N and RT-N12+ are big- or little-endian MIPS); no unaligned memory access; 64-bit counters and atomics written so they also work on 32-bit CPUs; sizes and time in fixed-width types. On-disk formats (database, config, backups) are the same on every architecture, so a backup from a PC restores on a Pi and later on a router.
+5. **Same behaviour as the Python reference on both machines.** The Phase 0 golden files and the release checklist in `docs/TESTING.md` pass on the PC and on the Pi 4; speed results on the same line agree within measurement noise.
+6. **Build and test matrix from day one.** Every change builds and runs its tests for `linux/amd64` (PC) and `linux/arm64` (Pi 4). It also cross-compiles, without running, for `linux/arm` (32-bit), `linux/mips` and `linux/mipsle`, so code that would break on the later router targets is caught early, while it is cheap to fix.
+7. **Resource limits stay in view.** The generic build already reports its CPU, memory and binary size on the Pi 4; a component that only fits on a PC is not generic and is not finished.
+
+Only when a component meets these rules on the PC and the Pi 4 does porting it to a router start (see `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md`).
 
 ### Quality Bar: At Least as Good as the Python Version, and Better
 

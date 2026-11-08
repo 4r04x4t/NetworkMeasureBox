@@ -478,6 +478,7 @@ A 8600-as porton figyel. Tedd HTTPS-es fordított proxy mögé, vagy indítsd `-
 > **Állapot: csak terv.** Az NMB jelenleg Raspberry Pi 4-en készül és fut. Routerre még nincs sem szoftver, sem firmware; az alábbi számok tervezési célok, nem mérések.
 
 A NetworkMeasureBox kereskedelmi routereken való futtatásának terve (akár **4 MB Flash és 32 MB RAM** mellett):
+* **Először általános kód**: a natív kód platform- és architektúrafüggetlenül készül, és előbb PC-n (x86-64) és Raspberry Pi 4-en (ARM64) kell lefordulnia, átmennie a teszteken és bizonyítania, csak utána jöhetnek a routerek; a router-célok később ugyanannak a kódnak a háttérmoduljaiként kerülnek be. Lásd a `DEPYTHONIZATION_ROADMAP.md` *Generic First* részét.
 * **Minőségi követelmény**: a natív változatnak legalább olyan hibátlanul kell futnia, mint a Pythonosnak, a menet közben talált hibákat ki kell javítani (nem átvinni), és mérhetően jobbnak kell lennie (CPU, memória, indulás, naplózás, biztonságos frissítés); egy komponens csak ennek leírt bizonyítékával válthatja le a Python-megfelelőjét. Lásd a `DEPYTHONIZATION_ROADMAP.md` *Quality Bar* részét.
 * **Egységes Statikus Bináris (`nmbd`)**: **Go 1.23+** (Tier 1) és **C11 musl-libc** (Tier 2 & 3) alapon, zéró külső csomagfüggőséggel.
 * **Célhardver Portolási Kézikönyvek & WikiDevi Hardver Profilok**:

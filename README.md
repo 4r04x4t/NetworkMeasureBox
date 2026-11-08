@@ -254,6 +254,7 @@ It listens on port 8600. Put it behind an HTTPS reverse proxy or start it with `
 > **Status: planned only.** NMB is developed and run on the Raspberry Pi 4. No router software or firmware exists yet; the figures below are design targets, not measurements.
 
 The plan for running NetworkMeasureBox on commercial routers with as little as **4MB Flash and 32MB RAM**:
+* **Generic first**: the native code is written platform- and architecture-independent, and built, tested and proven on a PC (x86-64) and the Raspberry Pi 4 (ARM64) before any router work; router targets are added later as backends of the same code. See *Generic First* in `DEPYTHONIZATION_ROADMAP.md`.
 * **Quality bar**: the native build must run at least as flawlessly as the Python version, fix the bugs found on the way instead of carrying them over, and be measurably better (CPU, memory, start-up, logging, safe updates); a component replaces its Python counterpart only with that evidence written down. See *Quality Bar* in `DEPYTHONIZATION_ROADMAP.md`.
 * **Unified Single Binary (`nmbd`)**: Written in **Go 1.23+** (Tier 1) and **C11 with Musl libc** (Tier 2 & 3), completely eliminating Python 3, pip, and all runtime packages.
 * **Target Hardware Porting Specifications & WikiDevi Profiles**:
