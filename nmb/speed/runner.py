@@ -328,6 +328,12 @@ def _run_single_engine(
         log.debug("suppressed exception", exc_info=True)
 
     conn_type = getattr(cfg.isp, "connection_type", "fiber")
+    try:
+        from nmb.netd.interfaces import usb_tether_kind
+        if bound_iface and usb_tether_kind(bound_iface):
+            conn_type = "fwa"   # measured over a phone, hotspot or modem on USB: mobile, whatever the home line is
+    except Exception:
+        log.debug("connection type check failed", exc_info=True)
     with db.tx(conn):
         conn.execute(
             """INSERT INTO speedtest (
@@ -754,6 +760,33 @@ def run_measurement_cycle(
         finally:
             budget_conn.close()
 
+    # 0c. Mobile data over USB has its own daily limit, for every trigger (a manual test costs the same).
+    try:
+        from nmb.netd.interfaces import usb_tether_kind
+        over_usb = getattr(cfg.network, "measurement_link", "auto") == "usb" or bool(target_iface and usb_tether_kind(target_iface))
+    except Exception:
+        over_usb = False
+    if over_usb:
+        from nmb.netd import usb_uplink
+        usb_limit = float(getattr(getattr(cfg, "usb_uplink", None), "daily_limit_mb", 0) or 0)
+        if usb_limit > 0:
+            budget_conn = db.connect()
+            try:
+                over_limit, used_mb = data_budget.limit_reached(budget_conn, usb_limit, key=usb_uplink.USAGE_KEY)
+                if over_limit:
+                    reason = f"skipped: daily USB data limit reached ({used_mb:.0f} of {usb_limit:.0f} MB used today)"
+                    log.warning("speed test %s", reason)
+                    if outcome is not None:
+                        outcome["data_limit"] = True
+                    with db.tx(budget_conn):
+                        budget_conn.execute(
+                            "INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
+                            (now_ms, trigger, reason, engine),
+                        )
+                    return False
+            finally:
+                budget_conn.close()
+
     # 1. Enforce Traffic Gate (Idle check with < 2% network load condition)
     tg_mode = getattr(cfg.speedtest, "idle_threshold_mode", "percent")
     thresh_pct = getattr(cfg.speedtest, "idle_threshold_percent", 2.0)
@@ -921,7 +954,15 @@ def run_measurement_cycle(
                     break
     finally:
         stop_watch.set()
-        data_budget.add_usage_mb(conn, (data_budget.interface_bytes(usage_iface) - usage_start) / 1_000_000.0)
+        used_now = (data_budget.interface_bytes(usage_iface) - usage_start) / 1_000_000.0
+        data_budget.add_usage_mb(conn, used_now)
+        try:
+            from nmb.netd.interfaces import usb_tether_kind
+            if usage_iface and usb_tether_kind(usage_iface):
+                from nmb.netd.usb_uplink import USAGE_KEY
+                data_budget.add_usage_mb(conn, used_now, key=USAGE_KEY)
+        except Exception:
+            log.debug("usb usage accounting failed", exc_info=True)
 
     if token.is_set():
         if outcome is not None:

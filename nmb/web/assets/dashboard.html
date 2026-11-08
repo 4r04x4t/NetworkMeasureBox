@@ -2540,6 +2540,7 @@
               <option value="auto" data-i18n="meas_link_auto">Ethernet when a cable is connected, otherwise Wi-Fi</option>
               <option value="ethernet" data-i18n="meas_link_eth">Ethernet only</option>
               <option value="wifi" data-i18n="meas_link_wifi">Wi-Fi only</option>
+              <option value="usb" data-i18n="meas_link_usb">USB tethering only (phone, mobile hotspot or modem)</option>
             </select>
             <div class="form-hint" data-i18n="wifi_uplink_hint">Wi-Fi reception: the box joins your own Wi-Fi network to measure over it. This is separate from the guest network client, which is for packet capture on another network.</div>
             <div class="router-row-3" style="margin-top: 8px;">
@@ -2554,6 +2555,22 @@
               <button type="button" class="btn-secondary" onclick="wifiUplinkAction('disconnect')" data-i18n="wu_disconnect">Disconnect</button>
             </div>
             <div class="form-hint" id="wu-status" aria-live="polite" style="margin-top: 6px;"></div>
+          </div>
+
+          <!-- A phone, mobile hotspot or modem on USB as a measuring link -->
+          <div id="usb-uplink-card" style="border: 1px solid #1e293b; border-radius: 8px; padding: 12px; margin-top: 10px;">
+            <label class="form-label" style="font-size: 13px;" data-i18n="uu_title">USB tethering (phone, mobile hotspot, modem)</label>
+            <div class="form-hint" data-i18n="uu_hint">The device gets its own address but never the box's default route, so the box's traffic and the outage probe stay on the wired line. To measure the mobile link, choose "USB tethering only" above. Results over USB are stored as mobile.</div>
+            <div class="router-row-3" style="margin-top: 8px;">
+              <div class="form-group"><label class="form-label" for="uu-iface" data-i18n="uu_iface">USB interface</label><select id="uu-iface" class="form-input"><option value="auto">auto</option></select></div>
+              <div class="form-group"><label class="form-label" for="uu-limit" data-i18n="uu_limit">Daily data limit for tests over USB (MB, 0 = no limit)</label><input type="number" id="uu-limit" class="form-input" min="0" max="1000000" step="1"></div>
+            </div>
+            <label class="form-label" style="display: flex; gap: 8px; align-items: center;"><input type="checkbox" id="uu-enabled"> <span data-i18n="uu_enabled">Use the device on USB</span></label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+              <button type="button" class="btn-primary" onclick="saveUsbUplink()" data-i18n="col_save">Save</button>
+              <button type="button" class="btn-secondary" onclick="usbUplinkOff()" data-i18n="uu_disconnect">Turn off</button>
+            </div>
+            <div class="form-hint" id="uu-status" aria-live="polite" style="margin-top: 6px;"></div>
           </div>
 
           <!-- The Wi-Fi internet on the LAN port, with the box's own DHCP -->

@@ -1370,5 +1370,17 @@
  "st_status": "{free} MB livres de {total} MB; a limpeza começa abaixo de {target} MB.",
  "st_last": "Última verificação: {result}, {n} item(ns) excluído(s).",
  "wifi_psk_set": "Definida. Deixe vazio para mantê-la.",
- "wifi_psk_unset": "Não definida: o ponto de acesso fica desligado até você definir uma senha (8-63 caracteres)."
+ "wifi_psk_unset": "Não definida: o ponto de acesso fica desligado até você definir uma senha (8-63 caracteres).",
+ "meas_link_usb": "Só ancoragem USB (celular, hotspot móvel ou modem)",
+ "uu_title": "Ancoragem USB (celular, hotspot móvel, modem)",
+ "uu_hint": "O dispositivo recebe o próprio endereço mas nunca a rota padrão da caixa, então o tráfego da caixa e a sonda de quedas ficam na linha cabeada. Para medir o link móvel, escolha acima \"Só ancoragem USB\". Os resultados via USB são salvos como móveis.",
+ "uu_iface": "Interface USB",
+ "uu_limit": "Limite diário de dados dos testes via USB (MB, 0 = sem limite)",
+ "uu_enabled": "Usar o dispositivo USB",
+ "uu_disconnect": "Desligar",
+ "uu_status_none": "Nenhum celular, hotspot ou modem no USB.",
+ "uu_status_up": "{iface} ({device}): IP {ip}, gateway {gw}.",
+ "uu_status_down": "{iface} encontrado ({device}), não conectado.",
+ "uu_used": "Usado hoje pelos testes via USB: {used} MB",
+ "uu_no_limit": "sem limite"
 }

@@ -1370,5 +1370,17 @@
  "st_status": "{total} MB 中可用 {free} MB；低于 {target} MB 时开始清理。",
  "st_last": "上次检查：{result}，已删除 {n} 项。",
  "wifi_psk_set": "已设置。留空则保持不变。",
- "wifi_psk_unset": "未设置：在设置密码（8-63 个字符）之前，接入点不会开启。"
+ "wifi_psk_unset": "未设置：在设置密码（8-63 个字符）之前，接入点不会开启。",
+ "meas_link_usb": "仅 USB 共享网络（手机、移动热点或调制解调器）",
+ "uu_title": "USB 共享网络（手机、移动热点、调制解调器）",
+ "uu_hint": "该设备获得自己的地址，但永远不会成为本设备的默认路由，因此本设备的流量和断线探测仍走有线线路。要测量移动链路，请在上方选择“仅 USB 共享网络”。通过 USB 的结果记为移动网络。",
+ "uu_iface": "USB 接口",
+ "uu_limit": "USB 测速每日流量上限（MB，0 = 不限）",
+ "uu_enabled": "使用 USB 设备",
+ "uu_disconnect": "关闭",
+ "uu_status_none": "USB 上没有手机、热点或调制解调器。",
+ "uu_status_up": "{iface}（{device}）：IP {ip}，网关 {gw}。",
+ "uu_status_down": "已找到 {iface}（{device}），未连接。",
+ "uu_used": "今天 USB 测速已用：{used} MB",
+ "uu_no_limit": "不限"
 }

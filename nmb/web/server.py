@@ -787,6 +787,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                              "last_cleanup": storage_guard.status()})
             return
 
+        if path == "/api/usb-uplink/status":
+            from nmb.netd import usb_uplink
+            self._send_json(usb_uplink.status(self.server.cfg))
+            return
+
         if path == "/api/wifi-share/status":
             from nmb.netd import wifi_share
             self._send_json(wifi_share.status(self.server.cfg))
@@ -2458,6 +2463,42 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             else:
                 ok, msg = wifi_uplink.disconnect(self.server.cfg)
             st = wifi_uplink.status(self.server.cfg)
+            st.update(status="ok" if ok else "error", message=msg)
+            self._send_json(st, status=200 if ok else 400)
+            return
+
+        if path in ("/api/usb-uplink/save", "/api/usb-uplink/disconnect"):
+            from nmb.netd import usb_uplink, wifi_uplink
+            uu = self.server.cfg.usb_uplink
+            if path.endswith("/save"):
+                link = str(body_json.get("measurement_link", self.server.cfg.network.measurement_link)).lower()
+                if link in wifi_uplink.LINKS:
+                    self.server.cfg.network.measurement_link = link
+                iface = str(body_json.get("interface", uu.interface)).strip()
+                if iface == "auto" or iface in usb_uplink.tether_interfaces():
+                    uu.interface = iface
+                if "daily_limit_mb" in body_json:
+                    try:
+                        uu.daily_limit_mb = max(0, min(1_000_000, int(body_json["daily_limit_mb"])))
+                    except (TypeError, ValueError):
+                        self._send_json({"status": "error", "message": "The daily limit must be a whole number of MB (0 = no limit)."}, status=400)
+                        return
+                uu.enabled = bool(body_json.get("enabled", uu.enabled))
+                save_config(self.server.cfg)
+                self._notify_daemon_reload()
+                ok, msg = True, "Saved."
+                if uu.enabled:
+                    ok, msg = usb_uplink.connect(self.server.cfg)
+                else:
+                    usb_uplink.disconnect(self.server.cfg)
+            else:
+                self.server.cfg.usb_uplink.enabled = False
+                if self.server.cfg.network.measurement_link == "usb":
+                    self.server.cfg.network.measurement_link = "auto"
+                save_config(self.server.cfg)
+                self._notify_daemon_reload()
+                ok, msg = usb_uplink.disconnect(self.server.cfg)
+            st = usb_uplink.status(self.server.cfg)
             st.update(status="ok" if ok else "error", message=msg)
             self._send_json(st, status=200 if ok else 400)
             return

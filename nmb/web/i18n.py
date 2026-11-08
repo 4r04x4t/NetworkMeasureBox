@@ -6544,6 +6544,82 @@ _STORAGE_TEXTS = {
 for _lang, _texts in _STORAGE_TEXTS.items():
     TRANSLATIONS.setdefault(_lang, {}).update(_texts)
 
+# USB tethering card (Settings).
+_USB_TEXTS = {
+    "en": {
+        "meas_link_usb": "USB tethering only (phone, mobile hotspot or modem)",
+        "uu_title": "USB tethering (phone, mobile hotspot, modem)",
+        "uu_hint": "The device gets its own address but never the box's default route, so the box's traffic and the outage probe stay on the wired line. To measure the mobile link, choose \"USB tethering only\" above. Results over USB are stored as mobile.",
+        "uu_iface": "USB interface",
+        "uu_limit": "Daily data limit for tests over USB (MB, 0 = no limit)",
+        "uu_enabled": "Use the device on USB",
+        "uu_disconnect": "Turn off",
+        "uu_status_none": "No phone, hotspot or modem on USB.",
+        "uu_status_up": "{iface} ({device}): IP {ip}, gateway {gw}.",
+        "uu_status_down": "{iface} found ({device}), not connected.",
+        "uu_used": "Used today by tests over USB: {used} MB",
+        "uu_no_limit": "no limit"
+    },
+    "hu": {
+        "meas_link_usb": "Csak USB tethering (telefon, mobil hotspot vagy modem)",
+        "uu_title": "USB tethering (telefon, mobil hotspot, modem)",
+        "uu_hint": "Az eszköz saját címet kap, de soha nem viszi el a doboz alapértelmezett útvonalát, így a doboz forgalma és a kiesésmérő a vezetékes vonalon marad. A mobilkapcsolat méréséhez fent válaszd a „Csak USB tethering” lehetőséget. Az USB-n mért eredmények mobilként kerülnek be.",
+        "uu_iface": "USB-interfész",
+        "uu_limit": "Napi adatkorlát az USB-s mérésekre (MB, 0 = nincs korlát)",
+        "uu_enabled": "Az USB-s eszköz használata",
+        "uu_disconnect": "Kikapcsolás",
+        "uu_status_none": "Nincs telefon, hotspot vagy modem az USB-n.",
+        "uu_status_up": "{iface} ({device}): IP {ip}, átjáró {gw}.",
+        "uu_status_down": "{iface} megvan ({device}), nincs csatlakoztatva.",
+        "uu_used": "Az USB-s mérések mai forgalma: {used} MB",
+        "uu_no_limit": "nincs korlát"
+    },
+    "de": {
+        "meas_link_usb": "Nur USB-Tethering (Telefon, mobiler Hotspot oder Modem)",
+        "uu_title": "USB-Tethering (Telefon, mobiler Hotspot, Modem)",
+        "uu_hint": "Das Gerät bekommt eine eigene Adresse, aber nie die Standardroute der Box, so bleiben der Verkehr der Box und die Ausfallmessung auf der Kabelleitung. Um die Mobilverbindung zu messen, oben \"Nur USB-Tethering\" wählen. Ergebnisse über USB werden als mobil gespeichert.",
+        "uu_iface": "USB-Schnittstelle",
+        "uu_limit": "Tägliches Datenlimit für Tests über USB (MB, 0 = kein Limit)",
+        "uu_enabled": "Das USB-Gerät verwenden",
+        "uu_disconnect": "Ausschalten",
+        "uu_status_none": "Kein Telefon, Hotspot oder Modem am USB.",
+        "uu_status_up": "{iface} ({device}): IP {ip}, Gateway {gw}.",
+        "uu_status_down": "{iface} gefunden ({device}), nicht verbunden.",
+        "uu_used": "Heute von Tests über USB verbraucht: {used} MB",
+        "uu_no_limit": "kein Limit"
+    },
+    "fr": {
+        "meas_link_usb": "Partage USB uniquement (téléphone, point d'accès mobile ou modem)",
+        "uu_title": "Partage de connexion USB (téléphone, point d'accès mobile, modem)",
+        "uu_hint": "L'appareil reçoit sa propre adresse mais jamais la route par défaut du boîtier : le trafic du boîtier et la sonde de coupure restent sur la ligne filaire. Pour mesurer le lien mobile, choisissez \"Partage USB uniquement\" ci-dessus. Les résultats par USB sont enregistrés comme mobiles.",
+        "uu_iface": "Interface USB",
+        "uu_limit": "Limite de données quotidienne des tests par USB (Mo, 0 = aucune)",
+        "uu_enabled": "Utiliser l'appareil USB",
+        "uu_disconnect": "Désactiver",
+        "uu_status_none": "Aucun téléphone, point d'accès ou modem sur l'USB.",
+        "uu_status_up": "{iface} ({device}) : IP {ip}, passerelle {gw}.",
+        "uu_status_down": "{iface} trouvé ({device}), non connecté.",
+        "uu_used": "Utilisé aujourd'hui par les tests via USB : {used} Mo",
+        "uu_no_limit": "aucune limite"
+    },
+    "uk": {
+        "meas_link_usb": "Лише USB-модем (телефон, мобільна точка доступу або модем)",
+        "uu_title": "USB-модем (телефон, мобільна точка доступу, модем)",
+        "uu_hint": "Пристрій отримує власну адресу, але ніколи не маршрут за замовчуванням, тож трафік пристрою та зонд відмов лишаються на дротовій лінії. Щоб виміряти мобільне з'єднання, оберіть угорі «Лише USB-модем». Результати через USB зберігаються як мобільні.",
+        "uu_iface": "USB-інтерфейс",
+        "uu_limit": "Денний ліміт даних для тестів через USB (МБ, 0 = без ліміту)",
+        "uu_enabled": "Використовувати USB-пристрій",
+        "uu_disconnect": "Вимкнути",
+        "uu_status_none": "Немає телефону, точки доступу чи модему на USB.",
+        "uu_status_up": "{iface} ({device}): IP {ip}, шлюз {gw}.",
+        "uu_status_down": "{iface} знайдено ({device}), не підключено.",
+        "uu_used": "Сьогодні тести через USB використали: {used} МБ",
+        "uu_no_limit": "без ліміту"
+    }
+}
+for _lang, _texts in _USB_TEXTS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_texts)
+
 # More languages, one JSON file each in nmb/web/locales/ (key -> text). A key missing there is shown
 # in English, never in another language.
 LOCALE_LANGUAGES = ("ro", "it", "es", "pt", "pt-br", "zh")

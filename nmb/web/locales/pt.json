@@ -1370,5 +1370,17 @@
  "st_status": "{free} MB livres de {total} MB; a limpeza começa abaixo de {target} MB.",
  "st_last": "Última verificação: {result}, {n} item(ns) eliminado(s).",
  "wifi_psk_set": "Definida. Deixe vazio para a manter.",
- "wifi_psk_unset": "Não definida: o ponto de acesso fica desligado até definir uma palavra-passe (8-63 caracteres)."
+ "wifi_psk_unset": "Não definida: o ponto de acesso fica desligado até definir uma palavra-passe (8-63 caracteres).",
+ "meas_link_usb": "Só partilha por USB (telemóvel, hotspot móvel ou modem)",
+ "uu_title": "Partilha de ligação por USB (telemóvel, hotspot móvel, modem)",
+ "uu_hint": "O dispositivo recebe o seu próprio endereço mas nunca a rota predefinida da caixa, por isso o tráfego da caixa e a sonda de falhas ficam na linha por cabo. Para medir a ligação móvel, escolha acima \"Só partilha por USB\". Os resultados por USB são guardados como móveis.",
+ "uu_iface": "Interface USB",
+ "uu_limit": "Limite diário de dados dos testes por USB (MB, 0 = sem limite)",
+ "uu_enabled": "Usar o dispositivo USB",
+ "uu_disconnect": "Desligar",
+ "uu_status_none": "Nenhum telemóvel, hotspot ou modem no USB.",
+ "uu_status_up": "{iface} ({device}): IP {ip}, gateway {gw}.",
+ "uu_status_down": "{iface} encontrado ({device}), sem ligação.",
+ "uu_used": "Usado hoje pelos testes por USB: {used} MB",
+ "uu_no_limit": "sem limite"
 }

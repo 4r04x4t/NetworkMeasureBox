@@ -1370,5 +1370,17 @@
  "st_status": "{free} MB liberi din {total} MB; curățarea începe sub {target} MB.",
  "st_last": "Ultima verificare: {result}, {n} element(e) șterse.",
  "wifi_psk_set": "Setată. Lăsați gol pentru a o păstra.",
- "wifi_psk_unset": "Nesetată: punctul de acces rămâne oprit până setați o parolă (8-63 caractere)."
+ "wifi_psk_unset": "Nesetată: punctul de acces rămâne oprit până setați o parolă (8-63 caractere).",
+ "meas_link_usb": "Doar tethering USB (telefon, hotspot mobil sau modem)",
+ "uu_title": "Tethering USB (telefon, hotspot mobil, modem)",
+ "uu_hint": "Dispozitivul primește propria adresă, dar niciodată ruta implicită a cutiei, astfel traficul cutiei și sonda de întreruperi rămân pe linia prin cablu. Pentru a măsura legătura mobilă, alegeți mai sus „Doar tethering USB”. Rezultatele prin USB se salvează ca mobile.",
+ "uu_iface": "Interfață USB",
+ "uu_limit": "Limită zilnică de date pentru testele prin USB (MB, 0 = fără limită)",
+ "uu_enabled": "Folosește dispozitivul USB",
+ "uu_disconnect": "Oprește",
+ "uu_status_none": "Niciun telefon, hotspot sau modem pe USB.",
+ "uu_status_up": "{iface} ({device}): IP {ip}, gateway {gw}.",
+ "uu_status_down": "{iface} găsit ({device}), neconectat.",
+ "uu_used": "Folosit azi de testele prin USB: {used} MB",
+ "uu_no_limit": "fără limită"
 }

@@ -1370,5 +1370,17 @@
  "st_status": "{free} MB liberi su {total} MB; la pulizia parte sotto {target} MB.",
  "st_last": "Ultimo controllo: {result}, {n} elementi eliminati.",
  "wifi_psk_set": "Impostata. Lascia vuoto per mantenerla.",
- "wifi_psk_unset": "Non impostata: l'access point resta spento finché non imposti una password (8-63 caratteri)."
+ "wifi_psk_unset": "Non impostata: l'access point resta spento finché non imposti una password (8-63 caratteri).",
+ "meas_link_usb": "Solo tethering USB (telefono, hotspot mobile o modem)",
+ "uu_title": "Tethering USB (telefono, hotspot mobile, modem)",
+ "uu_hint": "Il dispositivo riceve un proprio indirizzo ma mai la route predefinita della box, così il traffico della box e la sonda delle interruzioni restano sulla linea cablata. Per misurare la connessione mobile scegli sopra \"Solo tethering USB\". I risultati via USB sono salvati come mobili.",
+ "uu_iface": "Interfaccia USB",
+ "uu_limit": "Limite giornaliero di dati per i test via USB (MB, 0 = nessun limite)",
+ "uu_enabled": "Usa il dispositivo USB",
+ "uu_disconnect": "Disattiva",
+ "uu_status_none": "Nessun telefono, hotspot o modem sull'USB.",
+ "uu_status_up": "{iface} ({device}): IP {ip}, gateway {gw}.",
+ "uu_status_down": "{iface} trovato ({device}), non connesso.",
+ "uu_used": "Usati oggi dai test via USB: {used} MB",
+ "uu_no_limit": "nessun limite"
 }

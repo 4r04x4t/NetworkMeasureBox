@@ -177,12 +177,15 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
     "tab-portscan": (("/api/status",), (
         A("port.check", "Run port check", "/api/portcheck"),
     )),
-    "tab-script": (("/api/scheduler/status", "/api/speedtest/servers", "/api/user-agent", "/api/wifi-uplink/status", "/api/wifi-share/status", "/api/storage/status"), (
+    "tab-script": (("/api/scheduler/status", "/api/speedtest/servers", "/api/user-agent", "/api/wifi-uplink/status", "/api/wifi-share/status", "/api/storage/status", "/api/usb-uplink/status"), (
         A("wifi.uplink", "Measurement link and Wi-Fi uplink", "/api/wifi-uplink/save",
-          "measurement_link:choice(auto|ethernet|wifi) ssid password:secret interface hidden:bool enabled:bool"),
+          "measurement_link:choice(auto|ethernet|wifi|usb) ssid password:secret interface hidden:bool enabled:bool"),
         A("wifi.uplink.disconnect", "Disconnect the Wi-Fi uplink", "/api/wifi-uplink/disconnect"),
         A("wifi.share", "Share the Wi-Fi internet on a LAN port (own DHCP)", "/api/wifi-share/save",
           "enabled:bool lan_interface address"),
+        A("usb.uplink", "USB tethering (phone, mobile hotspot, modem)", "/api/usb-uplink/save",
+          "enabled:bool interface daily_limit_mb:int measurement_link:choice(auto|ethernet|wifi|usb)"),
+        A("usb.off", "Turn the USB tethering link off", "/api/usb-uplink/disconnect"),
         A("storage.save", "Automatic disk cleanup settings", "/api/storage/save", "auto_cleanup:bool min_free_mb:int keep_days:int"),
         A("storage.cleanup", "Check the disk and clean up now", "/api/storage/cleanup"),
         A("server.default", "Set scheduled server", "/api/speedtest/scheduled-server", "server_id:int server_name server_host"),

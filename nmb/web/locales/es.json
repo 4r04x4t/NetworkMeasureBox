@@ -1370,5 +1370,17 @@
  "st_status": "{free} MB libres de {total} MB; la limpieza empieza por debajo de {target} MB.",
  "st_last": "Última comprobación: {result}, {n} elemento(s) borrado(s).",
  "wifi_psk_set": "Configurada. Déjelo vacío para mantenerla.",
- "wifi_psk_unset": "Sin configurar: el punto de acceso sigue apagado hasta que configure una contraseña (8-63 caracteres)."
+ "wifi_psk_unset": "Sin configurar: el punto de acceso sigue apagado hasta que configure una contraseña (8-63 caracteres).",
+ "meas_link_usb": "Solo anclaje USB (teléfono, punto de acceso móvil o módem)",
+ "uu_title": "Anclaje USB (teléfono, punto de acceso móvil, módem)",
+ "uu_hint": "El dispositivo recibe su propia dirección pero nunca la ruta predeterminada de la caja, así el tráfico de la caja y la sonda de cortes siguen en la línea por cable. Para medir el enlace móvil, elija arriba \"Solo anclaje USB\". Los resultados por USB se guardan como móviles.",
+ "uu_iface": "Interfaz USB",
+ "uu_limit": "Límite diario de datos de las pruebas por USB (MB, 0 = sin límite)",
+ "uu_enabled": "Usar el dispositivo USB",
+ "uu_disconnect": "Desactivar",
+ "uu_status_none": "No hay teléfono, punto de acceso ni módem en el USB.",
+ "uu_status_up": "{iface} ({device}): IP {ip}, puerta de enlace {gw}.",
+ "uu_status_down": "{iface} encontrado ({device}), sin conectar.",
+ "uu_used": "Usado hoy por las pruebas por USB: {used} MB",
+ "uu_no_limit": "sin límite"
 }

@@ -31,7 +31,7 @@ PROFILE = "nmb-uplink"
 TABLE = 150
 RULE_PRIORITY = 150
 METRIC = 700
-LINKS = ("auto", "ethernet", "wifi")
+LINKS = ("auto", "ethernet", "wifi", "usb")
 SYS_CLASS_NET = Path("/sys/class/net")
 
 
@@ -178,7 +178,7 @@ def disconnect(cfg: Any) -> Tuple[bool, str]:
 def measurement_target(cfg: Any) -> Tuple[str, Optional[str]]:
     """Which link the next test must use: ("ethernet"|"wifi"|"any", wifi interface)."""
     link = getattr(getattr(cfg, "network", None), "measurement_link", "auto")
-    return (link if link in ("ethernet", "wifi") else "any"), uplink_interface(cfg)
+    return (link if link in ("ethernet", "wifi", "usb") else "any"), uplink_interface(cfg)
 
 
 def sync_source_routing(cfg: Any) -> bool:

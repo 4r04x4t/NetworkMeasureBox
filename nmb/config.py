@@ -603,6 +603,14 @@ class WifiUplinkConfig:
 
 
 @dataclass
+class UsbUplinkConfig:
+    """A phone, mobile hotspot (e.g. Netgear Nighthawk) or modem on USB as a measuring link."""
+    enabled: bool = False
+    interface: str = "auto"     # auto = the first USB tethering interface
+    daily_limit_mb: int = 1024  # mobile data: tests over USB stop for the day after this (0 = no limit)
+
+
+@dataclass
 class StorageConfig:
     """Free space before the disk fills up (see nmb.common.storage_guard)."""
     auto_cleanup: bool = True
@@ -700,6 +708,7 @@ class Config:
     duckdns: DuckDNSConfig = field(default_factory=DuckDNSConfig)
     collector: CollectorConfig = field(default_factory=CollectorConfig)
     wifi_uplink: WifiUplinkConfig = field(default_factory=WifiUplinkConfig)
+    usb_uplink: UsbUplinkConfig = field(default_factory=UsbUplinkConfig)
     wifi_share: WifiShareConfig = field(default_factory=WifiShareConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
     ooni: OoniConfig = field(default_factory=OoniConfig)
@@ -805,7 +814,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.network.dmz_interface = n.get("dmz_interface", getattr(cfg.network, "dmz_interface", "")).strip()
         cfg.network.measurement_interface = n.get("measurement_interface", getattr(cfg.network, "measurement_interface", "wan")).strip()
         link = n.get("measurement_link", "auto").strip().lower()
-        cfg.network.measurement_link = link if link in ("auto", "ethernet", "wifi") else "auto"
+        cfg.network.measurement_link = link if link in ("auto", "ethernet", "wifi", "usb") else "auto"
         cfg.network.wlan_interface = n.get("wlan_interface", cfg.network.wlan_interface).strip()
         cfg.network.bridge_interface = n.get("bridge_interface", cfg.network.bridge_interface).strip()
         cfg.network.lan_passthrough_enabled = n.getboolean("lan_passthrough_enabled", fallback=False)
@@ -1011,6 +1020,12 @@ def load_config(path: Path | None = None) -> Config:
         cfg.wifi_uplink.password = wu.get("password", "")
         cfg.wifi_uplink.hidden = wu.getboolean("hidden", fallback=False)
 
+    if parser.has_section("usb_uplink"):
+        uu = parser["usb_uplink"]
+        cfg.usb_uplink.enabled = uu.getboolean("enabled", fallback=False)
+        cfg.usb_uplink.interface = uu.get("interface", "auto").strip() or "auto"
+        cfg.usb_uplink.daily_limit_mb = max(0, min(1_000_000, uu.getint("daily_limit_mb", fallback=1024)))
+
     if parser.has_section("storage"):
         so = parser["storage"]
         cfg.storage.auto_cleanup = so.getboolean("auto_cleanup", fallback=True)
@@ -1138,7 +1153,7 @@ def _filled(cfg: "Config"):
 
 def _fill_parser(cfg: "Config", parser) -> None:
     """Write every setting of cfg into parser (the keys save_config owns)."""
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "wifi_share", "storage", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "usb_uplink", "wifi_share", "storage", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -1327,6 +1342,9 @@ def _fill_parser(cfg: "Config", parser) -> None:
     parser["wifi_uplink"]["ssid"] = str(cfg.wifi_uplink.ssid)
     parser["wifi_uplink"]["password"] = str(cfg.wifi_uplink.password)
     parser["wifi_uplink"]["hidden"] = str(cfg.wifi_uplink.hidden).lower()
+    parser["usb_uplink"]["enabled"] = str(cfg.usb_uplink.enabled).lower()
+    parser["usb_uplink"]["interface"] = str(cfg.usb_uplink.interface)
+    parser["usb_uplink"]["daily_limit_mb"] = str(int(cfg.usb_uplink.daily_limit_mb))
 
     # Storage guard
     parser["storage"]["auto_cleanup"] = str(cfg.storage.auto_cleanup).lower()

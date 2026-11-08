@@ -464,6 +464,16 @@ def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface
             return wl, ip, False
         log.warning("measurement link set to Wi-Fi, but no wireless interface is up")
         return wl or "wlan0", None, False
+    if link == "usb":
+        from nmb.netd.usb_uplink import uplink_interface as usb_iface
+        ui = usb_iface(cfg)
+        if ui and interface_exists(ui):
+            addrs = [a for a in get_ip_addresses(ui) if ":" not in a.split("/")[0]]
+            ip = addrs[0].split("/")[0] if addrs else None
+            log.info("measurement link set to USB: using %s (ip=%s)", ui, ip)
+            return ui, ip, False
+        log.warning("measurement link set to USB, but no phone, hotspot or modem is up on USB")
+        return ui or "usb0", None, False
     if link == "ethernet":
         wired = find_active_wired_interface()
         if wired:

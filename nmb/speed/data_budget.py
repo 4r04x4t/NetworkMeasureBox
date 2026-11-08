@@ -23,8 +23,8 @@ def _today() -> str:
     return datetime.date.today().isoformat()
 
 
-def used_today_mb(conn) -> float:
-    row = conn.execute("SELECT v FROM kv WHERE k = ?", (KV_KEY,)).fetchone()
+def used_today_mb(conn, key: str = KV_KEY) -> float:
+    row = conn.execute("SELECT v FROM kv WHERE k = ?", (key,)).fetchone()
     if not row:
         return 0.0
     day, _, used = str(row[0]).partition("|")
@@ -34,14 +34,14 @@ def used_today_mb(conn) -> float:
         return 0.0
 
 
-def add_usage_mb(conn, megabytes: float) -> None:
-    total = used_today_mb(conn) + max(0.0, megabytes)
+def add_usage_mb(conn, megabytes: float, key: str = KV_KEY) -> None:
+    total = used_today_mb(conn, key) + max(0.0, megabytes)
     with db.tx(conn):
         conn.execute("INSERT OR REPLACE INTO kv (k, v, ts) VALUES (?, ?, ?)",
-                     (KV_KEY, f"{_today()}|{total:.1f}", db.now_ms()))
+                     (key, f"{_today()}|{total:.1f}", db.now_ms()))
 
 
-def limit_reached(conn, limit_mb: float) -> Tuple[bool, float]:
+def limit_reached(conn, limit_mb: float, key: str = KV_KEY) -> Tuple[bool, float]:
     """Return whether scheduled tests must stop today, and the amount used. A limit of 0 means none."""
-    used = used_today_mb(conn)
+    used = used_today_mb(conn, key)
     return limit_mb > 0 and used >= limit_mb, used

@@ -7739,6 +7739,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
   async function loadWifiUplink() {
     try { const r = await fetch('/api/wifi-uplink/status'); if (r.ok) renderWifiUplink(await r.json()); } catch (e) {}
     loadWifiShare();
+    loadUsbUplink();
     loadStorage();
   }
 
@@ -7788,6 +7789,65 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     } catch (e) { showToast('Error: ' + e); }
   }
   window.saveWifiShare = saveWifiShare;
+
+  function renderUsbUplink(d) {
+    const sel = document.getElementById('uu-iface');
+    if (sel && document.activeElement !== sel) {
+      const opts = ['auto'].concat(d.interfaces || []);
+      if (d.interface_setting && !opts.includes(d.interface_setting)) opts.push(d.interface_setting);
+      sel.innerHTML = opts.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+      sel.value = d.interface_setting || 'auto';
+    }
+    const en = document.getElementById('uu-enabled');
+    if (en && document.activeElement !== en) en.checked = !!d.enabled;
+    const lim = document.getElementById('uu-limit');
+    if (lim && document.activeElement !== lim) lim.value = d.daily_limit_mb ?? 1024;
+    const st = document.getElementById('uu-status');
+    if (!st) return;
+    const name = [d.manufacturer, d.product].filter(Boolean).join(' ') || d.driver || '';
+    let txt;
+    if (!d.interface) txt = t('uu_status_none', 'No phone, hotspot or modem on USB.');
+    else if (d.connected) txt = t('uu_status_up', '{iface} ({device}): IP {ip}, gateway {gw}.')
+      .replace('{iface}', d.interface).replace('{device}', name).replace('{ip}', d.ip || '--').replace('{gw}', d.gateway || '--');
+    else txt = t('uu_status_down', '{iface} found ({device}), not connected.').replace('{iface}', d.interface).replace('{device}', name);
+    txt += ' ' + t('uu_used', 'Used today by tests over USB: {used} MB').replace('{used}', d.used_today_mb ?? 0)
+      + (d.daily_limit_mb ? ' / ' + d.daily_limit_mb + ' MB.' : ' (' + t('uu_no_limit', 'no limit') + ').');
+    if (d.message) txt = d.message + ' ' + txt;
+    st.textContent = txt;
+  }
+
+  async function loadUsbUplink() {
+    try { const r = await fetch('/api/usb-uplink/status'); if (r.ok) renderUsbUplink(await r.json()); } catch (e) {}
+  }
+
+  async function saveUsbUplink() {
+    const ml = document.getElementById('meas-link');
+    const body = {
+      enabled: document.getElementById('uu-enabled').checked,
+      interface: document.getElementById('uu-iface').value,
+      daily_limit_mb: parseInt(document.getElementById('uu-limit').value || '0', 10),
+      measurement_link: ml ? ml.value : undefined,
+    };
+    try {
+      const r = await fetch('/api/usb-uplink/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json();
+      renderUsbUplink(d);
+      showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
+    } catch (e) { showToast('Error: ' + e); }
+  }
+  window.saveUsbUplink = saveUsbUplink;
+
+  async function usbUplinkOff() {
+    try {
+      const r = await fetch('/api/usb-uplink/disconnect', { method: 'POST' });
+      const d = await r.json();
+      renderUsbUplink(d);
+      const ml = document.getElementById('meas-link');
+      if (ml && ml.value === 'usb') ml.value = 'auto';
+      showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
+    } catch (e) { showToast('Error: ' + e); }
+  }
+  window.usbUplinkOff = usbUplinkOff;
 
   function renderStorage(d) {
     const auto = document.getElementById('st-auto');

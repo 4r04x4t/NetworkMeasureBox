@@ -194,6 +194,13 @@ class NetworkDaemon:
                     sync_source_routing(self.cfg)
                 except Exception as e:
                     log.debug("wifi uplink routing: %s", e)
+                # A phone, hotspot or modem on USB: its own profile, never the default route.
+                try:
+                    from nmb.netd import usb_uplink
+                    usb_uplink.keep_up(self.cfg)
+                    usb_uplink.sync_source_routing(self.cfg)
+                except Exception as e:
+                    log.debug("usb uplink: %s", e)
                 # The Wi-Fi internet on the LAN port, only while that port has no upstream.
                 try:
                     from nmb.netd.wifi_share import sync as wifi_share_sync
