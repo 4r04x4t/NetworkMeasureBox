@@ -165,6 +165,31 @@ bash -n setup.sh                               # when setup.sh changed
 
 For every row: where (Box, VM name, unit tests), the result (✅ ⚠️ ❌), and how: what was set up, what was measured, numbers, and what was found and fixed on the way. Something that was not tried is written as not tried, not as working.
 
+## Release checklist
+
+Run before every release on the Box (and, for installer changes, on one VM). Each line says what to do and what counts as passed. Write the result into the tables above.
+
+| # | Area | What to do | Passed when |
+|---|---|---|---|
+| 1 | Unit tests | `python3 -m unittest discover -s tests`, `node --check nmb/web/assets/dashboard.js`, `bash -n setup.sh` | All OK |
+| 2 | Upgrade install | `git archive HEAD` to the box, `sudo bash setup.sh` | Exit 0; `nmb-web`, `nmb-netd`, `nmb-probe` active; no failed `nmb*` unit; `/opt/nmb/.source-commit` is the new commit; settings, admin password and measurements kept; `nmb.conf` readable and `0640 nmb:nmb` |
+| 3 | Clean install | One VM per supported family (Debian/Ubuntu, Fedora/RHEL, Alpine) from scratch | Same as 2, plus the dashboard answers and a first RTR test runs |
+| 4 | Ookla | One scheduled run, at most once an hour | A row with download, upload, ping and the chosen server; if refused: one error row, a pause, no other engine's result in its place |
+| 5 | RTR-NetTest, Cloudflare, Fast.com | One manual run each (`nmb-cli run speed.run engine=...`) | A row under its own engine name; speeds plausible for the line (on the test line 850–940 down, 300–330 up); Fast.com row has `raw_json` with servers, samples and loaded latency |
+| 6 | iPerf3 | One run against the configured server | Row named after the server (place and provider), not only the address |
+| 7 | Mixed run | Schedule engine `all`, wait one cycle | One row per engine, each with its own name; Ookla only if its hour is over |
+| 8 | Measurement link | Set `wifi`, run one test, read `wlan0`/`eth0` byte counters before and after; set back to `auto` | The traffic went over the chosen link; `auto` uses Ethernet when a cable is in |
+| 9 | Wi-Fi shared on a LAN port | veth pair + namespace as in *How to test*; then a second DHCP server in the namespace | Client gets an address and reaches the internet through Wi-Fi; with the second server the box stops its DHCP, address, NAT and rule within about 2 minutes; everything removed when turned off |
+| 10 | Wireless roles | Ports & Drivers: set `wlan0` to main, save; then guest | The device explorer shows the right banner; guest status no longer claims the main network |
+| 11 | Storage guard | `storage_guard.run(cfg, force=True)` as root on the Box; on a VM with a filled disk | Box: nothing deleted, target shown; VM: rotated logs first, measurements of the last 7 days kept, an event written |
+| 12 | Settings | Save from the Web UI and `nmb-cli` at the same time a few times | `nmb.conf` still parses; no duplicated section |
+| 13 | Languages | Switch through all 11 languages on the dashboard, the settings tabs, the logout page and `/results`; open the report with `?lang=` for each | No raw keys, no broken layout, no Hungarian outside Hungarian; the bot answers in English in the six newer languages |
+| 14 | Web UI | Open every tab with the browser console open | No JavaScript errors; every tab loads its data |
+| 15 | Reports and exports | Download the report, speed CSV, detailed CSV and ping CSV | Files open; the new engines and iPerf3 names appear |
+| 16 | Telegram (if configured) | `/test fastcom`, `/report`, `/lang` | Answers in the chat's language; Fast.com result arrives |
+| 17 | Reboot | `sudo reboot`, wait 3 minutes | All services up; settings, the last snapshot and the Ookla pause state survive |
+| 18 | Put back | Undo test settings, test interfaces and rules | The box is as it was before the checklist |
+
 ## Still to test
 
 ### Needs a real cable or hardware

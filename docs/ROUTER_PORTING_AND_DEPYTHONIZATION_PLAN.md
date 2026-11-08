@@ -458,6 +458,7 @@ To run NetworkMeasureBox on the TP-Link TL-WR740N v4.23:
   - **Ookla Protocol Emulation**: Connects to nearest Speedtest.net server over TCP port 8080 or HTTPS port 5060, streaming parallel unthrottled HTTP chunked GET/POST streams (`/download`, `/upload`).
   - **Cloudflare Edge Engine**: Fetches 25MB, 50MB, 100MB chunk files directly from `speed.cloudflare.com/__down?bytes=...` using pre-warmed keep-alive HTTP/1.1 sockets.
   - **RTR-NetTest / Open-RMBT Protocol**: Implements the official European RTR-NetTest JSON token handshake and multi-thread TCP socket sink.
+  - **Fast.com (Netflix) Engine**: The same method as the Python reference (`nmb/speed/fastcom.py`): Fast.com's API for up to five Open Connect servers, `range/0-0` latency, 16 streams over the servers for 15 s each way over plain HTTP, the stable speed, loaded latency and per-server detail. Plain HTTP matters most on routers: TLS decryption on a 880 MHz MIPS or a Cortex-A72 without AES instructions caps the result below a gigabit line.
   - **CPU-Efficient Zero-Copy Sinks**: Incoming packets are received via `splice()` or `recv()` into a static 64 KB buffer without memory allocation, calculating Mbps throughput in real-time.
   - Eliminates the 22 MB closed-source Ookla binary and all Python runtime overhead.
 

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A release checklist in the testing record (English and Hungarian): 18 areas, each with what to do and what counts as passed.
+- The de-Pythonization roadmap and the porting plan list the features added in November 2026 and the rules learned from their fixes, which the native build must keep.
 - Six more languages: Romanian, Italian, Spanish, Portuguese (Portugal and Brazil) and Simplified Chinese, in the Web UI (all 1362 texts), the logout page, the terminal UI, the results page, the charts and the report. The Telegram bot answers in English in these languages for now.
 - The README and the testing record explain why scheduled Ookla tests run at most once an hour: Ookla blocks the public IP address that tests too often, shown on the test line when a new public IP (after a restart of the main router, suggested by the box's owner) passed at once while the old one stayed blocked.
 - The porting plan requires for every port and the native `nmbd` on all devices: an owner-enabled maintenance mode with full access for developers and developer LLM agents (keys only, audit log, time limit), detailed structured logging that spares flash, crash evidence kept across reboots, and fixes applied next to the running version with automatic rollback and a written recovery path per device. Planned only.

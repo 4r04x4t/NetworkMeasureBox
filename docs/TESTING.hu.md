@@ -165,6 +165,31 @@ bash -n setup.sh                               # ha a setup.sh változott
 
 Minden sorhoz: hol (Box, VM neve, egységtesztek), az eredmény (✅ ⚠️ ❌), és hogyan: mit állítottál be, mit mértél, számokkal, és mit találtál és javítottál közben. Amit nem próbáltál ki, azt ki nem próbáltként írd, ne működőként.
 
+## Kiadás előtti ellenőrzőlista
+
+Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Minden sor leírja, mit kell csinálni, és mikor számít sikeresnek. Az eredményt írd be a fenti táblázatokba.
+
+| # | Terület | Mit kell csinálni | Akkor sikeres, ha |
+|---|---|---|---|
+| 1 | Egységtesztek | `python3 -m unittest discover -s tests`, `node --check nmb/web/assets/dashboard.js`, `bash -n setup.sh` | Minden OK |
+| 2 | Frissítő telepítés | `git archive HEAD` a boxra, `sudo bash setup.sh` | Kilépési kód 0; az `nmb-web`, `nmb-netd`, `nmb-probe` aktív; nincs hibás `nmb*` egység; az `/opt/nmb/.source-commit` az új commit; a beállítások, az admin jelszó és a mérések megmaradtak; a `nmb.conf` olvasható és `0640 nmb:nmb` |
+| 3 | Tiszta telepítés | Támogatott családonként egy VM nulláról (Debian/Ubuntu, Fedora/RHEL, Alpine) | Mint a 2., és a műszerfal válaszol, és lefut egy első RTR-mérés |
+| 4 | Ookla | Egy ütemezett futás, legfeljebb óránként | Van sor letöltéssel, feltöltéssel, pinggel és a választott szerverrel; elutasításkor: egy hibasor, szünet, és nem kerül a helyére más motor eredménye |
+| 5 | RTR-NetTest, Cloudflare, Fast.com | Mindegyikből egy kézi futás (`nmb-cli run speed.run engine=...`) | A sor a saját motorneve alatt van; a sebesség hihető a vonalhoz (a tesztvonalon 850–940 le, 300–330 fel); a Fast.com sor `raw_json`-jában ott vannak a szerverek, a minták és a terhelés alatti késleltetés |
+| 6 | iPerf3 | Egy futás a beállított szerver felé | A sor a szerver nevét viseli (hely és szolgáltató), nem csak a címét |
+| 7 | Vegyes futás | Ütemezés `all` motorral, egy ciklus kivárása | Motoronként egy sor, mindegyik a saját nevén; Ookla csak akkor, ha letelt az órája |
+| 8 | Mérési kapcsolat | `wifi` beállítás, egy mérés, a `wlan0`/`eth0` bájtszámlálók előtte és utána; vissza `auto`-ra | A forgalom a választott kapcsolaton ment; `auto` esetén bedugott kábellel Ethernet |
+| 9 | Wi-Fi megosztása LAN porton | veth-pár + névtér a *Hogyan kell tesztelni* szerint; utána egy második DHCP-szerver a névtérben | A kliens címet kap és a Wi-Fi-n át eléri az internetet; a második szerverrel a box kb. 2 percen belül leállítja a DHCP-jét, címét, NAT-ját és szabályát; kikapcsoláskor minden eltűnik |
+| 10 | Vezeték nélküli szerepek | Portok és driverek: `wlan0` legyen fő, mentés; utána vendég | Az eszközfelderítő a megfelelő sávot mutatja; a vendégállapot nem állítja a fő hálózatot vendégnek |
+| 11 | Tárhelyőr | Rootként `storage_guard.run(cfg, force=True)` a Boxon; VM-en megtöltött lemezzel | Box: semmi sem törlődik, a cél látszik; VM: előbb a régi naplók mennek, az utolsó 7 nap mérései megmaradnak, esemény íródik |
+| 12 | Beállítások | Mentés a webes felületről és az `nmb-cli`-ből egyszerre, néhányszor | A `nmb.conf` olvasható marad; nincs duplikált szakasz |
+| 13 | Nyelvek | Mind a 11 nyelv végigváltása a műszerfalon, a beállításokban, a kijelentkezési oldalon és a `/results` oldalon; a jelentés megnyitása `?lang=` paraméterrel mindegyiken | Nincs nyers kulcs, nincs szétesett elrendezés, nincs magyar szöveg a magyaron kívül; a bot a hat újabb nyelven angolul válaszol |
+| 14 | Webes felület | Minden fül megnyitása nyitott böngészőkonzollal | Nincs JavaScript-hiba; minden fül betölti az adatait |
+| 15 | Jelentések, exportok | A jelentés, a sebesség-CSV, a részletes CSV és a ping-CSV letöltése | A fájlok megnyílnak; az új motorok és az iPerf3-nevek megjelennek |
+| 16 | Telegram (ha be van állítva) | `/test fastcom`, `/report`, `/lang` | A chat nyelvén válaszol; megjön a Fast.com eredménye |
+| 17 | Újraindítás | `sudo reboot`, 3 perc várakozás | Minden szolgáltatás fut; a beállítások, az utolsó pillanatkép és az Ookla-szünet állapota megmarad |
+| 18 | Visszaállítás | A tesztbeállítások, teszt-interfészek és szabályok visszaállítása | A box olyan, mint az ellenőrzőlista előtt |
+
 ## Még tesztelendő
 
 ### Valódi kábel vagy hardver kell hozzá

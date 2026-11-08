@@ -372,6 +372,17 @@ flowchart TD
 - **Updater**: routers update by firmware or package (`opkg`), not by downloading the source; the native build keeps only the status file format (`update_status.json`) so the Web UI and `nmb-cli update` work unchanged.
 - **Per-engine intervals**: the scheduler keeps `ookla_interval_min` (never below 60), `rtr_interval_min` and `cloudflare_interval_min`, and the persisted Ookla cooldown (`ookla_cooldown.json`).
 
+### 4.26 Features Added in November 2026 (the Python Reference the Native Build Must Match)
+Each of these runs on the Raspberry Pi 4 test box and is recorded in `docs/TESTING.md`. The native version keeps the settings, the API endpoints and the behaviour described here.
+
+- **Fast.com (Netflix) engine** (`nmb/speed/fastcom.py`): token from fast.com's page script (with the known token as fallback), server list from `api.fast.com/netflix/speedtest/v2`, latency from `range/0-0` on an open connection plus the TCP handshake, then 16 parallel streams over up to five Open Connect servers for 15 s each way with the first 3 s left out, and the "stable" speed (mean from the first sample at 90 % of the median of the second half). Transfers use plain HTTP (`https=false`); the server names come from the HTTPS list, matched by IP. On a Pi 4, TLS at 910 Mbps used 77–88 % of the CPU and the result dropped when other services ran; plain HTTP used 50–56 %. A native engine must reach the line speed on the same box with the same method, and keep the full per-server detail in `raw_json`. Part of the mixed run, `fastcom_interval_min`.
+- **Measuring over Wi-Fi** (`nmb/netd/wifi_uplink.py`): `[network] measurement_link` = `auto`, `ethernet` or `wifi`; `[wifi_uplink]` with its own NetworkManager profile `nmb-uplink`; a source rule `from <wifi ip> lookup 150` so a test bound to Wi-Fi leaves over Wi-Fi even when Ethernet holds the default route. Also when the Wi-Fi was joined outside NMB.
+- **Wi-Fi shared on a LAN port** (`nmb/netd/wifi_share.py`): own DHCP (dnsmasq with `--port=0`), NAT in its own nftables table, the shared subnet in routing table 151. Never serves DHCP where another server answers: a DHCPDISCOVER sent three times, replies read from a packet socket for 8 s, before starting, every minute, and right after a cable is plugged in with its own DHCP stopped first.
+- **Wireless roles**: each wireless interface is the guest client or the main client, never both; with `interface = auto` the main client skips the radio of an enabled guest client.
+- **Storage guard** (`nmb/common/storage_guard.py`): free-space target from the disk size (15 % ≤ 2 GB, 10 % ≤ 16 GB, 5 % above; 200 MB to 2 GB), deletes in a fixed order (rotated logs, bundles, crash reports; backups but the newest; reports; journal; large active logs; only then measurements, a day at a time, keeping `keep_days`). On routers it applies to the overlay or data partition.
+- **iPerf3 server names**: from the public iPerf3 list, else city, country and ISP of the address from GeoIP, also for older rows that stored only the address; a failed lookup is not repeated for an hour.
+- **Languages**: the Web UI texts are keyed; the native build reads the same keys and the JSON files in `nmb/web/locales/` and `nmb/report/locales/` (11 languages), and shows a missing text in English.
+
 ---
 
 ## 5. Architectural Proposal: The Unified Single-Binary Monolith (`nmbd`)
@@ -513,6 +524,14 @@ Not yet covered by the Python version, and open for the native one: charts, form
 - The web server must not run as root, and local service ports must refuse public addresses on IPv4 and IPv6.
 - Keep secrets off the boot partition. The native version must keep the `__KEEP_CURRENT__` mark, so existing boot files stay valid.
 - A skipped test has no values. Show it as skipped, never as 0, and do not let skipped rows replace real results.
+- Save settings one at a time (a lock across threads and processes) and through a temporary file of its own. Two writers sharing one temporary file once left a broken `nmb.conf` that no program could read.
+- Programs that run as an unprivileged user need a writable home for the tools they call. The Ookla CLI ran as `nmb` with no home (`/home/nmb` missing, systemd `ProtectHome=read-only`) and could not keep its settings; it now has `/var/lib/nmb/ookla`.
+- Look for system tools outside `PATH` too (`/usr/sbin`, `/sbin`): `iw` was not found for the `nmb` user, so the Wi-Fi status lost its SSID and signal, and the access-point check never saw an access point.
+- Read DHCP replies from a packet socket. A normal UDP socket did not receive the other server's offer on the box (firewall or reverse-path filtering drops it), so the rogue-DHCP check would have passed while another server answered.
+- Wait long enough for DHCP offers (8 s, three requests): dnsmasq and many routers ping an address for up to 3 s before they offer it.
+- A daemon started by a supervisor must not be told to log to stderr in the foreground (`dnsmasq --log-facility=-`): the start command then never returns and times out.
+- Ookla blocks the public IP address, not the box, and counts refused attempts. Run Ookla at most hourly, pause after a refusal (30 min doubling to 4 h, kept across restarts), store no other engine's result in its place, and never change the IP to get around it. Shown on the test line: a new public IP passed at once while the old one stayed blocked.
+- When an in-memory pause is cleared on disk, the running process must reload it (or offer a command to clear it); deleting the file alone did not end the pause until `nmb-web` restarted.
 
 **Changelog from the first commit**
 
