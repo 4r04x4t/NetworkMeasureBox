@@ -575,13 +575,16 @@ Why: on a general-purpose distribution NMB depends on that distribution's packag
 
 Planned shape:
 
-- **Contents:** a minimal Linux kernel and userland with only what NMB uses (`nmbd`, `ip`/`nft`, `dnsmasq`, `hostapd`, `iw`, `wpa_supplicant`, `pppd`, WireGuard, OpenVPN); no Python once `nmbd` replaces it, no desktop network managers.
+- **Kernel: not our own.** NMB does not build, patch or configure its own Linux kernel. The image ships the kernel its base maintains, unchanged: the Raspberry Pi kernel (with its firmware and device tree) on the Pi 4, the base distribution's LTS kernel on x86-64. Kernel security fixes and new hardware support then come from that maintainer, not from NMB. Anything NMB needs from the kernel (bridge, bonding, nftables, WireGuard, `mac80211_hwsim` for tests, the common USB network adapters) is checked against the stock kernel's configuration; a feature the stock kernel lacks is not used, rather than adding a custom kernel.
+- **The distribution is NMB's own:** its own image, package selection, defaults, service setup, update channel and release cycle, built on top of that kernel. **Contents:** only what NMB uses (`nmbd`, `ip`/`nft`, `dnsmasq`, `hostapd`, `iw`, `wpa_supplicant`, `pppd`, WireGuard, OpenVPN, the needed firmware files); no Python once `nmbd` replaces it, no desktop network managers, no NetworkManager or netplan.
 - **Storage:** read-only root file system; settings and measurements on a separate data partition; the live database stays in RAM with snapshots, as now; the storage guard sizes its limits from the data partition.
 - **Updates:** two system slots (A/B); an update writes the other slot and boots it, and goes back if the box does not come up. This replaces `setup.sh` upgrades on these boxes.
 - **Targets:** Raspberry Pi 4 (arm64) first, then x86-64; routers keep OpenWrt as their base (see the targets above).
-- **To decide:** the build system (Buildroot, Yocto or an OpenWrt-based image), the init system, the C library (musl or glibc), and how settings move over from a `setup.sh` box.
+- **Build approach (recommended, to confirm):** a Debian-based image assembled with `mmdebstrap`/`debos` from Debian packages plus the Raspberry Pi kernel and firmware packages, because it keeps the stock kernels and their security updates and matches the Debian 13 the Box already runs. Buildroot or Yocto would build everything from source, which mainly pays off when the kernel is also customised; that is not planned.
+- **To decide:** the init system (systemd, as now, or something smaller), how the A/B update is done (RAUC or SWUpdate), image signing, and how settings move over from a `setup.sh` box.
+- **What the stock kernel means for NMB:** the driver finder cannot install firmware packages on a read-only image, so every supported adapter's firmware is in the image; kernel updates arrive as part of an NMB image update (the A/B slot), tested before release like any other change.
 
-Testing plan (to be added to `docs/TESTING.md` when it starts): image builds reproducibly; first boot on the Pi 4 and in QEMU; every feature row of the testing record again on the image; an A/B update and a forced rollback; power cut during an update; a full data partition.
+Testing plan (to be added to `docs/TESTING.md` when it starts): image builds reproducibly; the kernel in the image is byte-identical to the base's package; first boot on the Pi 4 and in QEMU; every feature row of the testing record again on the image; an A/B update and a forced rollback; power cut during an update; a full data partition.
 
 ## 8. Cross-Compilation Matrix & Toolchain Setup
 
