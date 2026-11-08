@@ -2550,6 +2550,18 @@
             <div class="form-hint" id="wu-status" aria-live="polite" style="margin-top: 6px;"></div>
           </div>
 
+          <!-- The Wi-Fi internet on the LAN port, with the box's own DHCP -->
+          <div id="wifi-share-card" style="border: 1px solid #1e293b; border-radius: 8px; padding: 12px;">
+            <label class="form-label" style="display: flex; gap: 8px; align-items: center; font-size: 12px;"><input type="checkbox" id="ws-enabled"> <span data-i18n="ws_enabled">Share the Wi-Fi internet on a LAN port (own DHCP)</span></label>
+            <div class="form-hint" data-i18n="ws_hint">Only while the port has no internet of its own: if a cable to another router is plugged in, or another DHCP server answers on it, the box stops handing out addresses within seconds.</div>
+            <div class="router-row-3" style="margin-top: 8px;">
+              <div class="form-group"><label class="form-label" for="ws-lan" data-i18n="ws_lan">LAN port</label><select id="ws-lan" class="form-input"></select></div>
+              <div class="form-group"><label class="form-label" for="ws-addr" data-i18n="ws_addr">Box address and network</label><input type="text" id="ws-addr" class="form-input" placeholder="192.168.77.1/24"></div>
+            </div>
+            <button type="button" class="btn-primary" onclick="saveWifiShare()" data-i18n="col_save">Save</button>
+            <div class="form-hint" id="ws-status" aria-live="polite" style="margin-top: 6px;"></div>
+          </div>
+
           <!-- Per-engine minimum intervals -->
           <div id="sched-engine-intervals">
             <label class="form-label" style="font-size: 12px;" data-i18n="engine_intervals_title">How often each engine may run (minutes, 0 = every scheduled run):</label>

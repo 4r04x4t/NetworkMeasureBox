@@ -194,6 +194,12 @@ class NetworkDaemon:
                     sync_source_routing(self.cfg)
                 except Exception as e:
                     log.debug("wifi uplink routing: %s", e)
+                # The Wi-Fi internet on the LAN port, only while that port has no upstream.
+                try:
+                    from nmb.netd.wifi_share import sync as wifi_share_sync
+                    wifi_share_sync(self.cfg)
+                except Exception as e:
+                    log.debug("wifi share: %s", e)
 
                 if is_ready and target_mode != self.current_mode_name:
                     self.switch_mode(target_mode, reason)

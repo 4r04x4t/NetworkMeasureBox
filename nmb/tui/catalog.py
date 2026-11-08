@@ -177,10 +177,12 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
     "tab-portscan": (("/api/status",), (
         A("port.check", "Run port check", "/api/portcheck"),
     )),
-    "tab-script": (("/api/scheduler/status", "/api/speedtest/servers", "/api/user-agent", "/api/wifi-uplink/status"), (
+    "tab-script": (("/api/scheduler/status", "/api/speedtest/servers", "/api/user-agent", "/api/wifi-uplink/status", "/api/wifi-share/status"), (
         A("wifi.uplink", "Measurement link and Wi-Fi uplink", "/api/wifi-uplink/save",
           "measurement_link:choice(auto|ethernet|wifi) ssid password:secret interface hidden:bool enabled:bool"),
         A("wifi.uplink.disconnect", "Disconnect the Wi-Fi uplink", "/api/wifi-uplink/disconnect"),
+        A("wifi.share", "Share the Wi-Fi internet on a LAN port (own DHCP)", "/api/wifi-share/save",
+          "enabled:bool lan_interface address"),
         A("server.default", "Set scheduled server", "/api/speedtest/scheduled-server", "server_id:int server_name server_host"),
         A("schedule.set", "Change schedule", "/api/speedtest/schedule", SCHEDULE),
         A("engine.set", "Set engine", "/api/speedtest/engine", "engine:choice(ookla|cloudflare|fastcom|rtr|iperf3|all)"),

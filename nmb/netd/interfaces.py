@@ -378,9 +378,16 @@ def find_active_wired_interface() -> Optional[Tuple[str, str]]:
     if not SYS_CLASS_NET.exists():
         return None
 
+    try:
+        from nmb.netd.wifi_share import shared_lan_interface
+        shared = shared_lan_interface()   # the box is the router there: no uplink
+    except Exception:
+        shared = None
     wired_candidates = []
     for ifp in SYS_CLASS_NET.iterdir():
         name = ifp.name
+        if name == shared:
+            continue
         if is_wired_interface(name) and get_carrier(name):
             oper = get_operstate(name)
             if oper != "down":

@@ -602,6 +602,14 @@ class WifiUplinkConfig:
 
 
 @dataclass
+class WifiShareConfig:
+    """The box's Wi-Fi internet on its LAN port, with its own DHCP, when that port has no upstream."""
+    enabled: bool = False
+    lan_interface: str = "eth0"
+    address: str = "192.168.77.1/24"
+
+
+@dataclass
 class CollectorConfig:
     enabled: bool = False
     url: str = ""          # e.g. https://collector.example.net:8600
@@ -683,6 +691,7 @@ class Config:
     duckdns: DuckDNSConfig = field(default_factory=DuckDNSConfig)
     collector: CollectorConfig = field(default_factory=CollectorConfig)
     wifi_uplink: WifiUplinkConfig = field(default_factory=WifiUplinkConfig)
+    wifi_share: WifiShareConfig = field(default_factory=WifiShareConfig)
     ooni: OoniConfig = field(default_factory=OoniConfig)
     wireguard: WireGuardConfig = field(default_factory=WireGuardConfig)
     openvpn: OpenVPNConfig = field(default_factory=OpenVPNConfig)
@@ -992,6 +1001,19 @@ def load_config(path: Path | None = None) -> Config:
         cfg.wifi_uplink.password = wu.get("password", "")
         cfg.wifi_uplink.hidden = wu.getboolean("hidden", fallback=False)
 
+    if parser.has_section("wifi_share"):
+        sh = parser["wifi_share"]
+        cfg.wifi_share.enabled = sh.getboolean("enabled", fallback=False)
+        cfg.wifi_share.lan_interface = sh.get("lan_interface", "eth0").strip() or "eth0"
+        addr = sh.get("address", "192.168.77.1/24").strip()
+        try:
+            import ipaddress as _ip
+            iface = _ip.ip_interface(addr)
+            ok = iface.version == 4 and iface.network.prefixlen <= 29 and iface.network.is_private
+        except ValueError:
+            ok = False
+        cfg.wifi_share.address = addr if ok else "192.168.77.1/24"
+
     if parser.has_section("collector"):
         co = parser["collector"]
         cfg.collector.enabled = co.getboolean("enabled", fallback=False)
@@ -1068,7 +1090,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
         except Exception:
             pass
 
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "wifi_share", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -1257,6 +1279,11 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["wifi_uplink"]["ssid"] = str(cfg.wifi_uplink.ssid)
     parser["wifi_uplink"]["password"] = str(cfg.wifi_uplink.password)
     parser["wifi_uplink"]["hidden"] = str(cfg.wifi_uplink.hidden).lower()
+
+    # Wi-Fi shared on the LAN port
+    parser["wifi_share"]["enabled"] = str(cfg.wifi_share.enabled).lower()
+    parser["wifi_share"]["lan_interface"] = str(cfg.wifi_share.lan_interface)
+    parser["wifi_share"]["address"] = str(cfg.wifi_share.address)
 
     # Central collector
     parser["collector"]["enabled"] = str(cfg.collector.enabled).lower()

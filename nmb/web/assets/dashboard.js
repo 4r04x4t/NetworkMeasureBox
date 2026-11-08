@@ -7731,7 +7731,55 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
 
   async function loadWifiUplink() {
     try { const r = await fetch('/api/wifi-uplink/status'); if (r.ok) renderWifiUplink(await r.json()); } catch (e) {}
+    loadWifiShare();
   }
+
+  function renderWifiShare(d) {
+    const en = document.getElementById('ws-enabled');
+    if (en && document.activeElement !== en) en.checked = !!d.enabled;
+    const sel = document.getElementById('ws-lan');
+    if (sel && document.activeElement !== sel) {
+      const ports = (d.ports || []).slice();
+      if (d.lan_interface && !ports.includes(d.lan_interface)) ports.unshift(d.lan_interface);
+      sel.innerHTML = ports.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+      sel.value = d.lan_interface || ports[0] || '';
+    }
+    const addr = document.getElementById('ws-addr');
+    if (addr && document.activeElement !== addr && !addr.value) addr.value = d.address || '';
+    const st = document.getElementById('ws-status');
+    if (st) {
+      let txt;
+      if (d.active) {
+        txt = t('ws_active', 'Sharing: {lan} ({addr}) gets the internet of {wifi}; DHCP {range}.')
+          .replace('{lan}', d.lan_interface).replace('{addr}', d.address).replace('{wifi}', d.wifi || 'Wi-Fi').replace('{range}', d.dhcp_range);
+        const n = (d.leases || []).length;
+        if (n) txt += ' ' + t('ws_clients', 'Clients: {n}').replace('{n}', n) + ' (' + d.leases.map(l => l.ip + (l.hostname ? ' ' + l.hostname : '')).join(', ') + ')';
+      } else {
+        txt = d.enabled ? t('ws_waiting', 'Not sharing now: {reason}.').replace('{reason}', d.code ? t('ws_r_' + d.code, d.reason || '--').replace('{lan}', d.lan_interface || '') : (d.reason || '--')) : t('ws_off', 'Off.');
+      }
+      if (d.message) txt = d.message + ' ' + txt;
+      st.textContent = txt;
+    }
+  }
+
+  async function loadWifiShare() {
+    try { const r = await fetch('/api/wifi-share/status'); if (r.ok) renderWifiShare(await r.json()); } catch (e) {}
+  }
+
+  async function saveWifiShare() {
+    const body = {
+      enabled: document.getElementById('ws-enabled').checked,
+      lan_interface: document.getElementById('ws-lan').value,
+      address: (document.getElementById('ws-addr').value || '').trim() || '192.168.77.1/24',
+    };
+    try {
+      const r = await fetch('/api/wifi-share/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (r.ok) renderWifiShare(d);
+      showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
+    } catch (e) { showToast('Error: ' + e); }
+  }
+  window.saveWifiShare = saveWifiShare;
 
   async function saveWifiUplink() {
     const body = {

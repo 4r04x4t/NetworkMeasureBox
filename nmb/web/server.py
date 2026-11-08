@@ -775,6 +775,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 17b. DuckDNS / dynv6 DynDNS Status
+        if path == "/api/wifi-share/status":
+            from nmb.netd import wifi_share
+            self._send_json(wifi_share.status(self.server.cfg))
+            return
+
         if path == "/api/wifi-uplink/status":
             from nmb.netd import wifi_uplink
             self._send_json(wifi_uplink.status(self.server.cfg))
@@ -2366,6 +2371,30 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # Wi-Fi uplink (the box on the owner's Wi-Fi) and where speed tests run
+        if path == "/api/wifi-share/save":
+            import ipaddress as _ip
+            from nmb.netd import wifi_share, wifi_uplink
+            ws = self.server.cfg.wifi_share
+            lan = str(body_json.get("lan_interface", ws.lan_interface) or "").strip()
+            if not lan or not Path(f"/sys/class/net/{lan}").exists() or lan in wifi_uplink.wireless_interfaces():
+                self._send_json({"status": "error", "message": f"{lan or '?'} is not a wired port of this box."}, status=400)
+                return
+            addr = str(body_json.get("address", ws.address) or "").strip()
+            try:
+                net = _ip.ip_interface(addr)
+                if net.version != 4 or net.network.prefixlen > 29 or not net.network.is_private or net.ip == net.network.network_address:
+                    raise ValueError
+            except ValueError:
+                self._send_json({"status": "error", "message": f"{addr} is not a private IPv4 address with a /29 or larger network."}, status=400)
+                return
+            ws.enabled, ws.lan_interface, ws.address = bool(body_json.get("enabled", ws.enabled)), lan, str(net)
+            save_config(self.server.cfg)
+            self._notify_daemon_reload()
+            st = wifi_share.status(self.server.cfg)
+            st.update(status="ok", message="Saved. The box checks the port within a minute.")
+            self._send_json(st)
+            return
+
         if path in ("/api/wifi-uplink/save", "/api/wifi-uplink/connect", "/api/wifi-uplink/disconnect"):
             from nmb.netd import wifi_uplink
             wu = self.server.cfg.wifi_uplink
