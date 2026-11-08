@@ -133,7 +133,36 @@ def build_discover(mac: bytes, xid: int) -> bytes:
     """A minimal DHCPDISCOVER (RFC 2131) asking for a broadcast reply."""
     pkt = struct.pack("!BBBBIHH4s4s4s4s16s64s128s", 1, 1, 6, 0, xid, 0, 0x8000,
                       b"\0" * 4, b"\0" * 4, b"\0" * 4, b"\0" * 4, mac.ljust(16, b"\0"), b"\0" * 64, b"\0" * 128)
-    return pkt + b"\x63\x82\x53\x63" + b"\x35\x01\x01" + b"\x37\x03\x01\x03\x06" + b"\xff"
+    pkt = pkt + b"\x63\x82\x53\x63" + b"\x35\x01\x01" + b"\x37\x03\x01\x03\x06" + b"\xff"
+    return pkt.ljust(300, b"\0")    # some routers still want the old BOOTP minimum of 300 bytes
+
+
+def _checksum(data: bytes) -> int:
+    if len(data) % 2:
+        data += b"\0"
+    total = sum(struct.unpack(f"!{len(data) // 2}H", data))
+    while total >> 16:
+        total = (total & 0xFFFF) + (total >> 16)
+    return (~total) & 0xFFFF
+
+
+def build_discover_frame(mac: bytes, xid: int) -> bytes:
+    """The whole Ethernet frame of a DISCOVER, as a client without an address sends it.
+
+    Source 0.0.0.0, destination 255.255.255.255, UDP 68 -> 67. Sent through the IP stack instead, the
+    kernel puts another interface's address as the source (the port has none in a bridge), and DHCP
+    servers such as dnsmasq ignore such a request: that silenced the router-mode guard.
+    """
+    payload = build_discover(mac, xid)
+    udp_len = 8 + len(payload)
+    src, dst = b"\0\0\0\0", b"\xff\xff\xff\xff"
+    pseudo = src + dst + struct.pack("!BBH", 0, 17, udp_len)
+    udp = struct.pack("!HHHH", 68, 67, udp_len, 0) + payload
+    csum = _checksum(pseudo + udp) or 0xFFFF
+    udp = udp[:6] + struct.pack("!H", csum) + udp[8:]
+    ip = struct.pack("!BBHHHBBH4s4s", 0x45, 0, 20 + udp_len, random.getrandbits(16), 0, 64, 17, 0, src, dst)
+    ip = ip[:10] + struct.pack("!H", _checksum(ip)) + ip[12:]
+    return b"\xff" * 6 + mac + b"\x08\x00" + ip + udp
 
 
 def parse_offer_server(data: bytes, xid: int) -> Optional[str]:
@@ -178,34 +207,35 @@ def udp_payload_to_port(frame: bytes, port: int) -> Optional[bytes]:
 def probe_dhcp_servers(iface: str, timeout: float = 8.0) -> List[str]:
     """Send a DHCPDISCOVER on ``iface`` and return the servers that offer an address (needs root).
 
-    Offers are read from a packet socket: the box's firewall or reverse-path filter may drop a
-    reply from a server the box has no route to, and that is exactly the server to find.
-    The DISCOVER goes out three times and the box waits 8 s: dnsmasq and many routers ping an
-    address for up to 3 s before they offer it.
+    Everything goes through one packet socket for all protocols (``ETH_P_ALL``):
+    * the DISCOVER is a complete frame from 0.0.0.0 (``build_discover_frame``), as a real client sends;
+    * offers are read before the bridge and the firewall see them. A socket for IPv4 only gets frames
+      after the bridge has taken a port's frames, so on a bridged port (the WAN port in router mode)
+      it never saw an offer; the reverse-path filter would also drop a reply from a server the box has
+      no route to, and that is exactly the server to find.
+    The DISCOVER goes out three times and the box waits up to ``timeout``: dnsmasq and many routers
+    ping an address for up to 3 s before they offer it.
     """
     xid = random.getrandbits(32)
     servers: List[str] = []
-    rx = None
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock = None
     try:
-        rx = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0800))
-        rx.bind((iface, 0))
-        rx.settimeout(0.5)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        s.setsockopt(socket.SOL_SOCKET, 25, iface.encode() + b"\0")  # SO_BINDTODEVICE
-        s.bind(("0.0.0.0", 68))
-        packet = build_discover(_mac(iface), xid)
+        sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
+        sock.bind((iface, 0))
+        sock.settimeout(0.3)
+        frame_out = build_discover_frame(_mac(iface), xid)
         start = time.monotonic()
         end = start + timeout
         resend = [start, start + 2.0, start + 4.0]
         while time.monotonic() < end:
             if resend and time.monotonic() >= resend[0]:
                 resend.pop(0)
-                s.sendto(packet, ("255.255.255.255", 67))
+                sock.send(frame_out)
             try:
-                frame = rx.recv(2048)
+                frame, addr = sock.recvfrom(4096)
             except socket.timeout:
+                continue
+            if addr[2] == socket.PACKET_OUTGOING:
                 continue
             payload = udp_payload_to_port(frame, 68)
             srv = parse_offer_server(payload, xid) if payload else None
@@ -214,9 +244,8 @@ def probe_dhcp_servers(iface: str, timeout: float = 8.0) -> List[str]:
     except OSError as e:
         log.warning("dhcp probe on %s failed: %s", iface, e)
     finally:
-        s.close()
-        if rx:
-            rx.close()
+        if sock:
+            sock.close()
     return servers
 
 

@@ -82,6 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The DHCP guard (Wi-Fi sharing and router mode) never saw a router on a bridged port, and could miss one on any port: the DISCOVER went through the IP stack, which gave it another interface's address as the source (DHCP servers such as dnsmasq ignore that), and the offers were read with an IPv4-only packet socket, which gets a bridge port's frames only after the bridge has taken them. The probe now sends a complete frame from 0.0.0.0 and reads with `ETH_P_ALL`; reproduced and verified on the box with a test DHCP server in a network namespace, plain and bridged.
+- Router mode on USB tethering lost the box's own internet: the radio that became the access point kept its home Wi-Fi address and default route (metric 600), which beat USB's 900. The access point now starts on a radio without client addresses, and router mode on USB removes every default route that does not go through USB.
 - Router mode on USB tethering lost its internet: a stale default route that NetworkManager left on the Ethernet port (now a bridged LAN port) counted as "another internet", so the USB route was removed. In router mode the USB route now stays, routes through bridge ports or on a link that is down never count, and router mode removes default routes through its LAN ports.
 - Router mode lost its LAN port to NetworkManager (its DHCP on the port failed and it unbridged the port); LAN ports are released while router mode runs and given back afterwards, as is the Wi-Fi radio when the access point stops.
 - The access point never started when the web server had left `hostapd.conf` in `/run/nmb` (the daemon could not change its mode); generated configs now replace the old file.

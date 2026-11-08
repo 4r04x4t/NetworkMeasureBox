@@ -113,6 +113,26 @@ class SyncTest(unittest.TestCase):
         self.assertIn('iifname "wlan0" oifname "eth0" drop', rules)
 
 
+
+class DiscoverFrameTest(unittest.TestCase):
+    def test_frame_is_a_valid_client_discover(self):
+        import socket
+        import struct
+        mac = b"\x02\x00\x00\x00\x00\x01"
+        f = wifi_share.build_discover_frame(mac, 0x1234)
+        self.assertEqual(f[:6], b"\xff" * 6)
+        self.assertEqual(f[6:12], mac)
+        ip = f[14:34]
+        self.assertEqual(socket.inet_ntoa(ip[12:16]), "0.0.0.0")      # a client without an address
+        self.assertEqual(socket.inet_ntoa(ip[16:20]), "255.255.255.255")
+        self.assertEqual(wifi_share._checksum(ip), 0)                  # IP header checksum verifies
+        udp_len = struct.unpack("!H", f[38:40])[0]
+        pseudo = ip[12:20] + struct.pack("!BBH", 0, 17, udp_len)
+        self.assertEqual(wifi_share._checksum(pseudo + f[34:34 + udp_len]), 0)   # UDP checksum verifies
+        self.assertEqual(struct.unpack("!HH", f[34:38]), (68, 67))
+        self.assertGreaterEqual(udp_len - 8, 300)
+        self.assertEqual(struct.unpack("!I", f[42 + 4:42 + 8])[0], 0x1234)
+
 if __name__ == "__main__":
     unittest.main()
 

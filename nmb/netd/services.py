@@ -238,6 +238,13 @@ pid-file={pid_file}
             log.error("Wi-Fi access point not started: its password is the shared factory one or not 8-63 characters; set one in Settings > Wi-Fi")
             return False
         self._release_from_network_manager(iface)
+        # NetworkManager leaves the client's address and routes on a device it lets go. On an access point
+        # they are poison: the old default route through the radio (metric 600) would beat the real WAN
+        # (USB tethering has 900) and send the box's own traffic into its own access point.
+        ip_bin = shutil.which("ip")
+        if ip_bin:
+            subprocess.run([ip_bin, "addr", "flush", "dev", iface], capture_output=True, timeout=10, check=False)
+            subprocess.run([ip_bin, "-4", "route", "flush", "dev", iface], capture_output=True, timeout=10, check=False)
         self.run_dir.mkdir(parents=True, exist_ok=True)
         # The radio may report features the installed hostapd cannot use, so step down until one starts.
         for overrides in HOSTAPD_ATTEMPTS:

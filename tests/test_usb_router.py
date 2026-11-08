@@ -54,6 +54,21 @@ class UsbRouterModeTest(unittest.TestCase):
         self.assertEqual(modes.firewall.enable_nat_mode_a.call_args[0][0], "eth1")
         svc.start_hostapd.assert_called_once()          # Wi-Fi clients get the USB internet too
 
+    def test_stale_default_routes_are_removed_but_usb_stays(self):
+        # 2026-11-08 on the box: the radio kept its home Wi-Fi lease and route (metric 600) after it became
+        # the access point, which beat USB's 900 and sent the box's own traffic into its own AP.
+        mode, svc, ifs, patches = _router(self.cfg, dhcp_on_wan=False)
+        ifs.run_cmd.return_value = MagicMock(stdout="default via 192.168.8.1 dev wlan0 proto dhcp metric 600\n"
+                                                    "default via 192.168.1.1 dev eth1 metric 900\n")
+        for p in patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in patches])
+        with patch.object(usb_uplink, "sync_default_fallback"):
+            mode.setup()
+        deleted = [c[0][0] for c in ifs.run_cmd.call_args_list if c[0][0][:4] == ["ip", "-4", "route", "del"]]
+        self.assertTrue(any("wlan0" in d for d in deleted), deleted)
+        self.assertFalse(any("eth1" in d for d in deleted), deleted)
+
     def test_a_dhcp_server_on_the_port_keeps_it_as_wan(self):
         mode, svc, ifs = self._setup(dhcp_on_wan=True)
         self.assertIsNone(mode.usb_wan)

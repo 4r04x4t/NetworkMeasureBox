@@ -196,8 +196,13 @@ class ModeA(NetworkMode):
             ok = self._setup_lan_and_nat(self.usb_wan, extra_lan=[self.cfg.wan_interface])
             # A default route through a LAN port (NetworkManager's old lease on the WAN port) would swallow
             # every packet the box sends; the box's own internet is USB now.
-            for port in self.lan_ifaces + [self.cfg.wan_interface]:
-                interfaces.run_cmd(["ip", "-4", "route", "del", "default", "dev", port], check=False)
+            # The box's own internet is USB now: any other default route (a LAN port, the radio that just
+            # became the access point) leads nowhere and would win over USB's metric 900.
+            res = interfaces.run_cmd(["ip", "-4", "route", "show", "default"], check=False)
+            for line in (getattr(res, "stdout", "") or "").splitlines():
+                parts = line.split()
+                if "dev" in parts and parts[parts.index("dev") + 1] != self.usb_wan:
+                    interfaces.run_cmd(["ip", "-4", "route", "del"] + parts, check=False)
             if self.full_cfg is not None:
                 usb_uplink.sync_default_fallback(self.full_cfg)
             return ok
