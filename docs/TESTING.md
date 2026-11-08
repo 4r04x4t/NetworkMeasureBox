@@ -42,7 +42,7 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 
 | Feature | Where | Result | How |
 |---|---|---|---|
-| Ookla | Box | ⚠️ | Works hourly. Every minute, Ookla refuses the box ("Limit reached"); the box then pauses Ookla (30 min, up to 4 h) and measures with RTR-NetTest, stored under RTR's own name |
+| Ookla | Box | ✅ | Hourly works. Refusals ("Limit reached") are tied to the public IP: after days of frequent tests the line's address stayed blocked through every hourly retry, even with the CLI's settings fixed; at the owner's suggestion the main router (GL.iNet Flint 4) was restarted, the line got a new public IP, and the first scheduled test passed at once: 934.2/325.4 Mbps, 6.9 ms, bufferbloat A, server #2073 (8 Nov 2026). On a refusal the box pauses Ookla (30 min, up to 4 h) and stores no other engine's result in its place |
 | RTR-NetTest | Box, VM-distro | ✅ | ~910/320 Mbps on the 1000/300 line |
 | Cloudflare | Box | ✅ | |
 | Wi-Fi shared on a LAN port | Box (veth + network namespace, `eth0` untouched) | ✅ | A client in the namespace got 192.168.77.116 by DHCP, pinged 1.1.1.1 (11 ms) and downloaded 20 MB over HTTPS through `wlan0`. With a second DHCP server started on the client side, the box stopped its own DHCP, address, NAT and routing rule; when that server went away, sharing came back within 15 s. Found and fixed on the way: replies of the other server were dropped before reaching a normal socket (now a packet socket), dnsmasq offers after up to 3 s (now 8 s with three requests), and `--log-facility=-` kept dnsmasq in the foreground. Not yet tried with a real cable and no Ethernet uplink |
@@ -214,6 +214,6 @@ Found by checking what `setup.sh` detects and what the code needs (Python 3.10 o
 
 ## Known limits
 
-- Ookla blocks a public IP that tests often, also after refused attempts; the box then pauses Ookla (30 min, doubling up to 4 h). It cannot be forced; run Ookla rarely.
+- Ookla blocks the public IP address that tests too often, and refused attempts keep the block going; shown on 8 Nov 2026 when a new public IP (main router restarted) passed at once. The box then pauses Ookla (30 min, doubling up to 4 h). NMB does not change the IP to get around it; run Ookla at most hourly.
 - Up to 15 minutes of results can be lost on a power cut, by design (the live database is in RAM).
 - The VM scripts used for the runs above are not part of the repository; each row says what was set up.

@@ -42,7 +42,7 @@ Jelölés: ✅ működik · ⚠️ korláttal működik · ❌ nem működik · 
 
 | Funkció | Hol | Eredmény | Hogyan |
 |---|---|---|---|
-| Ookla | Box | ⚠️ | Óránként működik. Percenként az Ookla tiltja a boxot („Limit reached”); ekkor a box szünetelteti az Ooklát (30 perc, legfeljebb 4 óra), és RTR-NetTesttel mér, az RTR saját nevén tárolva |
+| Ookla | Box | ✅ | Óránként működik. Az elutasítás („Limit reached”) a nyilvános IP-hez kötődik: napokig tartó sűrű mérés után a vonal címe minden óránkénti próbánál tiltva maradt, a CLI beállításainak javítása után is; a tulajdonos javaslatára újraindítottuk a főroutert (GL.iNet Flint 4), a vonal új nyilvános IP-t kapott, és az első ütemezett mérés azonnal sikerült: 934,2/325,4 Mbit/s, 6,9 ms, bufferbloat A, #2073-as szerver (2026. nov. 8.). Elutasításkor a box szünetelteti az Ooklát (30 perc, legfeljebb 4 óra), és nem tesz a helyére más motor eredményét |
 | RTR-NetTest | Box, VM-disztró | ✅ | ~910/320 Mbps az 1000/300-as vonalon |
 | Wi-Fi megosztása LAN porton | Box (veth + hálózati névtér, az `eth0` érintetlen) | ✅ | A névtérbeli kliens DHCP-vel 192.168.77.116-ot kapott, pingelte az 1.1.1.1-et (11 ms), és 20 MB-ot töltött le HTTPS-en a `wlan0`-n át. Egy második DHCP-szervert indítva a kliens oldalán a box leállította a saját DHCP-jét, címét, NAT-ját és útválasztási szabályát; a szerver eltűnése után 15 mp-en belül újraindult. Közben javítva: a másik szerver válaszait a kernel eldobta, mielőtt egy sima sockethez értek (most csomagszintű socket); a dnsmasq akár 3 mp után ajánl (most 8 mp, három kéréssel); a `--log-facility=-` előtérben tartotta a dnsmasq-ot. Valódi kábellel, Ethernet-uplink nélkül még nincs kipróbálva |
 | Mérés Wi-Fi-n (`measurement_link = wifi`) | Box | ✅ | A box az 5 GHz-es Wi-Fi-n (netplan léptette be), bedugott kábellel: egy Fast.com-mérés 149/145 MB-ot vitt a `wlan0`-n, az `eth0`-n semmit, 104/110 Mbit/s. A box saját `nmb-uplink` profiljával való csatlakozás még nincs kipróbálva |
@@ -214,6 +214,6 @@ Abból, hogy a `setup.sh` mit ismer fel, és mi kell a kódnak (Python 3.10 vagy
 
 ## Ismert korlátok
 
-- Az Ookla letiltja azt a nyilvános IP-t, amelyről gyakran mérnek, az elutasított próbálkozások után is; a box ilyenkor szünetelteti az Ooklát (30 perc, duplázódva legfeljebb 4 óráig). Kikényszeríteni nem lehet; ritkán futtasd az Ooklát.
+- Az Ookla letiltja azt a nyilvános IP-címet, amelyről túl gyakran mérnek, és az elutasított próbálkozások fenntartják a tiltást; ez 2026. nov. 8-án igazolódott, amikor egy új nyilvános IP-vel (a főrouter újraindítása után) a mérés azonnal sikerült. A box ilyenkor szünetelteti az Ooklát (30 perc, duplázódva legfeljebb 4 óráig). Az NMB nem cserél IP-t a megkerüléshez; az Ooklát legfeljebb óránként futtasd.
 - Áramszünetnél legfeljebb 15 perc eredménye veszhet el, szándékosan (az élő adatbázis RAM-ban van).
 - A fenti futásokhoz használt VM-szkriptek nincsenek a tárolóban; minden sor leírja, mi volt beállítva.
