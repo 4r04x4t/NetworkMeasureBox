@@ -239,12 +239,12 @@ def _log_event(kind: str, detail: str) -> None:
         conn = db.connect()
         try:
             with db.tx(conn):
-                conn.execute("INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warning', 'netd', ?, ?)",
+                conn.execute("INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warn', 'netd', ?, ?)",
                              (db.now_ms(), kind, detail))
         finally:
             conn.close()
     except Exception:
-        log.debug("usb fallback event not written", exc_info=True)
+        log.warning("usb fallback event not written", exc_info=True)
 
 
 def sync_default_fallback(cfg: Any) -> bool:

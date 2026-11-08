@@ -111,5 +111,24 @@ class ShareFromUsbTest(unittest.TestCase):
             self.assertEqual(wifi_share.upstream(cfg), ("eth1", "192.168.1.4", "192.168.1.1", "usb"))
 
 
+
+class FallbackEventSchemaTest(unittest.TestCase):
+    def test_event_fits_the_real_schema(self):
+        import sqlite3
+        import tempfile
+        from pathlib import Path
+        schema = (Path(__file__).resolve().parent.parent / "nmb" / "db" / "schema.sql").read_text()
+        path = Path(tempfile.mkdtemp()) / "t.db"
+        init = sqlite3.connect(path)
+        init.executescript(schema)
+        init.close()
+        with patch("nmb.db.database.connect", lambda *a, **k: sqlite3.connect(path)), \
+             patch.object(usb_uplink.log, "warning") as warned:
+            usb_uplink._log_event("uplink_usb_fallback", "test")
+        warned.assert_not_called()
+        rows = sqlite3.connect(path).execute("SELECT kind, severity FROM event").fetchall()
+        self.assertEqual(rows, [("uplink_usb_fallback", "warn")])
+
+
 if __name__ == "__main__":
     unittest.main()
