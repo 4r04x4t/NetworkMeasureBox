@@ -2083,13 +2083,28 @@
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
           <select id="explorer-iface-select" class="form-input" style="width: auto; padding: 7px 12px; font-size: 13px;" onchange="loadNetworkDevices()">
-            <option value="any">🌐 All Interfaces (Simultaneous LAN + Guest Wi-Fi)</option>
+            <option value="any">🌐 All Interfaces (LAN + Wi-Fi)</option>
             <option value="eth0">🏠 Wired LAN (eth0)</option>
             <option value="wlan0">📶 Guest Wi-Fi Client (wlan0)</option>
           </select>
           <button type="button" id="btn-explorer-scan" class="btn-primary" style="font-size: 12.5px; padding: 7px 16px;" onclick="triggerNetworkSweep()">
             🔄 Scan Subnets Now
           </button>
+        </div>
+      </div>
+
+      <!-- Main Wi-Fi client (the owner's own network, used for measuring) -->
+      <div id="explorer-main-banner" style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 280px; min-width: 0; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%;">
+            <span style="font-size: 20px; line-height: 1; flex-shrink: 0;">📡</span>
+            <span style="font-weight: 700; font-size: 13.5px; color: #bae6fd; white-space: nowrap; flex-shrink: 0;" data-i18n="explorer_main_wifi_title">Main Wi-Fi client:</span>
+            <span id="explorer-main-status-text" class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px; white-space: nowrap; flex-shrink: 0;">--</span>
+          </div>
+          <div style="font-size: 12px; color: #bae6fd; line-height: 1.45; overflow-wrap: break-word;" id="explorer-main-details-text"></div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-shrink: 0;">
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 14px; border-color: rgba(56, 189, 248, 0.5); color: #bae6fd; white-space: nowrap;" onclick="switchTab('tab-script'); setTimeout(() => { const c = document.getElementById('wifi-uplink-card'); if (c) c.scrollIntoView({behavior: 'smooth'}); }, 150);" data-i18n="explorer_main_wifi_btn">⚙️ Main Wi-Fi settings</button>
         </div>
       </div>
 
@@ -2358,7 +2373,7 @@
         <div style="display: flex; gap: 8px;">
           <select id="sniffer-iface-select" class="form-input" style="width: auto; padding: 6px 12px; font-size: 13px;">
             <option value="eth0">eth0 (Wired Primary LAN)</option>
-            <option value="wlan0">wlan0 (Guest Wi-Fi Client Probe)</option>
+            <option value="wlan0">wlan0 (Wi-Fi)</option>
             <option value="any">any (Simultaneous Multi-Interface)</option>
           </select>
           <button type="button" id="btn-sniffer-toggle" class="btn-primary" onclick="toggleSniffer()" data-i18n="sniffer_btn_start">▶️ Start Sniffing</button>

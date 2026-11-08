@@ -1024,6 +1024,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 18b. Dedicated Guest Wi-Fi Client Station / Probe Telemetry
         if path in ("/api/network/wifi/guest/status", "/api/wifi/guest/status", "/api/wifi/guest"):
             guest_iface = getattr(self.server.cfg.guest_wifi, "interface", "wlan0")
+            main_iface = str(getattr(self.server.cfg.wifi_uplink, "interface", "") or "")
+            if not guest_iface or guest_iface == main_iface:
+                # The radio is the main Wi-Fi client; it must not be reported as a guest network.
+                self._send_json({"status": "ok", "connected": False, "unassigned": True, "interface": guest_iface or None,
+                                 "main_interface": main_iface if main_iface != "auto" else None})
+                return
             wan_iface = self.server.cfg.network.wan_interface
             self._send_json(get_guest_wifi_status(guest_iface, wan_iface=wan_iface, cfg_guest=self.server.cfg.guest_wifi))
             return

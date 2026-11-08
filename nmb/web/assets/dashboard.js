@@ -325,6 +325,8 @@
     }
     if (tabId === 'tab-explorer') {
       loadNetworkDevices();
+      loadWifiUplink();
+      loadGuestWifiStatus();
     }
     if (tabId === 'tab-wifi') {
       fetchWifiCapabilities();
@@ -7257,7 +7259,17 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     // 2. Update Explorer Banner
     const expStatusText = document.getElementById('explorer-guest-status-text');
     const expDetailsText = document.getElementById('explorer-guest-details-text');
-    if (expStatusText) {
+    if (expStatusText && d.unassigned) {
+      expStatusText.style.background = 'rgba(148, 163, 184, 0.15)';
+      expStatusText.style.color = '#94a3b8';
+      expStatusText.style.border = '1px solid #475569';
+      expStatusText.innerHTML = `⚪ ${escapeHtml(t('guest_unassigned', 'No interface has the guest role'))}`;
+      if (expDetailsText) {
+        expDetailsText.textContent = d.main_interface
+          ? t('guest_unassigned_main', '{iface} is the main Wi-Fi client. To probe a guest network, give a wireless interface the guest role under Ports & Drivers.').replace('{iface}', d.main_interface)
+          : t('guest_unassigned_hint', 'To probe a guest network, give a wireless interface the guest role under Ports & Drivers.');
+      }
+    } else if (expStatusText) {
       if (isConn) {
         expStatusText.style.background = 'rgba(16, 185, 129, 0.15)';
         expStatusText.style.color = '#34d399';
@@ -7682,6 +7694,28 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     if (hid && document.activeElement !== hid) hid.checked = !!d.hidden;
     const ph = document.getElementById('wu-pass-hint');
     if (ph) ph.textContent = d.password_set ? t('wu_pass_saved', 'A password is saved; leave empty to keep it.') : '';
+    // Device explorer: the main Wi-Fi client's own banner
+    const mst = document.getElementById('explorer-main-status-text');
+    const mdt = document.getElementById('explorer-main-details-text');
+    if (mst) {
+      const on = !!d.connected;
+      mst.style.background = on ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)';
+      mst.style.color = on ? '#34d399' : '#94a3b8';
+      mst.style.border = on ? '1px solid #10b981' : '1px solid #475569';
+      mst.innerHTML = on ? `🟢 ${t('status_connected', 'Connected')}: <b>${escapeHtml(d.ssid || '?')}</b> (${escapeHtml(d.ip || 'DHCP')})`
+                         : `⚪ ${escapeHtml(d.interface ? t('wu_not_connected', 'Not connected over Wi-Fi.') : t('wu_no_iface', 'No wireless interface found.'))}`;
+      if (mdt) {
+        const band = d.frequency_mhz ? (d.frequency_mhz >= 5925 ? '6 GHz' : d.frequency_mhz >= 4900 ? '5 GHz' : '2.4 GHz') : '';
+        const linkName = { auto: t('meas_link_auto', 'Ethernet when a cable is connected, otherwise Wi-Fi'), ethernet: t('meas_link_eth', 'Ethernet only'), wifi: t('meas_link_wifi', 'Wi-Fi only') }[d.measurement_link] || '';
+        const parts = [`${escapeHtml(t('wu_iface', 'Wireless interface'))}: <b>${escapeHtml(d.interface || '--')}</b>`];
+        if (on) parts.push(`${escapeHtml(t('gateway', 'Gateway'))}: ${escapeHtml(d.gateway || '--')}`);
+        if (d.signal_dbm != null) parts.push(`${escapeHtml(t('wifi_signal', 'Signal'))}: <b>${escapeHtml(String(d.signal_dbm))} dBm</b>`);
+        if (band) parts.push(band);
+        if (d.bitrate) parts.push(escapeHtml(d.bitrate));
+        if (linkName) parts.push(`${escapeHtml(t('meas_link_label', 'Speed tests run over:'))} ${escapeHtml(linkName)}`);
+        mdt.innerHTML = parts.join(' · ');
+      }
+    }
     const st = document.getElementById('wu-status');
     if (st) {
       if (d.connected) {
