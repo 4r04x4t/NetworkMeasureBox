@@ -1093,6 +1093,10 @@ def load_config(path: Path | None = None) -> Config:
     _clamp_settings(cfg)
     if path is not None:
         cfg.system.config_path = str(path)
+    try:
+        object.__setattr__(cfg, "_ini_base", _ini_dict(_filled(cfg)))
+    except Exception:
+        log.debug("config base snapshot failed", exc_info=True)
     return cfg
 
 
@@ -1122,14 +1126,18 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
                 os.close(lock_fd)
 
 
-def _save_config_locked(cfg: Config, path: Path) -> bool:
-    parser = _TolerantParser()
-    if path.exists():
-        try:
-            parser.read(path)
-        except Exception:
-            pass
+def _ini_dict(parser) -> Dict[str, Dict[str, str]]:
+    return {sec: dict(parser[sec]) for sec in parser.sections()}
 
+
+def _filled(cfg: "Config"):
+    parser = _TolerantParser()
+    _fill_parser(cfg, parser)
+    return parser
+
+
+def _fill_parser(cfg: "Config", parser) -> None:
+    """Write every setting of cfg into parser (the keys save_config owns)."""
     for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "wifi_share", "storage", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
@@ -1383,6 +1391,32 @@ def _save_config_locked(cfg: Config, path: Path) -> bool:
     parser["tailscale"]["accept_routes"] = str(cfg.tailscale.accept_routes).lower()
     parser["tailscale"]["advertise_exit_node"] = str(cfg.tailscale.advertise_exit_node).lower()
     parser["tailscale"]["accept_dns"] = str(cfg.tailscale.accept_dns).lower()
+
+
+
+def _save_config_locked(cfg: Config, path: Path) -> bool:
+    parser = _TolerantParser()
+    if path.exists():
+        try:
+            parser.read(path)
+        except Exception:
+            pass
+
+    disk = _ini_dict(parser)
+    _fill_parser(cfg, parser)
+    base = getattr(cfg, "_ini_base", None)
+    if base is not None:
+        # Three-way merge: a key this process did not change since it loaded the config keeps the value
+        # on disk, so a process with an old copy (web, netd, bot, cli) cannot undo another one's save
+        # (this is how a Telegram token entered in one place could vanish when another process saved).
+        for sec, keys in _ini_dict(parser).items():
+            for key, mine in keys.items():
+                if key in disk.get(sec, {}) and base.get(sec, {}).get(key) == mine and disk[sec][key] != mine:
+                    parser[sec][key] = disk[sec][key]
+    try:
+        object.__setattr__(cfg, "_ini_base", _ini_dict(_filled(cfg)))
+    except Exception:
+        pass
 
     import tempfile
     tmp_path = path.with_suffix(".tmp")

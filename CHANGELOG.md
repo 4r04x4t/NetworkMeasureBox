@@ -70,6 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Saving the settings from one service (web, network daemon, bot, `nmb-cli`) could undo what another service had saved, because each wrote its whole in-memory copy; this is how an entered Telegram token could disappear. A save now only writes the settings that service changed itself.
+- The installer warns when Telegram is enabled without a bot token (it only checks that the value is empty).
 - Telegram bot: `/heal`, `/wifi`, `/wifi scan`, `/wifi connect`, `/tasks` (showed 0 for CPU, memory and disk), `/kill`, `/tailscale` (showed a running Tailscale as inactive), `/backup` and `/drivers` (listed no adapters) called functions whose arguments or results had changed.
 - The installer now restarts the Telegram bot when it runs, so the bot no longer keeps old code after an upgrade (this caused "cannot import name 'bridge_master'").
 - A bot error with no text now names the error type instead of an empty message.
