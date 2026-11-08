@@ -1368,5 +1368,7 @@
  "st_keep_days": "从不删除比此更新的测量（天）",
  "st_now": "立即检查并清理",
  "st_status": "{total} MB 中可用 {free} MB；低于 {target} MB 时开始清理。",
- "st_last": "上次检查：{result}，已删除 {n} 项。"
+ "st_last": "上次检查：{result}，已删除 {n} 项。",
+ "wifi_psk_set": "已设置。留空则保持不变。",
+ "wifi_psk_unset": "未设置：在设置密码（8-63 个字符）之前，接入点不会开启。"
 }

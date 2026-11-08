@@ -436,7 +436,7 @@ class NetworkConfig:
 
     wifi_enabled: bool = True
     wifi_ssid: str = "NMB-Diagnostic"
-    wifi_psk: str = "NetworkMeasureBox123"
+    wifi_psk: str = ""   # set per box by setup.sh; the access point does not start without one
     wifi_band: str = "auto"              # "auto", "2.4ghz", "5ghz", "6ghz"
     wifi_standard: str = "auto"          # "auto", "be", "ax", "ac", "n", "g", "a", "b"
     wifi_channel: int = 0                # 0 = auto channel selection

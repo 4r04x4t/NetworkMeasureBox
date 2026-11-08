@@ -3568,6 +3568,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "dns_status": dns.get_dns_status(),
             "wifi_enabled": cfg.network.wifi_enabled,
             "wifi_ssid": cfg.network.wifi_ssid,
+            # Only whether one is set: the password itself never leaves the box through the API.
+            "wifi_psk_set": not __import__("nmb.netd.wifi", fromlist=["x"]).weak_wifi_password(cfg.network.wifi_psk),
             "wifi_band": getattr(cfg.network, "wifi_band", "auto"),
             "wifi_standard": getattr(cfg.network, "wifi_standard", "auto"),
             "wifi_channel": cfg.network.wifi_channel,
@@ -3638,6 +3640,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             for k, v in body["speedtest"].items():
                 if k not in body:
                     body[k] = v
+        if body.get("wifi_psk"):
+            from nmb.netd.wifi import weak_wifi_password
+            if weak_wifi_password(str(body["wifi_psk"]).strip()):
+                self._send_json({"status": "error", "message": "The Wi-Fi password must be 8 to 63 characters and not the old factory password."}, status=400)
+                return
         if "contract" in body and isinstance(body["contract"], dict):
             for k, v in body["contract"].items():
                 if k not in body:

@@ -213,7 +213,11 @@ pid-file={pid_file}
         conf_file = self.run_dir / "hostapd.conf"
         pid_file = self.run_dir / "hostapd.pid"
 
-        from nmb.netd.wifi import generate_hostapd_config
+        from nmb.netd.wifi import generate_hostapd_config, weak_wifi_password
+        security = str(getattr(self.cfg, "wifi_security", "wpa2") or "wpa2").strip().lower()
+        if security not in ("open", "none") and weak_wifi_password(getattr(self.cfg, "wifi_psk", "")):
+            log.error("Wi-Fi access point not started: its password is the shared factory one or not 8-63 characters; set one in Settings > Wi-Fi")
+            return False
         self._release_from_network_manager(iface)
         self.run_dir.mkdir(parents=True, exist_ok=True)
         # The radio may report features the installed hostapd cannot use, so step down until one starts.

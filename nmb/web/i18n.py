@@ -6481,6 +6481,8 @@ for _key, _values in _CORRECTIONS.items():
 # Disk space card (Settings).
 _STORAGE_TEXTS = {
     "en": {
+        "wifi_psk_set": "Set. Leave empty to keep it.",
+        "wifi_psk_unset": "Not set: the access point stays off until you set a password (8-63 characters).",
         "st_title": "Disk space",
         "st_auto": "Clean up automatically when the disk is getting full",
         "st_hint": "Oldest logs, reports and backups go first, then measurements older than the kept days. Settings, passwords and VPN keys are never deleted.",
@@ -6491,6 +6493,8 @@ _STORAGE_TEXTS = {
         "st_last": "Last check: {result}, {n} item(s) deleted."
     },
     "hu": {
+        "wifi_psk_set": "Be van állítva. Hagyd üresen, ha nem változtatod.",
+        "wifi_psk_unset": "Nincs beállítva: az access point addig nem indul, amíg nem adsz meg jelszót (8-63 karakter).",
         "st_title": "Tárhely",
         "st_auto": "Automatikus takarítás, ha fogy a lemezhely",
         "st_hint": "Előbb a legrégebbi naplók, riportok és mentések törlődnek, utána a megőrzési időnél régebbi mérések. A beállítások, jelszavak és VPN-kulcsok soha nem törlődnek.",
@@ -6501,6 +6505,8 @@ _STORAGE_TEXTS = {
         "st_last": "Utolsó ellenőrzés: {result}, {n} elem törölve."
     },
     "de": {
+        "wifi_psk_set": "Gesetzt. Leer lassen, um es zu behalten.",
+        "wifi_psk_unset": "Nicht gesetzt: Der Access Point bleibt aus, bis ein Passwort gesetzt ist (8-63 Zeichen).",
         "st_title": "Speicherplatz",
         "st_auto": "Automatisch aufräumen, wenn der Speicher knapp wird",
         "st_hint": "Zuerst werden die ältesten Protokolle, Berichte und Sicherungen gelöscht, dann Messungen, die älter als die Aufbewahrungsdauer sind. Einstellungen, Passwörter und VPN-Schlüssel werden nie gelöscht.",
@@ -6511,6 +6517,8 @@ _STORAGE_TEXTS = {
         "st_last": "Letzte Prüfung: {result}, {n} Element(e) gelöscht."
     },
     "fr": {
+        "wifi_psk_set": "Défini. Laisser vide pour le conserver.",
+        "wifi_psk_unset": "Non défini : le point d'accès reste éteint tant qu'aucun mot de passe n'est défini (8 à 63 caractères).",
         "st_title": "Espace disque",
         "st_auto": "Nettoyer automatiquement quand le disque se remplit",
         "st_hint": "Les journaux, rapports et sauvegardes les plus anciens partent d'abord, puis les mesures plus anciennes que la durée de conservation. Les réglages, mots de passe et clés VPN ne sont jamais supprimés.",
@@ -6521,6 +6529,8 @@ _STORAGE_TEXTS = {
         "st_last": "Dernière vérification : {result}, {n} élément(s) supprimé(s)."
     },
     "uk": {
+        "wifi_psk_set": "Задано. Залиште порожнім, щоб не змінювати.",
+        "wifi_psk_unset": "Не задано: точка доступу не ввімкнеться, доки не буде задано пароль (8-63 символи).",
         "st_title": "Місце на диску",
         "st_auto": "Автоматично очищати, коли диск заповнюється",
         "st_hint": "Спочатку видаляються найстаріші журнали, звіти й резервні копії, потім виміри, старші за термін зберігання. Налаштування, паролі та ключі VPN ніколи не видаляються.",

@@ -369,6 +369,16 @@ def calculate_6ghz_op_class_and_center(channel: int, width_mhz: int) -> Tuple[in
         return op_class, channel
 
 
+# The old factory password, published in the repository and therefore known to everyone.
+SHARED_FACTORY_PSK = "NetworkMeasureBox123"
+
+
+def weak_wifi_password(psk: str) -> bool:
+    """True when the access point must not start with this password (WPA needs 8 to 63 characters)."""
+    psk = psk or ""
+    return psk == SHARED_FACTORY_PSK or not 8 <= len(psk) <= 63
+
+
 def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, Dict[str, Any]]:
     """Generate high-performance, standards-compliant hostapd.conf.
 
@@ -475,7 +485,7 @@ def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, D
         log.debug("suppressed exception", exc_info=True)
 
     ssid = getattr(cfg, "wifi_ssid", "NetworkMeasureBox-AP")
-    psk = getattr(cfg, "wifi_psk", "NetworkMeasureBox123")
+    psk = getattr(cfg, "wifi_psk", "") or ""
     security = getattr(cfg, "wifi_security", "wpa2").strip().lower()
 
     lines = [

@@ -361,7 +361,9 @@ fi
 if grep -q "wifi_psk = NetworkMeasureBox123" "$CONFIG_FILE" 2>/dev/null; then
     WIFI_PSK=$(head -c 16 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)
     sed -i "s/wifi_psk = NetworkMeasureBox123/wifi_psk = $WIFI_PSK/" "$CONFIG_FILE"
-    info "Generated diagnostic Wi-Fi password: $WIFI_PSK"
+    # Not printed: the install log stays on the box. It is shown in the Web UI (Settings > Wi-Fi).
+    unset WIFI_PSK
+    info "Generated a unique Wi-Fi access point password for this box (see Settings > Wi-Fi)."
 fi
 
 # Read or preserve admin password from config (factory router default: admin / admin)

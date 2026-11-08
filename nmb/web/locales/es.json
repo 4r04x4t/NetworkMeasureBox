@@ -1368,5 +1368,7 @@
  "st_keep_days": "No borrar nunca mediciones más recientes que (días)",
  "st_now": "Comprobar y limpiar ahora",
  "st_status": "{free} MB libres de {total} MB; la limpieza empieza por debajo de {target} MB.",
- "st_last": "Última comprobación: {result}, {n} elemento(s) borrado(s)."
+ "st_last": "Última comprobación: {result}, {n} elemento(s) borrado(s).",
+ "wifi_psk_set": "Configurada. Déjelo vacío para mantenerla.",
+ "wifi_psk_unset": "Sin configurar: el punto de acceso sigue apagado hasta que configure una contraseña (8-63 caracteres)."
 }

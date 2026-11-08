@@ -1368,5 +1368,7 @@
  "st_keep_days": "Non eliminare mai le misurazioni più recenti di (giorni)",
  "st_now": "Controlla e pulisci ora",
  "st_status": "{free} MB liberi su {total} MB; la pulizia parte sotto {target} MB.",
- "st_last": "Ultimo controllo: {result}, {n} elementi eliminati."
+ "st_last": "Ultimo controllo: {result}, {n} elementi eliminati.",
+ "wifi_psk_set": "Impostata. Lascia vuoto per mantenerla.",
+ "wifi_psk_unset": "Non impostata: l'access point resta spento finché non imposti una password (8-63 caratteri)."
 }

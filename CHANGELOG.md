@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Wi-Fi access point password: the shared factory password (`NetworkMeasureBox123`, public in the repository) is no longer a fallback anywhere; the access point does not start with it, with an empty one or with one outside 8-63 characters, and the Web UI refuses to save such a password. The settings show only whether a password is set (it never leaves the box through the API), and the installer no longer prints the generated password into its log.
 - Saving the settings from one service (web, network daemon, bot, `nmb-cli`) could undo what another service had saved, because each wrote its whole in-memory copy; this is how an entered Telegram token could disappear. A save now only writes the settings that service changed itself.
 - The installer warns when Telegram is enabled without a bot token (it only checks that the value is empty).
 - Telegram bot: `/heal`, `/wifi`, `/wifi scan`, `/wifi connect`, `/tasks` (showed 0 for CPU, memory and disk), `/kill`, `/tailscale` (showed a running Tailscale as inactive), `/backup` and `/drivers` (listed no adapters) called functions whose arguments or results had changed.

@@ -4758,6 +4758,13 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       // Wi-Fi
       if (document.getElementById('cfg-wifi-enabled')) document.getElementById('cfg-wifi-enabled').value = (d.wifi_enabled !== false) ? 'true' : 'false';
       if (document.getElementById('cfg-wifi-ssid')) document.getElementById('cfg-wifi-ssid').value = d.wifi_ssid || 'NMB-Diagnostic';
+      const pskEl = document.getElementById('cfg-wifi-psk');
+      if (pskEl) {
+        pskEl.value = '';
+        pskEl.placeholder = d.wifi_psk_set
+          ? t('wifi_psk_set', 'Set. Leave empty to keep it.')
+          : t('wifi_psk_unset', 'Not set: the access point stays off until you set a password (8-63 characters).');
+      }
       if (document.getElementById('cfg-wifi-country')) document.getElementById('cfg-wifi-country').value = d.wifi_country_code || 'auto';
       if (document.getElementById('cfg-wifi-band')) document.getElementById('cfg-wifi-band').value = d.wifi_band || 'auto';
       if (document.getElementById('cfg-wifi-standard')) document.getElementById('cfg-wifi-standard').value = d.wifi_standard || 'auto';

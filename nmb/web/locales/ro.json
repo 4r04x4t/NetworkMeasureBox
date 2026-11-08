@@ -1368,5 +1368,7 @@
  "st_keep_days": "Nu șterge niciodată măsurători mai noi de (zile)",
  "st_now": "Verifică și curăță acum",
  "st_status": "{free} MB liberi din {total} MB; curățarea începe sub {target} MB.",
- "st_last": "Ultima verificare: {result}, {n} element(e) șterse."
+ "st_last": "Ultima verificare: {result}, {n} element(e) șterse.",
+ "wifi_psk_set": "Setată. Lăsați gol pentru a o păstra.",
+ "wifi_psk_unset": "Nesetată: punctul de acces rămâne oprit până setați o parolă (8-63 caractere)."
 }

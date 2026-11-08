@@ -1368,5 +1368,7 @@
  "st_keep_days": "Nunca eliminar medições mais recentes do que (dias)",
  "st_now": "Verificar e limpar agora",
  "st_status": "{free} MB livres de {total} MB; a limpeza começa abaixo de {target} MB.",
- "st_last": "Última verificação: {result}, {n} item(ns) eliminado(s)."
+ "st_last": "Última verificação: {result}, {n} item(ns) eliminado(s).",
+ "wifi_psk_set": "Definida. Deixe vazio para a manter.",
+ "wifi_psk_unset": "Não definida: o ponto de acesso fica desligado até definir uma palavra-passe (8-63 caracteres)."
 }
