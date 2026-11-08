@@ -177,6 +177,8 @@ bash -n setup.sh                               # when setup.sh changed
 
 The checks only build throwaway objects (namespaces, veth pairs, a test bridge, a database copy) and remove them; they never change the mode, the settings or the uplinks, and never print secrets or public addresses.
 
+**Guided USB tethering scenario** (needs a person to move cables): `sudo systemd-run --unit=nmb-scenario -p StandardOutput=file:/var/log/nmb/scenario-usb.log nmb-selftest scenario usb`. It runs as a service because the box's link changes during the run; the current instruction is in `/run/nmb/scenario.json` and the log. Steps: speed tests bound to USB (every engine, bytes counted on the USB interface, USB data counter), Wi-Fi shared on the LAN port to a laptop, USB fallback when the box leaves its Wi-Fi (the laptop now on USB, an automatic test over USB), router mode with USB as WAN (simulated client, laptop on the cable, a device on the box's Wi-Fi, forwarded packets counted in a throwaway nftables table), the DHCP guard when the cable goes back to the home router (limit 90 s), restore, and optionally unplugging the USB device. Settings are saved first and put back at the end, after a crash, or by a separate restore service after 45 minutes (`sudo nmb-selftest restore` does it by hand). `--plan` prints the steps, `--steps router,guard,restore` runs some.
+
 ### 3. Without risking the box's own connection
 
 - **A LAN client:** a veth pair with one end in a network namespace (`ip netns add t; ip link add v0 type veth peer name v1; ip link set v1 netns t`). The namespace is a device plugged into the box. Never test DHCP or routing on the port you are connected through.

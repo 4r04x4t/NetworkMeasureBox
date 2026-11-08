@@ -95,6 +95,16 @@ def _metric(parts: List[str]) -> int:
     return int(parts[parts.index("metric") + 1]) if "metric" in parts else 0
 
 
+def interfaces_kind(iface: Optional[str]) -> str:
+    from nmb.netd import interfaces
+    return str(interfaces.usb_tether_kind(iface)) if iface else "none"
+
+
+def weak_psk(cfg) -> bool:
+    from nmb.netd.wifi import weak_wifi_password
+    return weak_wifi_password(getattr(cfg.network, "wifi_psk", ""))
+
+
 # --------------------------------------------------------------------------------------------
 # Pure evaluation helpers (unit tested in tests/test_selftest.py)
 # --------------------------------------------------------------------------------------------
@@ -701,7 +711,34 @@ GROUPS: Dict[str, Callable] = {
 QUICK = [g for g in GROUPS if g != "telegram"]
 
 
+def _scenario_main(argv: List[str]) -> int:
+    from nmb.selftest import scenario
+    p = argparse.ArgumentParser(prog="nmb-selftest scenario", description=scenario.__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("name", choices=["usb"])
+    p.add_argument("--steps", default=",".join(scenario.STEPS), help="Comma-separated: " + ", ".join(scenario.STEPS))
+    p.add_argument("--plan", action="store_true", help="Only print the steps")
+    args = p.parse_args(argv)
+    steps = [s.strip() for s in args.steps.split(",") if s.strip()]
+    bad = [s for s in steps if s not in scenario.STEPS]
+    if bad:
+        p.error("unknown step(s): " + ", ".join(bad))
+    if args.plan:
+        print(scenario.plan(steps))
+        return 0
+    if os.geteuid() != 0:
+        print("Run as root.", file=sys.stderr)
+        return 2
+    return scenario.run_usb(steps)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["scenario"]:
+        return _scenario_main(argv[1:])
+    if argv[:1] == ["restore"]:
+        from nmb.selftest import scenario
+        return 0 if scenario.restore() else 1
     p = argparse.ArgumentParser(prog="nmb-selftest", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("groups", nargs="*", metavar="group",
                    help="Groups to run: " + ", ".join(GROUPS) + " (default: all but telegram)")
