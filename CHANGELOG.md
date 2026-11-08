@@ -84,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `nmb-speed --interface` (`-i`) was read but never used, so a test asked for USB (or any other link) ran on the default link. Found by the USB scenario.
 - Central collector: a box with a wrong token and a large backlog got "Broken pipe" instead of "the collector refused the token", because the collector answered before reading the upload. Found box → collector over Tailscale; the collector between two machines now tested (8592 speed tests, 560 ping hours).
 - Web router settings: the save button, card titles, WAN type, DNS mode, DHCP and Wi-Fi on/off choices and the MAC/DNS buttons were English in every language; now translated into all 11 languages.
 - Router mode now moves its WAN to USB tethering when the WAN port keeps only an IPv6 link-local address (cable moved from the home router to a PC). Live-tested: USB WAN, laptop via cable and Wi-Fi, home router plugged back in → DHCP stopped within a minute, eth0 back as WAN.

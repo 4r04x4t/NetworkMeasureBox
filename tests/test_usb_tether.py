@@ -55,3 +55,14 @@ class UsbTetherTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SpeedCliInterfaceTest(unittest.TestCase):
+    def test_interface_option_reaches_the_runner(self):
+        # 2026-11-08: `nmb-speed -i eth1` measured on eth0; the option was never passed on.
+        from unittest.mock import patch
+        from nmb.speed import runner
+        with patch.object(runner, "run_measurement_cycle", return_value=True) as cyc, \
+             patch.object(runner, "load_config", create=True), patch("nmb.devlog.setup_dev_logging"):
+            runner.main(["-e", "cloudflare", "-i", "eth1", "--force"])
+        self.assertEqual(cyc.call_args.kwargs["target_iface"], "eth1")

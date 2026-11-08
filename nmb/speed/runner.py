@@ -1018,6 +1018,7 @@ def main(argv: list[str] | None = None) -> int:
         custom_ports=ports,
         server_id=args.server_id,
         engine=args.engine,
+        target_iface=args.interface,   # was parsed but never passed: every test ran on the default link
     )
     return 0 if ok else 1
 
