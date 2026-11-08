@@ -366,34 +366,34 @@ def aggregate_report_data(
         conn_tech = (d_dict.get("connection_type") or "").lower()
         if st_val == "ok":
             if conn_tech in ("wifi", "wlan", "guest_wifi"):
-                nmhh_code = 14
-                nmhh_desc = "WiFi mérés"
+                status_code = 14
+                status_desc = "Wi-Fi measurement"
             elif guar_down > 0 and (d_mbps or 0) < guar_down:
-                nmhh_code = 6
-                nmhh_desc = "hibás mérés (túl nagy az eltérés az elvárható sávszélességértéktől - garantált alatt)"
+                status_code = 6
+                status_desc = "invalid: below the guaranteed speed"
             elif contract_down > 0 and (d_mbps or 0) < contract_down * 0.40:
-                nmhh_code = 6
-                nmhh_desc = "hibás mérés (túl nagy az eltérés az elvárható sávszélességértéktől)"
+                status_code = 6
+                status_desc = "invalid: far below the expected speed"
             else:
-                nmhh_code = 1
-                nmhh_desc = "érvényes mérés"
+                status_code = 1
+                status_desc = "valid measurement"
         elif st_val == "skipped_busy":
-            nmhh_code = 9
-            nmhh_desc = "forgalmi korlát túllépése (háttérforgalom)"
+            status_code = 9
+            status_desc = "skipped: background traffic"
         elif st_val == "error":
-            err_str = str(s.get("error") or "").lower()
+            err_str = str(s["error"] or "").lower()
             if "timeout" in err_str or "timed out" in err_str:
-                nmhh_code = 7
-                nmhh_desc = "hibás mérés (időtúllépés)"
+                status_code = 7
+                status_desc = "invalid: timeout"
             else:
-                nmhh_code = 12
-                nmhh_desc = "error"
+                status_code = 12
+                status_desc = "error"
         else:
-            nmhh_code = 1
-            nmhh_desc = "érvényes mérés"
+            status_code = 1
+            status_desc = "valid measurement"
 
-        d_dict["nmhh_code"] = nmhh_code
-        d_dict["nmhh_desc"] = nmhh_desc
+        d_dict["status_code"] = status_code
+        d_dict["status_desc"] = status_desc
 
         report.speed_tests.append(d_dict)
 

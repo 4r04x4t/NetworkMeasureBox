@@ -243,8 +243,11 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
         A("kernel.apply", "Apply kernel tuning", "/api/system/kernel-tuning/apply", confirm="YES"),
         A("mem.profile", "Set memory profile", "/api/system/memory_profile", "memory_profile:choice(auto|low|standard|performance)"),
     )),
-    "tab-info/rsub-system": (("/api/system/info", "/api/system/updates/status", "/api/theme", "/api/i18n"), (
+    "tab-info/rsub-system": (("/api/system/info", "/api/system/updates/status", "/api/theme", "/api/i18n", "/api/collector/status"), (
         A("cred.save", "Change login", "/api/system/credentials", "username password:secret", confirm="YES"),
+        A("collector.save", "Central collector settings", "/api/collector/save",
+          "enabled:bool url token:secret case_id interval_min:int share_diagnostics:bool allow_remote_control:bool", confirm="YES"),
+        A("collector.send", "Send to the collector now", "/api/collector/send"),
         A("lang.set", "Set language", "/api/i18n", "lang:choice(en|hu|de|fr|uk)"),
         A("theme.set", "Set WebGUI theme", "/api/system/theme", "theme"),
         A("updates.check", "Check for updates", "/api/system/updates/check", method="GET"),
@@ -262,7 +265,7 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
         A("data.purge", "Purge data", "/api/system/purge", "categories", confirm="PURGE"),
         A("factory.reset", "Factory reset", "/api/backup/reset", "keep_measurements:bool", confirm="RESET"),
     )),
-    "tab-info/rsub-heal": (("/api/heal/status", "/api/heal/updates"), (
+    "tab-info/rsub-heal": (("/api/heal/status", "/api/heal/updates", "/api/heal/update/status"), (
         A("heal.audit", "Run audit", "/api/heal/audit"),
         A("heal.fix", "Repair", "/api/heal/fix", "tier:int"),
         A("heal.update", "Apply stable update", "/api/heal/update/apply", "ref", confirm="YES"),

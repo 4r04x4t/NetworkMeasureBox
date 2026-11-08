@@ -279,6 +279,16 @@ fi
 # ------------------------------------------------------------------------------
 info "Deploying software package to $INSTALL_DIR..."
 install -d -m 0755 "$INSTALL_DIR"
+if [ -d "$INSTALL_DIR/nmb" ]; then
+    # Reinstall or upgrade: save the measurements still in RAM, then replace the code
+    # instead of copying over it, so files removed from the project do not linger.
+    info "Existing installation found; keeping configuration and measurements."
+    PYTHONPATH="$INSTALL_DIR" python3 -m nmb.db.database snapshot 2>/dev/null \
+        || warn "Could not save the live database first; the last 15-minute snapshot is kept."
+    for d in nmb bin os components docs; do
+        rm -rf "${INSTALL_DIR:?}/$d"
+    done
+fi
 cp -r "$SCRIPT_DIR/nmb" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/bin" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/os" "$INSTALL_DIR/"
@@ -288,6 +298,16 @@ chmod +x "$INSTALL_DIR/bin/"* "$INSTALL_DIR/os/"*.sh
 # Services run this code as root, so only root may change it.
 chown -R root:root "$INSTALL_DIR"
 chmod -R go-w "$INSTALL_DIR"
+# Which commit is installed, so the update check can compare it with GitHub.
+SOURCE_COMMIT="${NMB_SOURCE_COMMIT:-}"
+if [ -z "$SOURCE_COMMIT" ] && command -v git >/dev/null 2>&1 && [ -d "$SCRIPT_DIR/.git" ] \
+   && [ -z "$(git -C "$SCRIPT_DIR" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+    SOURCE_COMMIT=$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || true)
+fi
+case "$SOURCE_COMMIT" in
+    *[!0-9a-f]*|"") rm -f "$INSTALL_DIR/.source-commit" ;;
+    *) [ "${#SOURCE_COMMIT}" -eq 40 ] && echo "$SOURCE_COMMIT" > "$INSTALL_DIR/.source-commit" ;;
+esac
 
 # Configuration file
 install -d -m 0775 -o root -g "$NMB_USER" "$CONFIG_DIR"

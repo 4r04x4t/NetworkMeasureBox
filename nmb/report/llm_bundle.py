@@ -1401,13 +1401,13 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
             eff_reg_cc = geo_cc
             reg_origin = "Auto-detected via GeoIP"
         elif not kernel_reg.get("is_unset"):
-            eff_reg_cc = kernel_reg.get("country_code", "HU")
+            eff_reg_cc = kernel_reg.get("country_code", "00")
             reg_origin = "Kernel active domain"
         elif geo_cc and geo_cc != "--":
             eff_reg_cc = geo_cc
             reg_origin = "Auto-detected via GeoIP"
         else:
-            eff_reg_cc = "HU"
+            eff_reg_cc = "00"
             reg_origin = "Default regulatory domain"
 
     wlan_ifc = next((x for x in interfaces if x.get("name") == guest_wifi_info.get("interface", "wlan0")), None)

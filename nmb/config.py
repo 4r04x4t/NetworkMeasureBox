@@ -300,6 +300,20 @@ log_requests = true
 # Optional add-on: runs weekly when enabled.
 enabled = false
 
+[collector]
+# Send measurements to a central collector (nmb-collector) run by an ISP or a specialist.
+enabled = false
+url = 
+token = 
+case_id = 
+interval_min = 15
+# With consent: also send the full network diagnostics (interfaces, routes, DNS, NAT, Wi-Fi,
+# traceroute, LAN device list, events) so a specialist can see the whole connection.
+share_diagnostics = false
+# With consent: the collector may ask the box to run a speed test, send fresh diagnostics or
+# upload now. Nothing else: no shell commands and no setting changes.
+allow_remote_control = false
+
 [duckdns]
 enabled = false
 provider = duckdns
@@ -423,7 +437,7 @@ class NetworkConfig:
     wifi_standard: str = "auto"          # "auto", "be", "ax", "ac", "n", "g", "a", "b"
     wifi_channel: int = 0                # 0 = auto channel selection
     wifi_channel_width: str = "auto"     # "auto", "20", "40", "80", "160", "320"
-    wifi_country_code: str = "auto"      # ISO regulatory domain (auto, HU, US, DE, 00)
+    wifi_country_code: str = "auto"      # ISO regulatory domain: auto, 00 (world) or a country code such as US or DE
     wifi_security: str = "wpa2"
 
     # Detection & failover
@@ -526,6 +540,12 @@ class SpeedtestConfig:
     schedule_mode: str = "scheduled"          # "scheduled" (periodic automation) or "manual" (disabled / on-demand only)
     schedule_cron: str = "0 * * * *"
     automated_engine: str = "ookla"           # "ookla", "cloudflare", "rtr", "all"
+    # Per-engine minimum minutes between scheduled tests (0 = every scheduled run).
+    # Ookla never runs more often than hourly, since it blocks boxes that test more often.
+    ookla_interval_min: int = 60
+    rtr_interval_min: int = 0
+    cloudflare_interval_min: int = 0
+    iperf3_interval_min: int = 0
     idle_wait_max_sec: float = 1800.0
     idle_threshold_mode: str = "percent"      # "percent" (< 2% network load) or "fixed" (custom kbps)
     idle_threshold_percent: float = 2.0       # dynamic network load threshold (e.g. 2.0%)
@@ -560,6 +580,17 @@ class GuestWiFiConfig:
     security: str = "auto"
     metric: int = 600
     auto_reconnect: bool = True
+
+
+@dataclass
+class CollectorConfig:
+    enabled: bool = False
+    url: str = ""          # e.g. https://collector.example.net:8600
+    token: str = ""        # the collector's ingest token
+    case_id: str = ""      # ticket or customer number the measurements belong to
+    interval_min: int = 15
+    share_diagnostics: bool = False  # full network diagnostics and events, only with consent
+    allow_remote_control: bool = False  # collector may start a speed test, diagnostics or an upload
 
 
 @dataclass
@@ -631,6 +662,7 @@ class Config:
     web: WebConfig = field(default_factory=WebConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     duckdns: DuckDNSConfig = field(default_factory=DuckDNSConfig)
+    collector: CollectorConfig = field(default_factory=CollectorConfig)
     ooni: OoniConfig = field(default_factory=OoniConfig)
     wireguard: WireGuardConfig = field(default_factory=WireGuardConfig)
     openvpn: OpenVPNConfig = field(default_factory=OpenVPNConfig)
@@ -810,6 +842,10 @@ def load_config(path: Path | None = None) -> Config:
         cfg.speedtest.schedule_cron = st.get("schedule_cron", cfg.speedtest.schedule_cron)
         cfg.speedtest.daily_data_limit_mb = st.getfloat("daily_data_limit_mb", fallback=cfg.speedtest.daily_data_limit_mb)
         cfg.speedtest.automated_engine = st.get("automated_engine", getattr(cfg.speedtest, "automated_engine", "ookla")).lower().strip()
+        cfg.speedtest.ookla_interval_min = max(60, min(10080, st.getint("ookla_interval_min", fallback=60)))
+        cfg.speedtest.rtr_interval_min = max(0, min(10080, st.getint("rtr_interval_min", fallback=0)))
+        cfg.speedtest.cloudflare_interval_min = max(0, min(10080, st.getint("cloudflare_interval_min", fallback=0)))
+        cfg.speedtest.iperf3_interval_min = max(0, min(10080, st.getint("iperf3_interval_min", fallback=0)))
         cfg.speedtest.idle_wait_max_sec = st.getfloat("idle_wait_max_sec", fallback=cfg.speedtest.idle_wait_max_sec)
         cfg.speedtest.idle_threshold_mode = st.get("idle_threshold_mode", getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower().strip()
         cfg.speedtest.idle_threshold_percent = st.getfloat("idle_threshold_percent", fallback=getattr(cfg.speedtest, "idle_threshold_percent", 2.0))
@@ -922,6 +958,16 @@ def load_config(path: Path | None = None) -> Config:
         cfg.logging.console_enabled = lg.getboolean("console_enabled", fallback=cfg.logging.console_enabled)
         cfg.logging.log_requests = lg.getboolean("log_requests", fallback=getattr(cfg.logging, "log_requests", True))
 
+    if parser.has_section("collector"):
+        co = parser["collector"]
+        cfg.collector.enabled = co.getboolean("enabled", fallback=False)
+        cfg.collector.url = co.get("url", "").strip()
+        cfg.collector.token = co.get("token", "").strip()
+        cfg.collector.case_id = co.get("case_id", "").strip()
+        cfg.collector.interval_min = max(5, min(1440, co.getint("interval_min", fallback=15)))
+        cfg.collector.share_diagnostics = co.getboolean("share_diagnostics", fallback=False)
+        cfg.collector.allow_remote_control = co.getboolean("allow_remote_control", fallback=False)
+
     if parser.has_section("duckdns"):
         dd = parser["duckdns"]
         cfg.duckdns.enabled = dd.getboolean("enabled", fallback=cfg.duckdns.enabled)
@@ -988,7 +1034,7 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
         except Exception:
             pass
 
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -1084,6 +1130,10 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["speedtest"]["schedule_cron"] = str(cfg.speedtest.schedule_cron)
     parser["speedtest"]["daily_data_limit_mb"] = str(cfg.speedtest.daily_data_limit_mb)
     parser["speedtest"]["automated_engine"] = str(getattr(cfg.speedtest, "automated_engine", "ookla")).lower()
+    parser["speedtest"]["ookla_interval_min"] = str(max(60, int(cfg.speedtest.ookla_interval_min)))
+    parser["speedtest"]["rtr_interval_min"] = str(int(cfg.speedtest.rtr_interval_min))
+    parser["speedtest"]["cloudflare_interval_min"] = str(int(cfg.speedtest.cloudflare_interval_min))
+    parser["speedtest"]["iperf3_interval_min"] = str(int(cfg.speedtest.iperf3_interval_min))
     parser["speedtest"]["idle_wait_max_sec"] = str(cfg.speedtest.idle_wait_max_sec)
     parser["speedtest"]["idle_threshold_mode"] = str(getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower()
     parser["speedtest"]["idle_threshold_percent"] = str(getattr(cfg.speedtest, "idle_threshold_percent", 2.0))
@@ -1162,6 +1212,15 @@ def save_config(cfg: Config, target_path: Path | None = None) -> bool:
     parser["logging"]["backup_count"] = str(cfg.logging.backup_count)
     parser["logging"]["console_enabled"] = str(cfg.logging.console_enabled).lower()
     parser["logging"]["log_requests"] = str(getattr(cfg.logging, "log_requests", True)).lower()
+
+    # Central collector
+    parser["collector"]["enabled"] = str(cfg.collector.enabled).lower()
+    parser["collector"]["url"] = str(cfg.collector.url)
+    parser["collector"]["token"] = str(cfg.collector.token)
+    parser["collector"]["case_id"] = str(cfg.collector.case_id)
+    parser["collector"]["interval_min"] = str(cfg.collector.interval_min)
+    parser["collector"]["share_diagnostics"] = str(cfg.collector.share_diagnostics).lower()
+    parser["collector"]["allow_remote_control"] = str(cfg.collector.allow_remote_control).lower()
 
     # DuckDNS / DynDNS
     parser["duckdns"]["enabled"] = str(cfg.duckdns.enabled).lower()

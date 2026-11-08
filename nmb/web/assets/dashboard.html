@@ -151,7 +151,7 @@
 
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
         <div class="engine-desc" id="engine-desc-text" style="margin: 0; flex: 1; min-width: 260px;" data-i18n-html="engine_desc_ookla">
-          ⚡ <b>Ookla Speedtest:</b> Global server fleet, selectable target server (e.g. 2Connect #31717), detailed download/upload and bufferbloat.
+          ⚡ <b>Ookla Speedtest:</b> Global server fleet, selectable target server, detailed download/upload and bufferbloat.
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 11.5px; color: #64748b;" data-i18n="settings_synced">(Settings synchronized)</span>
@@ -164,18 +164,15 @@
     <div style="background: #090e1a; border: 1px solid #1e293b; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
       <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
         <div id="home-target-server-container" style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="target_server">🎯 Target Server:</span>
+          <span style="font-weight: 700; font-size: 13px; color: #f1f5f9;" data-i18n="target_server" title="Only Ookla uses this server; RTR-NetTest and Cloudflare choose their own.">🎯 Ookla Speedtest server:</span>
           <select id="home-target-server-select" class="form-input" style="width: auto; min-width: 250px; padding: 7px 12px; font-size: 13px;" onchange="onHomeServerSelect(this.value)">
-            <option value="31717">🎯 #31717 - 2Connect Kft. (Budapest)</option>
             <option value="auto" data-i18n="target_server_auto">🌐 Automatic (Closest Server)</option>
-            <option value="2063">Magyar Telekom (#2063 Budapest)</option>
-            <option value="1038">DIGI Telecommunications (#1038 Budapest)</option>
-            <option value="3733">Vodafone / One (#3733 Budapest)</option>
-            <option value="3652">Yettel HU (#3652 Budapest)</option>
+            <optgroup id="home-ookla-server-group" label="Ookla Speedtest servers" data-i18n-label="ookla_servers_group"></optgroup>
             <option value="custom" data-i18n="target_server_custom">✏️ Enter Custom Server ID...</option>
           </select>
+          <button type="button" id="btn-home-ookla-refresh" class="btn-secondary" style="padding: 7px 10px; font-size: 12px;" onclick="loadHomeOoklaServers(true)" data-i18n="ookla_servers_refresh">🔄 Refresh from Ookla</button>
           <div id="home-custom-server-wrap" style="display: none; align-items: center; gap: 6px;">
-            <input type="text" id="home-custom-server-id" placeholder="e.g. 31717" class="form-input" style="width: 100px; padding: 7px 10px; font-size: 13px;">
+            <input type="text" id="home-custom-server-id" placeholder="Ookla server ID" class="form-input" style="width: 100px; padding: 7px 10px; font-size: 13px;">
             <button type="button" class="btn-primary" style="padding: 7px 12px; font-size: 12px;" onclick="applyHomeCustomServer()">Select</button>
           </div>
         </div>
@@ -302,7 +299,7 @@
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="triggerSpeedtest()" data-i18n="btn_measure_now">▶️ Run Speedtest Now</button>
           <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests.csv'" data-i18n="btn_speed_export_csv">📊 Speedtest CSV Export</button>
-          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests_detailed.csv'" data-i18n="btn_nmhh_export_csv">📋 Broadband Speedtest CSV Export</button>
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="window.location.href='/export/speedtests_detailed.csv'" data-i18n="btn_detailed_export_csv">📋 Broadband Speedtest CSV Export</button>
         </div>
       </div>
 
@@ -600,7 +597,7 @@
         <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
           <div class="form-group" style="margin: 0; flex: 2; min-width: 240px;">
             <label class="form-label" data-i18n="traceroute_target">Destination Host / IP:</label>
-            <input type="text" id="traceroute-target" value="1.1.1.1" placeholder="e.g. 1.1.1.1, 8.8.8.8, or bix.hu" class="form-input">
+            <input type="text" id="traceroute-target" value="1.1.1.1" placeholder="e.g. 1.1.1.1, 8.8.8.8 or example.com" class="form-input">
           </div>
           <div class="form-group" style="margin: 0; flex: 1; min-width: 170px;">
             <label class="form-label" data-i18n="traceroute_method">Probing Protocol:</label>
@@ -638,7 +635,6 @@
           <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('1.1.1.1')">Cloudflare (1.1.1.1)</button>
           <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('8.8.8.8')">Google DNS (8.8.8.8)</button>
           <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('9.9.9.9')">Quad9 (9.9.9.9)</button>
-          <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('bix.hu')">BIX Budapest (bix.hu)</button>
           <button type="button" class="badge" style="cursor: pointer; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 3px 8px;" onclick="setTracerouteTarget('netztest.at')">RTR-NetTest (netztest.at)</button>
         </div>
 
@@ -2560,17 +2556,38 @@
             <div id="sched-ookla-warning" role="alert" style="display: none; margin-top: 8px; padding: 10px 12px; border-radius: 6px; border: 1px solid #f59e0b; background: rgba(245, 158, 11, 0.12); color: #fbbf24; font-size: 12.5px; line-height: 1.45;"></div>
           </div>
 
+          <!-- Per-engine minimum intervals -->
+          <div id="sched-engine-intervals">
+            <label class="form-label" style="font-size: 12px;" data-i18n="engine_intervals_title">How often each engine may run (minutes, 0 = every scheduled run):</label>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">Ookla
+                <input type="number" id="sched-int-ookla" class="form-input" min="60" max="10080" value="60" style="width: 110px;" oninput="markSchedDirty()">
+              </label>
+              <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">RTR-NetTest
+                <input type="number" id="sched-int-rtr" class="form-input" min="0" max="10080" value="0" style="width: 110px;" oninput="markSchedDirty()">
+              </label>
+              <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">Cloudflare
+                <input type="number" id="sched-int-cloudflare" class="form-input" min="0" max="10080" value="0" style="width: 110px;" oninput="markSchedDirty()">
+              </label>
+              <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">iPerf3
+                <input type="number" id="sched-int-iperf3" class="form-input" min="0" max="10080" value="0" style="width: 110px;" oninput="markSchedDirty()">
+              </label>
+            </div>
+            <div class="form-hint" data-i18n="engine_intervals_hint">The schedule above sets how often the box checks; each engine then runs only when its own interval is over. Ookla runs at most hourly. iPerf3 joins the mixed run when an iPerf3 server is set and answers.</div>
+          </div>
+
           <!-- Target Server ID -->
           <div id="sched-target-server-wrap">
-            <label class="form-label" style="font-size: 12px;">Automated Test Target Server:</label>
+            <label class="form-label" style="font-size: 12px;" data-i18n="sched_ookla_server_label">Ookla Speedtest server for scheduled tests:</label>
             <div style="display: flex; gap: 8px;">
-              <input type="text" id="sched-server-id-input" placeholder="e.g. 31717 (blank = auto)" class="form-input" style="flex: 1;" oninput="markSchedDirty()">
+              <input type="text" id="sched-server-id-input" placeholder="Ookla server ID (blank = automatic)" class="form-input" style="flex: 1;" oninput="markSchedDirty()">
               <button type="button" class="btn-secondary" style="font-size: 12px; white-space: nowrap; padding: 7px 12px;" onclick="quickResolveServerId()">Resolve</button>
               <button type="button" class="btn-secondary" style="font-size: 12px; white-space: nowrap; padding: 7px 12px;" onclick="clearSchedServer()">Auto</button>
             </div>
             <div id="sched-server-resolved-name" style="font-size: 11.5px; color: #38bdf8; margin-top: 5px;">
               Automatic selection
             </div>
+            <div class="form-hint" data-i18n="ookla_server_only_hint">Only Ookla uses this server. RTR-NetTest, Cloudflare and iPerf3 choose their own servers.</div>
           </div>
 
           <!-- iPerf3 Automated Target Endpoint -->
@@ -2645,14 +2662,14 @@
       </div>
 
       <!-- Server Fleet Explorer & Catalog -->
-      <div class="section-subtitle" data-i18n="servers_title">Ookla & Global Benchmark Servers Fleet</div>
+      <div class="section-subtitle" data-i18n="servers_title">Ookla Speedtest servers</div>
+      <div class="form-hint" style="margin-bottom: 8px;" data-i18n="ookla_server_list_hint">Ookla's current list of servers near this box, refreshed from Ookla every few minutes. Only Ookla tests use these servers.</div>
       <div class="search-row">
         <input type="text" id="server-search-input" placeholder="Search server by name, country, or ID..." data-i18n-placeholder="servers_search_placeholder" class="form-input" style="flex: 1; min-width: 250px;" oninput="onServerSearchInput(this.value)">
         <button type="button" class="btn-primary" style="padding: 8px 16px;" onclick="loadServers(document.getElementById('server-search-input').value)">🔍 Search</button>
         <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('', true)" data-i18n="ookla_servers_refresh">🔄 Refresh from Ookla</button>
           <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('')">All</button>
-          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('hungary')">Hungary</button>
-          <button type="button" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="loadServers('budapest')">Budapest</button>
         </div>
       </div>
 
@@ -2818,7 +2835,7 @@
           <div class="router-row-2" style="margin-top: 10px;">
             <div class="form-group">
               <label class="form-label">802.1Q VLAN Tagging (VLAN ID):</label>
-              <input type="number" id="cfg-pppoe-vlan" min="0" max="4094" placeholder="0 = nincs VLAN (pl. Telekom GPON: 10, Digi: 100)" class="form-input">
+              <input type="number" id="cfg-pppoe-vlan" min="0" max="4094" placeholder="0 = no VLAN (your ISP tells you if one is needed)" class="form-input">
               <div class="form-hint">Fiber (FTTH) connections may require specific 802.1Q VLAN tagging.</div>
             </div>
             <div class="form-group">
@@ -3059,12 +3076,15 @@
             <div class="form-group">
               <label class="form-label">Regulatory Domain (Country):</label>
               <select id="cfg-wifi-country" class="form-input">
-                <option value="HU" selected>HU - Hungary (ETSI / EU)</option>
+                <option value="auto" selected>Automatic (from the location of this box)</option>
+                <option value="00">00 - World Wide Default</option>
+                <option value="AT">AT - Austria (ETSI / EU)</option>
                 <option value="DE">DE - Germany (ETSI / EU)</option>
                 <option value="FR">FR - France (ETSI / EU)</option>
                 <option value="GB">GB - United Kingdom</option>
+                <option value="HU">HU - Hungary (ETSI / EU)</option>
+                <option value="UA">UA - Ukraine</option>
                 <option value="US">US - United States (FCC)</option>
-                <option value="00">00 - World Wide Default</option>
               </select>
             </div>
           </div>
@@ -3433,9 +3453,9 @@
           </div>
           <div class="router-row-2" style="margin-top: 10px;">
             <div class="form-group">
-              <label class="form-label">Designated Server ID for Automated Runs:</label>
-              <input type="text" id="cfg-sched-server-id" placeholder="e.g. 31717 (2Connect Budapest) or blank = auto" class="form-input">
-              <div class="form-hint">When configured, automated background runs strictly target this server.</div>
+              <label class="form-label" data-i18n="sched_ookla_server_label">Ookla Speedtest server for scheduled tests:</label>
+              <input type="text" id="cfg-sched-server-id" placeholder="Ookla server ID, blank = automatic" class="form-input">
+              <div class="form-hint" data-i18n="ookla_server_only_hint">Only Ookla uses this server. RTR-NetTest, Cloudflare and iPerf3 choose their own servers.</div>
             </div>
             <div class="form-group">
               <label class="form-label">Traffic Gate Accuracy Gate:</label>
@@ -3531,7 +3551,7 @@
           <div class="router-row-3">
             <div class="form-group">
               <label class="form-label" data-i18n="isp_name">Provider Name (ISP):</label>
-              <input type="text" id="cfg-isp-name" placeholder="e.g. Magyar Telekom, Vodafone, AT&T, Comcast, Local ISP" class="form-input">
+              <input type="text" id="cfg-isp-name" placeholder="Name of your internet provider" class="form-input">
             </div>
             <div class="form-group">
               <label class="form-label" data-i18n="isp_type">Connection Type:</label>
@@ -3891,6 +3911,52 @@
               🚪 <span data-i18n="logout_btn">Logout</span>
             </button>
           </div>
+        </div>
+
+        <!-- Central collector (opt-in) -->
+        <div class="router-section-card" id="collector-card">
+          <div class="section-subtitle" data-i18n="col_title">Central measurement collector</div>
+          <div class="form-hint" data-i18n="col_intro">Send this box's measurements to a collector run by your ISP or a specialist, so they can look into your connection. Off until you turn it on; the address and the token come from whoever runs the collector.</div>
+          <div class="form-hint" style="margin-top: 6px;"><span data-i18n="col_box_uid">Unique ID of this box:</span> <code id="col-box-uid">--</code></div>
+          <div class="router-row-2" style="margin-top: 10px;">
+            <div class="form-group">
+              <label class="form-label" for="col-url" data-i18n="col_url">Collector address</label>
+              <input type="url" id="col-url" class="form-input" placeholder="https://collector.example.net:8600">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="col-token" data-i18n="col_token">Token</label>
+              <input type="password" id="col-token" class="form-input" autocomplete="off" placeholder="nmbc_...">
+              <div class="form-hint" id="col-token-hint"></div>
+            </div>
+          </div>
+          <div class="router-row-2">
+            <div class="form-group">
+              <label class="form-label" for="col-case" data-i18n="col_case">Case or ticket number</label>
+              <input type="text" id="col-case" class="form-input" maxlength="80">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="col-interval" data-i18n="col_interval">Upload every (minutes)</label>
+              <input type="number" id="col-interval" class="form-input" min="5" max="1440" value="15">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="col-enabled"> <span data-i18n="col_enabled">Send measurements (speed tests and hourly ping summary)</span>
+            </label>
+            <label class="form-label" style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="col-diag"> <span data-i18n="col_diag">I agree to also share the full network diagnostics</span>
+            </label>
+            <div class="form-hint" data-i18n="col_diag_hint">Hourly: interfaces, routes, DNS, NAT, Wi-Fi, traceroute, the devices on your network and events. Passwords and keys are masked.</div>
+            <label class="form-label" style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+              <input type="checkbox" id="col-remote"> <span data-i18n="col_remote">I allow remote control from the collector</span>
+            </label>
+            <div class="form-hint" data-i18n="col_remote_hint">The collector may only start a speed test, ask for fresh diagnostics or an upload. It cannot run commands or change settings. The box asks the collector every minute; nothing connects into your network.</div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+            <button type="button" class="btn-primary" onclick="saveCollector()" data-i18n="col_save">Save</button>
+            <button type="button" class="btn-secondary" onclick="sendCollectorNow()" data-i18n="col_send">Send now</button>
+          </div>
+          <div class="form-hint" id="col-status" style="margin-top: 8px;" aria-live="polite"></div>
         </div>
 
         <!-- Distro Package Updates Card -->

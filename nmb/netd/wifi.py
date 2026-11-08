@@ -458,12 +458,12 @@ def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, D
             from nmb.netd.geoip import get_public_geoip, get_wifi_regulatory_domain
             reg = get_wifi_regulatory_domain()
             if not reg.get("is_unset"):
-                country = reg.get("country_code", "HU")
+                country = reg.get("country_code", "00")
             else:
                 geo = get_public_geoip()
-                country = geo.get("country_code") if geo.get("country_code") != "--" else "HU"
+                country = geo.get("country_code") if geo.get("country_code") != "--" else "00"
         except Exception:
-            country = "HU"
+            country = "00"
     else:
         country = cfg_country
 

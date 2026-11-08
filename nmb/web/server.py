@@ -72,7 +72,7 @@ from nmb.common.heal import (
     apply_stable_update,
     load_heal_state,
 )
-from nmb.report.csv_export import export_ping_summary_csv, export_speedtests_csv, export_nmhh_speedtests_csv
+from nmb.report.csv_export import export_ping_summary_csv, export_speedtests_csv, export_detailed_speedtests_csv
 from nmb.report.dossier import generate_html_dossier
 from nmb.web.results_page import allows_without_password, render_results_page
 from nmb.report.llm_bundle import generate_llm_diagnostic_bundle
@@ -353,14 +353,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 4. Speedtest Servers List
         if path == "/api/speedtest/servers":
             q = ""
+            refresh = False
             if parsed.query:
                 try:
                     qs = parse_qs(parsed.query)
                     q = qs.get("q", [""])[0] or qs.get("search", [""])[0]
+                    refresh = qs.get("refresh", [""])[0] == "1"
                 except Exception:
                     log.debug("suppressed exception", exc_info=True)
-            servers = get_available_servers(search_query=q, limit=100)
-            self._send_json({"servers": servers, "count": len(servers)})
+            servers = get_available_servers(search_query=q, limit=100, refresh=refresh)
+            self._send_json({"servers": servers, "count": len(servers), "source": "ookla"})
             return
 
         # 5. Sniffer Telemetry Stats
@@ -423,7 +425,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 conn, 0, now,
                 contract_down_mbps=self.server.cfg.isp.contract_down_mbps,
                 contract_up_mbps=self.server.cfg.isp.contract_up_mbps,
-                default_isp=getattr(self.server.cfg.isp, "name", "DIGI Kft."),
+                default_isp=getattr(self.server.cfg.isp, "name", ""),
             )
             conn.close()
             body = csv_data.encode("utf-8")
@@ -438,13 +440,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if path == "/export/speedtests_detailed.csv":
             conn = db.connect(readonly=True)
             now = db.now_ms()
-            csv_data = export_nmhh_speedtests_csv(
+            csv_data = export_detailed_speedtests_csv(
                 conn, 0, now,
                 contract_down_mbps=float(self.server.cfg.isp.contract_down_mbps or 1000.0),
                 contract_up_mbps=float(self.server.cfg.isp.contract_up_mbps or 200.0),
                 guaranteed_down_mbps=float(getattr(self.server.cfg.isp, "guaranteed_down_mbps", 0.0) or 300.0),
                 guaranteed_up_mbps=float(getattr(self.server.cfg.isp, "guaranteed_up_mbps", 0.0) or 50.0),
-                default_isp=getattr(self.server.cfg.isp, "name", "DIGI Kft. - DIGINet1000 OPTIKA"),
+                default_isp=getattr(self.server.cfg.isp, "name", ""),
             )
             conn.close()
             body = csv_data.encode("utf-8")
@@ -597,6 +599,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(check_stable_updates())
             return
 
+        if path == "/api/heal/update/status":
+            from nmb.common import updater
+            self._send_json(updater.read_status())
+            return
+
         # 12. Distro-Aware System Updates
         if path == "/api/system/updates/check":
             self._send_json(check_updates_available())
@@ -743,6 +750,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 17b. DuckDNS / dynv6 DynDNS Status
+        if path == "/api/collector/status":
+            from nmb.collector import client as collector_client
+            self._send_json(collector_client.get_status(self.server.cfg))
+            return
+
         if path in ("/api/duckdns/status", "/api/dyndns/status"):
             from nmb.netd.duckdns import get_duckdns_status
             self._send_json(get_duckdns_status(self.server.cfg))
@@ -1274,7 +1286,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
             ok = False
             try:
-                temp_tar.write_bytes(upload_bytes)
+                # The archive holds passwords; keep it as private as the other backups.
+                fd = os.open(temp_tar, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
+                with os.fdopen(fd, "wb") as f:
+                    f.write(upload_bytes)
                 ok, msg = restore_backup(temp_tar, create_safety_snapshot=True)
                 if ok:
                     self.server.cfg = load_config()
@@ -1398,6 +1413,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self.server.cfg.speedtest.schedule_cron = norm_cron
             if auto_eng and str(auto_eng).strip():
                 self.server.cfg.speedtest.automated_engine = str(auto_eng).strip().lower()
+            for key, floor in (("ookla_interval_min", 60), ("rtr_interval_min", 0), ("cloudflare_interval_min", 0), ("iperf3_interval_min", 0)):
+                if key in body_json:
+                    try:
+                        setattr(self.server.cfg.speedtest, key, max(floor, min(10080, int(body_json[key]))))
+                    except (ValueError, TypeError):
+                        pass
             if thresh_mode in ("percent", "fixed"):
                 self.server.cfg.speedtest.idle_threshold_mode = thresh_mode
             if thresh_pct is not None:
@@ -1450,7 +1471,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             msg = " ".join(msg_parts) if msg_parts else "Measurement settings saved successfully."
             from nmb.speed.anti_ban import ookla_schedule_warning
             sp = self.server.cfg.speedtest
-            ookla_warning = ookla_schedule_warning(sp.automated_engine, sp.schedule_mode, sp.schedule_cron)
+            ookla_warning = ookla_schedule_warning(sp.automated_engine, sp.schedule_mode, sp.schedule_cron, sp.ookla_interval_min)
             if ookla_warning and ookla_warning["code"] == "ookla_rate_limit_risk":
                 log.warning("schedule runs Ookla every %.0f min; Ookla limits tests and may block this box (safe: every %d min)",
                             ookla_warning["interval_min"], ookla_warning["safe_interval_min"])
@@ -1473,6 +1494,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "schedule_mode": self.server.cfg.speedtest.schedule_mode,
                 "schedule_cron": self.server.cfg.speedtest.schedule_cron,
                 "automated_engine": self.server.cfg.speedtest.automated_engine,
+                "ookla_interval_min": self.server.cfg.speedtest.ookla_interval_min,
+                "rtr_interval_min": self.server.cfg.speedtest.rtr_interval_min,
+                "cloudflare_interval_min": self.server.cfg.speedtest.cloudflare_interval_min,
                 "idle_threshold_mode": self.server.cfg.speedtest.idle_threshold_mode,
                 "idle_threshold_percent": self.server.cfg.speedtest.idle_threshold_percent,
                 "idle_threshold_kbps": self.server.cfg.speedtest.idle_threshold_kbps,
@@ -2237,6 +2261,38 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(result)
             return
 
+        # Central collector (opt-in): settings and "send now"
+        if path == "/api/collector/save":
+            from nmb.collector import client as collector_client
+            co = self.server.cfg.collector
+            url = str(body_json.get("url", co.url)).strip()
+            if url and not url.startswith(("https://", "http://")):
+                self._send_json({"status": "error", "message": "The collector address must start with https:// or http://."}, status=400)
+                return
+            co.url = url[:300]
+            token = str(body_json.get("token", "")).strip()
+            if token:  # an empty field keeps the saved token
+                co.token = token[:200]
+            co.case_id = str(body_json.get("case_id", co.case_id)).strip()[:80]
+            try:
+                co.interval_min = max(5, min(1440, int(body_json.get("interval_min", co.interval_min))))
+            except (TypeError, ValueError):
+                pass
+            co.share_diagnostics = bool(body_json.get("share_diagnostics", co.share_diagnostics))
+            co.allow_remote_control = bool(body_json.get("allow_remote_control", co.allow_remote_control))
+            co.enabled = bool(body_json.get("enabled", co.enabled)) and bool(co.url and co.token)
+            save_config(self.server.cfg)
+            collector_client.start(lambda: self.server.cfg)
+            collector_client.wake()
+            self._send_json({"status": "ok", **collector_client.get_status(self.server.cfg)})
+            return
+
+        if path == "/api/collector/send":
+            from nmb.collector import client as collector_client
+            res = collector_client.send_now(self.server.cfg)
+            self._send_json({"status": "ok" if res.get("ok") else "error", **res})
+            return
+
         # 16. DynDNS (DuckDNS / dynv6) Settings & Update
         if path in ("/api/duckdns/save", "/api/dyndns/save"):
             from nmb.netd.duckdns import start_duckdns_service, stop_duckdns_service, update_duckdns, get_duckdns_status, wake_duckdns_daemon, detect_public_ipv6
@@ -2980,17 +3036,29 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         latest_per_engine = {}
         for eng in ("ookla", "cloudflare", "rtr", "iperf3"):
             row = conn.execute(
-                """SELECT ts, trigger, status, server_name, server_host, server_location, client_ip, client_ipv6,
+                """SELECT ts, trigger, status, server_id, server_name, server_host, server_location, client_ip, client_ipv6,
                           down_bps, up_bps, ping_us, jitter_us, loss_pct, result_url, error,
                           down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms, connection_type,
                           engine, colo
                    FROM speedtest
-                   WHERE LOWER(engine) = ? AND status != 'skipped_busy'
+                   WHERE LOWER(engine) = ? AND status = 'ok'
                    ORDER BY ts DESC LIMIT 1""",
                 (eng,)
             ).fetchone()
             if row:
                 d = dict(row)
+                # A failed run after the last result is mentioned, not shown as a result.
+                fail = conn.execute(
+                    "SELECT ts, error FROM speedtest WHERE LOWER(engine) = ? AND status = 'error' AND ts > ? ORDER BY ts DESC LIMIT 1",
+                    (eng, row["ts"])).fetchone()
+                if fail:
+                    d["newer_failure"] = {"ts": fail["ts"], "error": fail["error"] or ""}
+                if eng == "ookla":
+                    from nmb.speed.anti_ban import client_cooldown_remaining, scheduled_wait_remaining
+                    wait = max(client_cooldown_remaining(),
+                               scheduled_wait_remaining(60 * self.server.cfg.speedtest.ookla_interval_min))
+                    d["next_possible_ts"] = int((time.time() + wait) * 1000) if wait > 0 else None
+                    d["selected_server_id"] = self.server.cfg.speedtest.server_id
                 d_mbps = (row["down_bps"] or 0) / 1_000_000.0 if row["down_bps"] else None
                 u_mbps = (row["up_bps"] or 0) / 1_000_000.0 if row["up_bps"] else None
                 d["down_mbps"] = round(d_mbps, 2) if d_mbps is not None else None
@@ -3148,7 +3216,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "standard": getattr(self.server.cfg.network, "wifi_standard", "auto"),
                 "channel": getattr(self.server.cfg.network, "wifi_channel", 0),
                 "channel_width": getattr(self.server.cfg.network, "wifi_channel_width", "auto"),
-                "country": getattr(self.server.cfg.network, "wifi_country_code", "HU"),
+                "country": getattr(self.server.cfg.network, "wifi_country_code", "auto"),
                 "security": getattr(self.server.cfg.network, "wifi_security", "wpa2"),
                 "capabilities": detect_wifi_capabilities(self.server.cfg.network.wlan_interface),
                 "live_status": get_wifi_status(self.server.cfg.network.wlan_interface),
@@ -3162,6 +3230,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "schedule_cron": getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"),
             "schedule_cron_desc": get_cron_description(getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"), getattr(self.server.cfg.web, "language", "en")),
             "automated_engine": getattr(self.server.cfg.speedtest, "automated_engine", "ookla"),
+            "engine_intervals": {
+                "ookla": self.server.cfg.speedtest.ookla_interval_min,
+                "rtr": self.server.cfg.speedtest.rtr_interval_min,
+                "cloudflare": self.server.cfg.speedtest.cloudflare_interval_min,
+                "iperf3": self.server.cfg.speedtest.iperf3_interval_min,
+            },
             "idle_threshold_mode": getattr(self.server.cfg.speedtest, "idle_threshold_mode", "percent"),
             "idle_threshold_percent": getattr(self.server.cfg.speedtest, "idle_threshold_percent", 2.0),
             "idle_threshold_kbps": getattr(self.server.cfg.speedtest, "idle_threshold_kbps", 500),
@@ -3285,7 +3359,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "wifi_standard": getattr(cfg.network, "wifi_standard", "auto"),
             "wifi_channel": cfg.network.wifi_channel,
             "wifi_channel_width": getattr(cfg.network, "wifi_channel_width", "auto"),
-            "wifi_country_code": getattr(cfg.network, "wifi_country_code", "HU"),
+            "wifi_country_code": getattr(cfg.network, "wifi_country_code", "auto"),
             "wifi_security": getattr(cfg.network, "wifi_security", "wpa2"),
             "wifi_capabilities": detect_wifi_capabilities(cfg.network.wlan_interface),
             "guest_wifi_enabled": getattr(cfg.guest_wifi, "enabled", False),
@@ -3898,6 +3972,13 @@ class WebDaemon:
 
         # Synchronize background Guest Wi-Fi client station connection if enabled
         sync_guest_wifi_connection(self.cfg)
+
+        # Central collector uploader; it stays idle while the collector is off.
+        try:
+            from nmb.collector import client as collector_client
+            collector_client.start(lambda: self.cfg)
+        except Exception as e:
+            log.debug("collector client start error: %s", e)
 
         # Synchronize background DuckDNS DynDNS updater if enabled
         if getattr(self.cfg, "duckdns", None) and self.cfg.duckdns.enabled:

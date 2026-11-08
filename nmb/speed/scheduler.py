@@ -497,7 +497,8 @@ class AutonomousScheduler(threading.Thread):
             "last_outcome": self.last_outcome,
             "last_detail": self.last_detail,
             "ookla_warning": ookla_schedule_warning(
-                getattr(self.cfg.speedtest, "automated_engine", "ookla"), sched_mode, sched_cron),
+                getattr(self.cfg.speedtest, "automated_engine", "ookla"), sched_mode, sched_cron,
+                getattr(self.cfg.speedtest, "ookla_interval_min", 60)),
             "traffic_gate": {
                 "mode": thresh_mode,
                 "threshold_percent": thresh_pct,

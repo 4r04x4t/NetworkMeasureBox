@@ -33,6 +33,12 @@ from nmb.report.invasive_logger import (
     get_cached_invasive_snapshot,
 )
 
+# Never touch the box's real Ookla cooldown file.
+import tempfile as _tf
+from pathlib import Path as _P
+from nmb.speed import anti_ban as _ab
+_ab.CLIENT_COOLDOWN_FILE = _P(_tf.mkdtemp(prefix="nmb-test-")) / "ookla_cooldown.json"
+
 
 class TestHeadlessFeatures(unittest.TestCase):
     def setUp(self):

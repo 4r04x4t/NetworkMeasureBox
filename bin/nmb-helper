@@ -362,8 +362,49 @@ case "${1:-}" in
         shift
         PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.heal fix "$@"
         ;;
+    self-update)
+        # self-update {check|status|start [commit]|run [commit]}
+        # start: in the background (the web server); run: in the foreground (the CLI).
+        # setup.sh replaces /opt/nmb, so the updater runs from its own copy of the code.
+        mode="${2:-check}"
+        commit="${3:-}"
+        case "$commit" in
+            "") ;;
+            *[!0-9a-f]*) echo "Invalid commit" >&2; exit 1 ;;
+            *) [ "${#commit}" -eq 40 ] || { echo "Invalid commit" >&2; exit 1; } ;;
+        esac
+        case "$mode" in
+            check|status)
+                PYTHONPATH=/opt/nmb exec python3 -m nmb.common.updater "$mode"
+                ;;
+            start|run)
+                if [ -f /var/lib/nmb/update_status.json ] && grep -q '"state": "running"' /var/lib/nmb/update_status.json \
+                   && [ $(( $(date +%s) - $(stat -c %Y /var/lib/nmb/update_status.json) )) -lt 3600 ]; then
+                    echo "An update is already running" >&2
+                    exit 1
+                fi
+                runner=/var/lib/nmb/update-runner
+                rm -rf "$runner"
+                install -d -m 0700 "$runner"
+                cp -r /opt/nmb/nmb "$runner/"
+                if [ "$mode" = "run" ]; then
+                    PYTHONPATH="$runner" exec python3 -m nmb.common.updater apply $commit
+                fi
+                if [ -d /run/systemd/system ]; then
+                    systemctl reset-failed nmb-self-update.service >/dev/null 2>&1 || true
+                    systemd-run --unit=nmb-self-update --collect --quiet \
+                        --setenv=PYTHONPATH="$runner" python3 -m nmb.common.updater apply $commit
+                else
+                    PYTHONPATH="$runner" setsid nohup python3 -m nmb.common.updater apply $commit \
+                        >/dev/null 2>&1 </dev/null &
+                fi
+                echo '{"state": "started"}'
+                ;;
+            *) echo "Usage: nmb-helper self-update {check|status|start [commit]|run [commit]}" >&2; exit 1 ;;
+        esac
+        ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|invasive-log|diagnostic-bundle|crashes-list|crashes-clear|heal-symlink|heal-permissions|heal-restore-config|heal-install-file|heal-dpkg-repair|heal-pkg-install|heal-audit|heal-fix}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|invasive-log|diagnostic-bundle|crashes-list|crashes-clear|heal-symlink|heal-permissions|heal-restore-config|heal-install-file|heal-dpkg-repair|heal-pkg-install|heal-audit|heal-fix|self-update}" >&2
         exit 1
         ;;
 esac

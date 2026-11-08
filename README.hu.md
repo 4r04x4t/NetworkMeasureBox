@@ -29,6 +29,7 @@
 14. [SLA Dosszié és Vektoros SVG Motor](#14-sla-dosszié-és-vektoros-svg-motor)
 15. [Valós Idejű Folyamatkezelő (Beágyazott htop Motor)](#15-valós-idejű-folyamatkezelő-beágyazott-htop-motor)
 16. [Önjavító Watchdog és Biztonsági Visszaállás (nmb-heal)](#16-önjavító-watchdog-és-biztonsági-visszaállás-nmb-heal)
+    * [Központi Mérésgyűjtő (nmb-collector)](#16b-központi-mérésgyűjtő-nmb-collector)
 17. [100%-os De-Pythonizáció és Kereskedelmi Router Portolási Terv](#17-100-os-de-pythonizáció-és-kereskedelmi-router-portolási-terv)
 18. [Parancssori Eszközök (CLI) és Szolgáltatások](#18-parancssori-eszközök-cli-és-szolgáltatások)
 19. [Interaktív Telegram Távvezérlő Parancsok](#19-interaktív-telegram-távvezérlő-parancsok)
@@ -76,7 +77,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
   * Egykattintásos driver/firmware telepítő (Debian `apt`, OpenWrt `opkg`, Alpine `apk`, Arch `pacman`, Fedora `dnf`) élő terminálablakkal a WebGUI-ban.
 * **Sebességmérő Motorok és Ellenőrzések**:
   1. **Ookla Speedtest CLI**: Hivatalos Ookla mérőmotor automatikus szerverválasztással vagy testreszabott szerverazonosítóval.
-     * **Figyelem**: az Ookla korlátozza, milyen gyakran mérhet egy eszköz. Óránként működik; néhány percenként az Ookla hamar elutasítja a boxot („Limit reached”), és egy időre letiltja. A webes felület figyelmeztet, ha az ütemezés óránál gyakrabban futtatja az Ooklát. Amíg az Ookla elutasít, a box szünetelteti (30 perc, legfeljebb 4 óra), és RTR-NetTesttel mér, az RTR nevén tárolva. Gyakori méréshez az RTR-NetTestet vagy a Cloudflare-t válaszd.
+     * **Figyelem**: az Ookla korlátozza, milyen gyakran mérhet egy eszköz: néhány percenkénti mérésnél hamar elutasítja a boxot („Limit reached”), és egy időre letiltja. Ezért az ütemezett Ookla-mérés legfeljebb óránként egyszer fut, akármilyen sűrű az ütemezés; az RTR-NetTest, a Cloudflare és az iPerf3 minden alkalommal fut, a kézi Ookla-mérés pedig kérésre azonnal. Ha az Ookla mégis elutasít, a box szünetelteti az Ooklát (30 perc, duplázódva legfeljebb 4 óráig, újraindítás után is), és nem tesz a helyére más motor eredményét. A webes felület mutatja az óránkénti korlátot és a szünetet.
   2. **Cloudflare Speed Engine**: Időalapú, 4 szálas le- és feltöltés a Cloudflare felé (gigabites vonalon futásonként kb. 1,2 GB).
   3. **RTR-Netztest (RMBT)**: Az Osztrák Szabályozó Hatóság (RTR) és az európai BEREC szabványos RMBT mérőmotorja.
   4. **iPerf3 Kliens és Szerver**: Helyi és távoli iPerf3 audit TCP/UDP protokollal, állítható szálakkal.
@@ -188,7 +189,7 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 
 ### 2. Ookla Speedtest CLI
 * A hivatalos Speedtest CLI bináris integrációja.
-* Képes a legközelebbi vagy automatikus szerver használatára, illetve rögzített szerver ID megadására (pl. magyarországi Telekom, DIGI, Yettel, Vodafone / One szerverek).
+* Képes a legközelebbi vagy automatikus szerver használatára, illetve rögzített szerver ID megadására. A szerverlista mindig az Ooklától jön (a boxhoz legközelebbi szerverek, néhány percenként vagy egy kattintással frissül); beépített lista nincs.
 * Letöltési, feltöltési sebesség és terhelés alatti késleltetés (bufferbloat) mérése.
 
 ### 3. Cloudflare Speed Engine
@@ -222,7 +223,7 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 * Heti cenzúra- és hálózatsemlegességi mérés, a webes felületen vagy az `[ooni]` szakasz `enabled = true` beállításával kapcsolható be. A forgalmi kaput nem használja.
 
 ### Sebességmérés ütemezése
-* Az új telepítések óránként mérnek (`schedule_cron = 0 * * * *`), ez a webes felületen módosítható. Az ütemezett méréseket az `nmb-web` indítja, ezért annak futnia kell; frissítéskor a beállított ütemezés megmarad.
+* Az új telepítések óránként mérnek (`schedule_cron = 0 * * * *`), ez a webes felületen módosítható. Az ütemezés azt adja meg, milyen gyakran néz rá a box; emellett minden motornak saját minimális időköze van (`ookla_interval_min`, legalább 60; `rtr_interval_min` és `cloudflare_interval_min`, 0 = minden futáskor) a `[speedtest]` részben vagy a webes felületen. Így az RTR-NetTest mérhet percenként, az Ookla pedig óránként. Az iPerf3-nak saját `schedule_cron` beállítása van az `[iperf]` részben. A mérési lista csak valódi méréseket mutat; a kihagyott és sikertelen futásokat egy sor számolja. Az ütemezett méréseket az `nmb-web` indítja, ezért annak futnia kell; frissítéskor a beállított ütemezés megmarad.
 
 ---
 
@@ -423,7 +424,32 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 ## 16. Önjavító Watchdog és Biztonsági Visszaállás (`nmb-heal`)
 
 * Autonóm háttérbeli audit: ellenőrzi a binárisok épségét, az adatbázist, a jogosultságokat és az internetkapcsolatot.
-* **Frissítés visszaállítása**: Csak Git-es példányon: sikertelen ellenőrzésnél visszaáll az előző commitra. A szabványos `/opt/nmb` telepítés nem tartalmaz Git-adatot, így ott nem frissíti magát.
+* **Frissítés a GitHubról pár kattintással**: „Apply Stable Update” a webes felületen, `nmb-cli update --apply --yes` vagy `nmb-heal update --apply`. A szabványos telepítésen (`/opt/nmb`, Git-adat nélkül) a box letölti ennek a tárolónak a legújabb commitját, lefuttatja a tesztjeit (ha elbuknak, semmi sem változik), elmenti a beállításokat és a méréseket, a `setup.sh`-val telepíti (ez megtartja a beállításokat és a méréseket, a programfájlokat lecseréli), és ha a telepítés vagy a webszerver ellenőrzése nem sikerül, visszarakja az előző verziót. A webes felület mutatja a lépéseket; a napló: `/var/log/nmb/update.log`. Git-es példány `git pull`-lal frissül, és az előző commitra áll vissza.
+
+---
+
+## 16/b. Központi Mérésgyűjtő (`nmb-collector`)
+
+Egy internetszolgáltató vagy szakember a saját szerverén futtatja az `nmb-collector`-t, és azok a boxok küldenek neki, amelyeknek a gazdája ehhez hozzájárul. Minden ki van kapcsolva, amíg a box gazdája be nem kapcsolja (webes felület → Rendszer → Központi mérésgyűjtő, vagy `[collector]` az `nmb.conf`-ban), három külön hozzájárulással:
+
+| Beállítás | Mit kap meg a gyűjtő |
+|---|---|
+| `enabled` | Sebességmérések (a sikertelenek is), óránkénti ping-összesítő célonként, a box egyedi azonosítója, neve, az ügyszám, a szolgáltató, az ügyfélszám és az előfizetett sebességek |
+| `share_diagnostics` | Ezen felül a box eseményei és óránként a teljes hálózati diagnosztika: interfészek, útvonalak, MTU, DNS, NAT, Wi-Fi, traceroute, a helyi hálózat eszközei és a beállítások, minden titok kitakarva |
+| `allow_remote_control` | A gyűjtő indíthat sebességmérést (motorral és Ookla-szerverrel), kérhet friss diagnosztikát vagy azonnali feltöltést. Mást nem: shell-parancsot nem, beállítást nem módosíthat. A box percenként maga kérdezi meg a gyűjtőt, így a gazda hálózatába kívülről semmi nem csatlakozik |
+
+Minden boxnak állandó, véletlen azonosítója van (pl. `nmb-k7q2-x9mf-3hwd`, a webes felületen látszik), mert a box neve alapból minden boxon `nmb-01`. A gyűjtő jelszóval védett oldalain a box megtalálható ezzel az azonosítóval, a nevével, a mostani vagy egy korábbi ügyszámmal, az ügyfélszámmal vagy a szolgáltató nevével. A box oldala mutatja az átlagokat az előfizetett sebességhez képest, az eredményeket motoronként, a pinget célonként, az eseményeket, a diagnosztikai előzményeket, a távoli parancsokat, és CSV-letöltést ad.
+
+Gyűjtő beüzemelése (csak standard könyvtár, Python 3.10 vagy újabb):
+```bash
+git clone https://github.com/4r04x4t/NetworkMeasureBox.git /opt/nmb-collector
+useradd --system nmb-collector
+/opt/nmb-collector/bin/nmb-collector --data /var/lib/nmb-collector set-password
+/opt/nmb-collector/bin/nmb-collector --data /var/lib/nmb-collector token-add ugyfelszolgalat   # ezt a tokent kapja meg a box gazdája
+chown -R nmb-collector /var/lib/nmb-collector
+cp /opt/nmb-collector/os/nmb-collector.service /etc/systemd/system/ && systemctl enable --now nmb-collector
+```
+A 8600-as porton figyel. Tedd HTTPS-es fordított proxy mögé, vagy indítsd `--cert` és `--key` kapcsolóval, mert a token és az admin jelszó minden kéréssel együtt utazik.
 
 ---
 
@@ -476,7 +502,8 @@ A szoftver moduláris felépítésű, az egyes feladatokat különálló, jól t
 | `nmb-heal` | Önjavító watchdog és biztonsági visszaállás | `nmb-heal audit`<br>`nmb-heal status`<br>`nmb-heal fix` |
 | `nmb-driver` | Hardveres driver és firmware felderítő | `nmb-driver scan`<br>`nmb-driver missing`<br>`sudo nmb-driver install` |
 | `nmb-telegram` | Telegram menedzsment és riasztási bot | `nmb-telegram` |
-| `nmb-cli` | A WebGUI menüi terminálban (SSH, egér, gyorsbillentyűk) és JSON-parancsok | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli logs dev -n 50 --level warning` |
+| `nmb-cli` | A WebGUI menüi terminálban (SSH, egér, gyorsbillentyűk) és JSON-parancsok | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli logs dev -n 50 --level warning`<br>`nmb-cli update` / `nmb-cli update --apply --yes`<br>`nmb-cli run collector.send` |
+| `nmb-collector` | Központi mérésgyűjtő szolgáltatónak vagy szakembernek (az ő szerverén fut, nem a boxon) | `nmb-collector set-password`<br>`nmb-collector token-add <név>`<br>`nmb-collector serve --port 8600` |
 | `nmb-web` | Beépített kezelőfelület és REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Emelt szintű hálózati és driver műveletek segédprogramja | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
 
@@ -528,7 +555,7 @@ Ha beállította az `nmb-telegram` szolgáltatást, a dobozt közvetlenül a Tel
 * **Ajánlott (Teljes Router Módhoz)**: Raspberry Pi 4 / 5, vagy x86-64 mini PC (pl. Intel N100) legalább **2 fizikai Ethernet porttal** (1x WAN, 1x LAN) és Wi-Fi csatolóval.
 
 ### Automatikus Telepítés
-Futtassa a telepítőt. Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 (a RHEL 10 helyett) és Alpine 3.20 (x86-64), valamint Raspberry Pi 4-en Debian 13-mal (lásd: Tesztelési Állapot):
+Futtassa a telepítőt. Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 és Rocky Linux 10 (a RHEL 10 helyett) és Alpine 3.22 / 3.20 (x86-64), valamint Raspberry Pi 4-en Debian 13-mal (lásd: Tesztelési Állapot):
 
 ```bash
 # Klónozza a tárolót
@@ -570,14 +597,17 @@ Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz. A részlet
 | Terület | Állapot |
 |---|---|
 | Raspberry Pi 4, Debian 13, `standalone` mód | Napi használatban |
-| Tiszta telepítés, x86-64 | Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 (a RHEL 10 helyett) és Alpine 3.20. Telepítés, szolgáltatások, webes felület, valódi sebességmérés, újratelepítés és (Alpine-on) újraindítás |
+| Tiszta telepítés, x86-64 | Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 és Rocky Linux 10 (a RHEL 10 helyett) és Alpine 3.22 / 3.20. Telepítés, szolgáltatások, webes felület, valódi sebességmérés, újratelepítés és (Alpine-on) újraindítás |
 | `mode_a` router és `mode_b` híd | Virtuális gépeken tesztelve, DHCP-vel, NAT-tal, DMZ-izolációval és kliensforgalommal. Raspberry Pi hardveren nem |
 | Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. Valódi Wi-Fi hardveren nem |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Nincs igazolva. A Debian 13 hostapd-ja elutasította a Wi-Fi 7 beállításokat, ezért az NMB régebbi szabványra lép vissza |
 | PPPoE | Tárcsázás és vonalszakadás utáni újratárcsázás szimulált szolgáltatóval tesztelve. Valódi vonalon nem |
 | VLAN, Multi-WAN terheléselosztás, link aggregáció | A kód megvan, valódi vonalon nincs tesztelve |
 | Más disztribúciók (például Raspberry Pi OS, Arch), 32 bites rendszerek | Nincs tesztelve; a telepítő Debian-alapú rendszert, Fedorát, RHEL-t és klónjait, valamint Alpine-t támogat |
-| 512 MB RAM-os eszközök | Nincs tesztelve, a memóriaprofilok csak Raspberry Pi 4-en futottak |
+| 512 MB RAM-os eszközök | 512 MB-os virtuális gépen tesztelve: 25 perc percenkénti méréssel, memóriahiány miatti leállítás és swap-használat nélkül |
+| Újratelepítés és frissítés `setup.sh`-val | Ubuntu 26.04-en, Alpine 3.22-n és Rocky Linux 10-en tesztelve: a beállítások és mérések megmaradtak, a törölt fájlok eltűntek, újraindítás után minden szolgáltatás fut |
+| Frissítés a GitHubról (Git nélküli telepítés) | Csak egységtesztek (letöltés, biztonságos kicsomagolás, tesztkapu, állapot). A valódi tárolóval még nem futott |
+| Központi gyűjtő és távoli irányítás | Valódi gyűjtővel és box-klienssel egy gépen tesztelve: feltöltés, keresés ügyszámra, CSV, diagnosztika csak hozzájárulással, távoli sebességmérés, elutasítás hozzájárulás nélkül, más oldalról érkező kérések elutasítása. Két gép között még nem futott |
 | WireGuard és OpenVPN szerver, HTTPS-proxy | Virtuális gépen tesztelve valódi klienssel: alagút, internet és webes felület az alagúton át |
 | Vendég Wi-Fi kliens | Virtuális gépen tesztelve szimulált hálózattal. NetworkManager kell hozzá |
 | Önfrissítés visszaállítással | Git-checkoutból virtuális gépen tesztelve: a jó frissítés települ, a hibás visszaáll |
@@ -596,6 +626,7 @@ Az NMB személyes projekt, nem hitelesített mérőeszköz. Az eredményei alát
 * **Veszélyes műveletek**: a gyári visszaállításhoz parancssorban `--yes`, API-n `RESET` kell. Az adatok és naplók törléséhez `PURGE` kell.
 * **Letöltések**: az Ookla-csomag csak egyező SHA-256 esetén települ.
 * **Eredmények jelszó nélkül** (választható, alapból ki van kapcsolva): ha a `[web]` részben `public_results = true` (Beállítások → rendszergazdai fiók), a helyi hálózat vagy a VPN eszközei bejelentkezés nélkül megnyithatják a `/results` oldalt, és letölthetik a riportot és a CSV-fájlokat. Például akkor, ha a box másnál van, és ő küldi el az eredményeket egy szakembernek. Csak ezek az olvasható oldalak nyílnak meg; a beállításokhoz, a mérés indításához és a diagnosztikai csomaghoz továbbra is jelszó kell, nyilvános címről pedig mindig.
+* **Központi gyűjtő** (választható, alapból kikapcsolt): csak akkor küld, ha a gazda bekapcsolja, és a teljes diagnosztikához és a távoli irányításhoz külön-külön hozzájárulás kell. A távoli irányítás zárt lista (sebességmérés, diagnosztika, feltöltés); a box kérdezi a gyűjtőt, így nem nyílik port. A gyűjtő a tokeneket és az admin jelszót csak hash-ként tárolja, más oldalról érkező admin űrlapot elutasít, a token pedig a boot-partíciós másolatban ki van takarva.
 * **Tor**: az OONI csomag felrakja a Tor-t, de a telepítő letiltja a szolgáltatást, mert az NMB nem használja.
 * **Nincs titkosítás**: a webes felület alapból HTTP-t használ, ezért csak megbízható hálózaton vagy VPN-en keresztül használd.
 

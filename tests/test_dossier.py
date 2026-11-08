@@ -55,8 +55,8 @@ class TestDossierI18n(unittest.TestCase):
                     "status": "ok",
                     "bufferbloat_grade": "A",
                     "bufferbloat_delta_ms": 14.2,
-                    "nmhh_code": 1,
-                    "nmhh_desc": "Valid",
+                    "status_code": 1,
+                    "status_desc": "Valid",
                 }
             ],
             speed_summary=SpeedtestSummary(
@@ -109,7 +109,7 @@ class TestDossierI18n(unittest.TestCase):
             contract_up_mbps=300.0,
             guaranteed_down_mbps=300.0,
             guaranteed_up_mbps=100.0,
-            isp_name="DIGI Kft.",
+            isp_name="Example ISP",
             isp_connection_type="ftth",
             account_id="ACC-9988",
             circuit_id="CR-1122",
@@ -120,7 +120,7 @@ class TestDossierI18n(unittest.TestCase):
             html = generate_html_dossier(self.sample_report, lang=lang)
             self.assertIn(f'<html lang="{lang}">', html)
             self.assertIn(DOSSIER_I18N[lang]["header_title"], html)
-            self.assertIn("DIGI Kft.", html)
+            self.assertIn("Example ISP", html)
             self.assertIn("testbox-01", html)
 
     def test_neutral_branding(self):

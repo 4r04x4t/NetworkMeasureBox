@@ -367,6 +367,13 @@ flowchart TD
 
 ---
 
+### 4.25 Central Collector Client & GitHub Updater
+- **Collector client** (`nmb/collector/client.py`): the native box keeps the same protocol, so one `nmb-collector` serves Python and native boxes. `POST /api/ingest` (JSON: `protocol`, `box_uid`, new speed tests, hourly ping summaries, and with consent events and the diagnostics report) and `POST /api/poll` (command results in, queued commands out), both with a bearer token, outgoing HTTPS only. Remote commands stay a fixed list (`speedtest`, `diagnostics`, `upload`). The collector itself stays a server-side program and is not part of the router build.
+- **Updater**: routers update by firmware or package (`opkg`), not by downloading the source; the native build keeps only the status file format (`update_status.json`) so the Web UI and `nmb-cli update` work unchanged.
+- **Per-engine intervals**: the scheduler keeps `ookla_interval_min` (never below 60), `rtr_interval_min` and `cloudflare_interval_min`, and the persisted Ookla cooldown (`ookla_cooldown.json`).
+
+---
+
 ## 5. Architectural Proposal: The Unified Single-Binary Monolith (`nmbd`)
 
 Instead of maintaining multiple distinct daemons and spawning external helper binaries with high process overhead, the ultimate embedded architecture unifies all components into a single multi-call static binary:

@@ -115,7 +115,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
     return out.getvalue()
 
 
-def export_nmhh_speedtests_csv(
+def export_detailed_speedtests_csv(
     conn: sqlite3.Connection,
     start_ms: int,
     end_ms: int,
@@ -123,7 +123,7 @@ def export_nmhh_speedtests_csv(
     contract_up_mbps: float = 200.0,
     guaranteed_down_mbps: float = 300.0,
     guaranteed_up_mbps: float = 50.0,
-    default_isp: str = "DIGI Kft.",
+    default_isp: str = "",
 ) -> str:
     """Generate the detailed semicolon-separated speed test CSV export."""
     out = io.StringIO()
@@ -159,20 +159,20 @@ def export_nmhh_speedtests_csv(
         conn_tech = (r["connection_type"] or "").lower()
         if st_val == "ok":
             if conn_tech in ("wifi", "wlan", "guest_wifi"):
-                nmhh_code = 14
+                status_code = 14
             elif guaranteed_down_mbps > 0 and (d_mbps or 0) < guaranteed_down_mbps:
-                nmhh_code = 6
+                status_code = 6
             elif contract_down_mbps > 0 and (d_mbps or 0) < contract_down_mbps * 0.40:
-                nmhh_code = 6
+                status_code = 6
             else:
-                nmhh_code = 1
+                status_code = 1
         elif st_val == "skipped_busy":
-            nmhh_code = 9
+            status_code = 9
         elif st_val == "error":
             err_str = str(r["error"] or "").lower()
-            nmhh_code = 7 if ("timeout" in err_str or "timed out" in err_str) else 12
+            status_code = 7 if ("timeout" in err_str or "timed out" in err_str) else 12
         else:
-            nmhh_code = 1
+            status_code = 1
 
         d_str = f"{d_mbps:.2f} Mb/s" if d_mbps is not None else "--"
         u_str = f"{u_mbps:.2f} Mb/s" if u_mbps is not None else "--"
@@ -180,13 +180,13 @@ def export_nmhh_speedtests_csv(
         writer.writerow([
             dt_str,
             ip_str,
-            default_isp or "DIGI Kft.",
+            default_isp or "",
             d_str,
             f"{d_pct} %",
             u_str,
             f"{u_pct} %",
             f"{ping_ms} ms",
-            nmhh_code,
+            status_code,
         ])
 
     return out.getvalue()

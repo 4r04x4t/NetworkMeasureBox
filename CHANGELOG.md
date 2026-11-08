@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Central measurement collector (`nmb-collector`) for an ISP or a specialist: boxes whose owner turns it on send speed tests and hourly ping summaries; with separate consent also events and hourly full network diagnostics, and remote control (speed test, fresh diagnostics, upload; nothing else). Boxes are found by a permanent unique ID, name, current or earlier case number, customer number or ISP. Web UI card and `nmb-cli run collector.save` / `collector.send` on the box.
+- Each engine has its own minimum interval for scheduled tests (`ookla_interval_min`, at least 60; `rtr_interval_min`, `cloudflare_interval_min`), set in the Web UI under the schedule.
+- A "Refresh from Ookla" button next to the Ookla server choice on the home page and in the server list.
+- Update from GitHub in a few clicks: on a box installed with `setup.sh` (no git), "Apply Stable Update" in the Web UI, `nmb-cli update --apply --yes` or `nmb-heal update --apply` downloads the newest version, runs its tests, backs up settings and measurements, installs it and puts the previous version back if the install fails. The Web UI shows each step.
+- Ubuntu 26.04 LTS, Alpine 3.22 and Rocky Linux 10 are tested: clean install, reinstall and reboot.
 - Fedora and RHEL support (tested on Fedora 45 and AlmaLinux 10): a `dnf` branch in `setup.sh` that enables EPEL on RHEL and its rebuilds and opens the NMB ports in firewalld. `nmb-helper upgrade` and `check-updates` work with `dnf` and `apk` too.
 - Optional results without password: with `public_results = true` (off by default), devices on the local network can open `/results` and download the report and CSV files without logging in. Settings still need the password.
 - A warning in the Web UI, the API and the log when the schedule runs Ookla more often than hourly, since Ookla then blocks the box; it also shows how long Ookla stays paused.
@@ -25,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- No country is built in: the Ookla server choice comes only from Ookla's current list of servers near the box (the built-in list had wrong IDs, such as 10390 for Yettel, which Ookla answers with "No servers defined"); the Wi-Fi country defaults to automatic; the ISP name, examples and placeholders no longer name Hungarian providers; regulator-specific status codes are now neutral status codes with English descriptions.
+- The Ookla server choice is labelled as the Ookla Speedtest server everywhere, with a note that RTR-NetTest, Cloudflare and iPerf3 choose their own servers.
+- Scheduled Ookla tests run at most once an hour, however often the schedule runs, since Ookla blocks boxes that test more often. RTR-NetTest, Cloudflare and iPerf3 still run every time, and manual Ookla tests are not held back.
+- The speed test list no longer shows skipped runs (busy network, manual mode); a line says how many were left out. Failed runs show the reason instead of 0.00 Mbps.
 - The CLI Terminal and the task manager no longer act as root, because the web server runs as `nmb`.
 - Editing the boot partition copy of the config now uses `__KEEP_CURRENT__` for passwords and tokens.
 - The diagnostic bundle runs fewer MTR cycles, so it finishes faster without root.
@@ -34,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The home page schedule line overflowed with the full Ookla warning and showed the label twice ("Accuracy Gate::"); it now shows a short note with the full text on hover, and wraps.
+- When Ookla failed or paused, the box ran RTR-NetTest or Cloudflare instead and the home page kept showing an old Ookla result. Ookla failures are now reported as such, and while Ookla is paused no rows are added.
+- The Ookla pause was kept only in memory, so every restart asked Ookla again early and made its block longer. It is now kept in `/var/lib/nmb/ookla_cooldown.json`.
+- The status page failed (`/api/status` error) once the history held a failed speed test.
+- Reinstalling or upgrading with `setup.sh` now saves the measurements still in RAM first and replaces the program files instead of copying over them, so files removed from the project no longer stay behind in `/opt/nmb`.
+- Restoring a backup could lose the restored measurements: the old database's `-wal` journal was replayed onto the new file. Databases are now restored through SQLite's backup API.
+- A restored config could be overwritten at once by the older boot partition copy, and was written readable only by root, so the web server could not read it. An uploaded backup file was readable by every user.
 - `nmb-helper upgrade` ran only `apt-get update`: a second `exec` never ran, so packages were not upgraded. It also ran `apt-get` on Alpine.
 - The update check used `sudo nmb-helper` without its path, which fails where `sudo` does not search `/usr/local/bin` (RHEL).
 - `nmb-web --config FILE` saved settings to `/etc/nmb/nmb.conf` instead of FILE.

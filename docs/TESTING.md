@@ -26,7 +26,10 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | Debian 13 | ✅ | ✅ | ✅ | Also the base of VM-D13 |
 | Debian 12 (Python 3.11) | ✅ | ✅ | — | Real speed test passed. Polkit rule verified: `nmb` may restart `nmb-netd`, not `ssh` |
 | Ubuntu 24.04 LTS | ✅ | — | — | Needed interface auto-detection (`ens3` instead of `eth0`), fixed |
+| Ubuntu 26.04 LTS (Python 3.14, polkit 127) | ✅ | ✅ | ✅ | Reinstall over a running box: measurements kept (1 speed test, ping samples kept growing), changed admin password kept, config 0640 `nmb:nmb`, a planted stale file in `/opt/nmb` removed, no Tracebacks. RTR test ok |
 | Ubuntu 22.04 LTS (Python 3.10, polkit 0.105) | ✅ | ✅ | ✅ | Needed the old polkit's `.pkla` rule, added; there `nmb` may manage any unit. Scheduled Ookla tests ran |
+| Rocky Linux 10.2 (Python 3.12, polkit 125) | ✅ | ✅ | ✅ | EPEL enabled by `ID`; reinstall kept measurements and the changed admin password, config 0640 `nmb:nmb`, stale file removed, no Tracebacks. RTR test ok. The 10 GB cloud image needs a disk of at least 10 GB (an 8 GB test overlay did not boot) |
+| Alpine 3.22 (OpenRC, Python 3.12) | ✅ | ✅ | ✅ | Reinstall over a running box: measurements and changed admin password kept, config 0640 `nmb:nmb`, stale file removed, no Tracebacks in `/var/log/nmb`. RTR test ok |
 | Alpine 3.20 (OpenRC) | ✅ | ✅ | ✅ | Needed port 80 capability, RMBT build and OpenRC restart fixes |
 | Raspberry Pi 4, Debian 13 | ✅ | ✅ | ✅ | The Box |
 | Fedora 45 (Python 3.15, SELinux enforcing) | ✅ | — | — | New `dnf` branch. All services, polkit, all optional packages; RTR and Cloudflare measured, the Ookla CLI ran (refused by Ookla's rate limit, shared IP). No SELinux denials. Reboot not checked |
@@ -105,7 +108,14 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | Kernel network tuning | Box, VM-distro | ✅ | Done by `nmb-netd` (root) |
 | Telegram bot and alerts | Unit tests | ⚠️ | Not against a real bot |
 | SMTP, OONI, drive swap | — | — | |
-| 512 MB RAM devices | — | — | |
+| 512 MB RAM | VM-D13 (463 MB usable) | ✅ | 25 min, all services, a test every minute: 26 of 26 tests ok, 182–222 MB available, no swap, no OOM, no restarts; web server 40 MB, probe 31 MB, both flat |
+| Backup and restore | VM-D13 | ✅ | Create, download, list, restore from the list and from an uploaded file; config and all measurements come back; a truncated upload is refused and changes nothing. Fixed: the restored database could be lost to its old `-wal` journal, the older boot partition copy overwrote the restored config, the restored config was not readable by `nmb`, and an uploaded backup was world-readable |
+| Power loss | VM-D13 | ✅ | QEMU killed during a running speed test and right after starting a snapshot: both databases pass `integrity_check`, config intact, all services up; the interrupted test is simply missing. The snapshot is atomic (tmp, fsync, rename). Up to 15 minutes of results can be lost, by design (tmpfs) |
+| Ookla on the Box: chosen server, pause, no substitute | Box, unit tests | ✅ | Found on the Box: the built-in Yettel ID (10390) was wrong ("No servers defined"), a paused Ookla was replaced by an RTR result, the pause was lost on restart, `/api/status` failed on a failed test. All fixed; the pause now survives a restart and paused runs add no rows |
+| Per-engine intervals | Unit tests | ✅ | RTR with 30 min is skipped within 30 min and runs after; 0 runs every time; Ookla cannot be set below 60 min |
+| Update from GitHub (no Git install) | Unit tests | ⚠️ | Safe unpacking (path traversal refused), check against GitHub (mocked), status file, root and commit checks. Not yet run against the real repository on a box |
+| Reinstall with `setup.sh` | VM-distro (Ubuntu 26.04, Alpine 3.22, Rocky 10) | ✅ | Settings, admin password and measurements kept; a stale file in `/opt/nmb` removed; config 0640 `nmb:nmb` |
+| Central collector and remote control | Local collector and box client, unit tests | ✅ | Upload (repeat adds nothing), search by case number, earlier case number and customer number, CSV, diagnostics and events only with consent, remote speed test run and reported, commands refused without consent or from another site, unknown commands refused on both sides, secrets stored as hashes (0600). Not yet run between two machines |
 
 ## Candidates
 
@@ -115,14 +125,11 @@ Found by checking what `setup.sh` detects and what the code needs (Python 3.10 o
 
 | System | Expected | Why | How to test |
 |---|---|---|---|
-| Ubuntu 26.04 LTS | Should work | Debian-based, current polkit | Cloud image VM, like Ubuntu 24.04 |
 | Raspberry Pi OS (arm64), Lite | Should work | Debian 13 based, like the Box | On a Pi, or Debian arm64 under QEMU |
 | Raspberry Pi OS (armhf, 32-bit) | Unknown | The Ookla and RMBT builds have only been run on arm64 and x86-64 | On a Pi 2/3/Zero 2 |
 | Armbian, DietPi | Should work | Debian-based images for other single-board computers | On the board, or their x86 images |
 | Linux Mint 22, Pop!_OS | Should work | Ubuntu 24.04 based; desktop NetworkManager may claim the ports | VM |
-| Alpine 3.21 / 3.22 | Should work | Same OpenRC path as 3.20 | Cloud image VM |
 | Devuan | Refused | No systemd; `setup.sh` now stops with a clear message | — |
-| Rocky Linux 10, CentOS Stream 10 | Should work | Same `dnf` and EPEL path as AlmaLinux 10 | Cloud image VM |
 | Arch, Manjaro, openSUSE, Void, NixOS | Not supported | Other package managers or init systems | Needs a port |
 | OpenWrt | Not supported | Planned in the native rewrite, see `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md` | — |
 
@@ -130,10 +137,9 @@ Found by checking what `setup.sh` detects and what the code needs (Python 3.10 o
 
 Can be done in VMs:
 
-- **Low memory:** a 512 MB and a 1 GB VM, all services on, for 24 hours; watch memory and OOM kills.
+- **Low memory, longer:** 512 MB passed for 25 minutes; a 24-hour run is still to do.
 - **Long run:** 24–72 hours with per-minute tests; memory growth, database size, log rotation.
-- **Power loss:** kill the VM during a speed test and during the 15-minute snapshot; check the database and config after boot.
-- **Backup and restore:** create, download, restore on a fresh install, restore an old-version backup.
+- **Backup from an older release:** restore a 2.4.0 backup.
 - **Upgrade from an older release:** install 2.4.0, then update to the current version with its config kept.
 - **WAN failover and multi-WAN load balancing:** two WAN NICs, pull one.
 - **VLAN, link aggregation, passthrough:** with a simulated switch (Linux bridge with VLAN filtering, a bonded peer).
@@ -151,7 +157,9 @@ Needs hardware or accounts:
 
 - **The Box still has the old polkit rule.** Guest Wi-Fi from the Web UI fails there with "network-control: auth" until the new `os/90-nmb.rules` is installed (re-run `setup.sh`, or copy it to `/etc/polkit-1/rules.d/`).
 - Not tested: opening ports in firewalld (it was not running on the Fedora and AlmaLinux cloud images).
-- Not tested: Ubuntu reinstall and reboot, Debian 12 reboot, Tailscale, a real Telegram bot, SMTP, OONI, real Wi-Fi and PPPoE hardware.
+- Not tested: Debian 12 and Fedora reboot, Tailscale, a real Telegram bot, SMTP, OONI, real Wi-Fi and PPPoE hardware.
+- Not yet run for real: the update from GitHub on a box (waits until the current code is on GitHub, since the box would otherwise go back to an older version), and the central collector between two machines.
+- Wi-Fi measuring: with no cable the box measures over Wi-Fi already (it falls back to the default route); measuring over Wi-Fi while a cable is plugged in, both at once, and the box as a Wi-Fi-to-Ethernet adapter are still to be designed.
 
 ## Re-running
 

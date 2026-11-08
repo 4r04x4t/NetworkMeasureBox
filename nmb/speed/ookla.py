@@ -88,32 +88,32 @@ def calculate_bufferbloat(
 from nmb.common.user_agent import get_effective_user_agent
 import threading
 
-DEFAULT_PRESET_SERVERS: dict[int, dict] = {
-    31717: {"id": 31717, "name": "2Connect Kft.", "sponsor": "2Connect Kft.", "location": "Budapest", "country": "Hungary", "host": "speedtest.2connect.hu:8080"},
-    12492: {"id": 12492, "name": "Magyar Telekom Nyrt.", "sponsor": "Magyar Telekom Nyrt.", "location": "Budapest", "country": "Hungary", "host": "speedtest.telekom.hu:8080"},
-    2607: {"id": 2607, "name": "Vodafone Hungary", "sponsor": "Vodafone Hungary", "location": "Budapest", "country": "Hungary", "host": "speedtest.vodafone.hu:8080"},
-    3682: {"id": 3682, "name": "ServerAstra", "sponsor": "ServerAstra", "location": "Budapest", "country": "Hungary", "host": "speedtest.serverastra.com:8080"},
-    10390: {"id": 10390, "name": "Yettel Hungary", "sponsor": "Yettel Hungary", "location": "Budapest", "country": "Hungary", "host": "speedtest.yettel.hu:8080"},
-    13348: {"id": 13348, "name": "DIGI Telecommunication", "sponsor": "DIGI Telecommunication", "location": "Budapest", "country": "Hungary", "host": "speedtest.digi.hu:8080"},
-    3242: {"id": 3242, "name": "A1 Telekom Austria", "sponsor": "A1 Telekom Austria", "location": "Vienna", "country": "Austria", "host": "speedtest.a1.net:8080"},
-    21541: {"id": 21541, "name": "Drei Austria", "sponsor": "Drei Austria", "location": "Vienna", "country": "Austria", "host": "speedtest.drei.at:8080"},
-    43033: {"id": 43033, "name": "Cloudflare", "sponsor": "Cloudflare", "location": "Budapest", "country": "Hungary", "host": "budapest.speedtest.cloudflare.com:8080"},
-}
+# No built-in servers: the list always comes from Ookla (the servers nearest to this box,
+# wherever it is), so it never goes stale and has no country baked in.
+DEFAULT_PRESET_SERVERS: dict[int, dict] = {}
 
 _cached_servers_map: dict[int, dict] = dict(DEFAULT_PRESET_SERVERS)
 _cached_servers_ts: float = 0.0
 _servers_fetch_thread: Optional[threading.Thread] = None
 
 
+SERVER_LIST_MAX_AGE_SEC = 300.0
+
+
 def _bg_update_server_list() -> None:
+    """Replace the list with Ookla's current one; servers Ookla no longer lists drop out."""
     global _cached_servers_map, _cached_servers_ts
     try:
         new_map = _fetch_master_server_list()
         if new_map:
-            _cached_servers_map.update(new_map)
+            _cached_servers_map = {**DEFAULT_PRESET_SERVERS, **new_map}
             _cached_servers_ts = time.monotonic()
+            return
     except Exception as e:
         log.debug("bg server list fetch error: %s", e)
+    # Ookla did not answer: keep the old list and try again in a minute, without making
+    # every page load wait for it.
+    _cached_servers_ts = time.monotonic() - SERVER_LIST_MAX_AGE_SEC + 60.0
 
 
 def _get_ookla_headers() -> dict[str, str]:
@@ -185,8 +185,8 @@ def _fetch_master_server_list() -> dict[int, dict]:
             except Exception as e:
                 log.debug("speedtest %s error: %s", flag, e)
 
-    # 2. Query Speedtest Web API dynamically (nearest + Hungary regional pools)
-    for q in ("engine=js", "search=hungary", "search=budapest"):
+    # 2. Speedtest Web API: the servers nearest to this box
+    for q in ("engine=js&limit=50",):
         raw_list = _query_ookla_api(q)
         for s in raw_list:
             norm = _normalize_server(s)
@@ -196,11 +196,14 @@ def _fetch_master_server_list() -> dict[int, dict]:
     return servers_dict
 
 
-def get_available_servers(search_query: str = "", limit: int = 100) -> list[dict]:
+def get_available_servers(search_query: str = "", limit: int = 100, refresh: bool = False) -> list[dict]:
     """Retrieve list of Ookla Speedtest servers with fast presets and non-blocking background discovery."""
     global _cached_servers_map, _cached_servers_ts, _servers_fetch_thread
     now = time.monotonic()
-    if (now - _cached_servers_ts) > 600.0:
+    if refresh or not _cached_servers_ts:
+        # Asked for explicitly, or the first request: wait for Ookla's current list.
+        _bg_update_server_list()
+    elif (now - _cached_servers_ts) > SERVER_LIST_MAX_AGE_SEC:
         if not (_servers_fetch_thread and _servers_fetch_thread.is_alive()):
             _servers_fetch_thread = threading.Thread(
                 target=_bg_update_server_list,

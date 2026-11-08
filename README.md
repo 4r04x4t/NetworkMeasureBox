@@ -104,8 +104,8 @@ NMB records independent measurements at your network edge. It can run behind you
 
 ### 4. Measurement Engines & Checks
 1. **High-Frequency ICMP Probe (`nmb-probe`)**: 500ms continuous sampling to the gateway and public targets (by default `1.1.1.1`, `8.8.8.8`, `9.9.9.9`, `185.222.222.222`), RFC 3550 jitter calculation, p95/p99 latency tracking, and exact outage duration logging.
-2. **Ookla Speedtest CLI**: Official Ookla binary runner with automatic server detection or custom server targeting.
-   * **Warning**: Ookla limits how often one box may test. Hourly works; every few minutes Ookla soon refuses the box ("Limit reached") and blocks it for a while. The Web UI warns when the schedule runs Ookla more often than hourly. While Ookla refuses, the box pauses it (30 min, up to 4 h) and measures with RTR-NetTest, stored under RTR's name. For frequent tests choose RTR-NetTest or Cloudflare.
+2. **Ookla Speedtest CLI**: Official Ookla binary runner with automatic server detection or custom server targeting. The server list always comes from Ookla (the servers nearest to the box, refreshed every few minutes or with one click); nothing is built in.
+   * **Warning**: Ookla limits how often one box may test, and every few minutes it soon refuses the box ("Limit reached") and blocks it for a while. So scheduled Ookla tests run at most once an hour, however often the schedule runs, and a manual Ookla test runs when asked. If Ookla still refuses, the box pauses Ookla (30 min, doubling up to 4 h, kept across restarts) and stores no other engine\'s result in its place. The Web UI shows the hourly limit and any pause.
 3. **Cloudflare Speed Engine**: Timed 4-stream download and upload against the Cloudflare edge (about 1.2 GB per run at gigabit speed).
 4. **RTR-Netztest (RMBT)**: Open-source benchmark from the Austrian regulator RTR.
 5. **iPerf3 Client & Managed Server**: Local LAN and public WAN throughput benchmarking across TCP and UDP with parallel threads.
@@ -114,7 +114,7 @@ NMB records independent measurements at your network edge. It can run behind you
 8. **Stop on Network Traffic (experimental, off by default)**: Enabled with `experimental_stop = true` under `[traffic_gate]` or the Web UI switch. Scheduled tests then need a limit of at most 500 kbps, retry every 5 minutes after a deferral, and stop without saving partial results if other traffic appears. Ping keeps running and manual tests are not stopped. A voice call fits under the limit; video and torrents do not. The box reads other devices' traffic from client-side ports (bridge, gateway, or its own access point) or the router's UPnP counters. If neither is available, no scheduled speed tests run. For a full view, wire the box as a bridge between the ISP endpoint and the router, which needs two Ethernet ports (on a Raspberry Pi 4, a USB 3 gigabit adapter as the second). This has not yet been tried on a real bridge.
 9. **OONI Probe (optional, off by default)**: Weekly censorship and net-neutrality run, enabled in the Web UI or with `enabled = true` under `[ooni]`. It does not use the Traffic Gate.
 
-**Speed test schedule**: New installs test every hour (`schedule_cron = 0 * * * *`), changeable in the Web UI. `nmb-web` starts scheduled tests, so it must be running; upgrades keep the configured schedule.
+**Speed test schedule**: New installs test every hour (`schedule_cron = 0 * * * *`), changeable in the Web UI. The schedule sets how often the box checks; each engine also has its own minimum interval (`ookla_interval_min`, at least 60; `rtr_interval_min` and `cloudflare_interval_min`, 0 = every run) under `[speedtest]` or in the Web UI, so RTR-NetTest can run every minute while Ookla runs hourly. iPerf3 has its own `schedule_cron` under `[iperf]`. The speed test list shows only real measurements; skipped and failed runs are counted in one line. `nmb-web` starts scheduled tests, so it must be running; upgrades keep the configured schedule.
 
 ### 5. Embedded & Low-Memory Optimization (512 MB RAM Support)
 Memory-saving profiles for constrained Linux systems. These have only been run on the Raspberry Pi 4, not on routers:
@@ -214,9 +214,31 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 
 ### 14. Autonomous Self-Healing & Safety Rollback Watchdog (`nmb-heal`)
 * Automated background health audits of binaries, database, permissions and connectivity, with repairs.
-* **Update rollback**: Only for a Git checkout of the code: a failed update check resets to the previous commit. The standard install in `/opt/nmb` has no Git data, so there it does not update itself.
+* **Update from GitHub in a few clicks**: "Apply Stable Update" in the Web UI, `nmb-cli update --apply --yes` or `nmb-heal update --apply`. On the standard install (`/opt/nmb`, no Git data) the box downloads the newest commit of this repository, runs its tests (nothing changes if they fail), backs up settings and measurements, installs it with `setup.sh` (which keeps settings and measurements and replaces the program files) and puts the previous version back if the install or the web server check fails. The Web UI shows each step; the log is `/var/log/nmb/update.log`. A Git checkout updates with `git pull` and rolls back to the previous commit.
 
-### 15. Planned De-Pythonization & Router Porting
+### 15. Central Measurement Collector (`nmb-collector`)
+An ISP or a specialist runs `nmb-collector` on their own server; boxes whose owner agrees send their results to it. Everything is off until the box owner turns it on (Web UI → System → Central measurement collector, or `[collector]` in `nmb.conf`), with three separate consents:
+
+| Setting | What the collector gets |
+|---|---|
+| `enabled` | Speed tests (failed ones too), an hourly ping summary per target, the box's unique ID, its name, the case number, the ISP, the customer number and the subscribed speeds |
+| `share_diagnostics` | Also the box's events and, hourly, the full network diagnostics: interfaces, routes, MTU, DNS, NAT, Wi-Fi, traceroute, the devices on the LAN and the settings with every secret masked |
+| `allow_remote_control` | The collector may start a speed test (engine and Ookla server), ask for fresh diagnostics or an upload. Nothing else: no shell commands, no setting changes. The box asks the collector for work every minute, so nothing connects into the owner's network |
+
+Every box has a permanent random ID (such as `nmb-k7q2-x9mf-3hwd`, shown in the Web UI), since the box name is `nmb-01` on every box unless changed. In the collector's password-protected web pages a box is found by this ID, its name, its current or an earlier case number, the customer number or the ISP; its page shows averages against the subscribed speeds, results per engine, ping per target, events, the diagnostics history, the remote commands and a CSV download.
+
+Setting up a collector (standard library only, Python 3.10 or newer):
+```bash
+git clone https://github.com/4r04x4t/NetworkMeasureBox.git /opt/nmb-collector
+useradd --system nmb-collector
+/opt/nmb-collector/bin/nmb-collector --data /var/lib/nmb-collector set-password
+/opt/nmb-collector/bin/nmb-collector --data /var/lib/nmb-collector token-add support-team   # give this token to the box owner
+chown -R nmb-collector /var/lib/nmb-collector
+cp /opt/nmb-collector/os/nmb-collector.service /etc/systemd/system/ && systemctl enable --now nmb-collector
+```
+It listens on port 8600. Put it behind an HTTPS reverse proxy or start it with `--cert` and `--key`, since tokens and the admin password travel with every request.
+
+### 16. Planned De-Pythonization & Router Porting
 > **Status: planned only.** NMB is developed and run on the Raspberry Pi 4. No router software or firmware exists yet; the figures below are design targets, not measurements.
 
 The plan for running NetworkMeasureBox on commercial routers with as little as **4MB Flash and 32MB RAM**:
@@ -256,14 +278,17 @@ What has actually been run, so you can judge what to rely on. The full record (w
 | Area | Status |
 |---|---|
 | Raspberry Pi 4, Debian 13, `standalone` mode | In daily use |
-| Clean install, x86-64 | Tested in a simulated environment on a PC with these operating systems: Debian 13, Debian 12, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 (for RHEL 10) and Alpine 3.20. Install, services, Web UI, a real speed test, reinstall and (on Alpine) reboot |
+| Clean install, x86-64 | Tested in a simulated environment on a PC with these operating systems: Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 and Rocky Linux 10 (for RHEL 10) and Alpine 3.22 / 3.20. Install, services, Web UI, a real speed test, reinstall and (on Alpine) reboot |
 | `mode_a` router and `mode_b` bridge | Tested in virtual machines, with DHCP, NAT, DMZ isolation and client traffic. Not on Raspberry Pi hardware |
 | Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. Not on real Wi-Fi hardware |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Not verified. The hostapd in Debian 13 rejected the Wi-Fi 7 settings, so NMB steps down to an older standard |
 | PPPoE | Dial-in and redial after a dropped line tested against a simulated ISP. Not on a real line |
 | VLAN, multi-WAN load balancing, link aggregation | Code exists, not tested on a real line |
 | Other distributions (such as Raspberry Pi OS, Arch), 32-bit systems | Not tested; setup supports Debian-based systems, Fedora, RHEL and its rebuilds, and Alpine |
-| Devices with 512 MB RAM | Not tested; memory profiles have only run on the Raspberry Pi 4 |
+| Devices with 512 MB RAM | Tested in a VM with 512 MB: 25 minutes of tests every minute, no out-of-memory kill, no swap used |
+| Reinstall and upgrade with `setup.sh` | Tested on Ubuntu 26.04, Alpine 3.22 and Rocky Linux 10: settings and measurements kept, removed files cleaned up, services back after a reboot |
+| Update from GitHub (no Git install) | Unit tests only (download, safe unpacking, test gate, status). Not yet run against the real repository |
+| Central collector and remote control | Tested with a real collector and box client on one machine: upload, search by case number, CSV, diagnostics only with consent, remote speed test, refusal without consent, cross-site requests refused. Not yet run between two machines |
 | WireGuard and OpenVPN server, HTTPS proxy | Tested in a VM with a real client: tunnel, internet and Web UI through the tunnel |
 | Guest Wi-Fi client | Tested in a VM against a simulated network. Needs NetworkManager |
 | Self-update with rollback | Tested from a Git checkout in a VM: a good update is applied, a broken one rolled back |
@@ -276,7 +301,7 @@ NMB is a personal project, not a certified measuring instrument. Its results can
 
 ## Quickstart / Automated Installation
 
-Run the installer. Tested in a simulated environment on a PC with Debian 13, Debian 12, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 (for RHEL 10) and Alpine 3.20 (x86-64), and on a Raspberry Pi 4 with Debian 13 (see Tested Status):
+Run the installer. Tested in a simulated environment on a PC with Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 and Rocky Linux 10 (for RHEL 10) and Alpine 3.22 / 3.20 (x86-64), and on a Raspberry Pi 4 with Debian 13 (see Tested Status):
 
 ```bash
 git clone https://github.com/4r04x4t/NetworkMeasureBox.git
@@ -312,7 +337,8 @@ http://<appliance-ip>/
 | `nmb-heal` | Self-healing watchdog & safety rollback | `nmb-heal audit`<br>`nmb-heal status`<br>`nmb-heal fix` |
 | `nmb-driver` | Hardware driver & firmware autodiscovery | `nmb-driver scan`<br>`nmb-driver missing`<br>`sudo nmb-driver install` |
 | `nmb-telegram` | Management Telegram Bot daemon | `nmb-telegram` |
-| `nmb-cli` | WebGUI menus in the terminal (SSH, mouse, hotkeys) and JSON commands | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli logs dev -n 50 --level warning` |
+| `nmb-cli` | WebGUI menus in the terminal (SSH, mouse, hotkeys) and JSON commands | `nmb-cli`<br>`nmb-cli menu`<br>`nmb-cli show tab-home`<br>`nmb-cli run speed.run engine=cloudflare`<br>`nmb-cli logs dev -n 50 --level warning`<br>`nmb-cli update` / `nmb-cli update --apply --yes`<br>`nmb-cli run collector.send` |
+| `nmb-collector` | Central collector for an ISP or a specialist (runs on their server, not on the box) | `nmb-collector set-password`<br>`nmb-collector token-add <name>`<br>`nmb-collector serve --port 8600` |
 | `nmb-web` | Embedded management web UI & REST API | `nmb-web` (port 80 / dev 8080) |
 | `nmb-helper` | Privileged helper utility (drivers, routing) | `sudo nmb-helper install-drivers all`<br>`sudo nmb-helper tune` |
 
@@ -372,6 +398,7 @@ sudo journalctl -u nmb-web -f
 * **Destructive actions**: factory reset needs `--yes` in the CLI and `RESET` in the API. Data and log purges need `PURGE`.
 * **Downloads**: the Ookla archive is installed only if its SHA-256 matches.
 * **Results without password** (optional, off by default): with `public_results = true` in `[web]` (Settings → admin credentials), devices on the local network or VPN can open `/results` and download the report and CSV files without logging in, for example when the box is hosted by someone else who sends the results to a specialist. Only these read-only pages open; settings, tests and the diagnostic bundle still need the password, and requests from public addresses always do.
+* **Central collector** (optional, off by default): sends only after the owner turns it on, and the full diagnostics and remote control need their own consent each. Remote control is a fixed list (speed test, diagnostics, upload); the box asks the collector for work, so no port is opened. The collector stores tokens and its admin password only as hashes, refuses admin forms from other sites, and its token is masked in the boot partition copy.
 * **Tor**: the OONI package installs Tor, but setup disables the service because NMB does not use it.
 * **Not encrypted**: the Web UI uses HTTP by default, so use it only on a trusted network or through a VPN.
 

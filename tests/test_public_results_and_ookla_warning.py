@@ -9,6 +9,13 @@ from nmb.speed.scheduler import shortest_gap_seconds
 from nmb.web import i18n
 from nmb.web.results_page import LANGS, TEXT, allows_without_password, is_local_client, render_results_page
 
+# Never touch the box's real Ookla cooldown file.
+import tempfile as _tf
+from pathlib import Path as _P
+from nmb.speed import anti_ban as _ab
+_ab.CLIENT_COOLDOWN_FILE = _P(_tf.mkdtemp(prefix="nmb-test-")) / "ookla_cooldown.json"
+
+
 
 class PublicResultsTest(unittest.TestCase):
     def test_off_by_default_and_saved(self):

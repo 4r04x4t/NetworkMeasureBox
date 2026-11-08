@@ -454,11 +454,13 @@ def restore_backup(
         # 2. Restore Configuration (/etc/nmb/nmb.conf)
         src_cfg = temp_extract / "config" / "nmb.conf"
         if src_cfg.exists():
-            CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            tmp_cfg = CONFIG_PATH.with_suffix(".tmp")
-            shutil.copy2(src_cfg, tmp_cfg)
-            os.chmod(tmp_cfg, 0o600)
-            tmp_cfg.replace(CONFIG_PATH)
+            install_config_text(src_cfg.read_text(encoding="utf-8"))
+            # Otherwise the older boot partition copy looks newer and overwrites the restored file.
+            try:
+                from nmb.config import sync_drive_config
+                sync_drive_config(CONFIG_PATH)
+            except Exception as e:
+                log.warning("could not refresh the boot partition copy after restore: %s", e)
             restored_items.append("nmb.conf")
 
         # Restore system resolv/MAC files if included
@@ -469,18 +471,10 @@ def restore_backup(
         # 3. Restore Database
         src_db = temp_extract / "database" / "nmb.db"
         if restore_db and src_db.exists():
-            PERSIST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-            tmp_db = PERSIST_DB_PATH.with_suffix(".tmp")
-            shutil.copy2(src_db, tmp_db)
-            os.chmod(tmp_db, 0o640)
-            tmp_db.replace(PERSIST_DB_PATH)
-
+            _restore_sqlite(src_db, PERSIST_DB_PATH)
             # Hydrate live DB on tmpfs as well
             if LIVE_DB_PATH.parent.exists():
-                tmp_live = LIVE_DB_PATH.with_suffix(".tmp")
-                shutil.copy2(src_db, tmp_live)
-                os.chmod(tmp_live, 0o640)
-                tmp_live.replace(LIVE_DB_PATH)
+                _restore_sqlite(src_db, LIVE_DB_PATH)
             restored_items.append("SQLite Database")
 
         # 4. Restore WireGuard keys & configuration
@@ -607,6 +601,43 @@ def delete_backup(filename: str, backup_dir: Optional[Path] = None) -> Tuple[boo
         return False, f"Failed to delete backup: {e}"
 
 
+def _restore_sqlite(src: Path, dst: Path) -> None:
+    """Copy a database into place with SQLite's backup API.
+
+    Replacing the file would leave its -wal journal behind, and SQLite would replay
+    that old journal onto the restored data; open connections would also keep the
+    old file. The backup API writes through SQLite, so both stay consistent.
+    """
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    new_file = not dst.exists()
+    source = sqlite3.connect(f"file:{src}?mode=ro", uri=True)
+    target = sqlite3.connect(dst, timeout=30)
+    try:
+        source.backup(target)
+    finally:
+        target.close()
+        source.close()
+    if new_file:
+        os.chmod(dst, 0o640)
+        try:
+            shutil.chown(dst, user="nmb", group="nmb")
+        except (LookupError, PermissionError):
+            log.debug("could not hand %s to the nmb user", dst)
+
+
+def install_config_text(text: str) -> None:
+    """Atomically write nmb.conf so that the services, which run as nmb, can read it."""
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = CONFIG_PATH.with_suffix(".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.chmod(tmp, 0o640)
+    try:
+        shutil.chown(tmp, user="nmb", group="nmb")
+    except (LookupError, PermissionError):
+        log.debug("could not hand %s to the nmb user", tmp)
+    tmp.replace(CONFIG_PATH)
+
+
 def _factory_config_text() -> str:
     """Return default settings with a Wi-Fi password unique to this box."""
     import secrets
@@ -640,16 +671,7 @@ def factory_reset(keep_measurements: bool = False) -> Tuple[bool, str]:
 
         # 2. Reset /etc/nmb/nmb.conf
         try:
-            CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            tmp = CONFIG_PATH.with_suffix(".tmp")
-            tmp.write_text(config_text, encoding="utf-8")
-            # Services run as the nmb user and must be able to read their settings.
-            os.chmod(tmp, 0o640)
-            try:
-                shutil.chown(tmp, user="nmb", group="nmb")
-            except (LookupError, PermissionError):
-                log.debug("could not hand %s to the nmb user", tmp)
-            tmp.replace(CONFIG_PATH)
+            install_config_text(config_text)
         except (PermissionError, OSError) as e:
             log.warning("direct write to %s failed (%s), attempting via helper/sudo", CONFIG_PATH, e)
             import tempfile, subprocess

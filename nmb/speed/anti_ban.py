@@ -9,9 +9,12 @@ Provides automated safeguards against temporary IP/server bans by Ookla:
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
 import threading
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger("nmb.speed.anti_ban")
@@ -108,11 +111,13 @@ def get_quarantined_servers() -> Dict[int, float]:
 
 def clear_quarantine() -> None:
     """Clear all quarantined servers and the client rate-limit cooldown."""
-    global _client_limited_until, _client_cooldown_sec
+    global _client_limited_until, _client_cooldown_sec, _client_last_attempt
     with _lock:
         _quarantined_servers.clear()
         _client_limited_until = 0.0
         _client_cooldown_sec = CLIENT_COOLDOWN_MIN_SEC
+        _client_last_attempt = 0.0
+        _save_cooldown()
     log.info("cleared all Ookla server quarantines and the client cooldown")
 
 
@@ -121,8 +126,38 @@ def clear_quarantine() -> None:
 CLIENT_LIMIT_SIGNATURES = ("limit reached", "too many requests", "429")
 CLIENT_COOLDOWN_MIN_SEC = 1800
 CLIENT_COOLDOWN_MAX_SEC = 4 * 3600
+# Kept in a file with wall-clock times: a restart must not ask Ookla again early, since
+# every early request makes Ookla's block longer. The web server and nmb-speed share it.
+CLIENT_COOLDOWN_FILE = Path(os.environ.get("NMB_OOKLA_COOLDOWN_FILE", "/var/lib/nmb/ookla_cooldown.json"))
 _client_limited_until = 0.0
 _client_cooldown_sec = CLIENT_COOLDOWN_MIN_SEC
+_client_last_attempt = 0.0
+
+
+def _load_cooldown() -> None:
+    global _client_limited_until, _client_cooldown_sec, _client_last_attempt
+    try:
+        data = json.loads(CLIENT_COOLDOWN_FILE.read_text())
+        until = float(data.get("until", 0.0))
+        length = int(data.get("length", CLIENT_COOLDOWN_MIN_SEC))
+        last = float(data.get("last", 0.0))
+    except (OSError, ValueError, TypeError, AttributeError):
+        return
+    _client_last_attempt = min(last, time.time())
+    # A clock set far back must not pause Ookla for longer than the longest cooldown.
+    _client_limited_until = min(until, time.time() + CLIENT_COOLDOWN_MAX_SEC)
+    _client_cooldown_sec = max(CLIENT_COOLDOWN_MIN_SEC, min(length, CLIENT_COOLDOWN_MAX_SEC))
+
+
+def _save_cooldown() -> None:
+    try:
+        CLIENT_COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = CLIENT_COOLDOWN_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"until": _client_limited_until, "length": _client_cooldown_sec,
+                                   "last": _client_last_attempt}))
+        os.replace(tmp, CLIENT_COOLDOWN_FILE)
+    except OSError as e:
+        log.debug("could not save the Ookla cooldown: %s", e)
 
 
 def is_client_rate_limit(error_text: Optional[str]) -> bool:
@@ -135,10 +170,12 @@ def mark_client_rate_limited() -> int:
     """Start (or double) the client cooldown; returns its length in seconds."""
     global _client_limited_until, _client_cooldown_sec
     with _lock:
+        _load_cooldown()
         if _client_limited_until > 0.0:
             _client_cooldown_sec = min(_client_cooldown_sec * 2, CLIENT_COOLDOWN_MAX_SEC)
         duration = _client_cooldown_sec
-        _client_limited_until = time.monotonic() + duration
+        _client_limited_until = time.time() + duration
+        _save_cooldown()
     log.warning("Ookla rate-limited this box; pausing Ookla tests for %d min", duration // 60)
     return duration
 
@@ -149,12 +186,14 @@ def mark_client_ok() -> None:
     with _lock:
         _client_limited_until = 0.0
         _client_cooldown_sec = CLIENT_COOLDOWN_MIN_SEC
+        _save_cooldown()
 
 
 def client_cooldown_remaining() -> float:
     """Seconds left before Ookla may be asked again (0 when it may)."""
     with _lock:
-        return max(0.0, _client_limited_until - time.monotonic())
+        _load_cooldown()
+        return max(0.0, _client_limited_until - time.time())
 
 
 def record_server_attempt(server_id: int) -> None:
@@ -216,7 +255,27 @@ def get_smart_rotated_server(target_server_id: Optional[int] = None) -> Optional
 OOKLA_SAFE_INTERVAL_SEC = 3600
 
 
-def ookla_schedule_warning(engine: str, schedule_mode: str, cron_expr: str) -> Optional[Dict[str, Any]]:
+def record_client_attempt() -> None:
+    """Note that Ookla is being asked now (for the hourly limit of scheduled tests)."""
+    global _client_last_attempt
+    with _lock:
+        _load_cooldown()
+        _client_last_attempt = time.time()
+        _save_cooldown()
+
+
+def scheduled_wait_remaining(interval_sec: float = OOKLA_SAFE_INTERVAL_SEC) -> float:
+    """Seconds before a scheduled Ookla test may run; never more often than OOKLA_SAFE_INTERVAL_SEC."""
+    interval_sec = max(float(OOKLA_SAFE_INTERVAL_SEC), float(interval_sec))
+    with _lock:
+        _load_cooldown()
+        if not _client_last_attempt:
+            return 0.0
+        return max(0.0, _client_last_attempt + interval_sec - time.time())
+
+
+def ookla_schedule_warning(engine: str, schedule_mode: str, cron_expr: str,
+                           ookla_interval_min: int = OOKLA_SAFE_INTERVAL_SEC // 60) -> Optional[Dict[str, Any]]:
     """Describe the Ookla rate-limit risk of this schedule, or None when there is none."""
     paused_min = int(client_cooldown_remaining() // 60) + 1 if client_cooldown_remaining() > 0 else 0
     uses_ookla = engine in ("ookla", "all")
@@ -228,7 +287,7 @@ def ookla_schedule_warning(engine: str, schedule_mode: str, cron_expr: str) -> O
         return {
             "code": "ookla_rate_limit_risk",
             "interval_min": round(gap / 60, 1),
-            "safe_interval_min": OOKLA_SAFE_INTERVAL_SEC // 60,
+            "safe_interval_min": max(OOKLA_SAFE_INTERVAL_SEC // 60, int(ookla_interval_min)),
             "paused_min": paused_min,
         }
     if paused_min:

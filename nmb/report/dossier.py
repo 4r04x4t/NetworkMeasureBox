@@ -88,7 +88,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "param_jitter": "Késleltetés-ingadozás (Jitter)",
         "param_loss": "Csomagvesztés Aránya",
         "sec3_title": "3. Válaszidő (Ping RTT) és Hálózati Kimaradások",
-        "sec3_sub": "Másodperc alatti ICMP Echo mintavételezés a BIX és referencia csomópontok felé",
+        "sec3_sub": "Másodperc alatti ICMP Echo mintavételezés a referencia csomópontok felé",
         "sec4_title": "4. Csomagvesztés Idősoros Megoszlása (%)",
         "sec4_sub": "Hálózati puffer-túlcsordulás és csomageldobás monitorozása",
         "sec5_title": "5. Késleltetés-ingadozás (Jitter ms)",
@@ -812,18 +812,18 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
                 client_ip_html = f"<span class='text-muted'>- ({row_isp})</span>"
 
             # Benchmark Status Code Display
-            nmhh_code = s.get("nmhh_code", 1)
-            if nmhh_code == 1:
+            status_code = s.get("status_code", 1)
+            if status_code == 1:
                 status_html = "<span class='badge-status-1' title='Valid'>1</span>"
-            elif nmhh_code == 6:
+            elif status_code == 6:
                 status_label = "6 (SLA Alatt)" if lang_key == "hu" else "6 (Below SLA)"
                 status_html = f"<span class='badge-status-6' title='{status_label}'>{status_label}</span>"
-            elif nmhh_code == 9:
+            elif status_code == 9:
                 status_html = "<span class='badge-status-warn' title='Traffic Quota Exceeded'>9</span>"
-            elif nmhh_code in (14, 15):
-                status_html = f"<span class='badge-status-warn' title='WiFi Measurement'>{nmhh_code}</span>"
+            elif status_code in (14, 15):
+                status_html = f"<span class='badge-status-warn' title='WiFi Measurement'>{status_code}</span>"
             else:
-                status_html = f"<span class='badge-status-err' title='{nmhh_code}'>{nmhh_code}</span>"
+                status_html = f"<span class='badge-status-err' title='{status_code}'>{status_code}</span>"
 
             ping_ms_val = f"{(s['ping_us'] // 1000):.0f} ms" if s.get('ping_us') else "-"
             srv_desc = s.get('server_name') or 'Default Edge Server'

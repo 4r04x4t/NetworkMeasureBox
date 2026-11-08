@@ -171,7 +171,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         print(_color("  NetworkMeasureBox — Safe Stable Software Update Execution", "1;32"))
         print(_color("=" * 78, "1;34"))
         print("Initiating atomic pre-update safety checkpoint and verification...")
-    res = apply_stable_update(target_ref=getattr(args, "ref", None))
+    res = apply_stable_update(target_ref=getattr(args, "ref", None), background=False)
 
     if args.json:
         print(json.dumps(res, indent=2))

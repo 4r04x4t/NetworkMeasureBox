@@ -1098,6 +1098,13 @@ def check_stable_updates() -> Dict[str, Any]:
                     result["changelog"] = changelog
                     result["message"] = f"Stable update available: {len(changelog)} new commit(s) on {result['git_branch']}."
 
+    else:
+        # Installed by setup.sh without git: compare with the newest commit on GitHub.
+        from nmb.common import updater
+        result.update(updater.check())
+        if result["update_available"]:
+            result["available_version"] = result["upstream_commit"]
+
     # 2. Check system OS package upgrades
     rc_os, os_out = _run_helper_or_sudo("check-updates", timeout=20)
     if rc_os == 0 and os_out:
@@ -1108,7 +1115,33 @@ def check_stable_updates() -> Dict[str, Any]:
     return result
 
 
-def apply_stable_update(target_ref: Optional[str] = None) -> Dict[str, Any]:
+def start_github_update(target_ref: Optional[str] = None, background: bool = True) -> Dict[str, Any]:
+    """Update from GitHub through nmb-helper (a box installed without git).
+
+    In the background (web server) the result says the update started, and its progress is in
+    ``updater.read_status()``. In the foreground (CLI) it waits and returns the final status.
+    """
+    ref = target_ref if target_ref and re.fullmatch(r"[0-9a-f]{40}", str(target_ref)) else None
+    args = ["start" if background else "run"] + ([ref] if ref else [])
+    rc, out = _run_helper_or_sudo("self-update", args, timeout=120 if background else 4000)
+    try:
+        status = json.loads(out[out.index("{"):])
+    except ValueError:
+        status = {"state": "failed", "message": out or "nmb-helper self-update did not answer."}
+    state = status.get("state")
+    return {
+        "success": state in ("started", "success"),
+        "started": state == "started",
+        "rolled_back": state == "rolled_back",
+        "state": state,
+        "message": status.get("message", "Update started." if state == "started" else ""),
+        "error": "" if state in ("started", "success") else status.get("message", ""),
+        "checkpoint": status.get("checkpoint", ""),
+        "new_version": status.get("commit", ""),
+    }
+
+
+def apply_stable_update(target_ref: Optional[str] = None, background: bool = True) -> Dict[str, Any]:
     """Safely apply a verified stable update with AUTOMATED ROLLBACK PROTECTION.
 
     Sequence:
@@ -1123,11 +1156,7 @@ def apply_stable_update(target_ref: Optional[str] = None) -> Dict[str, Any]:
     ts_now = int(time.time())
     repo_dir = _find_repo_dir()
     if not repo_dir:
-        return {
-            "success": False,
-            "rolled_back": False,
-            "error": "Cannot apply update: Git repository directory not found.",
-        }
+        return start_github_update(target_ref, background=background)
 
     # 1. Update verification
     check = check_stable_updates()
@@ -1223,7 +1252,8 @@ def apply_stable_update(target_ref: Optional[str] = None) -> Dict[str, Any]:
             ["python3", "-m", "unittest", "discover", "tests"],
             timeout=300,
             cwd=str(repo_dir),
-            env=dict(os.environ, NMB_LIVE_DB=f"{verify_dir}/live.db", NMB_PERSIST_DB=f"{verify_dir}/persist.db"),
+            env=dict(os.environ, NMB_LIVE_DB=f"{verify_dir}/live.db", NMB_PERSIST_DB=f"{verify_dir}/persist.db",
+                     NMB_OOKLA_COOLDOWN_FILE=f"{verify_dir}/ookla_cooldown.json"),
         )
     health_check = audit_system_health()
 

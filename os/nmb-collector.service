@@ -1,0 +1,20 @@
+# Central collector, for the server of an ISP or a specialist (not needed on a measurement box).
+# Setup: useradd --system nmb-collector; nmb-collector --data /var/lib/nmb-collector set-password;
+#        nmb-collector --data /var/lib/nmb-collector token-add <name>; chown -R nmb-collector /var/lib/nmb-collector
+[Unit]
+Description=NetworkMeasureBox central collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=nmb-collector
+ExecStart=/opt/nmb-collector/bin/nmb-collector --data /var/lib/nmb-collector serve --port 8600
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/nmb-collector
+
+[Install]
+WantedBy=multi-user.target

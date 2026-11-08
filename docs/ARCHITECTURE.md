@@ -44,6 +44,7 @@ flowchart LR
 | `nmb-telegram`    | 5     | unprivileged                   | alerts    |
 | `nmb-web`         | 5     | `nmb` with `CAP_NET_BIND_SERVICE`, `CAP_NET_ADMIN`, `CAP_NET_RAW` | config |
 | `nmb-snapshot`    | 1     | unprivileged (timer)           | no        |
+| `nmb-collector`   | —     | own user, on the collector's server, not on the box | own database |
 
 Scheduled speed tests are started by a scheduler inside `nmb-web`, driven by `schedule_cron` (hourly by default). There is no separate systemd timer for them.
 
@@ -53,6 +54,12 @@ The traffic gate reads `/proc/net/dev`, so it only sees traffic that passes thro
 
 ### Terminal interface
 `nmb-cli` (`nmb/tui/`) offers the WebGUI menus over SSH, and JSON commands for scripts. It reads the menu from `dashboard.html` and calls the same REST API as the browser, so it has no measurement logic of its own. `tests/test_tui.py` fails if a WebGUI tab or API call is missing from its catalog.
+
+### Central collector (`nmb/collector/`)
+`nmb-collector` runs on the server of an ISP or a specialist, never on the box. A box whose owner turned on `[collector]` sends, from a thread in `nmb-web` (`nmb/collector/client.py`), everything new since the last successful upload to `POST /api/ingest` with a bearer token: speed tests, hourly ping summaries per target, and its identity (a random `box_uid` from `/var/lib/nmb/box_uid`, the box name, the case number, ISP data). With `share_diagnostics` it adds its events and, hourly, the `llm_bundle` diagnostics report. With `allow_remote_control` it asks `POST /api/poll` every minute for queued commands and reports their results on the next poll; the box runs only `speedtest`, `diagnostics` and `upload`, and both sides refuse anything else. The box only makes outgoing requests. The collector (`nmb/collector/server.py`, standard library) keeps one SQLite file, stores tokens and its admin password as hashes in `collector.json` (0600), and serves search, box pages, diagnostics history, CSV and the command form behind HTTP Basic auth; admin forms must come from its own origin.
+
+### Updates without Git (`nmb/common/updater.py`)
+The standard install has no Git data, so `nmb-helper self-update` runs the updater as root from its own copy of the code (`setup.sh` replaces `/opt/nmb` during the update). It downloads the newest commit's archive from GitHub, unpacks it after checking every path, runs its tests, backs up, runs the new `setup.sh` and checks that the web server answers; if not, it puts the previous program files back. Progress is in `/var/lib/nmb/update_status.json`, which the Web UI and `nmb-cli update` poll, since the web server restarts during the install. `/opt/nmb/.source-commit` records the installed commit.
 
 ## 2. Storage Strategy (microSD Longevity)
 

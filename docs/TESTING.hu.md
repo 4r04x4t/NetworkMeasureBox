@@ -26,7 +26,10 @@ Jelölés: ✅ működik · ⚠️ korláttal működik · ❌ nem működik · 
 | Debian 13 | ✅ | ✅ | ✅ | A VM-D13 alapja is |
 | Debian 12 (Python 3.11) | ✅ | ✅ | — | Valódi sebességmérés sikeres. Polkit-szabály ellenőrizve: az `nmb` újraindíthatja az `nmb-netd`-t, az `ssh`-t nem |
 | Ubuntu 24.04 LTS | ✅ | — | — | Kártyanév-felismerés kellett (`ens3` az `eth0` helyett), javítva |
+| Ubuntu 26.04 LTS (Python 3.14, polkit 127) | ✅ | ✅ | ✅ | Újratelepítés futó dobozra: a mérések megmaradtak (1 sebességmérés, a pingminták tovább gyűltek), az átírt admin jelszó megmaradt, a beállítás 0640 `nmb:nmb`, a `/opt/nmb` alá tett elavult fájl eltűnt, nincs Traceback. Az RTR-mérés rendben |
 | Ubuntu 22.04 LTS (Python 3.10, polkit 0.105) | ✅ | ✅ | ✅ | A régi polkit `.pkla` szabálya kellett, hozzáadva; ott az `nmb` bármely szolgáltatást kezelhet. Az ütemezett Ookla-mérések lefutottak |
+| Rocky Linux 10.2 (Python 3.12, polkit 125) | ✅ | ✅ | ✅ | Az EPEL az `ID` alapján bekapcsol; az újratelepítés megtartotta a méréseket és az átírt admin jelszót, a beállítás 0640 `nmb:nmb`, az elavult fájl eltűnt, nincs Traceback. Az RTR-mérés rendben. A 10 GB-os felhőkép legalább 10 GB-os lemezt kér (8 GB-os teszt-overlayjel nem indult el) |
+| Alpine 3.22 (OpenRC, Python 3.12) | ✅ | ✅ | ✅ | Újratelepítés futó dobozra: a mérések és az átírt admin jelszó megmaradtak, a beállítás 0640 `nmb:nmb`, az elavult fájl eltűnt, nincs Traceback a `/var/log/nmb` alatt. Az RTR-mérés rendben |
 | Alpine 3.20 (OpenRC) | ✅ | ✅ | ✅ | 80-as port jogosultság, RMBT-fordítás és OpenRC-újraindítás javítva |
 | Raspberry Pi 4, Debian 13 | ✅ | ✅ | ✅ | A Box |
 | Fedora 45 (Python 3.15, SELinux enforcing) | ✅ | — | — | Új `dnf`-ág. Minden szolgáltatás, polkit, minden választható csomag; RTR és Cloudflare mért, az Ookla CLI lefutott (az Ookla sebességkorlátja elutasította, közös IP). SELinux-tiltás nincs. Újraindítás nincs ellenőrizve |
@@ -105,7 +108,14 @@ Jelölés: ✅ működik · ⚠️ korláttal működik · ❌ nem működik · 
 | Kernel hálózati finomhangolás | Box, VM-disztró | ✅ | Az `nmb-netd` (root) végzi |
 | Telegram bot és riasztások | Unit-tesztek | ⚠️ | Valódi bottal nem |
 | SMTP, OONI, meghajtócsere | — | — | |
-| 512 MB RAM-os eszközök | — | — | |
+| 512 MB RAM | VM-D13 (463 MB használható) | ✅ | 25 perc, minden szolgáltatás, percenkénti mérés: 26-ból 26 mérés sikeres, 182–222 MB szabad, nincs swap, nincs OOM, nincs újraindulás; webszerver 40 MB, szonda 31 MB, egyik sem nő |
+| Mentés és visszaállítás | VM-D13 | ✅ | Létrehozás, letöltés, listázás, visszaállítás a listából és feltöltött fájlból; a beállítás és minden mérés visszajön; a csonka feltöltést elutasítja, és nem változtat semmit. Javítva: a visszaállított adatbázist a régi `-wal` napló eltüntethette, a régebbi boot-partíciós másolat felülírta a visszaállított beállítást, az `nmb` nem tudta olvasni a visszaállított beállítást, és a feltöltött mentést bárki olvashatta |
+| Áramszünet | VM-D13 | ✅ | A QEMU leállítva futó mérés közben és rögtön egy mentés indítása után: mindkét adatbázis átmegy az `integrity_check`-en, a beállítás ép, minden szolgáltatás fut; a félbeszakadt mérés egyszerűen hiányzik. A mentés atomikus (ideiglenes fájl, fsync, átnevezés). Legfeljebb 15 perc eredménye veszhet el, ez a tmpfs miatt szándékos |
+| Ookla a dobozon: választott szerver, szünet, nincs helyettesítés | Box, egységtesztek | ✅ | A dobozon derült ki: a beépített Yettel-azonosító (10390) rossz volt („No servers defined”), a szünetelő Ooklát RTR-eredmény helyettesítette, a szünet újraindításkor elveszett, és az `/api/status` hibát adott egy sikertelen mérés után. Mind javítva; a szünet újraindítás után is megmarad, és szünet alatt nem kerül be sor |
+| Motoronkénti időköz | Egységtesztek | ✅ | 30 perces RTR 30 percen belül kimarad, utána fut; 0 esetén minden alkalommal fut; az Ookla 60 perc alá nem állítható |
+| Frissítés a GitHubról (Git nélküli telepítés) | Egységtesztek | ⚠️ | Biztonságos kicsomagolás (útvonal-kiszökés elutasítva), ellenőrzés a GitHub ellen (szimulálva), állapotfájl, root- és commit-ellenőrzés. A valódi tárolóval dobozon még nem futott |
+| Újratelepítés `setup.sh`-val | VM-distro (Ubuntu 26.04, Alpine 3.22, Rocky 10) | ✅ | A beállítások, az admin jelszó és a mérések megmaradtak; a `/opt/nmb` alá tett elavult fájl eltűnt; a beállítás 0640 `nmb:nmb` |
+| Központi gyűjtő és távoli irányítás | Helyi gyűjtő és box-kliens, egységtesztek | ✅ | Feltöltés (ismétlés nem duplikál), keresés ügyszámra, korábbi ügyszámra és ügyfélszámra, CSV, diagnosztika és események csak hozzájárulással, távoli sebességmérés lefut és visszajelez, parancs elutasítva hozzájárulás nélkül vagy más oldalról, ismeretlen parancs mindkét oldalon elutasítva, titkok hash-ként (0600). Két gép között még nem futott |
 
 ## Jelöltek
 
@@ -115,14 +125,11 @@ Abból gyűjtve, mit ismer fel a `setup.sh`, és mire van szüksége a kódnak (
 
 | Rendszer | Várható | Miért | Hogyan tesztelhető |
 |---|---|---|---|
-| Ubuntu 26.04 LTS | Működnie kell | Debian-alapú, új polkit | Felhőkép VM, mint az Ubuntu 24.04 |
 | Raspberry Pi OS (arm64), Lite | Működnie kell | Debian 13 alapú, mint a Box | Pi-n, vagy Debian arm64 QEMU alatt |
 | Raspberry Pi OS (armhf, 32 bites) | Nem tudni | Az Ooklát és az RMBT-t csak arm64-en és x86-64-en futtattuk | Pi 2/3/Zero 2-n |
 | Armbian, DietPi | Működnie kell | Debian-alapú képek más egykártyás gépekre | A lapkán, vagy x86-os képükkel |
 | Linux Mint 22, Pop!_OS | Működnie kell | Ubuntu 24.04 alapú; az asztali NetworkManager lefoglalhatja a portokat | VM |
-| Alpine 3.21 / 3.22 | Működnie kell | Ugyanaz az OpenRC-út, mint a 3.20-nál | Felhőkép VM |
 | Devuan | Elutasítva | Nincs systemd; a `setup.sh` most érthető üzenettel leáll | — |
-| Rocky Linux 10, CentOS Stream 10 | Működnie kell | Ugyanaz a `dnf`- és EPEL-út, mint az AlmaLinux 10-nél | Felhőkép VM |
 | Arch, Manjaro, openSUSE, Void, NixOS | Nem támogatott | Más csomagkezelő vagy init-rendszer | Portolás kell |
 | OpenWrt | Nem támogatott | A natív újraírásban tervezett, lásd `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md` | — |
 
@@ -130,10 +137,9 @@ Abból gyűjtve, mit ismer fel a `setup.sh`, és mire van szüksége a kódnak (
 
 Virtuális gépen elvégezhető:
 
-- **Kevés memória:** 512 MB-os és 1 GB-os VM, minden szolgáltatás bekapcsolva, 24 órán át; memória és OOM-leállások figyelése.
+- **Kevés memória, hosszabban:** az 512 MB 25 percen át átment; a 24 órás futás még hátravan.
 - **Hosszú futás:** 24–72 óra percenkénti mérésekkel; memórianövekedés, adatbázisméret, naplóforgatás.
-- **Áramszünet:** a VM leállítása mérés közben és a 15 perces mentés közben; adatbázis és konfiguráció ellenőrzése indítás után.
-- **Mentés és visszaállítás:** létrehozás, letöltés, visszaállítás friss telepítésre, régi verziós mentés visszaállítása.
+- **Régebbi kiadás mentése:** 2.4.0-s mentés visszaállítása.
 - **Frissítés régebbi kiadásról:** 2.4.0 telepítése, majd frissítés a mostanira a konfiguráció megtartásával.
 - **WAN-átállás és multi-WAN terheléselosztás:** két WAN-kártya, az egyik kihúzása.
 - **VLAN, link aggregáció, átengedés:** szimulált switch-csel (VLAN-szűrős Linux-híd, bondolt ellenoldal).
@@ -151,7 +157,9 @@ Hardver vagy fiók kell hozzá:
 
 - **A Boxon még a régi polkit-szabály van.** Ott a vendég Wi-Fi a webes felületről „network-control: auth” hibával nem megy, amíg az új `os/90-nmb.rules` nincs telepítve (`setup.sh` újrafuttatása, vagy másolás az `/etc/polkit-1/rules.d/` mappába).
 - Nincs tesztelve: a portok megnyitása firewalldben (a Fedora és az AlmaLinux felhőképén nem futott).
-- Nincs tesztelve: Ubuntu újratelepítés és újraindítás, Debian 12 újraindítás, Tailscale, valódi Telegram bot, SMTP, OONI, valódi Wi-Fi és PPPoE hardver.
+- Nincs tesztelve: Debian 12 és Fedora újraindítás, Tailscale, valódi Telegram bot, SMTP, OONI, valódi Wi-Fi és PPPoE hardver.
+- Élesben még nem futott: a GitHubos frissítés dobozon (megvárja, amíg a mostani kód felkerül a GitHubra, különben a doboz régebbi verzióra lépne vissza), és a központi gyűjtő két gép között.
+- Wi-Fi-s mérés: kábel nélkül a box már most Wi-Fi-n mér (az alapértelmezett útvonalra esik vissza); a Wi-Fi-s mérés bedugott kábel mellett, a kettő egyszerre, és a box mint Wi-Fi–Ethernet átalakító még tervezésre vár.
 
 ## Újrafuttatás
 

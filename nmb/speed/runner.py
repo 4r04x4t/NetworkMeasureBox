@@ -145,6 +145,7 @@ def _run_single_engine(
 
     set_speedtest_running(True)
     sampler = CpuLoadSampler(interval_sec=0.25)
+    ookla_paused = False
     sampler.start()
     try:
         if engine == "cloudflare":
@@ -223,10 +224,20 @@ def _run_single_engine(
                 is_client_rate_limit,
                 mark_client_ok,
                 mark_client_rate_limited,
+                record_client_attempt,
+                scheduled_wait_remaining,
             )
             is_ban = False
             wait_sec = client_cooldown_remaining()
-            if wait_sec > 0:
+            hourly_wait = (scheduled_wait_remaining(60 * getattr(getattr(cfg, "speedtest", None), "ookla_interval_min", 60))
+                           if trigger == "schedule" else 0.0)
+            if wait_sec <= 0 and hourly_wait > 0:
+                # Scheduled Ookla runs at most hourly, however often the schedule runs.
+                log.info("Ookla skipped: its own interval is not over yet (next in %d min)", int(hourly_wait // 60) + 1)
+                res = SpeedtestResult(status="skipped_busy", error="Ookla interval not over yet",
+                                      bound_iface=bound_iface, bound_ip=bound_ip)
+                ookla_paused = True
+            elif wait_sec > 0:
                 # Asking again while limited only extends Ookla's block.
                 res = SpeedtestResult(
                     status="error",
@@ -234,9 +245,11 @@ def _run_single_engine(
                     bound_iface=bound_iface, bound_ip=bound_ip,
                 )
                 is_ban = True
+                ookla_paused = True
             else:
                 log.info("executing Ookla engine with server_id=%s (iface=%s, ip=%s)",
                          target_server_id or "auto", bound_iface, bound_ip)
+                record_client_attempt()
                 res = execute_speedtest(server_id=target_server_id, interface=bound_iface, bind_ip=bound_ip)
                 if res.status == "ok":
                     mark_client_ok()
@@ -246,24 +259,10 @@ def _run_single_engine(
                     res.error = f"Ookla rate limit (too many tests from this box): paused for {minutes} min"
                     is_ban = True
 
-            # Circuit breaker: if Ookla failed or was banned, fall back seamlessly to RTR-NetTest or Cloudflare
-            if res.status != "ok" and (is_ban or not res.down_bps):
-                log.warning("Ookla circuit breaker triggered (error: %s). Seamlessly falling back to RTR-NetTest / Cloudflare to protect measurement history.", res.error)
-                try:
-                    cb_res = execute_rtr_speedtest(interface=bound_iface, bind_ip=bound_ip)
-                    if cb_res.status == "ok":
-                        log.info("circuit breaker fallback to RTR-NetTest succeeded (down=%s, up=%s)", cb_res.down_bps, cb_res.up_bps)
-                        res = cb_res
-                    else:
-                        log.info("RTR fallback status=%s; attempting Cloudflare Edge fallback...", cb_res.status)
-                        cf_res = execute_cloudflare_speedtest(interface=bound_iface, bind_ip=bound_ip)
-                        if hasattr(cf_res, "to_speedtest_result"):
-                            cf_res = cf_res.to_speedtest_result(bound_iface=bound_iface, bound_ip=bound_ip)
-                        if cf_res.status == "ok":
-                            log.info("circuit breaker fallback to Cloudflare Edge succeeded (down=%s, up=%s)", cf_res.down_bps, cf_res.up_bps)
-                            res = cf_res
-                except Exception as cb_err:
-                    log.error("circuit breaker fallback attempt failed: %s", cb_err)
+            # No silent substitute: the user chose Ookla (and a chosen server), so an Ookla
+            # failure or pause is recorded as such instead of an RTR or Cloudflare result.
+            if is_ban:
+                log.warning("Ookla not run: %s", res.error)
     except cancel.MeasurementCancelled:
         res = None
     finally:
@@ -272,6 +271,11 @@ def _run_single_engine(
 
     if res is None or cancel.is_requested():
         return _record_aborted(conn, trigger, engine, now_ms, cancel.current_reason())
+    if ookla_paused:
+        # Ookla was not asked, so there is no measurement to store. The refusal that started
+        # the pause is stored once, and the pause is shown on the schedule and the home page.
+        res.engine = "ookla"
+        return res
 
     if not res.bound_iface:
         res.bound_iface = bound_iface
@@ -503,6 +507,42 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
     return res
 
 
+def _iperf3_usable(cfg: Config) -> bool:
+    """An iPerf3 server is set and accepts a connection on its port."""
+    import socket
+    ip = getattr(cfg, "iperf", None)
+    host = str(getattr(ip, "target_host", "") or "").strip()
+    if not host:
+        return False
+    port = int(getattr(ip, "target_port", 5201) or 5201)
+    try:
+        with socket.create_connection((host, port), timeout=3):
+            return True
+    except OSError as e:
+        log.info("iPerf3 left out of the mixed run: %s:%d does not answer (%s)", host, port, e)
+        return False
+
+
+def _ookla_blocked_now(cfg: Config) -> bool:
+    from nmb.speed.anti_ban import client_cooldown_remaining, scheduled_wait_remaining
+    interval = 60 * int(getattr(getattr(cfg, "speedtest", None), "ookla_interval_min", 60) or 60)
+    return client_cooldown_remaining() > 0 or scheduled_wait_remaining(interval) > 0
+
+
+def _engine_due(conn, cfg: Config, engine: str, now_ms: int) -> bool:
+    """Whether a scheduled test of this engine is due under its own interval."""
+    minutes = int(getattr(cfg.speedtest, f"{engine}_interval_min", 0) or 0)
+    if minutes <= 0:
+        return True
+    row = conn.execute("SELECT MAX(ts) FROM speedtest WHERE engine = ? AND status != 'skipped_busy'", (engine,)).fetchone()
+    last = row[0] if row and row[0] else 0
+    # 30 s of slack, so a run that started a little late does not skip a whole interval.
+    due = now_ms - last >= minutes * 60_000 - 30_000
+    if not due:
+        log.info("%s skipped: its own interval (%d min) is not over yet", engine, minutes)
+    return due
+
+
 def _record_aborted(conn, trigger: str, engine: str, now_ms: int, reason: str) -> SpeedtestResult:
     """Save an aborted run without values; a partial result would not be a valid measurement."""
     reason = reason or "aborted: user traffic detected during the measurement"
@@ -721,6 +761,22 @@ def run_measurement_cycle(
     target_server_id = server_id if server_id is not None else getattr(cfg.speedtest, "server_id", None)
     conn = db.connect()
     engines_to_run = ["ookla", "cloudflare", "rtr"] if engine == "all" else [engine or "ookla"]
+    mixed = engine == "all"
+    if trigger == "schedule" and engines_to_run == ["ookla"] and _ookla_blocked_now(cfg):
+        # Ookla-only schedule while Ookla may not run (paused, or its hour is not over): run the
+        # other engines instead, each stored under its own name, so the schedule still measures.
+        log.info("Ookla cannot run now; this scheduled run uses Cloudflare and RTR-NetTest instead")
+        engines_to_run = ["cloudflare", "rtr"]
+        mixed = True
+    if mixed and _iperf3_usable(cfg):
+        # A mixed run includes iPerf3 when an iPerf3 server is set and answers.
+        engines_to_run.append("iperf3")
+    if trigger == "schedule":
+        # Each engine keeps its own minimum interval (Ookla's is checked in _run_single_engine).
+        engines_to_run = [e for e in engines_to_run if e == "ookla" or _engine_due(conn, cfg, e, now_ms)]
+        if not engines_to_run:
+            conn.close()
+            return True
 
     all_ok = True
     last_res = None

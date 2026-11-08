@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+"""Central collector for NetworkMeasureBox measurements; see nmb/collector/server.py."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from nmb.collector.server import main
+
+sys.exit(main())

@@ -105,6 +105,39 @@ class HostapdFallbackTest(unittest.TestCase):
         self.assertEqual(last["wifi_standard"], "n")
 
 
+class RestoreTest(unittest.TestCase):
+    def test_restore_ignores_a_stale_wal_journal(self):
+        import sqlite3
+        from nmb.common import backup
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "backup.db"
+            live = Path(tmp) / "live.db"
+            with sqlite3.connect(src) as c:
+                c.execute("create table speedtest (id integer)")
+                c.executemany("insert into speedtest values (?)", [(i,) for i in range(5)])
+            holder = sqlite3.connect(live)  # a service keeps the live database open
+            holder.execute("pragma journal_mode=wal")
+            holder.execute("create table speedtest (id integer)")
+            holder.execute("insert into speedtest values (99)")
+            holder.commit()
+            holder.execute("delete from speedtest")  # this change sits in the -wal file
+            holder.commit()
+            backup._restore_sqlite(src, live)
+            self.assertEqual(holder.execute("select count(*) from speedtest").fetchone()[0], 5)
+            holder.close()
+            with sqlite3.connect(live) as c:
+                self.assertEqual(c.execute("select count(*) from speedtest").fetchone()[0], 5)
+
+    def test_config_is_readable_by_the_group(self):
+        import stat
+        from nmb.common import backup
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "nmb.conf"
+            with mock.patch.object(backup, "CONFIG_PATH", target):
+                backup.install_config_text("[web]\n")
+            self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o640)
+
+
 class VersionTest(unittest.TestCase):
     def test_app_version_is_the_latest_release(self):
         import re

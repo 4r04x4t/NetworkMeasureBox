@@ -18,6 +18,8 @@ EPILOG = """examples:
   nmb-cli run sys.reboot --yes           actions that need confirmation require --yes
   nmb-cli api GET /api/status            call any API path
   nmb-cli logs dev -n 50 --level warning developer log; also: system, events, speed, crashes
+  nmb-cli update                         is a newer version on GitHub?
+  nmb-cli update --apply --yes           download and install it, keeping settings and measurements
 
 Access: runs as root or a member of the nmb group, or set NMB_URL, NMB_USER and NMB_PASSWORD."""
 
@@ -30,6 +32,44 @@ def _menu_json(menu: List[catalog.Tab]) -> list:
 
 def _print(data) -> None:
     print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def _update(client: ApiClient, apply: bool, yes: bool) -> int:
+    import time
+    info = client.call("GET", "/api/heal/updates", timeout=60)
+    print(info.get("message", ""))
+    for line in info.get("changelog") or []:
+        print(f"  {line}")
+    if not apply:
+        if info.get("update_available"):
+            print("Install it with: nmb-cli update --apply --yes")
+        return 0
+    if not info.get("update_available"):
+        return 0
+    if not yes:
+        print("--apply needs --yes.", file=sys.stderr)
+        return 2
+    started = client.call("POST", "/api/heal/update/apply", {"ref": info.get("target_ref", "")}, timeout=120)
+    if not started.get("started"):
+        print(started.get("error") or started.get("message") or "The update did not start.", file=sys.stderr)
+        return 1
+    last = ""
+    deadline = time.time() + 3600
+    while time.time() < deadline:
+        time.sleep(5)
+        try:
+            st = client.call("GET", "/api/heal/update/status", timeout=10)
+        except (ApiError, OSError):
+            continue  # the web server restarts during the install
+        line = f"step {st.get('step_no', 0)}/{st.get('steps', 5)}: {st.get('step', '')}" if st.get("state") == "running" else ""
+        if line and line != last:
+            print(line)
+            last = line
+        if st.get("state") in ("success", "failed", "rolled_back"):
+            print(st.get("message", st["state"]))
+            return 0 if st["state"] == "success" else 1
+    print("The update is still running; check again with: nmb-cli api GET /api/heal/update/status", file=sys.stderr)
+    return 1
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -56,6 +96,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     api.add_argument("method", choices=["GET", "POST"])
     api.add_argument("path")
     api.add_argument("body", nargs="?", default="{}", help="JSON body")
+    upd = sub.add_parser("update", help="Check for a newer version on GitHub, or install it")
+    upd.add_argument("--apply", action="store_true", help="Download and install the newest version")
+    upd.add_argument("--yes", action="store_true", help="Confirm --apply")
     args = parser.parse_args(argv)
 
     menu = catalog.read_menu()
@@ -86,6 +129,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 for line in logs.read_lines(client, args.source, args.lines, args.level, args.grep):
                     print(line)
             return 0
+        if args.command == "update":
+            return _update(client, args.apply, args.yes)
         if args.command == "api":
             answer = client.call(args.method, args.path, json.loads(args.body))
             _print(answer)

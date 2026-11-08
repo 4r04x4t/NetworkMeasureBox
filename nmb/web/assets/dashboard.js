@@ -36,12 +36,20 @@
     return currentTranslations[key] || fallback || key;
   }
 
+  // Failed rows: name the known Ookla pause in the page language, otherwise show the engine's text.
+  function speedErrorText(err) {
+    const e = String(err || '');
+    const m = e.match(/^Ookla rate limit.*?(\d+) min/);
+    if (m) return t('speed_err_ookla_paused', 'Ookla refused this box for testing too often; paused for {min} min').replace('{min}', m[1]);
+    return e || t('speed_err_unknown', 'unknown error');
+  }
+
   // Ookla refuses a box that tests too often; say so wherever the schedule is shown.
   function ooklaWarningText(w) {
     if (!w) return '';
     let text;
     if (w.code === 'ookla_rate_limit_risk') {
-      text = t('ookla_warn_risk', 'Ookla limits how often one box may test. This schedule runs Ookla every {interval} min; Ookla will soon refuse the tests and block this box for a while. Use every {safe} min or less often, or choose RTR-NetTest or Cloudflare for frequent tests.')
+      text = t('ookla_warn_risk', 'This schedule runs every {interval} min. Ookla blocks boxes that test too often, so the box runs Ookla at most every {safe} min; RTR-NetTest, Cloudflare and iPerf3 run every time.')
         .replace('{interval}', w.interval_min).replace('{safe}', w.safe_interval_min);
     } else {
       text = t('ookla_warn_paused_only', 'Ookla refused tests from this box.');
@@ -1914,7 +1922,7 @@
       if (window.latestPerEngine && window.latestPerEngine[targetEng]) {
         latest = window.latestPerEngine[targetEng];
       } else if (window.allRecentSpeedtests && window.allRecentSpeedtests.length) {
-        latest = window.allRecentSpeedtests.find(s => (s.engine || '').toLowerCase() === targetEng) || null;
+        latest = window.allRecentSpeedtests.find(s => (s.engine || '').toLowerCase() === targetEng && s.status === 'ok') || null;
       }
       if (!latest && data.latest_speedtest && (data.latest_speedtest.engine || 'ookla').toLowerCase() === targetEng) {
         latest = data.latest_speedtest;
@@ -1956,6 +1964,28 @@
       if (elTimestamp && latest.ts) {
         const d = new Date(latest.ts);
         elTimestamp.innerText = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0') + '. ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+        if (latest.selected_server_id && latest.server_id && String(latest.selected_server_id) !== String(latest.server_id)) {
+          const n = document.createElement('div');
+          n.style.cssText = 'font-size: 11.5px; color: #fbbf24; margin-top: 2px; white-space: normal;';
+          n.textContent = t('home_other_server', 'This result is from server #{used}, before the current choice (#{chosen}).')
+            .replace('{used}', latest.server_id).replace('{chosen}', latest.selected_server_id);
+          elTimestamp.appendChild(n);
+        }
+        if (latest.next_possible_ts) {
+          const nx = new Date(latest.next_possible_ts);
+          const n2 = document.createElement('div');
+          n2.style.cssText = 'font-size: 11.5px; color: #94a3b8; margin-top: 2px; white-space: normal;';
+          n2.textContent = t('home_next_ookla', 'Next Ookla test from {time}.').replace('{time}', String(nx.getHours()).padStart(2,'0') + ':' + String(nx.getMinutes()).padStart(2,'0'));
+          elTimestamp.appendChild(n2);
+        }
+        if (latest.newer_failure && latest.newer_failure.ts) {
+          const f = new Date(latest.newer_failure.ts);
+          const hm = String(f.getHours()).padStart(2,'0') + ':' + String(f.getMinutes()).padStart(2,'0');
+          const note = document.createElement('div');
+          note.style.cssText = 'font-size: 11.5px; color: #fbbf24; margin-top: 2px; white-space: normal;';
+          note.textContent = t('home_newer_failure', 'Newer attempt at {time} gave no result: {reason}').replace('{time}', hm).replace('{reason}', speedErrorText(latest.newer_failure.error));
+          elTimestamp.appendChild(note);
+        }
       }
 
       const downMbps = (latest.down_bps !== null && latest.down_bps !== undefined) ? (latest.down_bps / 1000000.0) : null;
@@ -2062,14 +2092,14 @@ python3 -m nmb.speed.rtr --json
 iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 `;
       } else {
-        const sid = (data && data.scheduled_server && data.scheduled_server.id) ? data.scheduled_server.id : 31717;
+        const sid = (data && data.scheduled_server && data.scheduled_server.id) ? data.scheduled_server.id : null;
         elScriptBox.textContent = `#!/bin/sh
 # ==============================================================================
 # NetworkMeasureBox - Realtime Ookla Speedtest Execution
-# Target Server: 2Connect Kft. (#${sid})
+# Target Server: ${sid ? '#' + sid : 'automatic (nearest)'}
 # ==============================================================================
 
-/usr/local/bin/speedtest --accept-license --accept-gdpr --format=json --server-id ${sid}
+/usr/local/bin/speedtest --accept-license --accept-gdpr --format=json${sid ? ' --server-id ' + sid : ''}
 `;
       }
     }
@@ -2122,7 +2152,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const descEl = document.getElementById('engine-desc-text');
     if (descEl) {
       if (selectedEngine === 'ookla') {
-        descEl.innerHTML = t('engine_desc_ookla', '⚡ <b>Ookla Speedtest:</b> Global server fleet, selectable target server (e.g. 2Connect #31717), detailed download/upload and bufferbloat.');
+        descEl.innerHTML = t('engine_desc_ookla', '⚡ <b>Ookla Speedtest:</b> Global server fleet, selectable target server, detailed download/upload and bufferbloat.');
       } else if (selectedEngine === 'cloudflare') {
         descEl.innerHTML = t('engine_desc_cloudflare', '☁️ <b>Cloudflare Edge (cloudflare-speed-cli):</b> Direct CDN edge speed measurement (speed.cloudflare.com), airport PoP code (e.g. BUD), ASN and loaded latency.');
       } else if (selectedEngine === 'rtr') {
@@ -2398,8 +2428,18 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           const ooklaWarn = data.scheduler_status ? data.scheduler_status.ookla_warning : null;
           renderOoklaWarning(ooklaWarn);
           const visibilityWarning = gateInfo && gateInfo.visibility === 'none' ? ` &nbsp;|&nbsp; ⚠️ ${escapeHtml(t('gate_no_visibility', 'No speed tests: other devices\' traffic is not visible to the box'))}` : '';
-          const ooklaBadge = ooklaWarn ? ` &nbsp;|&nbsp; ⚠️ ${escapeHtml(ooklaWarningText(ooklaWarn))}` : '';
-          modeBadge.innerHTML = `🟢 <b>${t('mode_scheduled', 'Automated Schedule')}:</b> ${escapeHtml(cronDesc)} &nbsp;|&nbsp; 🛡️ <b>${t('accuracy_gate', 'Accuracy Gate')}:</b> &lt; ${gatePct.toFixed(1)}% (max ${limitMbps} Mbps)${visibilityWarning}${ooklaBadge}`;
+          // The full Ookla warning sits under the schedule settings; here only a short note, full text on hover.
+          let ooklaShort = '';
+          if (ooklaWarn) {
+            ooklaShort = ooklaWarn.code === 'ookla_paused'
+              ? t('ookla_badge_paused', 'Ookla paused for {min} min').replace('{min}', ooklaWarn.paused_min)
+              : t('ookla_badge_hourly', 'Ookla at most every {safe} min').replace('{safe}', ooklaWarn.safe_interval_min);
+          }
+          const ooklaBadge = ooklaWarn ? ` &nbsp;|&nbsp; <span title="${escapeHtml(ooklaWarningText(ooklaWarn))}">⚠️ ${escapeHtml(ooklaShort)}</span>` : '';
+          const label = (k, fb) => String(t(k, fb)).replace(/^[^\p{L}]+/u, '').replace(/\s*:\s*$/, '');
+          modeBadge.style.whiteSpace = 'normal';
+          modeBadge.style.maxWidth = '100%';
+          modeBadge.innerHTML = `🟢 <b>${escapeHtml(label('mode_scheduled', 'Automated Schedule'))}:</b> ${escapeHtml(cronDesc)} &nbsp;|&nbsp; 🛡️ <b>${escapeHtml(label('accuracy_gate', 'Accuracy Gate'))}:</b> &lt; ${gatePct.toFixed(1)}% (max ${limitMbps} Mbps)${visibilityWarning}${ooklaBadge}`;
           modeBadge.style.background = 'rgba(16, 185, 129, 0.15)';
           modeBadge.style.color = '#34d399';
           modeBadge.style.borderColor = '#10b981';
@@ -2437,6 +2477,12 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
             selectEl.value = 'custom';
             if (customWrap) customWrap.style.display = 'block';
             if (customInp) customInp.value = data.schedule_cron;
+          }
+        }
+        if (data.engine_intervals && !schedFormDirty && !isScheduleInputActive()) {
+          for (const k of ['ookla', 'rtr', 'cloudflare', 'iperf3']) {
+            const el = document.getElementById('sched-int-' + k);
+            if (el && document.activeElement !== el && data.engine_intervals[k] !== undefined) el.value = data.engine_intervals[k];
           }
         }
         if (data.automated_engine) {
@@ -2581,7 +2627,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           return `<span class="badge" style="background:${bg}; color:${color}; border:1px solid ${border}; margin-left:6px; font-size:11px; font-weight:700;">${pct.toFixed(1)}%</span>`;
         }
 
-        data.speed_tests.forEach(st => {
+        // Only measurements are listed; skipped and failed runs are counted in one line
+        // (the reports and the CSV export still contain them).
+        const skippedCount = data.speed_tests.filter(st => st.status !== 'ok').length;
+        data.speed_tests.filter(st => st.status === 'ok').forEach(st => {
           const d = new Date(st.ts);
           const dtStr = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
           const dMbps = (st.down_bps || 0) / 1000000.0;
@@ -2632,14 +2681,19 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
             <td style="white-space: nowrap;">${engineBadge}</td>
             ${st.status === 'skipped_busy'
               ? `<td colspan="2" style="white-space: nowrap;" title="${escapeHtml(st.error || '')}">— ${escapeHtml(t('speed_skipped', 'Skipped, no measurement'))}</td>`
+              : st.status !== 'ok'
+              ? `<td colspan="2" style="color:#f87171; white-space: normal; max-width: 320px;" title="${escapeHtml(st.error || '')}">✖ ${escapeHtml(t('speed_failed', 'No result'))}: ${escapeHtml(speedErrorText(st.error))}</td>`
               : `<td style="white-space: nowrap;"><b>${dMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(dPct)}</td>
             <td style="white-space: nowrap;"><b>${uMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(uPct)}</td>`}
-            <td style="white-space: nowrap;">${st.status === 'skipped_busy' ? '--' : lat.toFixed(2) + ' ms'}</td>
+            <td style="white-space: nowrap;">${st.status === 'ok' ? lat.toFixed(2) + ' ms' : '--'}</td>
             <td style="white-space: nowrap;">${bb}</td>
             <td style="white-space: nowrap;">${clientIpCell}</td>
             <td style="white-space: nowrap;">${link}</td>
           </tr>`;
         });
+        if (skippedCount > 0) {
+          sHtml += `<tr><td colspan="8" style="color: var(--text-muted); font-size: 12px;">${escapeHtml(t('speed_skipped_hidden', '{n} runs without a result (skipped, failed or Ookla paused) are not listed.').replace('{n}', skippedCount))}</td></tr>`;
+        }
         document.getElementById('speed-table-body').innerHTML = sHtml;
 
         cachedSpeedTests = data.speed_tests || [];
@@ -3233,11 +3287,37 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     }, 350);
   }
 
-  async function loadServers(query = '') {
+  // The home page list of Ookla servers comes from Ookla's current list, not a built-in one.
+  async function loadHomeOoklaServers(refresh = false) {
+    const group = document.getElementById('home-ookla-server-group');
+    const select = document.getElementById('home-target-server-select');
+    if (!group || !select) return;
+    const btn = document.getElementById('btn-home-ookla-refresh');
+    if (refresh && btn) btn.disabled = true;
+    try {
+      const res = await fetch(refresh ? '/api/speedtest/servers?refresh=1' : '/api/speedtest/servers');
+      if (!res.ok) return;
+      const data = await res.json();
+      const keep = select.value;
+      group.innerHTML = (data.servers || []).slice(0, 40).map(s =>
+        `<option value="${escapeHtml(String(s.id))}">#${escapeHtml(String(s.id))} ${escapeHtml(s.sponsor || s.name || '')} (${escapeHtml(s.location || s.name || '')})</option>`
+      ).join('');
+      if (keep && Array.from(select.options).some(o => o.value == keep)) select.value = keep;
+      if (refresh) showToast(t('ookla_servers_refreshed', 'Ookla server list updated.'));
+    } catch (e) {
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function loadServers(query = '', refresh = false) {
     const tbody = document.getElementById('script-servers-tbody');
     tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">${t('searching_servers', 'Searching speedtest benchmark network...')}</td></tr>`;
     try {
-      const url = query ? `/api/speedtest/servers?q=${encodeURIComponent(query)}` : '/api/speedtest/servers';
+      const params = new URLSearchParams();
+      if (query) params.set('q', query);
+      if (refresh) params.set('refresh', '1');
+      const url = '/api/speedtest/servers' + (params.toString() ? '?' + params.toString() : '');
       const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
@@ -3304,7 +3384,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     if (!input) return;
     const val = (input.value || '').trim();
     if (!val || !val.match(/^[0-9]+$/)) {
-      showToast('Please enter a valid numeric server ID (e.g. 31717)!');
+      showToast(t('err_server_id', 'Please enter a numeric Ookla server ID.'));
       return;
     }
     const sid = parseInt(val);
@@ -4201,7 +4281,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const input = document.getElementById('home-custom-server-id');
     const val = (input.value || '').trim();
     if (!val || !val.match(/^\d+$/)) {
-      showToast('Please enter a valid numeric server ID (e.g. 31717)!');
+      showToast(t('err_server_id', 'Please enter a numeric Ookla server ID.'));
       return;
     }
     const sid = parseInt(val);
@@ -4242,6 +4322,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       'radio-mode-manual',
       'radio-mode-scheduled',
       'sched-engine-select',
+      'sched-int-ookla',
+      'sched-int-rtr',
+      'sched-int-cloudflare',
+      'sched-int-iperf3',
       'sched-server-id-input',
       'sched-gate-mode',
       'sched-gate-percent',
@@ -4511,6 +4595,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           idle_threshold_mode: gateMode,
           idle_threshold_percent: gatePercent,
           idle_threshold_kbps: gateKbps,
+          ookla_interval_min: Math.max(60, parseInt((document.getElementById('sched-int-ookla') || {}).value || '60', 10) || 60),
+          rtr_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-rtr') || {}).value || '0', 10) || 0),
+          cloudflare_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-cloudflare') || {}).value || '0', 10) || 0),
+          iperf3_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-iperf3') || {}).value || '0', 10) || 0),
           iperf_target_host: (document.getElementById('sched-iperf-host') ? document.getElementById('sched-iperf-host').value : '').trim(),
           iperf_port: (document.getElementById('sched-iperf-port') ? parseInt(document.getElementById('sched-iperf-port').value) : 5201) || 5201
         })
@@ -4606,7 +4694,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       // Wi-Fi
       if (document.getElementById('cfg-wifi-enabled')) document.getElementById('cfg-wifi-enabled').value = (d.wifi_enabled !== false) ? 'true' : 'false';
       if (document.getElementById('cfg-wifi-ssid')) document.getElementById('cfg-wifi-ssid').value = d.wifi_ssid || 'NMB-Diagnostic';
-      if (document.getElementById('cfg-wifi-country')) document.getElementById('cfg-wifi-country').value = d.wifi_country_code || 'HU';
+      if (document.getElementById('cfg-wifi-country')) document.getElementById('cfg-wifi-country').value = d.wifi_country_code || 'auto';
       if (document.getElementById('cfg-wifi-band')) document.getElementById('cfg-wifi-band').value = d.wifi_band || 'auto';
       if (document.getElementById('cfg-wifi-standard')) document.getElementById('cfg-wifi-standard').value = d.wifi_standard || 'auto';
       if (document.getElementById('cfg-wifi-channel-width')) document.getElementById('cfg-wifi-channel-width').value = d.wifi_channel_width || 'auto';
@@ -4724,7 +4812,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
       wifi_enabled: document.getElementById('cfg-wifi-enabled').value === 'true',
       wifi_ssid: document.getElementById('cfg-wifi-ssid').value,
-      wifi_country_code: document.getElementById('cfg-wifi-country') ? document.getElementById('cfg-wifi-country').value : 'HU',
+      wifi_country_code: document.getElementById('cfg-wifi-country') ? document.getElementById('cfg-wifi-country').value : 'auto',
       wifi_band: document.getElementById('cfg-wifi-band') ? document.getElementById('cfg-wifi-band').value : 'auto',
       wifi_standard: document.getElementById('cfg-wifi-standard') ? document.getElementById('cfg-wifi-standard').value : 'auto',
       wifi_channel_width: document.getElementById('cfg-wifi-channel-width') ? document.getElementById('cfg-wifi-channel-width').value : 'auto',
@@ -5307,6 +5395,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         body: JSON.stringify({})
       });
       const data = await res.json();
+      if (data.started) {
+        pollGithubUpdate();
+        return;
+      }
       if (data.success) {
         alert(t('update_applied_success', 'Update Applied Successfully! Version: ') + data.new_version + ' (' + data.checkpoint + '). Reloading dashboard...');
         setTimeout(() => { window.location.reload(); }, 2000);
@@ -5322,6 +5414,51 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     } catch (e) {
       showToast('Error applying update: ' + e);
     }
+  }
+
+  // The GitHub update restarts the web server, so failed requests while it runs are expected.
+  async function pollGithubUpdate() {
+    const msgEl = document.getElementById('heal-update-msg');
+    const btn = document.getElementById('btn-apply-update');
+    if (btn) btn.disabled = true;
+    const stepNames = {
+      download: t('upd_step_download', 'downloading from GitHub'),
+      test: t('upd_step_test', 'testing the new version'),
+      backup: t('upd_step_backup', 'saving settings and measurements'),
+      install: t('upd_step_install', 'installing'),
+      verify: t('upd_step_verify', 'checking the services'),
+    };
+    const deadline = Date.now() + 3600 * 1000;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 5000));
+      let st;
+      try {
+        const res = await fetch('/api/heal/update/status', { cache: 'no-store' });
+        if (!res.ok) continue;
+        st = await res.json();
+      } catch (e) {
+        continue;
+      }
+      if (st.state === 'running') {
+        if (msgEl) msgEl.textContent = t('upd_running', 'Updating, step {n} of {total}: {step}')
+          .replace('{n}', st.step_no || 1).replace('{total}', st.steps || 5).replace('{step}', stepNames[st.step] || st.step || '');
+        continue;
+      }
+      if (st.state === 'success') {
+        if (msgEl) msgEl.textContent = t('upd_done', 'Update finished. Reloading the page...');
+        setTimeout(() => { window.location.reload(); }, 3000);
+        return;
+      }
+      if (st.state === 'failed' || st.state === 'rolled_back') {
+        const head = st.state === 'rolled_back'
+          ? t('upd_rolled_back', 'The update failed and the previous version was put back.')
+          : t('upd_failed', 'The update failed; nothing was changed.');
+        if (msgEl) msgEl.textContent = head + ' ' + (st.message || '');
+        if (btn) btn.disabled = false;
+        return;
+      }
+    }
+    if (btn) btn.disabled = false;
   }
 
   // ==========================================
@@ -7363,6 +7500,73 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     } catch (e) {
       showToast('Error saving the setting: ' + e);
     }
+  }
+
+  // Central collector (opt-in)
+  function renderCollectorStatus(d) {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    const uid = document.getElementById('col-box-uid');
+    if (uid) uid.textContent = d.box_uid || '--';
+    set('col-url', d.url || '');
+    set('col-case', d.case_id || '');
+    set('col-interval', d.interval_min || 15);
+    const chk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+    chk('col-enabled', d.enabled);
+    chk('col-diag', d.share_diagnostics);
+    chk('col-remote', d.allow_remote_control);
+    const th = document.getElementById('col-token-hint');
+    if (th) th.textContent = d.token_set ? t('col_token_saved', 'A token is saved; leave empty to keep it.') : '';
+    const st = document.getElementById('col-status');
+    if (st) {
+      const last = d.last || {};
+      let txt = d.enabled ? t('col_on', 'Sending is on.') : t('col_off', 'Sending is off.');
+      if (last.ts) txt += ' ' + t('col_last', 'Last upload:') + ' ' + new Date(last.ts * 1000).toLocaleString() + ' (' + (last.ok ? '✔' : '✖') + ' ' + (last.message || '') + ')';
+      if (d.pending_speedtests) txt += ' ' + t('col_pending', 'Waiting to be sent: {n} speed test(s).').replace('{n}', d.pending_speedtests);
+      st.textContent = txt;
+    }
+  }
+
+  async function loadCollector() {
+    try {
+      const res = await fetch('/api/collector/status');
+      if (res.ok) renderCollectorStatus(await res.json());
+    } catch (e) {}
+  }
+
+  async function saveCollector() {
+    const body = {
+      url: (document.getElementById('col-url').value || '').trim(),
+      token: (document.getElementById('col-token').value || '').trim(),
+      case_id: (document.getElementById('col-case').value || '').trim(),
+      interval_min: parseInt(document.getElementById('col-interval').value || '15', 10),
+      enabled: document.getElementById('col-enabled').checked,
+      share_diagnostics: document.getElementById('col-diag').checked,
+      allow_remote_control: document.getElementById('col-remote').checked,
+    };
+    try {
+      const res = await fetch('/api/collector/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await res.json();
+      if (!res.ok) { showToast(d.message || 'Error'); return; }
+      document.getElementById('col-token').value = '';
+      renderCollectorStatus(d);
+      if (body.enabled && !d.enabled) showToast(t('col_need_url', 'Set the collector address and token to turn sending on.'));
+      else showToast(t('col_saved', 'Collector settings saved.'));
+    } catch (e) {
+      showToast('Error: ' + e);
+    }
+  }
+
+  async function sendCollectorNow() {
+    const st = document.getElementById('col-status');
+    if (st) st.textContent = t('col_sending', 'Sending...');
+    try {
+      const res = await fetch('/api/collector/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const d = await res.json();
+      showToast((d.ok ? '✔ ' : '✖ ') + (d.message || ''));
+    } catch (e) {
+      showToast('Error: ' + e);
+    }
+    loadCollector();
   }
 
   // Logout Handler
@@ -9456,6 +9660,9 @@ ${pkgList}`;
     loadMacInfo();
   }, 2500);
   setInterval(refreshStatus, 3000);
+  loadHomeOoklaServers();
+  loadCollector();
+  setInterval(() => loadHomeOoklaServers(false), 5 * 60 * 1000);
   setInterval(pollSnifferStats, 2000);
   setInterval(() => {
     const syslogTab = document.getElementById('tab-syslog');

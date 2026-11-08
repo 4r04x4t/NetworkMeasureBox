@@ -172,3 +172,19 @@ tls_enabled = false
 listen_ipv6 = true
 dns = 1.1.1.1, 2606:4700:4700::1111
 
+
+[collector]
+# Optional: send measurements to a central collector (nmb-collector) run by your ISP or a
+# specialist. Off by default. url and token come from whoever runs the collector; case_id is
+# your ticket or customer number, so they can find your measurements.
+enabled = false
+url = 
+token = 
+case_id = 
+interval_min = 15
+# With your consent: also send the full network diagnostics (interfaces, routes, DNS, NAT,
+# Wi-Fi, traceroute, the list of devices on your network, events), hourly.
+share_diagnostics = false
+# With your consent: the collector may ask this box to run a speed test, send fresh
+# diagnostics or upload now. Nothing else: no shell commands and no setting changes.
+allow_remote_control = false
