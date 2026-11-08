@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- USB tethering (`[usb_uplink]`): a phone, mobile hotspot or modem on USB as a measuring link, with its own profile that never takes the default route, a source rule (table 152), the measurement link `usb`, its own daily data limit, results stored as mobile; Web UI card, `nmb-cli` (`usb.uplink`, `usb.off`), all 11 languages. Tested on the Pi 4 with a Netgear Nighthawk (MR6X00) over 5G.
+- USB tethering (`[usb_uplink]`): a phone, mobile hotspot or modem on USB as a measuring link, with its own profile that never takes the default route, a source rule (table 152), the measurement link `usb`, its own daily data limit, results stored as mobile; Web UI card, `nmb-cli` (`usb.uplink`, `usb.off`), all 11 languages. Tested on the Pi 4 over 5G with a Netgear Nighthawk M6 Pro (US AT&T model).
 - Porting plan 1.3: MikroTik devices (container on RouterOS v7, or OpenWrt instead of RouterOS) and MediaTek SoC families (MT7620/MT7628, MT7621, MT7622, Filogic MT7981B, MT7986A, MT7988A) as planned targets, with offload notes; figures to verify.
 - De-Pythonization roadmap 6A: more base candidates (Fedora IoT, Ubuntu Core, NixOS, Buildroot/Yocto, balenaOS), an eighth criterion (the base itself brings no Python) and an evaluation order (OpenWrt, Debian, Alpine, Fedora IoT).
 - Porting plan: candidates for the base of NMB's own distribution compared against fixed criteria (Debian, Raspberry Pi OS Lite, OpenWrt, Alpine, VyOS, IPFire; pfSense and OPNsense excluded as FreeBSD), with an evaluation plan.
