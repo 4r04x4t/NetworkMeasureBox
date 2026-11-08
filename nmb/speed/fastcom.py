@@ -7,12 +7,13 @@ It works like gesquive/fast-cli and sindresorhus/fast-cli do, through Fast.com's
    up to five Netflix Open Connect (OCA) servers near it, with their city and country;
 3. unloaded latency: ``/speedtest/range/0-0`` requests on an open connection to each server,
    the same request Fast.com times, plus the TCP handshake time;
-4. download: parallel ``GET /speedtest/range/0-<n>`` streams spread over the servers for a
+4. download: 16 parallel ``GET /speedtest/range/0-<n>`` streams spread over the servers for a
    fixed time, the TCP ramp-up left out; upload: ``POST`` of the same size to the same URLs;
 5. loaded latency during both transfers (bufferbloat), per-second throughput samples,
    per-server bytes and the "stable" speed Fast.com shows (the mean once the speed settles).
 
-Everything measured goes into ``raw_json`` so a row keeps the full detail.
+The transfers use plain HTTP (``https=false`` in the API call; see ``USE_TLS``), the server names
+come from the HTTPS list. Everything measured goes into ``raw_json`` so a row keeps the full detail.
 """
 from __future__ import annotations
 
@@ -36,13 +37,17 @@ from nmb.speed.ookla import SpeedtestResult, calculate_bufferbloat
 log = logging.getLogger("nmb.speed.fastcom")
 
 FAST_PAGE = "https://fast.com/"
-API_URL = "https://api.fast.com/netflix/speedtest/v2?https=true&token={token}&urlCount={count}"
+API_URL = "https://api.fast.com/netflix/speedtest/v2?https={https}&token={token}&urlCount={count}"
 # The token is the same for every visitor and has not changed in years; used when the page cannot be read.
 FALLBACK_TOKEN = "YXNkZmFzZGxmbnNkYWZoYXNkZmhrYWxm"
 URL_COUNT = 5
-STREAMS = 8
-TEST_SECONDS = 10.0
-WARMUP_SECONDS = 2.5
+STREAMS = 16
+# Plain HTTP to the Netflix servers. On a Raspberry Pi 4 (no AES instructions) TLS took 77-88 % of
+# the CPU at 910 Mbps, so other services running at the same time pulled the result down (656 Mbps
+# once); plain HTTP needs 50-56 %. The API call and the token stay on HTTPS.
+USE_TLS = False
+TEST_SECONDS = 15.0
+WARMUP_SECONDS = 3.0
 DOWN_RANGE = 26_214_400          # 25 MiB per request, as Fast.com uses
 UP_RANGE = 10_000_000
 READ_CHUNK = 262_144
@@ -106,6 +111,7 @@ class FastTarget:
     host: str
     city: str = ""
     country: str = ""
+    name: str = ""          # OCA host name, when the server is reached by its address
     tcp_ms: Optional[float] = None
     latency_ms: Optional[float] = None
     latency_samples: List[float] = field(default_factory=list)
@@ -116,32 +122,52 @@ class FastTarget:
     @property
     def label(self) -> str:
         """``bud002 · digihu`` from ``ipv4-c001-bud002-digihu-isp.1.oca.nflxvideo.net``."""
-        m = re.match(r"ipv[46]-(c\d+)-([a-z]{3}\d{3})-([a-z0-9]+)-(isp|ix)", self.host)
+        m = re.match(r"ipv[46]-(c\d+)-([a-z]{3}\d{3})-([a-z0-9]+)-(isp|ix)", self.name or self.host)
         if m:
             return f"{m.group(2)} {m.group(1)} · {m.group(3)} ({m.group(4).upper()})"
-        return self.host
+        return self.name or self.host
 
     def range_path(self, spec: str) -> str:
         u = urllib.parse.urlsplit(self.url)
         return f"{u.path}/range/{spec}?{u.query}"
 
 
+def _oca_names(token: str) -> Dict[str, str]:
+    """IP address -> OCA host name; the plain-HTTP list names its servers only by address."""
+    names: Dict[str, str] = {}
+    try:
+        data = json.loads(_http_get(API_URL.format(https="true", token=token, count=URL_COUNT)).decode())
+        for t in data.get("targets") or []:
+            host = urllib.parse.urlsplit(str(t.get("url") or "")).hostname or ""
+            if host:
+                for info in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM):
+                    names.setdefault(info[4][0], host)
+    except Exception as e:
+        log.debug("fast.com server names: %s", e)
+    return names
+
+
 def fetch_targets(token: str) -> Tuple[Dict[str, Any], List[FastTarget]]:
-    data = json.loads(_http_get(API_URL.format(token=token, count=URL_COUNT)).decode())
+    data = json.loads(_http_get(API_URL.format(https="true" if USE_TLS else "false", token=token, count=URL_COUNT)).decode())
+    names = {} if USE_TLS else _oca_names(token)
     targets = []
     for t in data.get("targets") or []:
         url = str(t.get("url") or "")
         host = urllib.parse.urlsplit(url).hostname or ""
-        if not url.startswith("https://") or not host:
+        if not url.startswith(("https://", "http://")) or not host:
             continue
         loc = t.get("location") or {}
-        targets.append(FastTarget(url=url, host=host, city=str(loc.get("city") or ""), country=str(loc.get("country") or "")))
+        targets.append(FastTarget(url=url, host=host, city=str(loc.get("city") or ""), country=str(loc.get("country") or ""),
+                                  name=names.get(host, "")))
     return data.get("client") or {}, targets
 
 
-def _connect(host: str, timeout: float = 10.0) -> http.client.HTTPSConnection:
+def _connect(host: str, timeout: float = 10.0):
     source = (_bound_source_ip, 0) if _bound_source_ip else None
-    conn = http.client.HTTPSConnection(host, 443, timeout=timeout, source_address=source)
+    if USE_TLS:
+        conn = http.client.HTTPSConnection(host, 443, timeout=timeout, source_address=source)
+    else:
+        conn = http.client.HTTPConnection(host, 80, timeout=timeout, source_address=source)
     conn.connect()
     return conn
 
@@ -149,11 +175,11 @@ def _connect(host: str, timeout: float = 10.0) -> http.client.HTTPSConnection:
 def _tcp_ms(host: str, timeout: float = 3.0) -> float:
     source = (_bound_source_ip, 0) if _bound_source_ip else None
     t0 = time.monotonic()
-    with socket.create_connection((host, 443), timeout=timeout, source_address=source):
+    with socket.create_connection((host, 443 if USE_TLS else 80), timeout=timeout, source_address=source):
         return (time.monotonic() - t0) * 1000.0
 
 
-def _range0_ms(conn: http.client.HTTPSConnection, target: FastTarget) -> float:
+def _range0_ms(conn, target: FastTarget) -> float:
     """One ``range/0-0`` round trip on an open connection (Fast.com's own latency request)."""
     t0 = time.monotonic()
     conn.request("GET", target.range_path("0-0"), headers=_headers())
@@ -380,7 +406,7 @@ def execute_fastcom_speedtest(interface: Optional[str] = None, bind_ip: Optional
     ip = str(client.get("ip") or "")
     loc = client.get("location") or {}
     servers = [{
-        "host": t.host, "label": t.label, "city": t.city, "country": t.country,
+        "host": t.host, "name": t.name or t.host, "label": t.label, "city": t.city, "country": t.country,
         "tcp_connect_ms": t.tcp_ms, "latency_ms": t.latency_ms, "latency_samples_ms": t.latency_samples,
         "download_mbps": round(t.down_bytes * 8 / ((TEST_SECONDS - WARMUP_SECONDS) * 1e6), 2),
         "upload_mbps": round(t.up_bytes * 8 / ((TEST_SECONDS - WARMUP_SECONDS) * 1e6), 2),
@@ -400,6 +426,7 @@ def execute_fastcom_speedtest(interface: Optional[str] = None, bind_ip: Optional
         "upload": {k: v for k, v in up.items()},
         "bufferbloat_grade": bb_grade,
         "bufferbloat_delta_ms": bb_delta,
+        "transport": "https" if USE_TLS else "http",
         "streams": STREAMS, "test_seconds": TEST_SECONDS, "warmup_seconds": WARMUP_SECONDS,
         "duration_sec": round(time.monotonic() - t_start, 1),
         "method": "Fast.com API (api.fast.com/netflix/speedtest/v2), range requests to Netflix Open Connect servers",
@@ -417,7 +444,7 @@ def execute_fastcom_speedtest(interface: Optional[str] = None, bind_ip: Optional
         jitter_us=int(jitter * 1000) if jitter is not None else None,
         loss_pct=None,
         server_name=f"Fast.com (Netflix): {closest.label}",
-        server_host=closest.host,
+        server_host=closest.name or closest.host,
         server_location=f"{where} · {len(reachable)} servers" if where else f"{len(reachable)} servers",
         client_ip=ip if ip and ":" not in ip else None,
         client_ipv6=ip if ":" in ip else None,
@@ -429,7 +456,7 @@ def execute_fastcom_speedtest(interface: Optional[str] = None, bind_ip: Optional
         bufferbloat_grade=bb_grade,
         bufferbloat_delta_ms=bb_delta,
         engine="fastcom",
-        colo=closest.host.split("-")[2].upper() if closest.host.count("-") >= 3 else None,
+        colo=(closest.name or closest.host).split("-")[2].upper() if (closest.name or closest.host).count("-") >= 3 else None,
         bound_iface=interface,
         bound_ip=bind_ip,
     )

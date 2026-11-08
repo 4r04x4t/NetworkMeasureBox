@@ -201,9 +201,9 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 ### 4. Fast.com (Netflix) mérőmotor
 * A Fast.com saját API-ját használja (`api.fast.com/netflix/speedtest/v2`), a tokent a Fast.com oldalának szkriptjéből olvassa ki (ha nem sikerül, az ismert tokent használja).
 * A Fast.com legfeljebb öt, a boxhoz közeli Netflix Open Connect szervert ad; a box mindegyikhez méri a késleltetést (ugyanazt a `range/0-0` kérést, amit a Fast.com is mér, és a TCP-kézfogást).
-* Letöltés és feltöltés: 8 párhuzamos szál a szerverek között elosztva, irányonként 10 mp; az első 2,5 mp (TCP-felfutás) kimarad. A kijelzett érték a Fast.com-hoz hasonlóan a „stabil” sebesség: az átlag attól a ponttól, ahol a sebesség beáll.
+* Letöltés és feltöltés sima HTTP-n: 16 párhuzamos szál a szerverek között elosztva, irányonként 15 mp; az első 3 mp (TCP-felfutás) kimarad. Azért HTTP, mert Raspberry Pi 4-en a TLS 910 Mbps-nál a CPU 77–88%-át vitte el, és ha közben más szolgáltatás is dolgozott, az eredmény visszaesett; sima HTTP-n 50–56% kell. A tesztvonalon elkülönítve minden változat elérte a vonal sebességét (kb. 910 Mbps), tehát a Fast.com nem fogja vissza a boxot. A kijelzett érték a Fast.com-hoz hasonlóan a „stabil” sebesség: az átlag attól a ponttól, ahol a sebesség beáll.
 * Minden sor a `raw_json`-ban megőrzi: a szolgáltatót, ASN-t, várost és országot, ahogy a Fast.com látja; minden szervert városával, országával, késleltetési mintáival és a le- és feltöltésből vett saját részével; a félmásodpercenkénti sebességet; a csúcsot és a sima átlagot; a terhelés alatti késleltetést mindkét irányban és a bufferbloat-osztályzatot.
-* Gigabites vonalon futásonként kb. 1,5 GB, ezért az ütemezett Fast.com-mérés alapból 6 óránként fut (`fastcom_interval_min = 360`).
+* A vegyes mérésben minden alkalommal fut, mint a Cloudflare (`fastcom_interval_min = 0`); gigabites vonalon futásonként kb. 2,2 GB.
 
 ### 5. RTR-Netztest (RMBT Szabályozói Mérőmotor)
 * Az Osztrák Hírközlési Szabályozó Hatóság (RTR) és az Európai Elektronikus Hírközlési Szabályozók Testülete (BEREC) által elfogadott, RFC kompatibilis RMBT nyílt forráskódú mérőmotor.
@@ -232,7 +232,7 @@ A doboz nem egyetlen mérésre támaszkodik, hanem 5 független rétegben valid�
 * Heti cenzúra- és hálózatsemlegességi mérés, a webes felületen vagy az `[ooni]` szakasz `enabled = true` beállításával kapcsolható be. A forgalmi kaput nem használja.
 
 ### Sebességmérés ütemezése
-* Az új telepítések óránként mérnek (`schedule_cron = 0 * * * *`), ez a webes felületen módosítható. Az ütemezés azt adja meg, milyen gyakran néz rá a box; emellett minden motornak saját minimális időköze van (`ookla_interval_min`, legalább 60; `rtr_interval_min` és `cloudflare_interval_min`, 0 = minden futáskor; `fastcom_interval_min`, alapból 360) a `[speedtest]` részben vagy a webes felületen. Így az RTR-NetTest mérhet percenként, az Ookla pedig óránként. Az iPerf3 ugyanezzel az ütemezéssel fut, saját `iperf3_interval_min` időközzel, egy vagy több szerverrel (`target_host` és `extra_servers`; alapból 4 TCP-szál, 10 mp, előbb letöltés, majd feltöltés), önmagában vagy a vegyes mérésben, de csak ha az `[iperf]` részben be van állítva iPerf3-szerver, és az válaszol; különben üres sor nélkül kimarad. A mérési lista csak valódi méréseket mutat; a kihagyott és sikertelen futásokat egy sor számolja. Az ütemezett méréseket az `nmb-web` indítja, ezért annak futnia kell; frissítéskor a beállított ütemezés megmarad.
+* Az új telepítések óránként mérnek (`schedule_cron = 0 * * * *`), ez a webes felületen módosítható. Az ütemezés azt adja meg, milyen gyakran néz rá a box; emellett minden motornak saját minimális időköze van (`ookla_interval_min`, legalább 60; `rtr_interval_min` és `cloudflare_interval_min`, 0 = minden futáskor; `fastcom_interval_min`, alapból 0) a `[speedtest]` részben vagy a webes felületen. Így az RTR-NetTest mérhet percenként, az Ookla pedig óránként. Az iPerf3 ugyanezzel az ütemezéssel fut, saját `iperf3_interval_min` időközzel, egy vagy több szerverrel (`target_host` és `extra_servers`; alapból 4 TCP-szál, 10 mp, előbb letöltés, majd feltöltés), önmagában vagy a vegyes mérésben, de csak ha az `[iperf]` részben be van állítva iPerf3-szerver, és az válaszol; különben üres sor nélkül kimarad. A mérési lista csak valódi méréseket mutat; a kihagyott és sikertelen futásokat egy sor számolja. Az ütemezett méréseket az `nmb-web` indítja, ezért annak futnia kell; frissítéskor a beállított ütemezés megmarad.
 
 ---
 
@@ -602,6 +602,8 @@ A projekt az **MIT Licenc** alatt érhető el — szabadon használható, módos
 ## Tesztelési Állapot
 
 Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz. A részletes jegyzőkönyv (hol, mit, hogyan, milyen eredménnyel): [docs/TESTING.hu.md](docs/TESTING.hu.md).
+
+**Tesztvonal:** az NMB-t egyetlen otthoni optikai (FTTH) internetkapcsolaton fejlesztjük és teszteljük: 1000/300 Mbps-os csomag, magyar szolgáltatónál, a box az otthoni router mögött. A README-ben és a tesztelési jegyzőkönyvben szereplő minden sebesség-, CPU- és időadat erről a vonalról és egy Raspberry Pi 4-ről származik. Sokkal lassabb (DSL, mobilnet) és gyorsabb (2,5 vagy 10 Gbps) vonalon nincs tesztelve; kb. 1 Gbps fölött előbb a Pi 4 egyetlen gigabites portja és a CPU-ja lesz a korlát, mint a vonal.
 
 | Terület | Állapot |
 |---|---|

@@ -553,7 +553,7 @@ class SpeedtestConfig:
     ookla_interval_min: int = 60
     rtr_interval_min: int = 0
     cloudflare_interval_min: int = 0
-    fastcom_interval_min: int = 360  # Fast.com moves a lot of data on fast lines; every 6 h by default
+    fastcom_interval_min: int = 0
     iperf3_interval_min: int = 60   # public iPerf3 servers take one client at a time; hourly is polite
     idle_wait_max_sec: float = 1800.0
     idle_threshold_mode: str = "percent"      # "percent" (< 2% network load) or "fixed" (custom kbps)
@@ -867,7 +867,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.speedtest.ookla_interval_min = max(60, min(10080, st.getint("ookla_interval_min", fallback=60)))
         cfg.speedtest.rtr_interval_min = max(0, min(10080, st.getint("rtr_interval_min", fallback=0)))
         cfg.speedtest.cloudflare_interval_min = max(0, min(10080, st.getint("cloudflare_interval_min", fallback=0)))
-        cfg.speedtest.fastcom_interval_min = max(0, min(10080, st.getint("fastcom_interval_min", fallback=360)))
+        cfg.speedtest.fastcom_interval_min = max(0, min(10080, st.getint("fastcom_interval_min", fallback=0)))
         cfg.speedtest.iperf3_interval_min = max(0, min(10080, st.getint("iperf3_interval_min", fallback=60)))
         cfg.speedtest.idle_wait_max_sec = st.getfloat("idle_wait_max_sec", fallback=cfg.speedtest.idle_wait_max_sec)
         cfg.speedtest.idle_threshold_mode = st.get("idle_threshold_mode", getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower().strip()

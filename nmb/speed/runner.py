@@ -451,14 +451,14 @@ curl -s -X POST "https://speed.cloudflare.com/__up" --data-binary @chunk_10mb.bi
 # ==============================================================================
 
 # 1. Servers chosen by Fast.com for this client:
-curl -s "https://api.fast.com/netflix/speedtest/v2?https=true&token=<token>&urlCount=5"
+curl -s "https://api.fast.com/netflix/speedtest/v2?https=false&token=<token>&urlCount=5"
 # Closest server: {res.server_host or '--'} ({res.server_location or '--'})
 # Public Client IP: {res.client_ip or client_ipv6_val or '--'}
 
-# 2. Transfers (8 parallel streams over the servers, 10 s each way, first 2.5 s left out):
-curl -s "https://<server>/speedtest/range/0-0?<query>" -o /dev/null          # latency
-curl -s "https://<server>/speedtest/range/0-26214400?<query>" -o /dev/null   # download
-curl -s -X POST --data-binary @10mb.bin "https://<server>/speedtest/range/0-10000000?<query>"  # upload
+# 2. Transfers over plain HTTP (16 parallel streams over the servers, 15 s each way, first 3 s left out):
+curl -s "http://<server>/speedtest/range/0-0?<query>" -o /dev/null          # latency
+curl -s "http://<server>/speedtest/range/0-26214400?<query>" -o /dev/null   # download
+curl -s -X POST --data-binary @10mb.bin "http://<server>/speedtest/range/0-10000000?<query>"  # upload
 
 # 3. Measured:
 # Download Speed: {down_mbps:.2f} Mbps ({(down_mbps/8):.2f} MB/s){down_contract_note}

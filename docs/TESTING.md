@@ -6,9 +6,11 @@ Last full sweep: 2026-11-07.
 
 ## Where the tests ran
 
+**Test line:** NMB is developed and tested on one home fibre (FTTH) connection with a 1000/300 Mbps plan, from a Hungarian ISP, with the box behind the home router. Every speed, CPU and timing figure in this README and in the testing record comes from that line and a Raspberry Pi 4. Much slower lines (DSL, mobile) and faster ones (2.5 or 10 Gbps) have not been tested; above about 1 Gbps the Pi 4's single gigabit port and its CPU become the limit before the line does.
+
 | Name | What it is |
 |---|---|
-| **Box** | Raspberry Pi 4, Debian 13 (arm64), `standalone` mode, wired to the developer's router. In daily use with a 1000/300 Mbps line. |
+| **Box** | Raspberry Pi 4, Debian 13 (arm64), `standalone` mode, wired to the developer's router. In daily use on a 1000/300 Mbps home fibre (FTTH) line. |
 | **VM-D13** | QEMU/KVM on an x86-64 PC, Debian 13 cloud image with the full `linux-image-amd64` kernel. Two NICs (user-mode NAT as WAN, a socket link as LAN). Wi-Fi with `mac80211_hwsim` (three simulated radios); clients in network namespaces. |
 | **VM-distro** | Clean QEMU/KVM VMs of Debian 13, Debian 12, Ubuntu 24.04 LTS and Alpine 3.20 (x86-64), each installed from scratch with `setup.sh`. |
 | **Unit tests** | `python3 -m unittest discover tests` (223 tests) on the developer PC and, as root, inside VM-D13. |

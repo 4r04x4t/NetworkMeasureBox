@@ -9,12 +9,13 @@ from nmb.speed import fastcom
 API = {"client": {"ip": "198.51.100.7", "asn": "64500", "isp": "Example ISP", "location": {"city": "Szeged", "country": "HU"}},
        "targets": [{"url": "https://ipv4-c001-bud002-exisp-isp.1.oca.nflxvideo.net/speedtest?c=hu&n=64500&t=x",
                     "location": {"city": "Budapest", "country": "HU"}},
-                   {"url": "http://not-https.example/speedtest?x=1", "location": {}}]}
+                   {"url": "ftp://not-http.example/speedtest?x=1", "location": {}}]}
 
 
 class FastcomTest(unittest.TestCase):
-    def test_targets_keep_only_https_and_label_the_oca(self):
-        with mock.patch.object(fastcom, "_http_get", return_value=json.dumps(API).encode()):
+    def test_targets_keep_only_http_and_label_the_oca(self):
+        with mock.patch.object(fastcom, "_http_get", return_value=json.dumps(API).encode()), \
+             mock.patch.object(fastcom, "_oca_names", return_value={}):
             client, targets = fastcom.fetch_targets("tok")
         self.assertEqual(client["isp"], "Example ISP")
         self.assertEqual(len(targets), 1)
@@ -52,6 +53,17 @@ class FastcomTest(unittest.TestCase):
         with mock.patch.object(fastcom, "fetch_token", side_effect=OSError("offline")):
             r = fastcom.execute_fastcom_speedtest()
         self.assertEqual((r.status, r.engine), ("error", "fastcom"))
+
+
+class FastcomHttpNamesTest(unittest.TestCase):
+    def test_plain_http_servers_get_their_oca_name(self):
+        http_api = {"client": {}, "targets": [{"url": "http://198.51.100.20/speedtest?c=hu&t=y", "location": {"city": "Budapest", "country": "HU"}}]}
+        with mock.patch.object(fastcom, "USE_TLS", False), \
+             mock.patch.object(fastcom, "_http_get", return_value=json.dumps(http_api).encode()), \
+             mock.patch.object(fastcom, "_oca_names", return_value={"198.51.100.20": "ipv4-c002-bud001-exisp-isp.1.oca.nflxvideo.net"}):
+            _, targets = fastcom.fetch_targets("tok")
+        self.assertEqual(targets[0].host, "198.51.100.20")
+        self.assertEqual(targets[0].label, "bud001 c002 · exisp (ISP)")
 
 
 class IperfRowLabelTest(unittest.TestCase):
