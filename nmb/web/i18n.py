@@ -6478,6 +6478,62 @@ for _key, _values in _CORRECTIONS.items():
     for _lang, _value in zip(("en", "hu", "de", "fr", "uk"), _values):
         TRANSLATIONS[_lang][_key] = _value
 
+# Disk space card (Settings).
+_STORAGE_TEXTS = {
+    "en": {
+        "st_title": "Disk space",
+        "st_auto": "Clean up automatically when the disk is getting full",
+        "st_hint": "Oldest logs, reports and backups go first, then measurements older than the kept days. Settings, passwords and VPN keys are never deleted.",
+        "st_min_free": "Keep at least this much free (MB, 0 = automatic)",
+        "st_keep_days": "Never delete measurements newer than (days)",
+        "st_now": "Check and clean up now",
+        "st_status": "{free} MB free of {total} MB; cleanup starts below {target} MB.",
+        "st_last": "Last check: {result}, {n} item(s) deleted."
+    },
+    "hu": {
+        "st_title": "Tárhely",
+        "st_auto": "Automatikus takarítás, ha fogy a lemezhely",
+        "st_hint": "Előbb a legrégebbi naplók, riportok és mentések törlődnek, utána a megőrzési időnél régebbi mérések. A beállítások, jelszavak és VPN-kulcsok soha nem törlődnek.",
+        "st_min_free": "Ennyi szabad hely maradjon legalább (MB, 0 = automatikus)",
+        "st_keep_days": "Ennél újabb mérést soha ne töröljön (nap)",
+        "st_now": "Ellenőrzés és takarítás most",
+        "st_status": "{free} MB szabad a {total} MB-ból; {target} MB alatt indul a takarítás.",
+        "st_last": "Utolsó ellenőrzés: {result}, {n} elem törölve."
+    },
+    "de": {
+        "st_title": "Speicherplatz",
+        "st_auto": "Automatisch aufräumen, wenn der Speicher knapp wird",
+        "st_hint": "Zuerst werden die ältesten Protokolle, Berichte und Sicherungen gelöscht, dann Messungen, die älter als die Aufbewahrungsdauer sind. Einstellungen, Passwörter und VPN-Schlüssel werden nie gelöscht.",
+        "st_min_free": "Mindestens so viel frei lassen (MB, 0 = automatisch)",
+        "st_keep_days": "Messungen, die neuer sind als (Tage), nie löschen",
+        "st_now": "Jetzt prüfen und aufräumen",
+        "st_status": "{free} MB von {total} MB frei; unter {target} MB wird aufgeräumt.",
+        "st_last": "Letzte Prüfung: {result}, {n} Element(e) gelöscht."
+    },
+    "fr": {
+        "st_title": "Espace disque",
+        "st_auto": "Nettoyer automatiquement quand le disque se remplit",
+        "st_hint": "Les journaux, rapports et sauvegardes les plus anciens partent d'abord, puis les mesures plus anciennes que la durée de conservation. Les réglages, mots de passe et clés VPN ne sont jamais supprimés.",
+        "st_min_free": "Garder au moins cet espace libre (Mo, 0 = automatique)",
+        "st_keep_days": "Ne jamais supprimer les mesures plus récentes que (jours)",
+        "st_now": "Vérifier et nettoyer maintenant",
+        "st_status": "{free} Mo libres sur {total} Mo ; le nettoyage commence sous {target} Mo.",
+        "st_last": "Dernière vérification : {result}, {n} élément(s) supprimé(s)."
+    },
+    "uk": {
+        "st_title": "Місце на диску",
+        "st_auto": "Автоматично очищати, коли диск заповнюється",
+        "st_hint": "Спочатку видаляються найстаріші журнали, звіти й резервні копії, потім виміри, старші за термін зберігання. Налаштування, паролі та ключі VPN ніколи не видаляються.",
+        "st_min_free": "Залишати вільними щонайменше (МБ, 0 = автоматично)",
+        "st_keep_days": "Ніколи не видаляти виміри, новіші за (днів)",
+        "st_now": "Перевірити й очистити зараз",
+        "st_status": "Вільно {free} МБ із {total} МБ; очищення починається нижче {target} МБ.",
+        "st_last": "Остання перевірка: {result}, видалено елементів: {n}."
+    }
+}
+for _lang, _texts in _STORAGE_TEXTS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_texts)
+
 # More languages, one JSON file each in nmb/web/locales/ (key -> text). A key missing there is shown
 # in English, never in another language.
 LOCALE_LANGUAGES = ("ro", "it", "es", "pt", "pt-br", "zh")

@@ -1360,5 +1360,13 @@
  "wu_not_connected": "Nu este conectat prin Wi-Fi.",
  "wu_pass_saved": "O parolă este salvată; lăsați gol pentru a o păstra.",
  "wu_password": "Parola Wi-Fi",
- "yes": "Da"
+ "yes": "Da",
+ "st_title": "Spațiu pe disc",
+ "st_auto": "Curăță automat când discul se umple",
+ "st_hint": "Mai întâi se șterg cele mai vechi jurnale, rapoarte și copii de rezervă, apoi măsurătorile mai vechi decât perioada păstrată. Setările, parolele și cheile VPN nu se șterg niciodată.",
+ "st_min_free": "Păstrează liber cel puțin (MB, 0 = automat)",
+ "st_keep_days": "Nu șterge niciodată măsurători mai noi de (zile)",
+ "st_now": "Verifică și curăță acum",
+ "st_status": "{free} MB liberi din {total} MB; curățarea începe sub {target} MB.",
+ "st_last": "Ultima verificare: {result}, {n} element(e) șterse."
 }

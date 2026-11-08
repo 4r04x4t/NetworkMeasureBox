@@ -2568,6 +2568,21 @@
             <div class="form-hint" id="ws-status" aria-live="polite" style="margin-top: 6px;"></div>
           </div>
 
+          <div id="storage-card" style="border: 1px solid #1e293b; border-radius: 8px; padding: 12px; margin-top: 10px;">
+            <label class="form-label" style="font-size: 13px;" data-i18n="st_title">Disk space</label>
+            <label class="form-label" style="display: flex; gap: 8px; align-items: center; font-size: 12px;"><input type="checkbox" id="st-auto"> <span data-i18n="st_auto">Clean up automatically when the disk is getting full</span></label>
+            <div class="form-hint" data-i18n="st_hint">Oldest logs, reports and backups go first, then measurements older than the kept days. Settings, passwords and VPN keys are never deleted.</div>
+            <div class="router-row-3" style="margin-top: 8px;">
+              <div class="form-group"><label class="form-label" for="st-min-free" data-i18n="st_min_free">Keep at least this much free (MB, 0 = automatic)</label><input type="number" id="st-min-free" class="form-input" min="0" max="100000" step="1"></div>
+              <div class="form-group"><label class="form-label" for="st-keep-days" data-i18n="st_keep_days">Never delete measurements newer than (days)</label><input type="number" id="st-keep-days" class="form-input" min="1" max="3650" step="1"></div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn-primary" onclick="saveStorage()" data-i18n="col_save">Save</button>
+              <button type="button" class="btn-secondary" onclick="cleanupStorageNow()" data-i18n="st_now">Check and clean up now</button>
+            </div>
+            <div class="form-hint" id="st-status" aria-live="polite" style="margin-top: 6px;"></div>
+          </div>
+
           <!-- Per-engine minimum intervals -->
           <div id="sched-engine-intervals">
             <label class="form-label" style="font-size: 12px;" data-i18n="engine_intervals_title">How often each engine may run (minutes, 0 = every scheduled run):</label>

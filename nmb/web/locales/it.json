@@ -1360,5 +1360,13 @@
  "wu_not_connected": "Non connesso tramite Wi-Fi.",
  "wu_pass_saved": "C'è una password salvata; lascia vuoto per mantenerla.",
  "wu_password": "Password Wi-Fi",
- "yes": "Sì"
+ "yes": "Sì",
+ "st_title": "Spazio su disco",
+ "st_auto": "Pulisci automaticamente quando il disco si riempie",
+ "st_hint": "Prima vengono eliminati i log, i rapporti e i backup più vecchi, poi le misurazioni più vecchie del periodo di conservazione. Impostazioni, password e chiavi VPN non vengono mai eliminate.",
+ "st_min_free": "Mantieni libero almeno (MB, 0 = automatico)",
+ "st_keep_days": "Non eliminare mai le misurazioni più recenti di (giorni)",
+ "st_now": "Controlla e pulisci ora",
+ "st_status": "{free} MB liberi su {total} MB; la pulizia parte sotto {target} MB.",
+ "st_last": "Ultimo controllo: {result}, {n} elementi eliminati."
 }

@@ -7732,6 +7732,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
   async function loadWifiUplink() {
     try { const r = await fetch('/api/wifi-uplink/status'); if (r.ok) renderWifiUplink(await r.json()); } catch (e) {}
     loadWifiShare();
+    loadStorage();
   }
 
   function renderWifiShare(d) {
@@ -7780,6 +7781,56 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     } catch (e) { showToast('Error: ' + e); }
   }
   window.saveWifiShare = saveWifiShare;
+
+  function renderStorage(d) {
+    const auto = document.getElementById('st-auto');
+    if (!auto) return;
+    if (document.activeElement !== auto) auto.checked = !!d.auto_cleanup;
+    const mf = document.getElementById('st-min-free'), kd = document.getElementById('st-keep-days');
+    if (mf && document.activeElement !== mf) mf.value = d.min_free_mb ?? 0;
+    if (kd && document.activeElement !== kd) kd.value = d.keep_days ?? 7;
+    const st = document.getElementById('st-status');
+    if (!st) return;
+    let txt = '';
+    if (d.total_mb != null) {
+      txt = t('st_status', '{free} MB free of {total} MB; cleanup starts below {target} MB.')
+        .replace('{free}', d.free_mb).replace('{total}', d.total_mb).replace('{target}', d.target_free_mb);
+    }
+    const last = d.last_cleanup || {};
+    if (last.status) {
+      txt += ' ' + t('st_last', 'Last check: {result}, {n} item(s) deleted.')
+        .replace('{result}', last.status).replace('{n}', (last.deleted || []).length);
+    }
+    st.textContent = txt.trim();
+  }
+
+  async function loadStorage() {
+    try { const r = await fetch('/api/storage/status'); if (r.ok) renderStorage(await r.json()); } catch (e) {}
+  }
+
+  async function saveStorage() {
+    const body = {
+      auto_cleanup: document.getElementById('st-auto').checked,
+      min_free_mb: parseInt(document.getElementById('st-min-free').value || '0', 10),
+      keep_days: parseInt(document.getElementById('st-keep-days').value || '7', 10),
+    };
+    try {
+      const r = await fetch('/api/storage/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json();
+      showToast((r.ok ? '✔ ' : '✖ ') + (d.message || t('saved', 'Saved')));
+      loadStorage();
+    } catch (e) { showToast('Error: ' + e); }
+  }
+  window.saveStorage = saveStorage;
+
+  async function cleanupStorageNow() {
+    try {
+      const r = await fetch('/api/storage/cleanup', { method: 'POST' });
+      await r.json();
+      loadStorage();
+    } catch (e) { showToast('Error: ' + e); }
+  }
+  window.cleanupStorageNow = cleanupStorageNow;
 
   async function saveWifiUplink() {
     const body = {

@@ -1360,5 +1360,13 @@
  "wu_not_connected": "未通过 Wi-Fi 连接。",
  "wu_pass_saved": "已保存密码；留空则保持不变。",
  "wu_password": "Wi-Fi 密码",
- "yes": "是"
+ "yes": "是",
+ "st_title": "磁盘空间",
+ "st_auto": "磁盘快满时自动清理",
+ "st_hint": "先删除最旧的日志、报告和备份，然后删除早于保留天数的测量数据。设置、密码和 VPN 密钥永远不会被删除。",
+ "st_min_free": "至少保留可用空间（MB，0 = 自动）",
+ "st_keep_days": "从不删除比此更新的测量（天）",
+ "st_now": "立即检查并清理",
+ "st_status": "{total} MB 中可用 {free} MB；低于 {target} MB 时开始清理。",
+ "st_last": "上次检查：{result}，已删除 {n} 项。"
 }

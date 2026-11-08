@@ -1360,5 +1360,13 @@
  "wu_not_connected": "Sem ligação por Wi-Fi.",
  "wu_pass_saved": "Há uma palavra-passe guardada; deixe vazio para a manter.",
  "wu_password": "Palavra-passe Wi-Fi",
- "yes": "Sim"
+ "yes": "Sim",
+ "st_title": "Espaço em disco",
+ "st_auto": "Limpar automaticamente quando o disco está a encher",
+ "st_hint": "Primeiro são eliminados os registos, relatórios e cópias de segurança mais antigos, depois as medições mais antigas do que o período guardado. As definições, palavras-passe e chaves VPN nunca são eliminadas.",
+ "st_min_free": "Manter livre pelo menos (MB, 0 = automático)",
+ "st_keep_days": "Nunca eliminar medições mais recentes do que (dias)",
+ "st_now": "Verificar e limpar agora",
+ "st_status": "{free} MB livres de {total} MB; a limpeza começa abaixo de {target} MB.",
+ "st_last": "Última verificação: {result}, {n} item(ns) eliminado(s)."
 }
