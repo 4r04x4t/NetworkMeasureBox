@@ -136,7 +136,7 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 * Modern dark-themed router dashboard on **standard HTTP port 80** (with automatic unprivileged fallback to port 8080 for development).
 * **Mobile-First Ergonomics**: Sub-navigation bars (`.router-subnav`, `.remote-subnav`, `.adblock-subnav`) are styled as resilient horizontal swipe ribbons (`flex: 0 0 auto`, `nowrap`) with container-relative `scrollTo`, eliminating vertical pill squeezing and letter-wrapping on small smartphone screens (360px–420px).
 * Live inline SVG graphs, historical speed records, network device explorer (ARP sweep & MAC vendor lookup), real-time syslog inspector, and one-click diagnostic LLM bundle generation.
-* **Translations**: The Web UI, the terminal UI (`nmb-cli`), the results page, the charts and the report (dossier) have the same text keys in 11 languages; some technical terms stay in English, and action names in `nmb-cli` are English. The Telegram bot speaks all 11 too (menus, answers, alerts); a few admin answers (`/mode`, `/backup`, health audit, drivers) are still in the first 5 languages and English.
+* **Translations**: The Web UI, the terminal UI (`nmb-cli`), the results page, the charts and the report (dossier) have the same text keys in 11 languages; some technical terms stay in English, and action names in `nmb-cli` are English. The Telegram bot speaks all 11 too (menus, answers, admin answers, alerts).
   * 🇬🇧 English (EN)
   * 🇭🇺 Hungarian (HU)
   * 🇩🇪 German (DE)

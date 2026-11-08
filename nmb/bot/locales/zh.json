@@ -215,7 +215,22 @@
   "wifi_saved_title": "<b>📋 已保存的 Wi-Fi 配置：</b>\n",
   "wifi_scan_title": "<b>🔍 检测到的 Wi-Fi 网络（共 {count} 个）：</b>\n",
   "wifi_scanning": "<i>正在通过 wlan0 扫描 2.4 GHz 和 5 GHz 网络...</i>",
-  "wifi_title": "<b>📶 Wi-Fi 与访客 Wi-Fi 站点状态</b>"
+  "wifi_title": "<b>📶 Wi-Fi 与访客 Wi-Fi 站点状态</b>",
+  "mode_current": "当前网络模式：<b>{mode}</b>（强制：<code>{ovr}</code>）\n切换方法：<code>/mode auto</code>、<code>/mode standalone</code>、<code>/mode mode_a</code> 或 <code>/mode mode_b</code>。",
+  "mode_invalid": "无效的模式。请选择：<code>auto</code>、<code>standalone</code>、<code>mode_a</code> 或 <code>mode_b</code>。",
+  "mode_updated": "强制模式已设为 <b>{mode}</b>。网络服务即将切换。",
+  "heal_auditing": "<i>正在检查系统服务、数据库、权限和路由...</i>",
+  "heal_verdict_ok": "🟢 所有组件运行正常",
+  "heal_verdict_issues": "⚠️ 发现 {n} 个问题",
+  "heal_title": "🩺 系统健康与自愈检查",
+  "heal_daemons": "系统服务",
+  "backup_dl_tip": "通过 Telegram 下载",
+  "backup_creating": "<i>正在创建完整系统备份（{label}）...</i>",
+  "backup_not_found": "找不到备份文件 <code>{file}</code>。",
+  "backup_uploading": "<i>正在上传 {file}...</i>",
+  "drivers_none": "<i>未登记物理控制器。</i>",
+  "drivers_fw_missing": "检测到缺少固件",
+  "drivers_recommended": "推荐的软件包"
  },
  "keyboard": [
   [

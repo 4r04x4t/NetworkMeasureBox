@@ -215,7 +215,22 @@
   "wifi_saved_title": "<b>📋 Perfiles Wi-Fi guardados:</b>\n",
   "wifi_scan_title": "<b>🔍 Redes Wi-Fi detectadas ({count} encontradas):</b>\n",
   "wifi_scanning": "<i>Buscando redes de 2,4 GHz y 5 GHz con wlan0...</i>",
-  "wifi_title": "<b>📶 Estado del Wi-Fi y de la estación de Wi-Fi de invitados</b>"
+  "wifi_title": "<b>📶 Estado del Wi-Fi y de la estación de Wi-Fi de invitados</b>",
+  "mode_current": "Modo de red actual: <b>{mode}</b> (forzado: <code>{ovr}</code>)\nPara cambiar: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> o <code>/mode mode_b</code>.",
+  "mode_invalid": "Modo no válido. Elija: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> o <code>mode_b</code>.",
+  "mode_updated": "Modo forzado cambiado a <b>{mode}</b>. El servicio de red cambiará en breve.",
+  "heal_auditing": "<i>Revisando servicios del sistema, base de datos, permisos y enrutamiento...</i>",
+  "heal_verdict_ok": "🟢 TODOS LOS COMPONENTES FUNCIONAN",
+  "heal_verdict_issues": "⚠️ {n} PROBLEMAS DETECTADOS",
+  "heal_title": "🩺 Auditoría de estado y autorreparación del sistema",
+  "heal_daemons": "Servicios del sistema",
+  "backup_dl_tip": "Para descargarlo por Telegram",
+  "backup_creating": "<i>Creando la copia de seguridad completa del sistema ({label})...</i>",
+  "backup_not_found": "No se encontró la copia de seguridad <code>{file}</code>.",
+  "backup_uploading": "<i>Subiendo {file}...</i>",
+  "drivers_none": "<i>No hay controladores físicos registrados.</i>",
+  "drivers_fw_missing": "Falta firmware",
+  "drivers_recommended": "Paquetes recomendados"
  },
  "keyboard": [
   [

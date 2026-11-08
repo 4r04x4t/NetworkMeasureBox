@@ -1212,6 +1212,98 @@ def format_alert(alert_key: str, lang: str = DEFAULT_LANGUAGE, **kwargs) -> str:
         return tmpl
 
 
+# Admin answers that used to be inline language chains in commands.py.
+_ADMIN_STRINGS = {
+    "en": {
+        "mode_current": "Current mode: <b>{mode}</b> (override: <code>{ovr}</code>)\nTo switch, use: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code>, or <code>/mode mode_b</code>.",
+        "mode_invalid": "Invalid mode. Choose: <code>auto</code>, <code>standalone</code>, <code>mode_a</code>, or <code>mode_b</code>.",
+        "mode_updated": "Override mode updated to <b>{mode}</b>. The network daemon will transition shortly.",
+        "heal_auditing": "<i>Auditing system daemons, database, permissions, and routing...</i>",
+        "heal_verdict_ok": "🟢 ALL COMPONENTS HEALTHY",
+        "heal_verdict_issues": "⚠️ {n} ISSUES DETECTED",
+        "heal_title": "🩺 System Health & Self-Healing Audit",
+        "heal_daemons": "Core System Daemons",
+        "backup_dl_tip": "To download via Telegram",
+        "backup_creating": "<i>Creating atomic full system backup ({label})...</i>",
+        "backup_not_found": "Backup file <code>{file}</code> not found.",
+        "backup_uploading": "<i>Uploading {file}...</i>",
+        "drivers_none": "<i>No physical controllers cataloged.</i>",
+        "drivers_fw_missing": "Missing Firmware Detected",
+        "drivers_recommended": "Recommended Packages"
+    },
+    "hu": {
+        "mode_current": "Jelenlegi hálózati mód: <b>{mode}</b> (felülbírálás: <code>{ovr}</code>)\nVáltáshoz: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code>, vagy <code>/mode mode_b</code>.",
+        "mode_invalid": "Érvénytelen mód. Válassz: <code>auto</code>, <code>standalone</code>, <code>mode_a</code>, vagy <code>mode_b</code>.",
+        "mode_updated": "Felülbírálási mód frissítve: <b>{mode}</b>. A hálózati démon hamarosan átvált.",
+        "heal_auditing": "<i>Rendszerdémonok, adatbázis, jogosultságok és útválasztás vizsgálata...</i>",
+        "heal_verdict_ok": "🟢 MINDEN ÖSSZETEVŐ ÉP ÉS MŰKÖDŐKÉPES",
+        "heal_verdict_issues": "⚠️ {n} PROBLÉMA ÉSZLELVE",
+        "heal_title": "🩺 Rendszer-egészségügyi & Öngyógyítási Audit",
+        "heal_daemons": "Rendszerdémonok",
+        "backup_dl_tip": "Letöltés mobilra",
+        "backup_creating": "<i>Teljes rendszermentés készítése ({label})...</i>",
+        "backup_not_found": "A <code>{file}</code> mentési fájl nem található.",
+        "backup_uploading": "<i>Feltöltés: {file}...</i>",
+        "drivers_none": "<i>Nincsenek fizikai vezérlők regisztrálva.</i>",
+        "drivers_fw_missing": "Hiányzó firmware észlelve",
+        "drivers_recommended": "Ajánlott csomagok"
+    },
+    "de": {
+        "mode_current": "Aktueller Netzwerkmodus: <b>{mode}</b> (Override: <code>{ovr}</code>)\nZum Umschalten: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> oder <code>/mode mode_b</code>.",
+        "mode_invalid": "Ungültiger Modus. Wählen Sie: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> oder <code>mode_b</code>.",
+        "mode_updated": "Override-Modus aktualisiert auf <b>{mode}</b>. Der Netzwerk-Daemon wird in Kürze umschalten.",
+        "heal_auditing": "<i>Überprüfung von System-Daemons, Datenbank, Berechtigungen und Routing...</i>",
+        "heal_verdict_ok": "🟢 ALLE KOMPONENTEN VOLLSTÄNDIG FUNKTIONSFÄHIG",
+        "heal_verdict_issues": "⚠️ {n} PROBLEME ERKANNT",
+        "heal_title": "🩺 Systemintegritäts- & Selbstheilungs-Audit",
+        "heal_daemons": "System-Daemons",
+        "backup_dl_tip": "Herunterladen",
+        "backup_creating": "<i>Erstelle vollständige Systemsicherung ({label})...</i>",
+        "backup_not_found": "Sicherungsdatei <code>{file}</code> nicht gefunden.",
+        "backup_uploading": "<i>Lade hoch: {file}...</i>",
+        "drivers_none": "<i>Keine physischen Controller katalogisiert.</i>",
+        "drivers_fw_missing": "Fehlende Firmware erkannt",
+        "drivers_recommended": "Empfohlene Pakete"
+    },
+    "fr": {
+        "mode_current": "Mode réseau actuel: <b>{mode}</b> (priorité: <code>{ovr}</code>)\nPour basculer: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> ou <code>/mode mode_b</code>.",
+        "mode_invalid": "Mode invalide. Choisissez: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> ou <code>mode_b</code>.",
+        "mode_updated": "Mode mis à jour vers <b>{mode}</b>. Le démon réseau basculera sous peu.",
+        "heal_auditing": "<i>Audit des démons système, base de données, permissions et routage...</i>",
+        "heal_verdict_ok": "🟢 TOUS LES COMPOSANTS SONT SAINS",
+        "heal_verdict_issues": "⚠️ {n} PROBLÈMES DÉTECTÉS",
+        "heal_title": "🩺 Audit de Santé et d'Auto-Réparation Système",
+        "heal_daemons": "Démons système",
+        "backup_dl_tip": "Télécharger sur mobile",
+        "backup_creating": "<i>Création de la sauvegarde système complète ({label})...</i>",
+        "backup_not_found": "Fichier de sauvegarde <code>{file}</code> introuvable.",
+        "backup_uploading": "<i>Téléversement de {file}...</i>",
+        "drivers_none": "<i>Aucun contrôleur physique répertorié.</i>",
+        "drivers_fw_missing": "Firmware manquant détecté",
+        "drivers_recommended": "Paquets recommandés"
+    },
+    "uk": {
+        "mode_current": "Поточний режим мережі: <b>{mode}</b> (перевизначення: <code>{ovr}</code>)\nДля перемикання: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> або <code>/mode mode_b</code>.",
+        "mode_invalid": "Недійсний режим. Оберіть: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> або <code>mode_b</code>.",
+        "mode_updated": "Режим перевизначення змінено на <b>{mode}</b>. Мережевий демон незабаром перемкнеться.",
+        "heal_auditing": "<i>Аудит системних демонів, бази даних, дозволів та маршрутизації...</i>",
+        "heal_verdict_ok": "🟢 УСІ КОМПОНЕНТИ СПРАВНІ",
+        "heal_verdict_issues": "⚠️ {n} ВИЯВЛЕНО ПРОБЛЕМ",
+        "heal_title": "🩺 Аудит стану системи та самовідновлення",
+        "heal_daemons": "Системні демони",
+        "backup_dl_tip": "Завантажити на телефон",
+        "backup_creating": "<i>Створення повної резервної копії системи ({label})...</i>",
+        "backup_not_found": "Файл резервної копії <code>{file}</code> не знайдено.",
+        "backup_uploading": "<i>Завантаження {file}...</i>",
+        "drivers_none": "<i>Фізичних контролерів не зареєстровано.</i>",
+        "drivers_fw_missing": "Виявлено відсутні мікропрограми",
+        "drivers_recommended": "Рекомендовані пакети"
+    }
+}
+for _lang, _texts in _ADMIN_STRINGS.items():
+    STRINGS.setdefault(_lang, {}).update(_texts)
+
+
 # =============================================================================
 # 6. More languages: one JSON file each in nmb/bot/locales/
 # =============================================================================

@@ -572,38 +572,13 @@ class CommandHandler:
             conn.close()
             cur_mode = row["v"] if row else "unknown"
             cur_ovr = ovr["v"] if ovr else "none"
-            msg = (
-                f"Jelenlegi hálózati mód: <b>{html.escape(cur_mode)}</b> (felülbírálás: <code>{html.escape(cur_ovr)}</code>)\n"
-                f"Váltáshoz: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code>, vagy <code>/mode mode_b</code>."
-                if lang == "hu" else (
-                f"Aktueller Netzwerkmodus: <b>{html.escape(cur_mode)}</b> (Override: <code>{html.escape(cur_ovr)}</code>)\n"
-                f"Zum Umschalten: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> oder <code>/mode mode_b</code>."
-                if lang == "de" else (
-                f"Mode réseau actuel: <b>{html.escape(cur_mode)}</b> (priorité: <code>{html.escape(cur_ovr)}</code>)\n"
-                f"Pour basculer: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> ou <code>/mode mode_b</code>."
-                if lang == "fr" else (
-                f"Поточний режим мережі: <b>{html.escape(cur_mode)}</b> (перевизначення: <code>{html.escape(cur_ovr)}</code>)\n"
-                f"Для перемикання: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> або <code>/mode mode_b</code>."
-                if lang == "uk" else
-                f"Current mode: <b>{html.escape(cur_mode)}</b> (override: <code>{html.escape(cur_ovr)}</code>)\n"
-                f"To switch, use: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code>, or <code>/mode mode_b</code>."
-            ))))
+            msg = t("mode_current", lang, mode=html.escape(cur_mode), ovr=html.escape(cur_ovr))
             self.client.send_message(chat_id, msg)
             return
 
         target_mode = args[0].lower()
         if target_mode not in ("auto", "standalone", "mode_a", "mode_b"):
-            err_msg = (
-                "Érvénytelen mód. Válassz: <code>auto</code>, <code>standalone</code>, <code>mode_a</code>, vagy <code>mode_b</code>."
-                if lang == "hu" else (
-                "Ungültiger Modus. Wählen Sie: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> oder <code>mode_b</code>."
-                if lang == "de" else (
-                "Mode invalide. Choisissez: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> ou <code>mode_b</code>."
-                if lang == "fr" else (
-                "Недійсний режим. Оберіть: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> або <code>mode_b</code>."
-                if lang == "uk" else
-                "Invalid mode. Choose: <code>auto</code>, <code>standalone</code>, <code>mode_a</code>, or <code>mode_b</code>."
-            ))))
+            err_msg = t("mode_invalid", lang)
             self.client.send_message(chat_id, err_msg)
             return
 
@@ -615,17 +590,7 @@ class CommandHandler:
             )
         conn.close()
 
-        upd_msg = (
-            f"Felülbírálási mód frissítve: <b>{html.escape(target_mode)}</b>. A hálózati démon hamarosan átvált."
-            if lang == "hu" else (
-            f"Override-Modus aktualisiert auf <b>{html.escape(target_mode)}</b>. Der Netzwerk-Daemon wird in Kürze umschalten."
-            if lang == "de" else (
-            f"Mode mis à jour vers <b>{html.escape(target_mode)}</b>. Le démon réseau basculera sous peu."
-            if lang == "fr" else (
-            f"Режим перевизначення змінено на <b>{html.escape(target_mode)}</b>. Мережевий демон незабаром перемкнеться."
-            if lang == "uk" else
-            f"Override mode updated to <b>{html.escape(target_mode)}</b>. The network daemon will transition shortly."
-        ))))
+        upd_msg = t("mode_updated", lang, mode=html.escape(target_mode))
         self.client.send_message(chat_id, upd_msg)
 
     # =========================================================================
@@ -1180,25 +1145,13 @@ class CommandHandler:
     def _heal_audit(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
-        audit_wait = (
-            "<i>Rendszerdémonok, adatbázis, jogosultságok és útválasztás vizsgálata...</i>" if lang == "hu" else (
-            "<i>Überprüfung von System-Daemons, Datenbank, Berechtigungen und Routing...</i>" if lang == "de" else (
-            "<i>Audit des démons système, base de données, permissions et routage...</i>" if lang == "fr" else (
-            "<i>Аудит системних демонів, бази даних, дозволів та маршрутизації...</i>" if lang == "uk" else
-            "<i>Auditing system daemons, database, permissions, and routing...</i>"
-        ))))
+        audit_wait = t("heal_auditing", lang)
         self.client.send_message(chat_id, audit_wait)
         try:
             res = heal.audit_system_health()
             comps = res.get("components", {})
             issues = res.get("issues_count", 0)
-            verdict = (
-                ("🟢 MINDEN ÖSSZETEVŐ ÉP ÉS MŰKÖDŐKÉPES" if issues == 0 else f"⚠️ {issues} PROBLÉMA ÉSZLELVE") if lang == "hu" else (
-                ("🟢 ALLE KOMPONENTEN VOLLSTÄNDIG FUNKTIONSFÄHIG" if issues == 0 else f"⚠️ {issues} PROBLEME ERKANNT") if lang == "de" else (
-                ("🟢 TOUS LES COMPOSANTS SONT SAINS" if issues == 0 else f"⚠️ {issues} PROBLÈMES DÉTECTÉS") if lang == "fr" else (
-                ("🟢 УСІ КОМПОНЕНТИ СПРАВНІ" if issues == 0 else f"⚠️ {issues} ВИЯВЛЕНО ПРОБЛЕМ") if lang == "uk" else
-                ("🟢 ALL COMPONENTS HEALTHY" if issues == 0 else f"⚠️ {issues} ISSUES DETECTED")
-            ))))
+            verdict = (t("heal_verdict_ok", lang) if issues == 0 else t("heal_verdict_issues", lang, n=issues))
 
             svc_lines = []
             for item in comps.get("services", {}).get("items", []):
@@ -1208,21 +1161,9 @@ class CommandHandler:
                 return sum(1 for i in comps.get(cat, {}).get("items", []) if i.get("status") != "ok")
             db_status = t("heal_db_ok" if comps.get("database", {}).get("status") == "ok" else "heal_db_bad", lang)
 
-            title = (
-                "🩺 Rendszer-egészségügyi & Öngyógyítási Audit" if lang == "hu" else (
-                "🩺 Systemintegritäts- & Selbstheilungs-Audit" if lang == "de" else (
-                "🩺 Audit de Santé et d'Auto-Réparation Système" if lang == "fr" else (
-                "🩺 Аудит стану системи та самовідновлення" if lang == "uk" else
-                "🩺 System Health & Self-Healing Audit"
-            ))))
+            title = t("heal_title", lang)
 
-            daemons_hdr = (
-                "Rendszerdémonok" if lang == "hu" else (
-                "System-Daemons" if lang == "de" else (
-                "Démons système" if lang == "fr" else (
-                "Системні демони" if lang == "uk" else
-                "Core System Daemons"
-            ))))
+            daemons_hdr = t("heal_daemons", lang)
 
             msg = t(
                 "heal_body", lang, title=title, verdict=verdict, daemons=daemons_hdr, services=chr(10).join(svc_lines),
@@ -1504,13 +1445,7 @@ class CommandHandler:
                 type_label = b.get("backup_type", "full")
                 lines.append(f"• <code>{html.escape(fname)}</code>\n  {dt} | {sz} | {t('backup_type', lang)}: {type_label}")
 
-            tip_label = (
-                "Letöltés mobilra" if lang == "hu" else (
-                "Herunterladen" if lang == "de" else (
-                "Télécharger sur mobile" if lang == "fr" else (
-                "Завантажити на телефон" if lang == "uk" else
-                "To download via Telegram"
-            ))))
+            tip_label = t("backup_dl_tip", lang)
             lines.append(f"\n{tip_label}: <code>/backup send &lt;filename&gt;</code>")
             self.client.send_message(chat_id, "\n".join(lines))
         except Exception as e:
@@ -1519,13 +1454,7 @@ class CommandHandler:
     def _backup_create(self, chat_id: int, label: str, lang: Optional[str] = None) -> None:
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
-        wait_label = (
-            f"<i>Teljes rendszermentés készítése ({html.escape(label)})...</i>" if lang == "hu" else (
-            f"<i>Erstelle vollständige Systemsicherung ({html.escape(label)})...</i>" if lang == "de" else (
-            f"<i>Création de la sauvegarde système complète ({html.escape(label)})...</i>" if lang == "fr" else (
-            f"<i>Створення повної резервної копії системи ({html.escape(label)})...</i>" if lang == "uk" else
-            f"<i>Creating atomic full system backup ({html.escape(label)})...</i>"
-        ))))
+        wait_label = t("backup_creating", lang, label=html.escape(label))
         self.client.send_message(chat_id, wait_label)
         try:
             ok, path, meta = backup.create_backup(backup_type="full", comment=label)
@@ -1545,23 +1474,11 @@ class CommandHandler:
         clean_name = os.path.basename(filename)
         path = backup.BACKUP_DIR / clean_name
         if not path.is_file():
-            not_found = (
-                f"A <code>{html.escape(clean_name)}</code> mentési fájl nem található." if lang == "hu" else (
-                f"Sicherungsdatei <code>{html.escape(clean_name)}</code> nicht gefunden." if lang == "de" else (
-                f"Fichier de sauvegarde <code>{html.escape(clean_name)}</code> introuvable." if lang == "fr" else (
-                f"Файл резервної копії <code>{html.escape(clean_name)}</code> не знайдено." if lang == "uk" else
-                f"Backup file <code>{html.escape(clean_name)}</code> not found."
-            ))))
+            not_found = t("backup_not_found", lang, file=html.escape(clean_name))
             self.client.send_message(chat_id, not_found)
             return
 
-        up_label = (
-            f"<i>Feltöltés: {html.escape(clean_name)}...</i>" if lang == "hu" else (
-            f"<i>Lade hoch: {html.escape(clean_name)}...</i>" if lang == "de" else (
-            f"<i>Téléversement de {html.escape(clean_name)}...</i>" if lang == "fr" else (
-            f"<i>Завантаження {html.escape(clean_name)}...</i>" if lang == "uk" else
-            f"<i>Uploading {html.escape(clean_name)}...</i>"
-        ))))
+        up_label = t("backup_uploading", lang, file=html.escape(clean_name))
         self.client.send_message(chat_id, up_label)
         try:
             data = path.read_bytes()
@@ -1590,13 +1507,7 @@ class CommandHandler:
 
             lines = [t("drivers_title", lang)]
             if not controllers:
-                no_ctrl = (
-                    "<i>Nincsenek fizikai vezérlők regisztrálva.</i>" if lang == "hu" else (
-                    "<i>Keine physischen Controller katalogisiert.</i>" if lang == "de" else (
-                    "<i>Aucun contrôleur physique répertorié.</i>" if lang == "fr" else (
-                    "<i>Фізичних контролерів не зареєстровано.</i>" if lang == "uk" else
-                    "<i>No physical controllers cataloged.</i>"
-                ))))
+                no_ctrl = t("drivers_none", lang)
                 lines.append(no_ctrl)
             else:
                 for c in controllers:
@@ -1607,25 +1518,13 @@ class CommandHandler:
                     lines.append(t("drivers_row", lang, chip=html.escape(chip), iface=html.escape(iface), driver=html.escape(driver_name), bus=bus))
 
             if missing_fw:
-                fw_label = (
-                    "Hiányzó firmware észlelve" if lang == "hu" else (
-                    "Fehlende Firmware erkannt" if lang == "de" else (
-                    "Firmware manquant détecté" if lang == "fr" else (
-                    "Виявлено відсутні мікропрограми" if lang == "uk" else
-                    "Missing Firmware Detected"
-                ))))
+                fw_label = t("drivers_fw_missing", lang)
                 lines.append(f"\n⚠️ <b>{fw_label}:</b> {len(missing_fw)} blobs")
 
             if recommended and not stat.get("all_drivers_ready"):
                 pkg_names = [p.get("package", str(p)) if isinstance(p, dict) else str(p) for p in recommended]
                 pkgs = ", ".join(f"<code>{html.escape(p)}</code>" for p in pkg_names)
-                rec_label = (
-                    "Ajánlott csomagok" if lang == "hu" else (
-                    "Empfohlene Pakete" if lang == "de" else (
-                    "Paquets recommandés" if lang == "fr" else (
-                    "Рекомендовані пакети" if lang == "uk" else
-                    "Recommended Packages"
-                ))))
+                rec_label = t("drivers_recommended", lang)
                 lines.append(f"\n💡 <b>{rec_label}:</b> {pkgs}")
 
             self.client.send_message(chat_id, "\n".join(lines))

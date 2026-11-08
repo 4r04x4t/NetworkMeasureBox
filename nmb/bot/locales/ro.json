@@ -215,7 +215,22 @@
   "wifi_saved_title": "<b>📋 Profiluri Wi-Fi salvate:</b>\n",
   "wifi_scan_title": "<b>🔍 Rețele Wi-Fi detectate ({count} găsite):</b>\n",
   "wifi_scanning": "<i>Se scanează rețelele de 2,4 GHz și 5 GHz pe wlan0...</i>",
-  "wifi_title": "<b>📶 Starea Wi-Fi și a stației Wi-Fi pentru oaspeți</b>"
+  "wifi_title": "<b>📶 Starea Wi-Fi și a stației Wi-Fi pentru oaspeți</b>",
+  "mode_current": "Modul de rețea actual: <b>{mode}</b> (suprascriere: <code>{ovr}</code>)\nPentru schimbare: <code>/mode auto</code>, <code>/mode standalone</code>, <code>/mode mode_a</code> sau <code>/mode mode_b</code>.",
+  "mode_invalid": "Mod invalid. Alegeți: <code>auto</code>, <code>standalone</code>, <code>mode_a</code> sau <code>mode_b</code>.",
+  "mode_updated": "Modul de suprascriere a fost setat la <b>{mode}</b>. Daemonul de rețea va comuta în curând.",
+  "heal_auditing": "<i>Se verifică serviciile de sistem, baza de date, permisiunile și rutarea...</i>",
+  "heal_verdict_ok": "🟢 TOATE COMPONENTELE SUNT FUNCȚIONALE",
+  "heal_verdict_issues": "⚠️ {n} PROBLEME DETECTATE",
+  "heal_title": "🩺 Audit de sănătate și autoreparare a sistemului",
+  "heal_daemons": "Servicii de sistem",
+  "backup_dl_tip": "Descărcare prin Telegram",
+  "backup_creating": "<i>Se creează copia de rezervă completă a sistemului ({label})...</i>",
+  "backup_not_found": "Fișierul de rezervă <code>{file}</code> nu a fost găsit.",
+  "backup_uploading": "<i>Se încarcă {file}...</i>",
+  "drivers_none": "<i>Niciun controler fizic înregistrat.</i>",
+  "drivers_fw_missing": "Firmware lipsă detectat",
+  "drivers_recommended": "Pachete recomandate"
  },
  "keyboard": [
   [

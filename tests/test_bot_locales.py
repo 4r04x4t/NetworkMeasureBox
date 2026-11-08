@@ -49,5 +49,12 @@ class BotLocaleTest(unittest.TestCase):
                 self.assertNotEqual(B.get_sla_verdict("NEM MEGFELELŐ", code), B.get_sla_verdict("MEGFELELŐ", code))
 
 
+class NoInlineLanguageTest(unittest.TestCase):
+    def test_commands_have_no_inline_language_chains(self):
+        # Texts written as `"..." if lang == "hu" else ...` reach only the languages listed there.
+        src = (Path(__file__).resolve().parent.parent / "nmb" / "bot" / "commands.py").read_text(encoding="utf-8")
+        self.assertIsNone(re.search(r"if lang == \"[a-z-]+\" else", src))
+
+
 if __name__ == "__main__":
     unittest.main()
