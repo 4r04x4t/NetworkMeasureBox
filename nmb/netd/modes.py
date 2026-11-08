@@ -8,6 +8,8 @@ import ipaddress
 import logging
 import shutil
 import subprocess
+import time
+from pathlib import Path
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -207,6 +209,7 @@ class ModeA(NetworkMode):
                     interfaces.run_cmd(["ip", "-4", "route", "del"] + parts, check=False)
             if self.full_cfg is not None:
                 usb_uplink.sync_default_fallback(self.full_cfg)
+            self._renew_lan_clients([self.cfg.wan_interface])
             return ok
 
         # 1. Bring up WAN
@@ -223,7 +226,26 @@ class ModeA(NetworkMode):
             self.active_wan = "ppp0"
         else:
             self._configure_wan_ip(wan, self.cfg.wan_proto, self.cfg.wan_ip, self.cfg.wan_netmask, self.cfg.wan_gateway)
-        return self._setup_lan_and_nat(self.active_wan)
+        ok = self._setup_lan_and_nat(self.active_wan)
+        self._renew_lan_clients(list(getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]))
+        return ok
+
+    def _renew_lan_clients(self, ports: List[str]) -> None:
+        """Drop the link of wired LAN ports for a moment, so a PC asks for a new address.
+
+        2026-11-08: a laptop kept its 192.168.77.x lease from Wi-Fi sharing after the box switched to router
+        mode (192.168.100.x) and had no internet until its cable was replugged.
+        """
+        for p in ports:
+            p = (p or "").strip()
+            if not p or p in (self.active_wan, self.usb_wan) or not interfaces.interface_exists(p) \
+                    or interfaces.usb_tether_kind(p) or Path(f"/sys/class/net/{p}/wireless").exists() \
+                    or not interfaces.get_carrier(p):
+                continue
+            log.info("Mode A: renewing the address of the device on %s (link down for 4 s)", p)
+            interfaces.run_cmd(["ip", "link", "set", p, "down"], check=False)
+            time.sleep(4)
+            interfaces.run_cmd(["ip", "link", "set", p, "up"], check=False)
 
     def _setup_lan_and_nat(self, wan_out: str, extra_lan: Optional[List[str]] = None) -> bool:
         """LAN ports, the Wi-Fi access point, DMZ, DHCP and NAT towards wan_out."""

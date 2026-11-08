@@ -34,7 +34,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"
 LOG_DIR = Path("/var/log/nmb")
-NS_PREFIX = "nmbst"          # every throwaway object starts with this
+NS_PREFIX = "nmbst"
+SIM_CLIENT_MAC = "02:4e:4d:42:53:54"   # the simulated LAN client, so lease checks can tell it apart          # every throwaway object starts with this
 HU_LEAK = re.compile(r"[őűŐŰ]")
 
 
@@ -494,6 +495,7 @@ def g_router(rep: Report, cfg) -> None:
     try:
         run(["ip", "netns", "add", ns], check=True)
         run(["ip", "link", "add", f"{ns}a", "type", "veth", "peer", "name", f"{ns}b"], check=True)
+        run(["ip", "link", "set", f"{ns}b", "address", SIM_CLIENT_MAC], check=True)
         run(["ip", "link", "set", f"{ns}b", "netns", ns], check=True)
         run(["ip", "link", "set", f"{ns}a", "master", "br-lan"], check=True)
         run(["ip", "link", "set", f"{ns}a", "up"], check=True)

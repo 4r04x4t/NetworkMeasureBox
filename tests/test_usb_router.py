@@ -22,6 +22,7 @@ def _router(cfg, dhcp_on_wan):
         patch.object(usb_uplink, "_address_and_gateway", return_value=("192.168.1.4", "192.168.1.1")),
         patch("nmb.netd.wifi_share.probe_dhcp_servers", return_value=["192.168.8.1"] if dhcp_on_wan else []),
         patch("nmb.netd.wifi.unblock_wifi", create=True),
+        patch.object(modes.time, "sleep"),
     ]
     return mode, svc, ifs, patches
 
@@ -36,6 +37,7 @@ class UsbRouterModeTest(unittest.TestCase):
         self.cfg.network.wifi_enabled = True
 
     def _setup(self, dhcp_on_wan):
+        self.addCleanup(usb_uplink.set_router_wan, None)
         mode, svc, ifs, patches = _router(self.cfg, dhcp_on_wan)
         for p in patches:
             p.start()
@@ -94,6 +96,24 @@ class UsbRouterModeTest(unittest.TestCase):
         with patch("nmb.netd.wifi_share.probe_dhcp_servers", return_value=[]):
             mode.check_usb_wan()
         self.assertTrue(mode.needs_resetup)
+
+
+class RenewLanClientsTest(unittest.TestCase):
+    def test_wired_lan_port_is_bounced_after_router_setup(self):
+        # 2026-11-08: the laptop kept its Wi-Fi-sharing lease after the switch to router mode.
+        cfg = Config()
+        cfg.usb_uplink.enabled = True
+        cfg.network.wan_interface, cfg.network.lan_interface, cfg.network.lan_ports = "eth0", "eth1", ["eth1"]
+        mode, svc, ifs, patches = _router(cfg, dhcp_on_wan=False)
+        for p in patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in patches])
+        self.addCleanup(usb_uplink.set_router_wan, None)
+        mode.setup()
+        cmds = [c[0][0] for c in ifs.run_cmd.call_args_list]
+        self.assertIn(["ip", "link", "set", "eth0", "down"], cmds)
+        self.assertIn(["ip", "link", "set", "eth0", "up"], cmds)
+        self.assertNotIn(["ip", "link", "set", "eth1", "down"], cmds)   # the USB WAN is never bounced
 
 
 class UsbFallbackRouteTest(unittest.TestCase):

@@ -12,6 +12,7 @@ JOURNAL = """DHCPDISCOVER(eth0) 00:ad:24:8f:70:87
 DHCPACK(eth0) 192.168.77.120 00:ad:24:8f:70:87 laptop
 DHCPACK(br-lan) 192.168.100.120 00:ad:24:8f:70:87 laptop
 DHCPACK(br-lan) 192.168.100.116 b0:5a:da:b3:dc:6a
+DHCPACK(br-lan) 192.168.100.199 02:4e:4d:42:53:54
 """
 
 

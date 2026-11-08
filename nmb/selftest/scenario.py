@@ -141,9 +141,10 @@ class Scenario:
     # forwarded traffic of the clients, counted in a throwaway nftables table
     def count_start(self, saddr: str, oif: str) -> None:
         live.run(["nft", "delete", "table", "inet", COUNT_TABLE])
-        rules = (f"table inet {COUNT_TABLE} {{ chain fwd {{ type filter hook forward priority -5; policy accept; "
-                 f"ip saddr {saddr} oifname \"{oif}\" counter }} }}")
-        live.run(["nft", rules], check=True)
+        live.run(["nft", "add", "table", "inet", COUNT_TABLE], check=True)
+        live.run(["nft", "add", "chain", "inet", COUNT_TABLE, "cnt",
+                  "{ type filter hook forward priority -5; policy accept; }"], check=True)
+        live.run(["nft", "add", "rule", "inet", COUNT_TABLE, "cnt", "ip", "saddr", saddr, "oifname", oif, "counter"], check=True)
 
     @staticmethod
     def count_packets() -> int:
@@ -159,7 +160,10 @@ class Scenario:
     def acks_since(ts: float, iface: str, prefix: str) -> List[str]:
         """Addresses dnsmasq handed out (DHCPACK) on iface since ts: a fresh lease, not an old one in a file."""
         out = live.run(["journalctl", "--since", f"@{int(ts)}", "-t", "dnsmasq-dhcp", "--no-pager", "-o", "cat"], timeout=20).stdout
-        return sorted(set(m.group(1) for m in re.finditer(rf"DHCPACK\({re.escape(iface)}\) ({re.escape(prefix)}\S+)", out)))
+        # The simulated client of `nmb-selftest router` is not a real device (phones use random MACs too,
+        # so only its own fixed MAC is left out).
+        return sorted(set(m.group(1) for m in re.finditer(rf"DHCPACK\({re.escape(iface)}\) ({re.escape(prefix)}\S+) ([0-9a-f:]+)", out)
+                          if m.group(2) != live.SIM_CLIENT_MAC))
 
     def client_traffic(self, saddr: str, oif: str, what: str, timeout: float = 180) -> None:
         self.count_start(saddr, oif)
