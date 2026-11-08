@@ -77,6 +77,35 @@ graph TD
 
 Notes: Archer C6 v3.0 and v3.2 use MediaTek chips and are different hardware, so this target covers v2.x only. The RT-AC57U v2 uses Qualcomm chips, so the RT-AC57U target covers v1 only (WikiDevi: PCB AP-MT0D, data from a 2019 revision of the page). WikiDevi warns that multiple C6 revisions exist. The gigabit ports of both routers are not a promise of gigabit test throughput; the CPU limit must be measured on real hardware.
 
+
+### 1.3 Planned Device Families: MikroTik and MediaTek SoCs
+
+> **Status: planned, figures to verify.** The models below are examples of each family, from memory of public data; every figure is checked against WikiDevi and the OpenWrt Table of Hardware before work on a model starts, as for the targets above. Nothing runs on them yet.
+
+**MikroTik.** Two ways onto these devices, to be compared:
+
+1. **On RouterOS v7, as a container.** RouterOS 7 has a `container` package on its ARM, ARM64 and x86 builds (not on MIPS). The native `nmbd` would run as a small OCI image next to RouterOS, without replacing it. To verify: the container must be enabled in device mode (a physical confirmation on the device), external storage (USB or disk) is recommended for the image, the container only sees a virtual interface, so its measurements go through RouterOS's routing and queues, and memory limits per model.
+2. **On OpenWrt instead of RouterOS.** Several MikroTik models are supported by OpenWrt (installed by netboot); NMB then runs like on any other OpenWrt target, with full access to the ports and radios. The owner loses RouterOS on that device.
+
+| Example model | SoC (to verify) | Notes |
+| :--- | :--- | :--- |
+| hEX (RB750Gr3) | MediaTek MT7621A, 2 cores MIPS, 256 MB RAM, 16 MB flash, 5x 1GbE | OpenWrt `ramips/mt7621`; RouterOS container not available on MIPS |
+| hAP ac² (RBD52G) | Qualcomm IPQ4018, 4 cores ARM, 128 MB RAM, 16 MB flash, Wi-Fi 5 | OpenWrt `ipq40xx/mikrotik`; RouterOS container possible but RAM is tight |
+| RB5009 | Marvell Armada 7040, 4 cores ARM64, 1 GB RAM, 1 GB NAND, 1x 2.5GbE + 7x 1GbE + SFP+ | Strong candidate for both ways (container on RouterOS, or OpenWrt); 2.5 Gbps line-rate tests |
+| hAP ax² / hAP ax³ | Qualcomm IPQ-60xx family, ARM64, Wi-Fi 6 | RouterOS container; OpenWrt support to check |
+
+**MediaTek SoCs.** Many routers from different brands share a few MediaTek chips, so one port per chip covers many devices. Hardware flow offload (MediaTek PPE, and WED for Wi-Fi) forwards traffic past the CPU; NMB must read the counters where offloaded traffic is still counted, or turn offload off during a test (as for the Broadcom Flow Cache, section 4.3).
+
+| SoC (to verify) | CPU | Example devices (to verify) | Planned implementation |
+| :--- | :--- | :--- | :--- |
+| MT7620N / MT7620A, MT7628 | 1 core MIPS 24KEc, 580 MHz | ASUS RT-N12+ (Tier 2 above), GL.iNet GL-MT300N-V2, many 100 Mbps routers | C11 / musl, Tier 2 limits |
+| MT7621A / MT7621AT | 2 cores MIPS 1004Kc, 880 MHz, gigabit switch | ASUS RT-AC57U v1 (above), MikroTik hEX, Ubiquiti EdgeRouter X, Xiaomi Mi Router 4A Gigabit, Netgear R6220 | C11 / musl or Go (`GOARCH=mipsle`, soft float); gigabit tests on this CPU to be measured |
+| MT7622 | 2 cores ARM64 Cortex-A53 | Linksys E8450 / Belkin RT3200, Banana Pi BPI-R64 | Go static binary |
+| MT7981B (Filogic 820) | 2 cores ARM64 Cortex-A53 | GL.iNet GL-MT3000 (Beryl AX), Cudy WR3000, Xiaomi AX3000T | Go static binary; Wi-Fi 6 |
+| MT7986A (Filogic 830) | 4 cores ARM64 Cortex-A53, 2.0 GHz | Banana Pi BPI-R3, GL.iNet GL-MT6000 (Flint 2), ASUS TUF-AX4200 | Go static binary; 2.5 GbE on several models |
+| MT7988A (Filogic 880) | 4 cores ARM64 Cortex-A73 | Banana Pi BPI-R4 | Go static binary; 10 GbE, the top MediaTek target |
+
+All of them follow *Generic First* in `DEPYTHONIZATION_ROADMAP.md`: the code is the same as on the PC and the Pi 4, only the backends (service control, firewall, Wi-Fi, flash layout, offload) differ, and no device runs Python.
 ---
 
 ## 2. Why 100% De-Pythonization is Mandatory for Routers

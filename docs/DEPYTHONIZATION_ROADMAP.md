@@ -680,6 +680,7 @@ Criteria:
 5. Does not fight NMB for the network: no own firewall or interface manager that rewrites NMB's rules, or one that can be switched off cleanly.
 6. Size and memory on the Pi 4; Ookla and RTR binaries available for its C library (glibc or musl).
 7. Licence lets NMB ship its own image.
+8. **The base itself brings no Python.** Not only NMB: the base's own tools must not need Python either. Packages written in Python (for example Debian's `unattended-upgrades` and `networkd-dispatcher`) are left out, and the image is checked for a Python interpreter before release.
 
 | Base | Type | First assessment (to verify) |
 | :--- | :--- | :--- |
@@ -690,6 +691,15 @@ Criteria:
 | **VyOS** | Router / network OS (Debian-based) | Strong routing (FRR), nftables; its configuration system owns the network, which would conflict with NMB; long-term releases need a subscription. Probably unsuitable |
 | **IPFire** | Firewall distribution | Built around its own firewall and web UI, which would compete with NMB's; own package manager. Probably unsuitable |
 | **pfSense, OPNsense** | Firewall distributions | FreeBSD, not Linux: NMB is Linux-only (netlink, nftables, nl80211). Excluded |
+| **Fedora IoT** | Atomic (rpm-ostree) | Atomic updates and rollback built in, Pi 4 supported. To check: short release cycle, whether the base image contains Python |
+| **Ubuntu Core** | Atomic (snaps) | Transactional updates, Pi 4 supported. Everything runs as a snap; low-level network access under snap confinement is awkward, and it ties NMB to Canonical's store |
+| **NixOS** | Declarative | Reproducible, one-command rollback. Steep learning curve; parts of system activation are in Perl (a Rust rewrite is under way); small networking community |
+| **Buildroot, Yocto** | Build systems, not distributions | NMB would assemble its own image; both can include the stock Raspberry Pi kernel unchanged, so they fit the "no own kernel" rule. Smallest and most controlled image, but NMB must follow every package's security fixes itself. **balenaOS** is a ready Yocto-based example (containers, A/B updates); the container layer is not needed for NMB |
+| **DD-WRT, MikroTik RouterOS** | Router firmware | Router-only, or closed. Not a base for the box image (MikroTik devices are planned as targets, see the porting plan 1.3) |
+| **SONiC** | Data-centre switch OS | Not made for this. Excluded |
+| **ZeroShell, ClearOS** | Network distributions | Discontinued. Excluded |
+
+**Order of evaluation (recommended):** 1. **OpenWrt** and 2. **Debian minimal image** first, because they cover both ends (small and network-made, and familiar with long support); 3. **Alpine**; 4. **Fedora IoT** if the atomic update should come ready-made rather than built with RAUC or SWUpdate. The others only if these four fail the criteria.
 
 Evaluation plan: for each remaining candidate, build a minimal image for the Pi 4 and an x86-64 VM. Before `nmbd` is ready, check only the base: kernel features, size, boot time, Wi-Fi and the tools listed in criterion 3. Once `nmbd` passes the Quality Bar, install it (and nothing Python-based), run the release checklist of `docs/TESTING.md`, and record image size, idle memory, boot time, speed results on the test line and every change NMB needed. Choose by the criteria above, and write the result and the reasons here.
 - **What the stock kernel means for NMB:** the driver finder cannot install firmware packages on a read-only image, so every supported adapter's firmware is in the image; kernel updates arrive as part of an NMB image update (the A/B slot), tested before release like any other change.
