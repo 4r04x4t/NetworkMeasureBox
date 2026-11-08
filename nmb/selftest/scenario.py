@@ -124,10 +124,19 @@ class Scenario:
 
     @staticmethod
     def internet(src_dev: str = "") -> bool:
+        """HTTPS works (from src_dev's address when given); three tries, as a link may just be settling."""
         cmd = ["curl", "-s", "-m", "10", "-o", "/dev/null", "-w", "%{http_code}"]
         if src_dev:
-            cmd += ["--interface", src_dev]
-        return live.run(cmd + ["https://www.cloudflare.com/cdn-cgi/trace"], timeout=15).stdout.strip() == "200"
+            from nmb.netd import interfaces
+            addrs = [a.split("/")[0] for a in interfaces.get_ip_addresses(src_dev) if ":" not in a]
+            if not addrs:
+                return False
+            cmd += ["--interface", addrs[0]]   # by source address: the policy rules route it out of src_dev
+        for _ in range(3):
+            if live.run(cmd + ["https://www.cloudflare.com/cdn-cgi/trace"], timeout=15).stdout.strip() == "200":
+                return True
+            time.sleep(3)
+        return False
 
     # forwarded traffic of the clients, counted in a throwaway nftables table
     def count_start(self, saddr: str, oif: str) -> None:
@@ -330,6 +339,16 @@ def s_wifi_share(sc: Scenario) -> None:
 
 def s_usb_fallback(sc: Scenario) -> None:
     sc.step = "usb-fallback"
+    if any(live._route_dev(r) == "eth0" for r in live._default_routes()) and sc.carrier("eth0"):
+        # The cable must leave the home router first, or the box rightly keeps its wired internet.
+        sc.say("Pull the box's Ethernet cable out of the home router and plug it into the laptop.")
+        if sc.wait("eth0 cable out", lambda: not sc.carrier("eth0"), 300) is None:
+            return
+        sc.wait("eth0 cable in (laptop)", lambda: sc.carrier("eth0"), 300)
+        time.sleep(10)
+        dead = [r for r in live._default_routes() if live._route_dev(r) == "eth0"]
+        sc.rep.add(sc.step, "no default route left on eth0", PASS if not dead else FAIL,
+                   "removed" if not dead else " | ".join(" ".join(r) for r in dead))
     t0 = time.time()
     sc.say("The box leaves its Wi-Fi network now (on purpose); USB must become its internet.", waiting=False)
     live.run(["nmcli", "device", "disconnect", "wlan0"], timeout=30)
