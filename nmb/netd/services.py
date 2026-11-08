@@ -40,6 +40,19 @@ def _service_active(unit: str) -> bool:
     return subprocess.run([systemctl, "is-active", "--quiet", unit], capture_output=True, check=False).returncode == 0
 
 
+def _write_private(path: Path, content: str, mode: int = 0o600) -> None:
+    """Write a generated config as a new file owned by this process, then set its mode.
+
+    The run directory is shared with the web server (group nmb); a file left there by another user
+    can be rewritten but not chmod-ed by nmb-netd, which runs without CAP_FOWNER, so the old file is
+    replaced instead of edited.
+    """
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(content)
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+
+
 class ManagedProcess:
     def __init__(self, name: str, cmd: List[str], pid_file: Optional[Path] = None):
         self.name = name
@@ -187,7 +200,7 @@ dhcp-option=tag:lan,option:dns-server,{gw_ip}
 pid-file={pid_file}
 """
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        conf_file.write_text(conf_content)
+        _write_private(conf_file, conf_content, mode=0o644)
 
         proc = ManagedProcess("dnsmasq", [dnsmasq_bin, "--conf-file=" + str(conf_file), "--keep-in-foreground"], pid_file)
         self.processes["dnsmasq"] = proc
@@ -229,8 +242,7 @@ pid-file={pid_file}
             log.info("generated hostapd config for %s: Standard=%s, Band=%s, Ch=%s, Width=%s MHz",
                      iface, meta.get("effective_standard", "").upper(), meta.get("effective_band"),
                      meta.get("effective_channel"), meta.get("effective_width_mhz"))
-            conf_file.write_text(conf_content)
-            os.chmod(conf_file, 0o600)
+            _write_private(conf_file, conf_content)
             proc = ManagedProcess("hostapd", [hostapd_bin, str(conf_file)], pid_file)
             if proc.start():
                 self.processes["hostapd"] = proc
