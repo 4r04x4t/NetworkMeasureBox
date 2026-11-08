@@ -82,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Web router settings: the save button, card titles, WAN type, DNS mode, DHCP and Wi-Fi on/off choices and the MAC/DNS buttons were English in every language; now translated into all 11 languages.
 - Router mode now moves its WAN to USB tethering when the WAN port keeps only an IPv6 link-local address (cable moved from the home router to a PC). Live-tested: USB WAN, laptop via cable and Wi-Fi, home router plugged back in → DHCP stopped within a minute, eth0 back as WAN.
 - The DHCP guard (Wi-Fi sharing and router mode) never saw a router on a bridged port, and could miss one on any port: the DISCOVER went through the IP stack, which gave it another interface's address as the source (DHCP servers such as dnsmasq ignore that), and the offers were read with an IPv4-only packet socket, which gets a bridge port's frames only after the bridge has taken them. The probe now sends a complete frame from 0.0.0.0 and reads with `ETH_P_ALL`; reproduced and verified on the box with a test DHCP server in a network namespace, plain and bridged.
 - Router mode on USB tethering lost the box's own internet: the radio that became the access point kept its home Wi-Fi address and default route (metric 600), which beat USB's 900. The access point now starts on a radio without client addresses, and router mode on USB removes every default route that does not go through USB.

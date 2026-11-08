@@ -2820,7 +2820,7 @@
           <div class="section-subtitle" style="margin: 0;">Advanced Network & Router Configuration</div>
           <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Comprehensive router configuration: WAN, LAN, Wi-Fi AP, Operating Mode, Schedule, and ISP Profile</p>
         </div>
-        <button type="button" class="btn-primary" style="padding: 9px 22px; font-size: 13.5px;" onclick="saveRouterSettings()">💾 Save & Apply Router Settings</button>
+        <button type="button" class="btn-primary" style="padding: 9px 22px; font-size: 13.5px;" onclick="saveRouterSettings()" data-i18n="rt_save">💾 Save & Apply Router Settings</button>
       </div>
 
       <!-- Router Subtab Navigation -->
@@ -2848,9 +2848,9 @@
             <div class="form-group">
               <label class="form-label" data-i18n="wan_mode">Network Mode:</label>
               <select id="cfg-wan-proto" class="form-input" onchange="onWanProtoChange(this.value)">
-                <option value="dhcp" selected>Dynamic IP (DHCP Client - Default)</option>
-                <option value="pppoe">PPPoE (Point-to-Point Protocol over Ethernet)</option>
-                <option value="static">Static IP (Manual Assignment)</option>
+                <option value="dhcp" selected data-i18n="rt_wan_dhcp">Dynamic IP (DHCP Client - Default)</option>
+                <option value="pppoe" data-i18n="rt_wan_pppoe">PPPoE (Point-to-Point Protocol over Ethernet)</option>
+                <option value="static" data-i18n="rt_wan_static">Static IP (Manual Assignment)</option>
               </select>
               <div class="form-hint">Select the authentication method required by your Internet Service Provider.</div>
             </div>
@@ -2864,7 +2864,7 @@
 
         <!-- PPPoE Details -->
         <div class="router-section-card" id="wan-pppoe-card">
-          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;">🔑 PPPoE Credentials & 802.1Q VLAN</div>
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;" data-i18n="rt_pppoe_title">🔑 PPPoE Credentials & 802.1Q VLAN</div>
           <div class="router-row-3">
             <div class="form-group">
               <label class="form-label" data-i18n="wan_pppoe_user">PPPoE Username:</label>
@@ -2895,7 +2895,7 @@
 
         <!-- Static IP Details -->
         <div class="router-section-card" id="wan-static-card" style="display: none;">
-          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;">📌 Static WAN IP Configuration</div>
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;" data-i18n="rt_static_title">📌 Static WAN IP Configuration</div>
           <div class="router-row-3">
             <div class="form-group">
               <label class="form-label">Static WAN IP Address:</label>
@@ -2914,7 +2914,7 @@
 
         <!-- WAN MAC Spoofing -->
         <div class="router-section-card">
-          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;">🎭 WAN MAC Address Cloning & Spoofing</div>
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;" data-i18n="rt_mac_title">🎭 WAN MAC Address Cloning & Spoofing</div>
           <div style="display: flex; gap: 24px; margin-bottom: 14px; flex-wrap: wrap;">
             <div>Active MAC: <code id="mac-current" style="color: #38bdf8; font-weight: 700;">--</code></div>
             <div>Factory Hardware MAC: <code id="mac-factory" style="color: #94a3b8;">--</code></div>
@@ -2926,21 +2926,21 @@
               <div class="form-hint">If your ISP binds connectivity to your previous router MAC, enter it here.</div>
             </div>
             <div class="form-group" style="display: flex; align-items: flex-end; gap: 10px;">
-              <button type="button" class="btn-primary" style="padding: 9px 18px;" onclick="applyMacAddress()">💾 Apply MAC</button>
-              <button type="button" class="btn-secondary" style="padding: 9px 18px;" onclick="resetMacAddress()">🔄 Reset to Factory</button>
+              <button type="button" class="btn-primary" style="padding: 9px 18px;" onclick="applyMacAddress()" data-i18n="rt_mac_apply">💾 Apply MAC</button>
+              <button type="button" class="btn-secondary" style="padding: 9px 18px;" onclick="resetMacAddress()" data-i18n="rt_mac_reset">🔄 Reset to Factory</button>
             </div>
           </div>
         </div>
 
         <!-- DNS Configuration & Fallback Testing -->
         <div class="router-section-card">
-          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;">🌐 DNS Resolution & Security Fallback</div>
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;" data-i18n="rt_dns_title">🌐 DNS Resolution & Security Fallback</div>
           <div class="router-row-3">
             <div class="form-group">
               <label class="form-label">DNS Assignment Mode:</label>
               <select id="cfg-dns-mode" class="form-input">
-                <option value="auto" selected>Automatic (ISP DNS via DHCP)</option>
-                <option value="custom">Custom DNS Servers (Manual)</option>
+                <option value="auto" selected data-i18n="rt_dns_auto">Automatic (ISP DNS via DHCP)</option>
+                <option value="custom" data-i18n="rt_dns_custom">Custom DNS Servers (Manual)</option>
               </select>
             </div>
             <div class="form-group">
@@ -2959,8 +2959,8 @@
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
               <input type="text" id="dns-test-host" value="google.com" placeholder="Test host..." class="form-input" style="width: 140px; padding: 6px 10px; font-size: 12px;">
-              <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="testDnsResolution()">🔍 Test DNS</button>
-              <button type="button" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="enforceDnsFallback()">⚡ Enforce Fallback</button>
+              <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="testDnsResolution()" data-i18n="rt_dns_test">🔍 Test DNS</button>
+              <button type="button" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="enforceDnsFallback()" data-i18n="rt_dns_enforce">⚡ Enforce Fallback</button>
             </div>
           </div>
         </div>
@@ -2985,13 +2985,13 @@
         </div>
 
         <div class="router-section-card">
-          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;">📡 Internal DHCP Server & Address Pool</div>
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;" data-i18n="rt_dhcp_title">📡 Internal DHCP Server & Address Pool</div>
           <div class="router-row-3">
             <div class="form-group">
               <label class="form-label" data-i18n="dhcp_enable">Enable Local DHCP Server (dnsmasq):</label>
               <select id="cfg-dhcp-enabled" class="form-input">
-                <option value="true" selected>Enabled (Active)</option>
-                <option value="false">Disabled (Inactive)</option>
+                <option value="true" selected data-i18n="rt_dhcp_on">Enabled (Active)</option>
+                <option value="false" data-i18n="rt_dhcp_off">Disabled (Inactive)</option>
               </select>
             </div>
             <div class="form-group">
@@ -3112,8 +3112,8 @@
             <div class="form-group">
               <label class="form-label" data-i18n="wifi_enable">Enable Wi-Fi Access Point (hostapd):</label>
               <select id="cfg-wifi-enabled" class="form-input">
-                <option value="true" selected>Enabled (Active Broadcast)</option>
-                <option value="false">Disabled (Radio Off)</option>
+                <option value="true" selected data-i18n="rt_wifi_on">Enabled (Active Broadcast)</option>
+                <option value="false" data-i18n="rt_wifi_off">Disabled (Radio Off)</option>
               </select>
             </div>
             <div class="form-group">
@@ -3123,7 +3123,7 @@
             <div class="form-group">
               <label class="form-label">Regulatory Domain (Country):</label>
               <select id="cfg-wifi-country" class="form-input">
-                <option value="auto" selected>Automatic (from the location of this box)</option>
+                <option value="auto" selected data-i18n="rt_country_auto">Automatic (from the location of this box)</option>
                 <option value="00">00 - World Wide Default</option>
                 <option value="AT">AT - Austria (ETSI / EU)</option>
                 <option value="DE">DE - Germany (ETSI / EU)</option>
