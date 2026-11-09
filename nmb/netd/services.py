@@ -337,7 +337,7 @@ PPPD_EXIT_TEXT = {
 
 
 def build_pppd_cmd(pppd_bin: str, cfg: Any, iface: str, options_file: Path, linkname: str = "nmb-pppoe",
-                   default_route: bool = True, maxfail: int = 3) -> List[str]:
+                   default_route: bool = True, maxfail: int = 3, peer_dns: bool = True) -> List[str]:
     """The pppd command for PPPoE on iface. The user name and password go into a private options file:
     on the command line (as before 2026-11-09) every local user could read them with `ps`.
 
@@ -365,6 +365,9 @@ def build_pppd_cmd(pppd_bin: str, cfg: Any, iface: str, options_file: Path, link
         cmd = [pppd_bin, "pty", pppoe_opt, "noauth", "file", str(options_file)]
     if default_route:
         cmd += ["defaultroute", "replacedefaultroute"]
+    if peer_dns:
+        # The ISP's DNS servers (Debian's ip-up.d/0000usepeerdns writes them into /etc/resolv.conf).
+        cmd.append("usepeerdns")
     return cmd + [
         "hide-password",
         # Redial for as long as the line stays down.
@@ -375,7 +378,6 @@ def build_pppd_cmd(pppd_bin: str, cfg: Any, iface: str, options_file: Path, link
         "maxfail", str(int(maxfail)),
         "holdoff", "5",
         "nodetach",
-        "usepeerdns",
         "mtu", "1492",
         "mru", "1492",
         "linkname", linkname,

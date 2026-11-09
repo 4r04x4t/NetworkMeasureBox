@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from nmb.config import Config
-from nmb.netd import modes, services, usb_uplink
+from nmb.netd import firewall, modes, services, usb_uplink
 
 
 class PppdCommandTest(unittest.TestCase):
@@ -159,6 +159,57 @@ class UsbRescueRouteTest(unittest.TestCase):
             self.sync(t, allow=False)
         self.assertFalse(usb_uplink.rescue_active())
         self.assertFalse(any(c.startswith("ping") for c in self.calls))
+
+
+class WanFirewallTest(unittest.TestCase):
+    """A public address on ppp0 (2026-11-09): only answers, ICMP and the VPN ports from the internet."""
+
+    def _rules(self, **kw):
+        with patch.object(firewall.shutil, "which", side_effect=lambda b: "/usr/sbin/nft" if b == "nft" else None), \
+             patch.object(firewall, "_set_sysctl_forward"), \
+             patch.object(firewall.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            firewall.enable_nat_mode_a("ppp0", ["br-lan"], **kw)
+        return run.call_args.kwargs["input"]
+
+    def test_everything_else_is_dropped_on_the_wan(self):
+        rules = self._rules(open_ports=[("udp", 41641), ("udp", 51820), ("tcp", 1194)])
+        self.assertIn('iifname "ppp0" ct state established,related accept', rules)
+        self.assertIn('iifname "ppp0" udp dport { 41641, 51820 } accept', rules)
+        self.assertIn('iifname "ppp0" tcp dport { 1194 } accept', rules)
+        self.assertIn('iifname "ppp0" meta l4proto ipv6-icmp accept', rules)
+        self.assertTrue(rules.index('iifname "ppp0" drop') > rules.index('udp dport { 41641, 51820 }'))
+        self.assertNotIn("dport 22", rules)
+        self.assertNotIn("100.64.0.0/10", rules)       # CGNAT neighbours of the ISP are the internet too
+
+    def test_private_sources_keep_full_access(self):
+        rules = self._rules()
+        self.assertIn('iifname "ppp0" ip saddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16 } accept', rules)
+        self.assertLess(rules.index("192.168.0.0/16"), rules.index('iifname "ppp0" drop'))
+
+    def test_sharing_without_protection_has_no_drop(self):
+        rules = self._rules(block_public_wan=False)
+        self.assertNotIn('iifname "ppp0" drop', rules)
+
+    def test_router_opens_only_the_vpns_that_are_on(self):
+        cfg = Config()
+        cfg.wireguard.enabled, cfg.openvpn.enabled, cfg.openvpn.proto, cfg.openvpn.port = True, True, "tcp", 443
+        mode = modes.ModeA(cfg.network, MagicMock())
+        mode.full_cfg = cfg
+        self.assertEqual(mode._wan_open_ports(), [("udp", 41641), ("udp", 51820), ("tcp", 443)])
+        cfg.wireguard.enabled = cfg.openvpn.enabled = False
+        self.assertEqual(mode._wan_open_ports(), [("udp", 41641)])
+
+    def test_rules_load_in_nft(self):
+        import shutil, subprocess
+        nft = shutil.which("nft")
+        if not nft:
+            self.skipTest("nft not installed")
+        rules = self._rules(open_ports=[("udp", 41641)], dmz_iface="eth2")
+        res = subprocess.run([nft, "-c", "-f", "-"], input=rules, text=True, capture_output=True)
+        if "Operation not permitted" in res.stderr or "Permission denied" in res.stderr:
+            self.skipTest("nft -c needs root here")
+        self.assertEqual(res.returncode, 0, res.stderr)
 
 
 if __name__ == "__main__":

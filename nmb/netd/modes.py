@@ -275,6 +275,26 @@ class ModeA(NetworkMode):
         self._renew_lan_clients(list(getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]))
         return ok
 
+    def _wan_open_ports(self) -> List[tuple]:
+        """Ports the internet may reach on the WAN: the VPN servers that are turned on, and Tailscale's
+        direct connections (UDP 41641; Tailscale also works without it, through its relays)."""
+        full = self.full_cfg
+        if full is None:
+            try:
+                from nmb.config import load_config
+                full = load_config()
+            except Exception:
+                full = None
+        ports = [("udp", 41641)]
+        wg = getattr(full, "wireguard", None)
+        if wg is not None and getattr(wg, "enabled", False):
+            ports.append(("udp", int(getattr(wg, "port", 51820) or 51820)))
+        ov = getattr(full, "openvpn", None)
+        if ov is not None and getattr(ov, "enabled", False):
+            proto = "tcp" if "tcp" in str(getattr(ov, "proto", "udp")).lower() else "udp"
+            ports.append((proto, int(getattr(ov, "port", 1194) or 1194)))
+        return ports
+
     def _renew_lan_clients(self, ports: List[str]) -> None:
         """Drop the link of wired LAN ports for a moment, so a PC asks for a new address.
 
@@ -367,7 +387,8 @@ class ModeA(NetworkMode):
             self.svc_mgr.start_dnsmasq(self.lan_ifaces, dmz_iface=self.dmz_iface)
 
         # 5. Enable NAT and IPv4 forwarding
-        firewall.enable_nat_mode_a(self.active_wan, self.lan_ifaces, dmz_iface=self.dmz_iface)
+        firewall.enable_nat_mode_a(self.active_wan, self.lan_ifaces, dmz_iface=self.dmz_iface,
+                                   open_ports=self._wan_open_ports())
 
         # 6. Bring up Secondary WAN2 if configured
         wan2 = getattr(self.cfg, "wan2_interface", "")

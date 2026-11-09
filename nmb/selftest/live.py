@@ -621,7 +621,10 @@ def _pppd_in_ns(ns: str, iface: str, user: str, password: str, linkname: str, ti
     pppd = shutil.which("pppd") or "/usr/sbin/pppd"
     opts = Path(tempfile.mkdtemp(prefix="nmbst-ppp")) / "options"
     cfg = types.SimpleNamespace(pppoe_user=user, pppoe_password=password, pppoe_service_name=service)
-    cmd = ["ip", "netns", "exec", ns] + build_pppd_cmd(pppd, cfg, iface, opts, linkname=linkname, maxfail=1)
+    # No usepeerdns: Debian's hook would put the ISP's DNS into the box's own /etc/resolv.conf for as long
+    # as the test link is up (seen 2026-11-09), and from outside the namespace those servers are unreachable.
+    cmd = ["ip", "netns", "exec", ns] + build_pppd_cmd(pppd, cfg, iface, opts, linkname=linkname, maxfail=1,
+                                                        peer_dns=False)
     started = time.time()
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     addr = ""
@@ -736,9 +739,33 @@ def g_pppoe(rep: Report, cfg, real: bool = False) -> None:
             pinged = []
 
             def check() -> None:
-                pinged.append(run(["ping", "-c", "3", "-W", "3", "1.1.1.1"], ns=ns, timeout=20).returncode == 0)
-                mtu = run(["cat", "/sys/class/net/ppp0/mtu"], ns=ns).stdout.strip()
-                pinged.append(mtu)
+                # pppd sets the default route just after the address, and the ISP may drop the first
+                # packets of a new session (2026-11-09: 3 pings in the first 3 s went unanswered).
+                t_up = time.time()
+                for _ in range(10):
+                    if "default" in run(["ip", "-4", "route", "show", "default"], ns=ns).stdout:
+                        break
+                    time.sleep(0.5)
+                first = None
+                while time.time() - t_up < 20:
+                    if run(["ping", "-n", "-c", "1", "-W", "2", "1.1.1.1"], ns=ns, timeout=5).returncode == 0:
+                        first = time.time() - t_up
+                        break
+                    time.sleep(1)
+                pinged.append(first)
+                pinged.append(run(["cat", "/sys/class/net/ppp0/mtu"], ns=ns).stdout.strip())
+                # HTTPS through the line: a full-size TLS handshake also shows MTU trouble.
+                web = run(["curl", "-4", "-s", "-o", "/dev/null", "-m", "10", "-w", "%{http_code}",
+                           "https://1.1.1.1/cdn-cgi/trace"], ns=ns, timeout=15).stdout.strip()
+                pinged.append(web)
+                # IPv6 from the ISP: a global address from a router advertisement on the PPP link.
+                v6 = ""
+                for _ in range(8):
+                    v6 = run(["ip", "-6", "-o", "addr", "show", "dev", "ppp0", "scope", "global"], ns=ns).stdout
+                    if v6.strip():
+                        break
+                    time.sleep(1)
+                pinged.append(bool(v6.strip()))
             from nmb.netd.services import PPPD_EXIT_AUTH
             info: dict = {}
             ok, detail = _pppd_in_ns(ns, mv, net.pppoe_user, net.pppoe_password, "nmbst-real", timeout=45,
@@ -756,9 +783,15 @@ def g_pppoe(rep: Report, cfg, real: bool = False) -> None:
                     if refused else " (check the user name and password, or the ISP's session limit)")
             rep.add("pppoe", "dial the real line with the saved credentials", PASS if ok else FAIL,
                     "connected" if ok else detail + hint)
-            if ok:   # the address is the public one: never printed
-                rep.add("pppoe", "internet over PPPoE", PASS if pinged and pinged[0] else FAIL,
-                        f"ping 1.1.1.1; ppp MTU {pinged[1] if len(pinged) > 1 else '?'}")
+            if ok and len(pinged) >= 4:   # the address is the public one: never printed
+                first, mtu, web, v6 = pinged[:4]
+                rep.add("pppoe", "internet over PPPoE", PASS if first is not None else FAIL,
+                        (f"ping 1.1.1.1 answered {first:.1f} s after the link came up" if first is not None
+                         else "no ping answer in 20 s") + f"; ppp MTU {mtu}")
+                rep.add("pppoe", "HTTPS over PPPoE", PASS if web == "200" else FAIL, f"https://1.1.1.1 HTTP {web or 'none'}")
+                rep.add("pppoe", "IPv6 from the ISP on PPPoE", PASS if v6 else WARN,
+                        "global address from a router advertisement" if v6 else
+                        "no global address from an RA in 8 s (the ISP may hand out IPv6 only by DHCPv6-PD)")
     except Exception as e:
         rep.add("pppoe", "real line", FAIL, f"{type(e).__name__}: {str(e)[:150]}")
     finally:
@@ -1127,14 +1160,15 @@ def _scenario_main(argv: List[str]) -> int:
     from nmb.selftest import scenario
     p = argparse.ArgumentParser(prog="nmb-selftest scenario", description=scenario.__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    from nmb.selftest import scenario_auto, scenario_router
-    p.add_argument("name", choices=["usb", "router", "auto"])
+    from nmb.selftest import scenario_auto, scenario_pppoe, scenario_router
+    p.add_argument("name", choices=["usb", "router", "auto", "pppoe"])
     p.add_argument("--steps", default=None, help="Comma-separated. usb: " + ", ".join(scenario.STEPS)
                    + "; router: " + ", ".join(scenario_router.STEPS)
-                   + "; auto: " + ", ".join(scenario_auto.STEPS))
+                   + "; auto: " + ", ".join(scenario_auto.STEPS)
+                   + "; pppoe: " + ", ".join(scenario_pppoe.STEPS))
     p.add_argument("--plan", action="store_true", help="Only print the steps")
     args = p.parse_args(argv)
-    mod = {"router": scenario_router, "auto": scenario_auto}.get(args.name, scenario)
+    mod = {"router": scenario_router, "auto": scenario_auto, "pppoe": scenario_pppoe}.get(args.name, scenario)
     known = mod.STEPS
     steps = known if args.steps is None else [s.strip() for s in args.steps.split(",") if s.strip()]
     bad = [s for s in steps if s not in known]
@@ -1148,6 +1182,8 @@ def _scenario_main(argv: List[str]) -> int:
         return 2
     if args.name == "auto":
         return scenario_auto.run_auto(steps)
+    if args.name == "pppoe":
+        return scenario_pppoe.run_pppoe(steps)
     return scenario_router.run_router(steps) if args.name == "router" else scenario.run_usb(steps)
 
 

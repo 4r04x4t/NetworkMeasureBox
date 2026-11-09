@@ -9,7 +9,7 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional, Tuple
 
 log = logging.getLogger("nmb.netd.firewall")
 
@@ -28,19 +28,55 @@ def _set_sysctl_forward(enable: bool) -> bool:
         return res.returncode == 0
 
 
-def enable_nat_mode_a(wan_iface: str, lan_ifaces: List[str], block_public_wan: bool = True, dmz_iface: str = "") -> bool:
+# Sources that are never "the internet": a WAN behind a home router or hotspot stays fully reachable
+# for the owner and the developer (SSH, Web UI, everything), as before.
+PRIVATE_V4 = "10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16"
+PRIVATE_V6 = "fe80::/10, fc00::/7"
+
+
+def wan_input_rules(wan_iface: str, open_ports: Optional[List[Tuple[str, int]]] = None) -> List[str]:
+    """nftables input rules for the WAN: only answers, private sources, needed ICMP and the VPN ports.
+
+    2026-11-09, first real PPPoE line: the box had a public IPv4 and IPv6 address on ppp0 and only the Web
+    UI was closed to the internet; SSH (password login), DNS (an open resolver), iperf3, mDNS and the rest
+    were open. Everything not listed here is dropped on the WAN now.
+    """
+    w = f'iifname "{wan_iface}"'
+    rules = [
+        f"{w} ct state established,related accept",
+        f"{w} ct state invalid drop",
+        f"{w} ip saddr {{ {PRIVATE_V4} }} accept",
+        f"{w} ip6 saddr {{ {PRIVATE_V6} }} accept",
+        f"{w} icmp type echo-request limit rate 10/second accept",
+        f"{w} icmp type {{ destination-unreachable, time-exceeded, parameter-problem }} accept",
+        f"{w} meta l4proto ipv6-icmp accept",   # neighbour discovery, router adverts, path MTU
+        f"{w} udp sport 67 udp dport 68 accept",   # DHCP renewals from an ISP's public DHCP server
+    ]
+    by_proto: Dict[str, List[int]] = {}
+    for proto, port in open_ports or []:
+        if proto in ("udp", "tcp") and 0 < int(port) < 65536 and int(port) not in by_proto.setdefault(proto, []):
+            by_proto[proto].append(int(port))
+    for proto, ports in sorted(by_proto.items()):
+        rules.append(f"{w} {proto} dport {{ {', '.join(str(x) for x in sorted(ports))} }} accept")
+    rules.append(f"{w} drop")
+    return rules
+
+
+def enable_nat_mode_a(wan_iface: str, lan_ifaces: List[str], block_public_wan: bool = True, dmz_iface: str = "",
+                      open_ports: Optional[List[Tuple[str, int]]] = None) -> bool:
     """Setup NAT and forwarding rules for Mode A (Active Gateway).
-    If block_public_wan is True, drops incoming web UI access from non-private public Internet IPs only.
-    Local RFC1918 subnets (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) are always allowed.
+
+    block_public_wan: the internet reaches the box on the WAN only for answers to its own traffic, ICMP and
+    open_ports (the VPN servers: Tailscale, WireGuard, OpenVPN). Private sources (a home router or hotspot
+    in front of the WAN) reach everything, as before.
     """
     _set_sysctl_forward(True)
     nft_bin = shutil.which("nft")
     ipt_bin = shutil.which("iptables")
 
-    # Protection rule: only drop public Internet traffic on WAN (never block private LAN/management subnets)
     wan_drop_rule = ""
     if block_public_wan:
-        wan_drop_rule = f'iifname "{wan_iface}" ip saddr != {{ 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 127.0.0.0/8 }} tcp dport {{ 80, 8080 }} drop'
+        wan_drop_rule = "\n        ".join(wan_input_rules(wan_iface, open_ports))
 
     if nft_bin:
         log.info("applying Mode A NAT and WAN protection via nftables on WAN iface %s", wan_iface)
@@ -98,12 +134,15 @@ table inet {NFT_TABLE} {{
             subprocess.run([ipt_bin, "-t", "mangle", "-A", "FORWARD", "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN",
                             "-j", "TCPMSS", "--clamp-mss-to-pmtu"], check=False)
             if block_public_wan:
-                # Only drop on WAN if source is NOT a private RFC1918 subnet
-                for priv in ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"]:
-                    subprocess.run([ipt_bin, "-I", "INPUT", "-i", wan_iface, "-s", priv, "-p", "tcp", "-m", "multiport", "--dports", "80,8080", "-j", "ACCEPT"],
-                                   check=False)
-                subprocess.run([ipt_bin, "-A", "INPUT", "-i", wan_iface, "-p", "tcp", "-m", "multiport", "--dports", "80,8080", "-j", "DROP"],
-                               check=False)
+                # Same policy as the nftables rules (wan_input_rules), IPv4 only.
+                rules = [["-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"]]
+                rules += [["-s", priv, "-j", "ACCEPT"] for priv in PRIVATE_V4.split(", ")]
+                rules += [["-p", "icmp", "-j", "ACCEPT"], ["-p", "udp", "--sport", "67", "--dport", "68", "-j", "ACCEPT"]]
+                rules += [["-p", proto, "--dport", str(port), "-j", "ACCEPT"] for proto, port in (open_ports or [])
+                          if proto in ("udp", "tcp")]
+                rules.append(["-j", "DROP"])
+                for r in rules:
+                    subprocess.run([ipt_bin, "-A", "INPUT", "-i", wan_iface] + r, check=False)
             return True
         except Exception as e:
             log.error("failed applying iptables rules: %s", e)
