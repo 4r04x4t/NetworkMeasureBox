@@ -581,8 +581,10 @@ def _router_ipv6(rep: Report, cfg, ns: str, details: Dict[str, Any]) -> None:
     addr = ""
     for _ in range(20):
         out = run(["ip", "-6", "-o", "addr", "show", "scope", "global"], ns=ns).stdout
-        if out.strip():
-            addr = out
+        # usable only once DAD is over and the advert's default route is in
+        ready = [l for l in out.splitlines() if "tentative" not in l]
+        if ready and "default" in run(["ip", "-6", "route", "show", "default"], ns=ns).stdout:
+            addr = "\n".join(ready)
             break
         time.sleep(1)
     rep.add("router", "LAN client gets IPv6 (SLAAC)", PASS if addr else FAIL,
