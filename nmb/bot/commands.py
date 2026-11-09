@@ -395,23 +395,29 @@ class CommandHandler:
         self.client.send_chat_action(chat_id, "typing")
         self.client.send_message(chat_id, t("speed_starting", lang, engine_str=engine_str))
         try:
+            t0 = db.now_ms()
+            outcome: dict = {}
             ok = run_measurement_cycle(
                 self.cfg,
                 trigger="telegram",
                 force=True,
                 run_port_check=True,
-                engine=engine
+                engine=engine,
+                outcome=outcome,
             )
 
+            # Only this test's own rows: a scheduled test may have stored one meanwhile (2026-11-09).
             conn = db.connect(readonly=True)
-            row = conn.execute(
-                """SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine, error
-                   FROM speedtest ORDER BY ts DESC LIMIT 1"""
-            ).fetchone()
+            rows = conn.execute(
+                """SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine, error, client_ip
+                   FROM speedtest WHERE ts >= ? AND trigger = 'telegram' ORDER BY id""", (t0 - 1000,)
+            ).fetchall()
             conn.close()
+            ok_rows = [r for r in rows if r["status"] == "ok"]
+            row = ok_rows[-1] if ok_rows else (rows[-1] if rows else None)
 
             if not row or row["status"] != "ok":
-                err = row["error"] if row and row["error"] else t("speed_cycle_failed", lang)
+                err = (row["error"] if row and row["error"] else outcome.get("error")) or t("speed_cycle_failed", lang)
                 self.client.send_message(chat_id, t("speed_error", lang, error=html.escape(str(err))))
                 return
 
@@ -421,12 +427,13 @@ class CommandHandler:
             jitter_ms = (row["jitter_us"] or 0) / 1000.0
 
             # Resolving IP and ISP
-            client_ip = "--"
-            try:
-                dual = interfaces.get_dual_stack_ips()
-                client_ip = dual.get("public_ipv4") or dual.get("ipv4") or "--"
-            except Exception:
-                log.debug("suppressed exception", exc_info=True)
+            client_ip = row["client_ip"] or "--"
+            if client_ip == "--":
+                try:
+                    dual = interfaces.get_dual_stack_ips()
+                    client_ip = dual.get("public_ipv4") or dual.get("ipv4") or "--"
+                except Exception:
+                    log.debug("suppressed exception", exc_info=True)
             isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
 
             c_down = self.cfg.isp.contract_down_mbps or 1000.0
@@ -465,6 +472,12 @@ class CommandHandler:
 ⚖️ <b>{t('speed_result_label', lang)}:</b> {status_badge}
 <i>{status_text}</i>
 """
+            if len(rows) > 1:   # all engines: one line per engine of this test
+                msg += "\n" + "\n".join(
+                    f"• {html.escape(str(r['engine'] or '?')).upper()}: "
+                    + (f"{(r['down_bps'] or 0) / 1e6:.1f} / {(r['up_bps'] or 0) / 1e6:.1f} Mbps, {(r['ping_us'] or 0) / 1000:.1f} ms"
+                       if r["status"] == "ok" else f"— {html.escape(str(r['error'] or r['status'])[:80])}")
+                    for r in rows)
             inline_kb = {
                 "inline_keyboard": [
                     [{"text": t("btn_rtr", lang), "callback_data": "/test rtr"}, {"text": t("btn_ookla", lang), "callback_data": "/test ookla"}, {"text": t("btn_cloudflare", lang), "callback_data": "/test cloudflare"}, {"text": t("btn_fastcom", lang), "callback_data": "/test fastcom"}],

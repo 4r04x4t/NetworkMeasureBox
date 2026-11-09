@@ -89,6 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Telegram bot: a speed test blocked the bot for its whole duration (minutes with all engines), so it did not answer anything else; tests now run in their own thread and a second one is refused politely. The result shows only this test's own rows (one line per engine), not whatever row was newest, and the start message no longer promises 15-25 seconds.
+- Speed tests: one at a time on the whole box. The lock was per process, so a Telegram test and a scheduled test of the web server could run at once and measure each other's traffic; a scheduled test now skips, a manual, web or Telegram test waits up to 10 minutes.
 - PPPoE: the user name and password were on the pppd command line, readable by every local user with `ps`; they are now in a private options file.
 - Standalone mode with the access point on: devices could join but got no address. Starting the access point flushed every address from the radio, including its own one added just before, so dnsmasq failed ("unknown interface wlan0"). Only a DHCP client's dynamic addresses and routes are removed now; `nmb-selftest wifi-ap` fails when an access point has no address or no DHCP. (Regression from the 2026-11-08 fix for the radio's leftover client lease.)
 - RTR (native client): the test never used the asked link (no source address was passed; it now gets `--bind`), the row had no client IP (it is now asked over the same link), and the ping minimum and jitter were invented (minimum = median, jitter a fixed 500 µs); the client now reports the real minimum and jitter, and an older binary leaves them empty.

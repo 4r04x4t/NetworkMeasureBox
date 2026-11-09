@@ -142,7 +142,7 @@
   "speed_error": "⚠️ Eroare la testul de viteză: {error}",
   "speed_result_label": "Rezultat față de viteza garantată",
   "speed_result_title": "<b>📊 Rezultatul testului de viteză ({engine})</b>",
-  "speed_starting": "<i>🚀 Pornește testul de viteză{engine_str}... Așteptați aproximativ 15-25 de secunde!</i>",
+  "speed_starting": "<i>🚀 Pornește testul de viteză{engine_str}... Aproximativ jumătate de minut pentru un motor, câteva minute pentru toate cinci. Între timp botul răspunde.</i>",
   "status_title": "📊 Starea sistemului și telemetrie",
   "tailscale_active": "🟢 ACTIV ȘI CONECTAT",
   "tailscale_desc_active": "Dispozitivul de măsurare este conectat în siguranță la rețeaua mesh Tailscale. Puteți accesa WebGUI în siguranță de oriunde la:\n👉 <code>http://{ip}:8080</code>",
@@ -230,7 +230,8 @@
   "backup_uploading": "<i>Se încarcă {file}...</i>",
   "drivers_none": "<i>Niciun controler fizic înregistrat.</i>",
   "drivers_fw_missing": "Firmware lipsă detectat",
-  "drivers_recommended": "Pachete recomandate"
+  "drivers_recommended": "Pachete recomandate",
+  "speed_already_running": "Un test de viteză rulează deja; rezultatul va fi trimis când se termină."
  },
  "keyboard": [
   [

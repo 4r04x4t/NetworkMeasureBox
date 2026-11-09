@@ -124,7 +124,7 @@ class TestTelegramBot(unittest.TestCase):
 
         self.handler.handle_command(999999, "/test cloudflare")
         mock_cycle.assert_called_once_with(
-            self.cfg, trigger="telegram", force=True, run_port_check=True, engine="cloudflare"
+            self.cfg, trigger="telegram", force=True, run_port_check=True, engine="cloudflare", outcome={}
         )
         self.assertEqual(len(self.mock_client.sent_messages), 2)
         _, result_text, _ = self.mock_client.sent_messages[1]

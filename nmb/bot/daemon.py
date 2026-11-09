@@ -54,6 +54,31 @@ class TelegramDaemon:
                     break
                 time.sleep(1.0)
 
+    _LONG = ("/test", "/speedtest", "/speed")
+
+    def _dispatch(self, chat_id: int, text: str) -> None:
+        """Speed tests run in their own thread, so the bot keeps answering meanwhile (2026-11-09: it was
+        silent for the whole test, several minutes with all engines)."""
+        from nmb.bot.i18n import get_chat_lang, get_menu_aliases, t
+        raw = (text or "").strip()
+        alias = get_menu_aliases().get(raw.lower(), raw)
+        cmd = alias.split()[0].lower().split("@")[0] if alias else ""
+        if cmd not in self._LONG:
+            self.commands.handle_command(chat_id, text)
+            return
+        if getattr(self, "_long_job", None) and self._long_job.is_alive():
+            self.client.send_message(chat_id, "⏳ " + t("speed_already_running", get_chat_lang(chat_id, self.cfg)))
+            return
+
+        def job() -> None:
+            try:
+                self.commands.handle_command(chat_id, text)
+            except Exception as e:
+                log.warning("speed test command failed: %s", e)
+
+        self._long_job = threading.Thread(target=job, daemon=True, name="telegram-speedtest")
+        self._long_job.start()
+
     def run(self) -> None:
         if not self.cfg.telegram.token:
             log.error("cannot start telegram daemon: no bot token configured")
@@ -115,7 +140,7 @@ class TelegramDaemon:
                             )
                             continue
                         if data:
-                            self.commands.handle_command(chat_id, data)
+                            self._dispatch(chat_id, data)
                         continue
 
                     msg = u.get("message") or u.get("edited_message")
@@ -136,7 +161,7 @@ class TelegramDaemon:
                         )
                         continue
 
-                    self.commands.handle_command(chat_id, text)
+                    self._dispatch(chat_id, text)
 
             except Exception as e:
                 if self.running:

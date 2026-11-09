@@ -142,7 +142,7 @@
   "speed_error": "⚠️ 测速错误：{error}",
   "speed_result_label": "与保证速度相比的结果",
   "speed_result_title": "<b>📊 测速结果（{engine}）</b>",
-  "speed_starting": "<i>🚀 正在开始测速{engine_str}……请等待约 15-25 秒！</i>",
+  "speed_starting": "<i>🚀 正在开始测速{engine_str}……单个引擎约半分钟，全部五个约几分钟。期间机器人仍可响应。</i>",
   "status_title": "📊 系统状态与遥测",
   "tailscale_active": "🟢 已启用并已连接",
   "tailscale_desc_active": "测量设备已安全连接到您的 Tailscale 网状网络。您可以从任何地方安全访问 WebGUI：\n👉 <code>http://{ip}:8080</code>",
@@ -230,7 +230,8 @@
   "backup_uploading": "<i>正在上传 {file}...</i>",
   "drivers_none": "<i>未登记物理控制器。</i>",
   "drivers_fw_missing": "检测到缺少固件",
-  "drivers_recommended": "推荐的软件包"
+  "drivers_recommended": "推荐的软件包",
+  "speed_already_running": "测速已在进行中；完成后会发送结果。"
  },
  "keyboard": [
   [

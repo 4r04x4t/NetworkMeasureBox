@@ -142,7 +142,7 @@
   "speed_error": "⚠️ Error en la prueba de velocidad: {error}",
   "speed_result_label": "Resultado frente a la velocidad garantizada",
   "speed_result_title": "<b>📊 Resultado de la prueba de velocidad ({engine})</b>",
-  "speed_starting": "<i>🚀 Iniciando la prueba de velocidad{engine_str}... ¡Espere unos 15-25 segundos!</i>",
+  "speed_starting": "<i>🚀 Iniciando la prueba de velocidad{engine_str}... Unos 30 segundos con un motor, unos minutos con los cinco. Mientras tanto el bot sigue respondiendo.</i>",
   "status_title": "📊 Estado del sistema y telemetría",
   "tailscale_active": "🟢 ACTIVO Y CONECTADO",
   "tailscale_desc_active": "El dispositivo de medición está conectado de forma segura a su red en malla Tailscale. Puede abrir la WebGUI de forma segura desde cualquier lugar en:\n👉 <code>http://{ip}:8080</code>",
@@ -230,7 +230,8 @@
   "backup_uploading": "<i>Subiendo {file}...</i>",
   "drivers_none": "<i>No hay controladores físicos registrados.</i>",
   "drivers_fw_missing": "Falta firmware",
-  "drivers_recommended": "Paquetes recomendados"
+  "drivers_recommended": "Paquetes recomendados",
+  "speed_already_running": "Ya hay una prueba de velocidad en curso; el resultado se enviará cuando termine."
  },
  "keyboard": [
   [

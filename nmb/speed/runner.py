@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import logging
 import sys
@@ -736,7 +737,66 @@ def _flag_server_mismatch(res: SpeedtestResult, target_server_id: Optional[int])
     res.raw_json = json.dumps(raw)
 
 
-def run_measurement_cycle(
+MEASURE_LOCK = "/run/nmb/speedtest.lock"
+MEASURE_WAIT_SEC = 600   # a manual, web or Telegram test waits this long for a running one
+
+
+def _measure_lock(wait_sec: float):
+    """An exclusive lock across processes (web scheduler, Telegram bot, nmb-speed, nmb-selftest).
+
+    2026-11-09: a Telegram test (Ookla) and a scheduled iPerf3 test of the web server ran at the same time;
+    the old lock was per process, so each test measured the other's traffic too.
+    """
+    import fcntl
+    from pathlib import Path as _P
+    path = _P(MEASURE_LOCK)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
+    except OSError:
+        import tempfile
+        fd = os.open(os.path.join(tempfile.gettempdir(), "nmb-speedtest.lock"), os.O_RDWR | os.O_CREAT, 0o666)
+    t0 = time.monotonic()
+    while True:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return fd
+        except BlockingIOError:
+            if time.monotonic() - t0 >= wait_sec:
+                os.close(fd)
+                return None
+            time.sleep(2)
+
+
+def run_measurement_cycle(cfg: Config, trigger: str = "schedule", *args, **kwargs) -> bool:
+    """One measurement cycle at a time on the whole box (see _measure_lock)."""
+    import fcntl
+    wait = 0 if trigger == "schedule" else MEASURE_WAIT_SEC
+    fd = _measure_lock(wait)
+    if fd is None:
+        reason = "another measurement was running on this box"
+        log.warning("speed test (%s) not started: %s", trigger, reason)
+        outcome = kwargs.get("outcome")
+        if isinstance(outcome, dict):
+            outcome.update(status="skipped_busy", error=reason)
+        if kwargs.get("record_skip", True):
+            try:
+                conn = db.connect()
+                with db.tx(conn):
+                    conn.execute("INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
+                                 (db.now_ms(), trigger, reason, kwargs.get("engine") or "all"))
+                conn.close()
+            except Exception as e:
+                log.debug("could not record the skip: %s", e)
+        return False
+    try:
+        return _run_measurement_cycle(cfg, trigger, *args, **kwargs)
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def _run_measurement_cycle(
     cfg: Config,
     trigger: str = "schedule",
     force: bool = False,

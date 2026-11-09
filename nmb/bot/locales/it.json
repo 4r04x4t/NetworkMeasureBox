@@ -142,7 +142,7 @@
   "speed_error": "⚠️ Errore del test di velocità: {error}",
   "speed_result_label": "Risultato rispetto alla velocità garantita",
   "speed_result_title": "<b>📊 Risultato del test di velocità ({engine})</b>",
-  "speed_starting": "<i>🚀 Avvio del test di velocità{engine_str}... Attendi circa 15-25 secondi!</i>",
+  "speed_starting": "<i>🚀 Avvio del test di velocità{engine_str}... Circa mezzo minuto per un motore, qualche minuto per tutti e cinque. Nel frattempo il bot risponde.</i>",
   "status_title": "📊 Stato del sistema e telemetria",
   "tailscale_active": "🟢 ATTIVO E CONNESSO",
   "tailscale_desc_active": "Il dispositivo di misurazione è connesso in sicurezza alla tua rete mesh Tailscale. Puoi aprire la WebGUI in sicurezza da qualsiasi luogo all'indirizzo:\n👉 <code>http://{ip}:8080</code>",
@@ -230,7 +230,8 @@
   "backup_uploading": "<i>Caricamento di {file}...</i>",
   "drivers_none": "<i>Nessun controller fisico registrato.</i>",
   "drivers_fw_missing": "Firmware mancante rilevato",
-  "drivers_recommended": "Pacchetti consigliati"
+  "drivers_recommended": "Pacchetti consigliati",
+  "speed_already_running": "Un test di velocità è già in corso; il risultato verrà inviato al termine."
  },
  "keyboard": [
   [
