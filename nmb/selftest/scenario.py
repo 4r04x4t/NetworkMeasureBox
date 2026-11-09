@@ -476,7 +476,7 @@ STEP_FUNCS = {"usb-speed": s_usb_speed, "wifi-share": s_wifi_share, "usb-fallbac
 
 
 def run_steps(steps: List[str], funcs: Dict[str, Callable], preflight: Callable, changes: set,
-              wait_scale: float = 1.0) -> int:
+              wait_scale: float = 1.0, name: str = "usb") -> int:
     """Run the steps; settings changed by them are always put back, also after a crash or a stop."""
     import signal
 
@@ -487,6 +487,7 @@ def run_steps(steps: List[str], funcs: Dict[str, Callable], preflight: Callable,
     rep = Report()
     cfg = live._cfg()
     sc = Scenario(rep, cfg, wait_scale)
+    sc.name = name
     try:
         if not preflight(sc):
             sc.say("Preflight failed; nothing was changed.", waiting=False)
@@ -518,7 +519,7 @@ def _finish(rep: Report, sc: Scenario) -> int:
     c = rep.counts()
     sc.step = "done"
     sc.say(f"Finished: {c[PASS]} passed, {c[WARN]} warnings, {c[FAIL]} failed, {c[SKIP]} skipped.", waiting=False)
-    out = live.LOG_DIR / time.strftime("scenario-usb-%Y%m%d-%H%M%S.json")
+    out = live.LOG_DIR / time.strftime(f"scenario-{getattr(sc, 'name', 'usb')}-%Y%m%d-%H%M%S.json")
     try:
         out.write_text(json.dumps({"ts": int(time.time()), "counts": c, "results": rep.rows}, indent=1))
         print(f"report: {out}", flush=True)

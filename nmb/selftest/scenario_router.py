@@ -156,7 +156,7 @@ FUNCS = {"router-up": r_router_up, "wifi-client": r_wifi_client, "web-ui": r_web
 
 
 def run_router(steps: List[str], wait_scale: float = 1.0) -> int:
-    return S.run_steps(steps, FUNCS, r_preflight, {"router-up", "wifi-client", "web-ui", "wan-loss"}, wait_scale)
+    return S.run_steps(steps, FUNCS, r_preflight, {"router-up", "wifi-client", "web-ui", "wan-loss"}, wait_scale, name="router")
 
 
 def plan(steps: List[str]) -> str:
