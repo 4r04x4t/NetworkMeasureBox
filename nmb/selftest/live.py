@@ -711,6 +711,38 @@ def g_pppoe(rep: Report, cfg, real: bool = False) -> None:
         run(["ip", "netns", "del", ns])
 
 
+def g_dyndns(rep: Report, cfg) -> None:
+    """DynDNS (DuckDNS, dynv6): set up, updated recently, and the name points at this line (no address printed)."""
+    d = getattr(cfg, "duckdns", None)
+    if not d or not d.enabled:
+        rep.add("dyndns", "DynDNS", SKIP, "turned off")
+        return
+    rep.add("dyndns", "domain and token set", PASS if d.domain and d.token else FAIL,
+            "set" if d.domain and d.token else "missing: " + " and ".join(n for n, v in (("domain", d.domain), ("token", d.token)) if not v))
+    res = _cli("api", "GET", "/api/dyndns/status")
+    try:
+        st = json.loads(res.stdout)
+    except Exception:
+        rep.add("dyndns", "status", FAIL, (res.stderr or res.stdout)[:100])
+        return
+    age = time.time() - float(st.get("last_update_ts") or 0)
+    limit = 2 * 60 * int(getattr(d, "update_interval_min", 10) or 10) + 120
+    ok = st.get("last_status") == "OK" and age < limit
+    rep.add("dyndns", "updated recently", PASS if ok else FAIL,
+            f"last {st.get('last_status')} {int(age // 60)} min ago" if st.get("last_update_ts") else f"never: {st.get('last_message') or st.get('last_status')}")
+    fqdn = st.get("fqdn") or d.domain
+    import socket
+    try:
+        names = {a[4][0] for a in socket.getaddrinfo(fqdn, 443)}
+    except OSError as e:
+        rep.add("dyndns", "name resolves", FAIL, f"{fqdn}: {e}")
+        return
+    trace = run(["curl", "-s", "-m", "10", "https://www.cloudflare.com/cdn-cgi/trace"], timeout=15).stdout
+    mine = next((ln[3:] for ln in trace.splitlines() if ln.startswith("ip=")), "")
+    rep.add("dyndns", "name points at this line", PASS if mine and mine in names else WARN,
+            "matches the current public address" if mine in names else "does not match yet (DNS cache or a different line)")
+
+
 def g_speed(rep: Report, cfg, hours: int = 48) -> None:
     conn = _db()
     since = int((time.time() - hours * 3600) * 1000)
@@ -859,7 +891,7 @@ def g_collector(rep: Report, cfg, url: str = "", token: str = "") -> None:
 GROUPS: Dict[str, Callable] = {
     "services": g_services, "internet": g_internet, "config": g_config, "web": g_web, "cli": g_cli,
     "usb": g_usb, "router": g_router, "dhcp-probe": g_dhcp_probe, "speed": g_speed, "wifi-ap": g_wifi_ap,
-    "collector": g_collector, "telegram": g_telegram, "pppoe": g_pppoe,
+    "collector": g_collector, "telegram": g_telegram, "pppoe": g_pppoe, "dyndns": g_dyndns,
 }
 QUICK = [g for g in GROUPS if g not in ("telegram",)]
 

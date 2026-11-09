@@ -432,10 +432,21 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
             cfg = cfg_getter()
             duck_cfg = getattr(cfg, "duckdns", None)
             if not duck_cfg or not duck_cfg.enabled or not duck_cfg.token or not duck_cfg.domain:
+                missing = [n for n, v in (("token", getattr(duck_cfg, "token", "")), ("domain", getattr(duck_cfg, "domain", ""))) if not v]
+                on = bool(duck_cfg and duck_cfg.enabled)
                 with _duckdns_lock:
-                    _duckdns_state["enabled"] = False
+                    _duckdns_state["enabled"] = on
                     _duckdns_state["running"] = True
                     _duckdns_state["next_update_ts"] = 0.0
+                    _duckdns_state["token_set"] = bool(getattr(duck_cfg, "token", ""))
+                    if on:
+                        # Turned on but not usable: say so instead of staying silent (2026-11-09: a dynv6 domain
+                        # without a token was never updated and nothing told the owner).
+                        _duckdns_state["last_status"] = "KO"
+                        _duckdns_state["last_message"] = "DynDNS is on, but the " + " and ".join(missing) + " is missing; nothing is updated."
+                if on and not getattr(run_duckdns_daemon, "_warned", False):
+                    log.warning("DynDNS is on, but the %s is missing; nothing is updated", " and ".join(missing))
+                    run_duckdns_daemon._warned = True
                 # Wait 15 seconds or until woken by config change
                 _duckdns_wake_event.wait(timeout=15.0)
                 continue

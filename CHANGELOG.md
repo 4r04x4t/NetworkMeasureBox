@@ -90,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- DynDNS: turned on with a domain but no token, it updated nothing and said nothing; it now logs it and the status shows "the token is missing". `nmb-selftest dyndns` checks the token, a recent successful update and that the name points at the current line.
 - Telegram bot: a speed test blocked the bot for its whole duration (minutes with all engines), so it did not answer anything else; tests now run in their own thread and a second one is refused politely. The result shows only this test's own rows (one line per engine), not whatever row was newest, and the start message no longer promises 15-25 seconds.
 - Speed tests: one at a time on the whole box. The lock was per process, so a Telegram test and a scheduled test of the web server could run at once and measure each other's traffic; a scheduled test now skips, a manual, web or Telegram test waits up to 10 minutes.
 - PPPoE: the user name and password were on the pppd command line, readable by every local user with `ps`; they are now in a private options file.
