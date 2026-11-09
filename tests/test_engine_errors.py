@@ -123,3 +123,33 @@ class DynDnsSendsIpv4Test(unittest.TestCase):
             duckdns.update_duckdns(domain="x.v6.army", token="t" * 30, provider="dynv6", ipv6_mode="none")
         self.assertIn("ipv4=198.51.100.7", sent["url"])
         self.assertNotIn("ipv4=auto", sent["url"])
+
+
+class UsbTestGuardTest(unittest.TestCase):
+    def _allowed(self, state, link="auto", iface="eth1"):
+        import json as _json
+        from nmb.config import Config
+        cfg = Config()
+        cfg.network.measurement_link = link
+        real_read = Path.read_text
+
+        def fake(self_path, *a, **k):
+            if str(self_path) == "/run/nmb/netd_state.json":
+                if state is None:
+                    raise FileNotFoundError(self_path)
+                return _json.dumps(state)
+            return real_read(self_path, *a, **k)
+        with mock.patch("nmb.netd.interfaces.usb_tether_kind", side_effect=lambda i: "tether" if i == "eth1" else None), \
+             mock.patch.object(Path, "read_text", fake):
+            return not runner._usb_test_not_allowed(cfg, iface)
+
+    def test_no_usb_test_while_netd_restarts_or_in_router_mode(self):
+        self.assertFalse(self._allowed(None))                                                    # state file gone
+        self.assertFalse(self._allowed({"active_mode": None}))
+        self.assertFalse(self._allowed({"active_mode": "mode_a", "details": {"wan_interface": "ppp0"}}))
+
+    def test_usb_allowed_when_it_is_the_line(self):
+        self.assertTrue(self._allowed({"active_mode": "mode_a", "details": {"wan_interface": "eth1"}}))
+        self.assertTrue(self._allowed({"active_mode": "standalone"}))
+        self.assertTrue(self._allowed(None, link="usb"))
+        self.assertTrue(self._allowed(None, iface="eth0"))                                       # not USB at all

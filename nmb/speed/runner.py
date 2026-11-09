@@ -13,6 +13,7 @@ import logging
 import sys
 import threading
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from nmb.config import Config, load_config
@@ -809,6 +810,29 @@ def run_measurement_cycle(cfg: Config, trigger: str = "schedule", *args, **kwarg
         os.close(fd)
 
 
+def _usb_test_not_allowed(cfg: Config, iface: str) -> bool:
+    """A USB hotspot or modem carries a test only when it is the chosen measuring link, the router's WAN, or
+    the only internet in standalone or bridge mode. While nmb-netd restarts (its state file is gone) or in
+    router mode with the line down, the default route can briefly be the hotspot: two scheduled tests ran
+    over mobile data that way during an update (2026-11-09)."""
+    try:
+        from nmb.netd.interfaces import usb_tether_kind
+        if not iface or not usb_tether_kind(iface):
+            return False
+    except Exception:
+        return False
+    if getattr(cfg.network, "measurement_link", "auto") == "usb":
+        return False
+    try:
+        st = json.loads(Path("/run/nmb/netd_state.json").read_text())
+    except (OSError, ValueError):
+        return True    # nmb-netd is (re)starting: the routes are not settled
+    mode = st.get("active_mode")
+    if mode == "mode_a":
+        return (st.get("details") or {}).get("wan_interface") != iface
+    return mode not in ("standalone", "mode_b")
+
+
 def _run_measurement_cycle(
     cfg: Config,
     trigger: str = "schedule",
@@ -929,6 +953,12 @@ def _run_measurement_cycle(
 
     from nmb.netd.interfaces import find_preferred_measurement_interface
     pref_gate_iface, _, _ = find_preferred_measurement_interface(cfg, target_iface=target_iface)
+    if not target_iface and _usb_test_not_allowed(cfg, pref_gate_iface):
+        reason = f"skipped: no test over the USB hotspot ({pref_gate_iface}) unless it is the chosen measuring link"
+        log.warning("speed test %s", reason)
+        if outcome is not None:
+            outcome["wan_down"] = True
+        return False
     from nmb.netd.lan_topology import traffic_monitor_device
     check_gate_iface = traffic_monitor_device(cfg.network, pref_gate_iface)
     monitor = None
