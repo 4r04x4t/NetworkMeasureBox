@@ -41,6 +41,10 @@ class Ipv6LanConfigTest(unittest.TestCase):
                 mgr.start_dnsmasq(["br-lan"])
             return (Path(d) / "dnsmasq.conf").read_text()
 
+    def test_dnsmasq_writes_no_pid_file_itself(self):
+        # it chowned it to the user it drops to, needing CAP_CHOWN: a warning at every router start
+        self.assertIn("\npid-file=\n", self._dnsmasq_conf(True))
+
     def test_router_dnsmasq_has_ra_only_when_on(self):
         self.assertIn("enable-ra", self._dnsmasq_conf(True))
         self.assertNotIn("enable-ra", self._dnsmasq_conf(False))

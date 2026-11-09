@@ -359,8 +359,6 @@ Found in the code or in the box's logs and not fixed yet (the log review of 2026
 | RTR rows without the client IP | About 8 % since the fix (16 of 208): the address lookup over the measured link sometimes fails |
 | SD card writes | The developer log grows about 10 MB a day on the SD card (the boot-partition copy of the diagnostic snapshot is already limited to once an hour) |
 | Wired route outside NetworkManager | The Web UI adds a static `eth0` default route (metric 50) itself; it should set the metric in the NetworkManager profile instead |
-| Configuration reload is slow | Every reload applies the kernel tuning again (about 8 s on the Pi) before it looks at what changed |
-| dnsmasq pid file | "chown of PID file /run/nmb/dnsmasq.pid failed: please add capability CAP_CHOWN" at each router start (harmless, noisy) |
 | Data used by the owner's schedule | The box runs every engine every 2-5 minutes (the owner's setting): on a 1000 Mbit/s line that is many GB an hour. USB has no daily limit set (0); since 2026-11-09 router mode does not fall back to USB for tests, but a limit for USB is still advisable |
 | `nmcli device reapply` | Putting IPv4 DNS first reapplies the profile once; that reset an open connection of the bot once (it reconnected) |
 | Leftovers on the test box | 22 old `/tmp/nmb-install-*` folders from 2026-11-07 deploys |

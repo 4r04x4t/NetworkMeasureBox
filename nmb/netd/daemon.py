@@ -50,7 +50,12 @@ class NetworkDaemon:
     def _apply_reload(self) -> None:
         """Reload config; rebuild the network only when its settings actually changed."""
         self.reload_requested = False
-        _apply_kernel_tuning()
+        # The tuning (sysctl file, packet steering per interface) takes about 8 s on a Pi 4: only when its file
+        # or the set of interfaces changed, not on every settings save (2026-11-09).
+        sig = _kernel_tuning_signature()
+        if sig != getattr(self, "_kernel_sig", None):
+            _apply_kernel_tuning()
+            self._kernel_sig = sig
         old_network = self.cfg.network
         old_pf = getattr(self.cfg, "port_forward", None)
         self.cfg = load_config()
@@ -227,6 +232,7 @@ class NetworkDaemon:
             log.debug("could not write pidfile: %s", e)
 
         _apply_kernel_tuning()
+        self._kernel_sig = _kernel_tuning_signature()
 
         # Initial assessment
         override = self._get_override_mode()
@@ -300,6 +306,19 @@ class NetworkDaemon:
         STATE_FILE.unlink(missing_ok=True)
         pid_file.unlink(missing_ok=True)
         log.info("nmb-netd shutdown complete")
+
+
+def _kernel_tuning_signature() -> tuple:
+    try:
+        st = Path("/etc/sysctl.d/99-nmb-performance.conf").stat()
+        conf = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        conf = None
+    try:
+        ifaces = tuple(sorted(os.listdir("/sys/class/net")))
+    except OSError:
+        ifaces = ()
+    return conf, ifaces
 
 
 def _apply_kernel_tuning() -> None:

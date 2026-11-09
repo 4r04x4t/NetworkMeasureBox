@@ -359,8 +359,6 @@ A kódban vagy a box naplóiban talált, még nem javított hibák (a 2026-11-09
 | RTR sorok kliens IP nélkül | A javítás óta kb. 8% (208-ból 16): a cím lekérdezése a mért linken néha nem sikerül |
 | SD-kártya írások | A fejlesztői napló kb. 10 MB-ot nő naponta az SD-kártyán (a diagnosztikai pillanatkép boot partíciós másolata már óránként legfeljebb egyszer készül) |
 | Vezetékes útvonal a NetworkManageren kívül | A webes felület maga tesz fel egy statikus `eth0` alapútvonalat (50-es metrika); helyette a NetworkManager profil metrikáját kellene állítani |
-| A beállítások újratöltése lassú | Minden újratöltés előbb újra alkalmazza a kernelhangolást (kb. 8 s a Pi-n), csak utána nézi meg, mi változott |
-| dnsmasq pid-fájl | „chown of PID file /run/nmb/dnsmasq.pid failed: please add capability CAP_CHOWN” minden router-induláskor (ártalmatlan, zajos) |
 | A tulajdonos ütemezése által használt adat | A doboz 2-5 percenként minden motort futtat (a tulajdonos beállítása): egy 1000 Mbit/s-os vonalon ez óránként sok GB. A USB-nek nincs napi korlátja (0); 2026-11-09 óta a router mód nem vált USB-re méréshez, de USB-korlát beállítása így is ajánlott |
 | `nmcli device reapply` | Az IPv4 DNS előresorolása egyszer újraalkalmazza a profilt; ez egyszer megszakította a bot egy nyitott kapcsolatát (újracsatlakozott) |
 | Maradékok a teszt-boxon | 22 régi `/tmp/nmb-install-*` mappa a 2026-11-07-i telepítésekből |

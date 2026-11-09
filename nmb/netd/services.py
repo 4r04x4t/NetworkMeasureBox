@@ -201,7 +201,9 @@ dhcp-range=set:lan,{start},{end},{mask},{self.cfg.dhcp_lease_time}
 dhcp-option=tag:lan,option:router,{gw_ip}
 dhcp-option=tag:lan,option:dns-server,{gw_ip}
 {dmz_lines}{ra_lines}dhcp-leasefile={lease_file}
-pid-file={pid_file}
+# No pid file from dnsmasq itself: it chowns it to the user it drops to, which needs CAP_CHOWN (a warning at
+# every start); nmb-netd writes the pid it started.
+pid-file=
 """
         self.run_dir.mkdir(parents=True, exist_ok=True)
         _write_private(conf_file, conf_content, mode=0o644)

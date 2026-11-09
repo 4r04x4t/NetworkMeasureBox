@@ -99,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A settings save made nmb-netd apply the kernel tuning again (about 8 s on a Pi 4) every time; it now does so only when the tuning file or the set of interfaces changed. dnsmasq in router mode no longer writes its own pid file, which logged a CAP_CHOWN warning at every start.
 - Router mode on PPPoE did not start after an update: the installer had given the pppd options file in /run/nmb to the `nmb` user, and nmb-netd (no CAP_FOWNER) could not rewrite it ("Operation not permitted"). The file is now written new and moved over, and the installer no longer changes the owner of files in /run/nmb.
 - PPPoE: a wrong login was sent again every 8 s for ever (5 refused logins in 40 s on the real line, after which the ISP did not answer for a while). pppd now gives up after 3 failures and nmb-netd dials again after 10, 20, then 30 minutes for a refused login (30 s for a line problem); the reason shows in the status. The real-line self-test dials once and shows the ISP's message ("Invalid username or password").
 - Router mode on PPPoE: ppp0 took no IPv6 from the ISP because forwarding was on; it now accepts the router advert from the moment pppd creates ppp0.
