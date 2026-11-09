@@ -270,6 +270,7 @@ Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Mind
 
 | Mit | Hogyan |
 |---|---|
+| A 2026-11-09-i naplóátnézés javításai | Telegram kiesés közben (kábel ki a routerből): a bot naplójában egyre hosszabb szünetek, nem másodpercenként több kérés. A Telegramból küldött `/dyndns off` és `/dyndns on` elmentődik. Csak a DNS letiltása (pl. az 53-as port a routeren): a tartalék elindul, miközben az IP működik, és a tiltás vége után 15 percen belül visszajön a rendes DNS. Router mód a Pi-n: a `journalctl -u nmb-netd` nem mutat „hostapd did not start” sort. A `/var/lib/nmb/.rmbt_client_uuid` változatlan marad az RTR mérések között. Egy kábelhúzás után nincsenek ismétlődő „dead default route” sorok |
 | Automatikus mód (`mode = auto`) | A box `auto`-ban, a kábel az otthoni routerben: standalone, nincs váltás. A kábel 90 mp-re kihúzva a routerből: router mód hozzáférési ponttal (a Tailscale-nek USB-n vagy Wi-Fin meg kell maradnia). A kábel az ONT-n, mentett PPPoE-vel: router mód PPPoE-vel. A kábel vissza a routerbe: kb. 30 mp-en belül standalone. Router újraindítás (90 mp alatt): marad standalone. Több vezetékes portos boxon: a többi port hídban a WAN porttal, a mögötte lévő PC a router címét kapja |
 | IPv6 a vonalon | `sudo nmb-selftest ipv6`: a LAN router hirdetése (élettartam, előtagok), a box nyilvános IPv6-címe és útvonala, HTTPS IPv6-on. 2026-11-09, Pi 4: az otthoni router (GL.iNet Flint 4) 0 élettartamot és előtag nélküli hirdetést küldött, ezért a LAN nem kapott IPv6-ot, pedig a szolgáltató adja; újratesztelendő, miután a router LAN-oldalán bekapcsolták az IPv6-ot. Utána a DynDNS-nek be kell állítania az AAAA-rekordot |
 | IPv6 router módban | Még nincs megírva: router módban a box nem kér előtagot a szolgáltatótól (DHCPv6-PD), és a LAN-on nem küld router-hirdetést, így a kliensei csak IPv4-et kapnak |
@@ -321,6 +322,21 @@ Abból, hogy a `setup.sh` mit ismer fel, és mi kell a kódnak (Python 3.10 vagy
 | Arch, Manjaro, openSUSE, Void, NixOS | Nem támogatott | Más csomagkezelő vagy init-rendszer | Portolás kell |
 | OpenWrt | Nem támogatott | A natív átírásban tervezett, lásd `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md` | — |
 | Az NMB saját disztribúciója | Tervezett | Lásd a portolási tervet | — |
+
+## Javítandó
+
+A kódban vagy a box naplóiban talált, még nem javított hibák (a 2026-11-09-i naplóátnézés összefoglalója a CHANGELOG-ban):
+
+| Mi | Részlet |
+|---|---|
+| Ookla rate limit óránkénti ütemezésnél | Az Ookla néhány óránként még elutasította a boxot (2026-11-08 17:20, 20:22-22:24, 11-09 01:27, 06:37, 07:41). Egy ok javítva (a bot minden alkalommal új kliensként futtatta az Ooklát); figyelni kell, megszűnik-e, és a kézi és Telegramos futásokat is bele kell számolni az órába |
+| RTR sorok kliens IP nélkül | A javítás óta kb. 8% (208-ból 16): a cím lekérdezése a mért linken néha nem sikerül |
+| SD-kártya írások | A diagnosztikai pillanatkép 3 percenként fut, és a boot partícióra is kimásolódik (kb. 70 KB-onként); a fejlesztői napló kb. 10 MB-ot nő naponta |
+| Vezetékes útvonal a NetworkManageren kívül | A webes felület maga tesz fel egy statikus `eth0` alapútvonalat (50-es metrika); helyette a NetworkManager profil metrikáját kellene állítani |
+| IPv6 router módban | Nincs DHCPv6 előtag-delegálás a WAN-on és nincs router-hirdetés a LAN-on |
+| `nmcli device reapply` | Az IPv4 DNS előresorolása egyszer újraalkalmazza a profilt; ez egyszer megszakította a bot egy nyitott kapcsolatát (újracsatlakozott) |
+| Önteszt jelentések | A `selftest-*.json` és `scenario-*.json` fájlok forgatás nélkül gyűlnek a /var/log/nmb-ben |
+| Maradékok a teszt-boxon | 22 régi `/tmp/nmb-install-*` mappa a 2026-11-07-i telepítésekből |
 
 ## Ismert korlátok
 

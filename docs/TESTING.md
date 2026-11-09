@@ -270,6 +270,7 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 
 | What | How |
 |---|---|
+| Fixes of the 2026-11-09 log review | Telegram during an outage (cable out of the router): the bot log shows growing pauses, not several requests a second. `/dyndns off` and `/dyndns on` from Telegram are saved. Block only DNS (for example port 53 on the router): the fallback starts while IP works, and the normal DNS comes back within 15 minutes after the block ends. Router mode on the Pi: `journalctl -u nmb-netd` shows no "hostapd did not start". `/var/lib/nmb/.rmbt_client_uuid` stays the same across RTR tests. A cable pull leaves no repeated "dead default route" lines |
 | Automatic mode (`mode = auto`) | Box in `auto` with the cable in the home router: standalone, no switch. Cable out of the router for 90 s: router mode with the access point (Tailscale over USB or Wi-Fi must stay up). Cable on the ONT with PPPoE saved: router mode with PPPoE. Cable back in the router: standalone within about 30 s. Router reboot (under 90 s): stays standalone. On a box with several wired ports: the other ports bridged to the WAN port, a PC behind it gets the router's address |
 | IPv6 on the line | `sudo nmb-selftest ipv6`: the LAN router's advertisement (lifetime, prefixes), the box's public IPv6 address and route, HTTPS over IPv6. 2026-11-09 on the Pi 4: the home router (GL.iNet Flint 4) advertised lifetime 0 and no prefix, so the LAN got no IPv6 although the ISP provides it; to re-test after IPv6 is turned on for the router's LAN. DynDNS must then set the AAAA record |
 | IPv6 in router mode | Not built yet: router mode asks the ISP for no prefix (DHCPv6-PD) and sends no router advertisements on its LAN, so its clients get IPv4 only |
@@ -321,6 +322,21 @@ Found by checking what `setup.sh` detects and what the code needs (Python 3.10 o
 | Arch, Manjaro, openSUSE, Void, NixOS | Not supported | Other package managers or init systems | Needs a port |
 | OpenWrt | Not supported | Planned in the native rewrite, see `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md` | — |
 | NMB's own distribution | Planned | See the porting plan | — |
+
+## To fix
+
+Found in the code or in the box's logs and not fixed yet (the log review of 2026-11-09 is summarised in the CHANGELOG):
+
+| What | Detail |
+|---|---|
+| Ookla rate limits at an hourly schedule | Ookla still refused the box every few hours (2026-11-08 17:20, 20:22-22:24, 11-09 01:27, 06:37, 07:41). One cause is fixed (the bot ran Ookla as a new client each time); watch whether it stops, and count manual and Telegram runs against the hour too |
+| RTR rows without the client IP | About 8 % since the fix (16 of 208): the address lookup over the measured link sometimes fails |
+| SD card writes | The diagnostic snapshot runs every 3 minutes and is copied to the boot partition (about 70 KB each); the developer log grows about 10 MB a day |
+| Wired route outside NetworkManager | The Web UI adds a static `eth0` default route (metric 50) itself; it should set the metric in the NetworkManager profile instead |
+| IPv6 in router mode | No DHCPv6 prefix delegation on the WAN and no router advertisements on the LAN |
+| `nmcli device reapply` | Putting IPv4 DNS first reapplies the profile once; that reset an open connection of the bot once (it reconnected) |
+| Self-test reports | `selftest-*.json` and `scenario-*.json` pile up in /var/log/nmb without rotation |
+| Leftovers on the test box | 22 old `/tmp/nmb-install-*` folders from 2026-11-07 deploys |
 
 ## Known limits
 
