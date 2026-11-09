@@ -441,6 +441,26 @@ def find_active_wired_interface() -> Optional[Tuple[str, str]]:
     return None
 
 
+def _usable_address(iface: str) -> Optional[str]:
+    """The address a test can bind to on iface: IPv4 first, else a global IPv6; never link-local."""
+    addrs = [a.split("/")[0] for a in get_ip_addresses(iface)]
+    v4 = [a for a in addrs if ":" not in a]
+    v6 = [a for a in addrs if ":" in a and not a.lower().startswith("fe80")]
+    return (v4 or v6 or [None])[0]
+
+
+def router_wan_interface(state_file: Path = Path("/run/nmb/netd_state.json")) -> Optional[str]:
+    """In router mode, the WAN nmb-netd routes through (from its state file); None in the other modes."""
+    try:
+        st = json.loads(state_file.read_text())
+    except (OSError, ValueError):
+        return None
+    if st.get("active_mode") != "mode_a":
+        return None
+    wan = (st.get("details") or {}).get("wan_interface") or ""
+    return wan if wan and interface_exists(wan) else None
+
+
 def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface: Optional[str] = None) -> Tuple[str, Optional[str], bool]:
     """Resolve optimal measurement interface, strictly prioritizing active wired Ethernet connections.
 
@@ -482,6 +502,14 @@ def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface
         log.warning("measurement link set to Ethernet, but no cable with an address is connected")
         return wan, None, True
 
+    # 1c. Router mode: the line is the router's WAN (ppp0 on PPPoE, the hotspot on USB), not the cable that
+    # carries PPPoE. 2026-11-09: tests bound to eth0, which had only a link-local address, and failed.
+    rw = router_wan_interface()
+    if rw:
+        ip = _usable_address(rw)
+        if ip:
+            return rw, ip, is_wired_interface(rw)
+
     # 2. STRICT WIRED PRIORITY: If a cable is plugged in with carrier & IP
     wired = find_active_wired_interface()
     if wired:
@@ -502,8 +530,7 @@ def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface
         wan = getattr(cfg.network, "wan_interface", "eth0")
         wan = bridge_master(wan) or wan
         if wan and interface_exists(wan):
-            addrs = get_ip_addresses(wan)
-            ip = addrs[0].split("/")[0] if addrs else None
+            ip = _usable_address(wan)   # a link-local IPv6 address cannot carry a test
             # Without an address the WAN port cannot carry a test; fall through to the link that has the
             # default route (Wi-Fi, or the USB tethering fallback), so "auto" really measures that link.
             if ip or not get_default_gateway_iface():

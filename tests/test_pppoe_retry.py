@@ -238,3 +238,34 @@ class PppdOptionsFileTest(unittest.TestCase):
     def test_installer_does_not_chown_run_files(self):
         text = (Path(__file__).resolve().parent.parent / "setup.sh").read_text()
         self.assertNotRegex(text, r"chown -R [^\n]*/run/nmb")
+
+
+class RouterMeasurementLinkTest(unittest.TestCase):
+    """2026-11-09, router mode on PPPoE: scheduled tests bound to eth0 (only a link-local address there,
+    PPPoE runs over it) and failed with "Address family for hostname not supported"."""
+
+    def _pick(self, state, addrs):
+        from nmb.netd import interfaces
+        import json as _json
+        with TemporaryDirectory() as d:
+            sf = Path(d) / "netd_state.json"
+            sf.write_text(_json.dumps(state))
+            real = interfaces.router_wan_interface
+            with patch.object(interfaces, "router_wan_interface", lambda: real(sf)), \
+                 patch.object(interfaces, "interface_exists", return_value=True), \
+                 patch.object(interfaces, "get_ip_addresses", side_effect=lambda i: addrs.get(i, [])), \
+                 patch.object(interfaces, "find_active_wired_interface", return_value=None), \
+                 patch.object(interfaces, "get_default_gateway_iface", return_value="ppp0"), \
+                 patch.object(interfaces, "is_wired_interface", side_effect=lambda i: i.startswith("eth")):
+                return interfaces.find_preferred_measurement_interface(Config())
+
+    def test_router_mode_measures_ppp0(self):
+        iface, ip, _ = self._pick({"active_mode": "mode_a", "details": {"wan_interface": "ppp0"}},
+                                  {"eth0": ["fe80::1/64"], "ppp0": ["198.51.100.7/32", "2001:db8::7/64"]})
+        self.assertEqual((iface, ip), ("ppp0", "198.51.100.7"))
+
+    def test_link_local_wan_is_not_a_test_link(self):
+        iface, ip, _ = self._pick({"active_mode": "standalone", "details": {}},
+                                  {"eth0": ["fe80::1/64"], "ppp0": ["198.51.100.7/32"]})
+        self.assertNotEqual(ip, "fe80::1")
+        self.assertEqual(iface, "ppp0")      # falls through to the link with the default route
