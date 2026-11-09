@@ -416,6 +416,9 @@ class AutonomousScheduler(threading.Thread):
                 elif outcome.get("data_limit"):
                     self.last_outcome = "skipped_busy"
                     self.last_detail = "No speed test: daily data limit reached"
+                elif outcome.get("wan_down"):
+                    self.last_outcome = "skipped_busy"
+                    self.last_detail = "No speed test: router mode, its internet line is down"
                 elif outcome.get("blind"):
                     self.last_outcome = "skipped_busy"
                     self.last_detail = "No speed test: other devices' traffic is not visible to the box"

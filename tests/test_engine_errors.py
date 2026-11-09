@@ -51,3 +51,32 @@ class RmbtControlBoundTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RouterWanDownTest(unittest.TestCase):
+    """2026-11-09: DIGI refused the PPPoE login ("Too many sessions") for some minutes and router mode had no
+    WAN; 19 scheduled tests in an hour then ran over the USB hotspot (the wrong line, and mobile data)."""
+
+    def _cycle(self, target_iface=None, addr=None):
+        from nmb.config import Config
+        cfg = Config()
+        outcome = {}
+        with mock.patch("nmb.netd.interfaces.router_wan_interface", return_value="ppp0"), \
+             mock.patch("nmb.netd.interfaces._usable_address", return_value=addr), \
+             mock.patch.object(runner, "_run_single_engine", side_effect=AssertionError("no test may run")) as eng:
+            try:
+                ok = runner._run_measurement_cycle(cfg, trigger="schedule", engine="cloudflare",
+                                                   target_iface=target_iface, outcome=outcome)
+            except AssertionError:
+                ok = None
+        return ok, outcome, eng.called
+
+    def test_no_test_while_the_router_wan_is_down(self):
+        ok, outcome, ran = self._cycle()
+        self.assertFalse(ok)
+        self.assertTrue(outcome.get("wan_down"))
+        self.assertFalse(ran)
+
+    def test_a_chosen_interface_still_runs(self):
+        _, outcome, _ = self._cycle(target_iface="eth1")
+        self.assertNotIn("wan_down", outcome)

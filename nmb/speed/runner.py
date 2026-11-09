@@ -844,6 +844,20 @@ def _run_measurement_cycle(
         conn.close()
         return True
 
+    # 0a. Router mode measures its own WAN. With that line down (PPPoE refused or redialing) a test would
+    # leave over the USB hotspot or the Wi-Fi instead: the wrong line, and mobile data (2026-11-09: 19 tests
+    # over the hotspot in an hour while DIGI refused the PPPoE login). No test then, unless one was asked
+    # for on a chosen interface.
+    if not target_iface:
+        from nmb.netd.interfaces import _usable_address, router_wan_interface
+        rw = router_wan_interface()
+        if rw and not _usable_address(rw):
+            reason = f"skipped: router mode, its internet line ({rw}) is down"
+            log.warning("speed test %s", reason)
+            if outcome is not None:
+                outcome["wan_down"] = True
+            return False
+
     # 0b. A metered line must not run out of data because of scheduled tests.
     limit_mb = float(getattr(cfg.speedtest, "daily_data_limit_mb", 0) or 0)
     if trigger == "schedule" and limit_mb > 0:

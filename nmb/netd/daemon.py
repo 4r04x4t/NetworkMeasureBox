@@ -181,6 +181,16 @@ class NetworkDaemon:
         if signum in (signal.SIGTERM, signal.SIGINT):
             log.info("received termination signal (%d), stopping netd...", signum)
             self.running = False
+            # Hang up PPPoE at once, before the rest of the teardown: if systemd's stop timeout kills pppd
+            # first, no PADT goes out and the ISP keeps the old session ("Too many sessions" for minutes on
+            # the next dial, 2026-11-09).
+            try:
+                mode = self.current_mode_inst
+                proc = mode.svc_mgr.processes.get("pppd") if mode is not None else None
+                if proc is not None and proc.proc is not None and proc.proc.poll() is None:
+                    proc.proc.terminate()
+            except Exception:
+                pass
         elif signum == signal.SIGHUP:
             log.info("received SIGHUP, scheduling configuration reload")
             self.reload_requested = True

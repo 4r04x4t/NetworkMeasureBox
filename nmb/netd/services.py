@@ -305,7 +305,7 @@ pid-file={pid_file}
 
     def stop_pppd(self) -> None:
         if "pppd" in self.processes:
-            self.processes["pppd"].stop()
+            self.processes["pppd"].stop(timeout=6.0)   # LCP terminate, then PADT: a few seconds
             del self.processes["pppd"]
 
     def start_miniupnpd(self, wan_iface: str, lan_iface: str, lan_net: Any) -> bool:
@@ -380,9 +380,9 @@ pid-file={pid_file}
             del self.processes["dhcpcd-pd"]
 
     def stop_all(self) -> None:
+        self.stop_pppd()   # first: pppd needs its seconds to send PADT before anything is killed
         self.stop_dhcpcd_pd()
         self.stop_miniupnpd()
-        self.stop_pppd()
         self.stop_dnsmasq()
         self.stop_hostapd()
 

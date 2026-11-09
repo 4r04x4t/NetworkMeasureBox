@@ -457,8 +457,8 @@ def router_wan_interface(state_file: Path = Path("/run/nmb/netd_state.json")) ->
         return None
     if st.get("active_mode") != "mode_a":
         return None
-    wan = (st.get("details") or {}).get("wan_interface") or ""
-    return wan if wan and interface_exists(wan) else None
+    # The name even while it is missing (ppp0 between two dials): callers must not fall back to another line.
+    return (st.get("details") or {}).get("wan_interface") or None
 
 
 def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface: Optional[str] = None) -> Tuple[str, Optional[str], bool]:

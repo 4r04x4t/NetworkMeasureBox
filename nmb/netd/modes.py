@@ -138,6 +138,7 @@ class ModeA(NetworkMode):
     PPPD_AUTH_PAUSE_SEC = 600
     PPPD_AUTH_PAUSE_MAX_SEC = 1800
     PPPD_LINE_PAUSE_SEC = 30
+    PPPD_LINE_PAUSE_MAX_SEC = 300
 
     def check_pppd(self, now: Optional[float] = None) -> None:
         """Every loop: when pppd has given up (maxfail), note why and dial again after a pause."""
@@ -157,7 +158,7 @@ class ModeA(NetworkMode):
             addrs = interfaces.get_ip_addresses("ppp0")
             if self.pppoe_error and addrs:
                 log.info("PPPoE is up again on %s", self.pppoe_iface)
-                self.pppoe_error, self.pppoe_auth_fails = "", 0
+                self.pppoe_error, self.pppoe_auth_fails, self.pppoe_line_fails = "", 0, 0
             if addrs:
                 self._pppoe_ipv6(addrs, now)
             return
@@ -166,7 +167,10 @@ class ModeA(NetworkMode):
             self.pppoe_auth_fails += 1
             pause = min(self.PPPD_AUTH_PAUSE_SEC * self.pppoe_auth_fails, self.PPPD_AUTH_PAUSE_MAX_SEC)
         else:
-            pause = self.PPPD_LINE_PAUSE_SEC
+            # No answer from the ISP: back off (30, 60, 120, 240, then 300 s) instead of asking every 40 s; an
+            # ISP that stopped answering after refused logins is not helped by more of them.
+            self.pppoe_line_fails = getattr(self, "pppoe_line_fails", 0) + 1
+            pause = min(self.PPPD_LINE_PAUSE_SEC * 2 ** (self.pppoe_line_fails - 1), self.PPPD_LINE_PAUSE_MAX_SEC)
         self.pppoe_error = why
         self._pppd_retry_at = now + pause
         log.warning("PPPoE: %s; dialing again in %d s", why, pause)

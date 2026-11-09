@@ -63,6 +63,17 @@ class PppdWatchTest(unittest.TestCase):
         self.mode.check_pppd(now=0)
         self.assertEqual(self.mode._pppd_retry_at, 1800)
 
+    def test_line_problem_backs_off(self):
+        self.svc.pppd_exit_code.return_value = 8
+        waits = []
+        now = 0
+        for _ in range(6):
+            self.mode._pppd_retry_at = 0.0
+            self.mode.check_pppd(now=now)
+            waits.append(self.mode._pppd_retry_at - now)
+            now += 1000
+        self.assertEqual(waits, [30, 60, 120, 240, 300, 300])
+
     def test_line_problem_retries_soon(self):
         self.svc.pppd_exit_code.return_value = 8
         self.mode.check_pppd(now=50)
@@ -72,10 +83,11 @@ class PppdWatchTest(unittest.TestCase):
 
     def test_link_up_clears_the_error(self):
         self.mode.pppoe_error, self.mode.pppoe_auth_fails = "the ISP refused", 2
+        self.mode.pppoe_line_fails = 3
         self.svc.pppd_exit_code.return_value = None
         modes.interfaces.get_ip_addresses.return_value = ["100.64.1.2/32"]
         self.mode.check_pppd(now=10)
-        self.assertEqual((self.mode.pppoe_error, self.mode.pppoe_auth_fails), ("", 0))
+        self.assertEqual((self.mode.pppoe_error, self.mode.pppoe_auth_fails, self.mode.pppoe_line_fails), ("", 0, 0))
 
     def test_nothing_to_do_without_pppoe(self):
         self.mode.active_wan, self.mode.pppoe_iface = "eth0", ""
@@ -269,3 +281,24 @@ class RouterMeasurementLinkTest(unittest.TestCase):
                                   {"eth0": ["fe80::1/64"], "ppp0": ["198.51.100.7/32"]})
         self.assertNotEqual(ip, "fe80::1")
         self.assertEqual(iface, "ppp0")      # falls through to the link with the default route
+
+
+class ShutdownOrderTest(unittest.TestCase):
+    def test_pppd_is_stopped_first_and_given_time(self):
+        mgr = services.ServiceManager.__new__(services.ServiceManager)
+        order = []
+        for name in ("pppd", "dhcpcd-pd", "miniupnpd", "dnsmasq", "hostapd"):
+            proc = MagicMock()
+            proc.stop.side_effect = lambda timeout=3.0, n=name: order.append((n, timeout))
+            mgr.processes = getattr(mgr, "processes", {})
+            mgr.processes[name] = proc
+        mgr.cfg = Config().network
+        with TemporaryDirectory() as d, patch.object(services.ServiceManager, "return_to_network_manager"), \
+             patch.object(services.subprocess, "run"):
+            mgr.run_dir = Path(d)
+            mgr.stop_all()
+        self.assertEqual(order[0], ("pppd", 6.0))
+
+    def test_unit_waits_long_enough(self):
+        unit = (Path(__file__).resolve().parent.parent / "systemd" / "nmb-netd.service").read_text()
+        self.assertRegex(unit, r"TimeoutStopSec=(4[5-9]|[5-9]\d)")
