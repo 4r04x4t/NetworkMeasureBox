@@ -109,26 +109,70 @@ class UpnpConfigTest(unittest.TestCase):
         self.assertIn("allow 1024-65535 192.168.100.0/24 1024-65535", conf)
         self.assertTrue(conf.rstrip().splitlines()[-1].startswith("deny 0-65535 0.0.0.0/0"))
         self.assertIn(f"upnp_nat_table_name={pf.UPNP_TABLE}", conf)
+        # miniupnpd 2.3.9 (Debian 13) refuses unknown options and does not start (seen on the box)
+        known = {"ext_ifname", "listening_ip", "port", "enable_upnp", "enable_natpmp", "enable_pcp_pmp", "secure_mode",
+                 "system_uptime", "notify_interval", "clean_ruleset_interval", "min_lifetime", "max_lifetime", "lease_file",
+                 "uuid", "friendly_name", "model_name", "upnp_table_name", "upnp_nat_table_name", "upnp_forward_chain",
+                 "upnp_nat_chain", "upnp_nat_postrouting_chain", "upnp_nftables_family_split"}
+        for line in conf.splitlines():
+            if line and not line.startswith(("allow ", "deny ")):
+                self.assertIn(line.split("=")[0], known, line)
+
+    def test_miniupnpd_raw_rule_format(self):
+        # as printed on the box (Debian 13, miniupnpd 2.3.9, nft 1.1)
+        chain = ('table inet nmb_upnp {\n\tchain prerouting {\n'
+                 '\t\tiif "ppp0" @nh,72,8 0x6 th dport 38080 dnat ip to 192.168.100.251:8000\n'
+                 '\t\tiif "ppp0" @nh,72,8 0x11 th dport 3478 dnat ip to 192.168.100.41:3478\n\t}\n}\n')
+        leases = "TCP:38080:192.168.100.251:8000:1794251400:nmb-selftest\n"
+        m = pf.parse_upnp_chain(chain, leases)
+        self.assertEqual(m[0], {"proto": "tcp", "ext": 38080, "ip": "192.168.100.251", "port": 8000, "name": "nmb-selftest"})
+        self.assertEqual((m[1]["proto"], m[1]["ext"], m[1]["name"]), ("udp", 3478, ""))
 
     def test_mappings_are_read_from_the_chain(self):
         out = ('table inet nmb_upnp {\n chain prerouting {\n  iifname "ppp0" tcp dport 51413 dnat ip to 192.168.100.40:51413 comment "Transmission"\n'
                '  iifname "ppp0" udp dport 3478 dnat ip to 192.168.100.41:3478\n }\n}\n')
         with patch.object(pf.shutil, "which", return_value="/usr/sbin/nft"), \
              patch("subprocess.run", return_value=MagicMock(stdout=out)):
-            m = pf.upnp_mappings()
-        self.assertEqual(m[0], {"proto": "tcp", "ext": 51413, "ip": "192.168.100.40", "port": 51413, "name": "Transmission"})
+            m = pf.upnp_mappings(lease_file="/nonexistent")
+        self.assertEqual(m[0], {"proto": "tcp", "ext": 51413, "ip": "192.168.100.40", "port": 51413, "name": ""})
         self.assertEqual(m[1]["proto"], "udp")
 
 
 class RouterModeTest(unittest.TestCase):
+    def test_upnp_waits_for_the_wan_address_and_follows_it(self):
+        cfg = Config()
+        cfg.port_forward.upnp = True
+        svc = MagicMock()
+        svc.processes = {}
+        mode = modes.ModeA(cfg.network, svc)
+        mode.full_cfg, mode.active_wan, mode.lan_ifaces = cfg, "ppp0", ["br-lan"]
+        addrs = {"ppp0": []}
+        with patch.object(modes, "firewall"), patch.object(modes.interfaces, "get_ip_addresses", side_effect=lambda i: addrs.get(i, [])):
+            mode.apply_firewall()
+            svc.start_miniupnpd.assert_not_called()          # ppp0 has no address yet
+            addrs["ppp0"] = ["198.51.100.7/32"]
+            mode.check_upnp()
+            svc.start_miniupnpd.assert_called_once()
+            running = MagicMock()
+            running.is_running.return_value = True
+            svc.processes = {"miniupnpd": running}
+            mode.check_upnp()
+            svc.start_miniupnpd.assert_called_once()          # same address: left alone
+            addrs["ppp0"] = ["198.51.100.8/32"]                # redial, new address
+            mode.check_upnp()
+            svc.stop_miniupnpd.assert_called_once_with(keep_table=True)
+            self.assertEqual(svc.start_miniupnpd.call_count, 2)
+
     def test_router_applies_rules_and_upnp(self):
         cfg = Config()
         cfg.port_forward.enabled, cfg.port_forward.upnp = True, True
         cfg.port_forward.rules = [rule()]
         svc = MagicMock()
+        svc.processes = {}
         mode = modes.ModeA(cfg.network, svc)
         mode.full_cfg, mode.active_wan, mode.lan_ifaces = cfg, "ppp0", ["br-lan"]
-        with patch.object(modes, "firewall") as fw:
+        with patch.object(modes, "firewall") as fw, \
+             patch.object(modes.interfaces, "get_ip_addresses", return_value=["198.51.100.7/32"]):
             mode.apply_firewall()
         kw = fw.enable_nat_mode_a.call_args.kwargs
         self.assertEqual([r["name"] for r in kw["forwards"]], ["nas"])

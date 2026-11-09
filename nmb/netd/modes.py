@@ -345,13 +345,46 @@ class ModeA(NetworkMode):
                                    gateway_netmask=getattr(self.cfg, "gateway_netmask", "255.255.255.0"))
         if forwards:
             log.info("port forwarding: %d rule(s) on %s", len(forwards), self.active_wan)
-        upnp = bool(full is not None and getattr(full.port_forward, "upnp", False))
-        lan_iface = self.lan_ifaces[0] if self.lan_ifaces else ""
-        if upnp and lan_iface:
-            self.svc_mgr.start_miniupnpd(self.active_wan, lan_iface,
-                                         port_forward.lan_network(self.cfg.gateway_ip, getattr(self.cfg, "gateway_netmask", "255.255.255.0")))
+        self._upnp_wanted = bool(full is not None and getattr(full.port_forward, "upnp", False) and self.lan_ifaces)
+        if self._upnp_wanted:
+            self.check_upnp()
         else:
+            self._upnp_addr = ""
             self.svc_mgr.stop_miniupnpd()
+
+    def check_ipv6_lan(self) -> None:
+        """Every loop: IPv6 for the LAN while PPPoE is the WAN; dhcpcd follows ppp0 across redials."""
+        if not (getattr(self.cfg, "lan_ipv6", True) and self.lan_ifaces and self.active_wan == "ppp0"):
+            return
+        try:
+            idx = Path("/sys/class/net/ppp0/ifindex").read_text().strip()
+        except OSError:
+            return
+        proc = self.svc_mgr.processes.get("dhcpcd-pd")
+        if proc is not None and proc.is_running() and getattr(self, "_v6_idx", None) == idx:
+            return
+        self._v6_idx = idx
+        self.svc_mgr.start_dhcpcd_pd("ppp0", self.lan_ifaces[0])
+
+    def check_upnp(self) -> None:
+        """Every loop: miniupnpd runs only while the WAN has an address, and starts again when it changes.
+
+        Started before ppp0 had its address, miniupnpd answered every NAT-PMP request with "network failure"
+        (2026-11-09); a redial may also bring a new public address."""
+        if not getattr(self, "_upnp_wanted", False):
+            return
+        from nmb.netd import port_forward
+        addr = next((a for a in interfaces.get_ip_addresses(self.active_wan) if ":" not in a), "")
+        proc = self.svc_mgr.processes.get("miniupnpd")
+        running = proc is not None and proc.is_running()
+        if not addr or (running and getattr(self, "_upnp_addr", "") == addr):
+            return
+        if running:
+            log.info("UPnP: the WAN address changed; restarting miniupnpd")
+            self.svc_mgr.stop_miniupnpd(keep_table=True)
+        self._upnp_addr = addr
+        self.svc_mgr.start_miniupnpd(self.active_wan, self.lan_ifaces[0],
+                                     port_forward.lan_network(self.cfg.gateway_ip, getattr(self.cfg, "gateway_netmask", "255.255.255.0")))
 
     def _wan_open_ports(self) -> List[tuple]:
         """Ports the internet may reach on the WAN: the VPN servers that are turned on, and Tailscale's
@@ -523,7 +556,16 @@ class ModeA(NetworkMode):
             "pppoe_running": self.svc_mgr.processes.get("pppd") is not None and self.svc_mgr.processes["pppd"].is_running(),
             "pppoe_error": self.pppoe_error,
             "port_forward": self._port_forward_status(),
+            "ipv6_lan": self._ipv6_lan_status(),
         }
+
+    def _ipv6_lan_status(self) -> dict:
+        from nmb.netd import ipv6_lan
+        proc = self.svc_mgr.processes.get("dhcpcd-pd")
+        lan = self.lan_ifaces[0] if self.lan_ifaces else ""
+        return {"enabled": bool(getattr(self.cfg, "lan_ipv6", True)),
+                "dhcpcd_running": bool(proc is not None and proc.is_running()),
+                "prefixes": len(ipv6_lan.lan_prefixes(lan)) if lan else 0}
 
     def _port_forward_status(self) -> dict:
         from nmb.netd import port_forward

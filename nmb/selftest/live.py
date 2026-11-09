@@ -493,7 +493,7 @@ def g_router(rep: Report, cfg) -> None:
         rep.add("router", "router mode", SKIP, f"the box is in {state.get('active_mode')} mode")
         return
     details = state.get("details") or {}
-    wan = details.get("active_wan") or details.get("wan") or ""
+    wan = details.get("wan_interface") or details.get("active_wan") or details.get("wan") or ""
     br = run(["bridge", "link"]).stdout
     members = re.findall(r"\d+: (\S+?)[:@].*master br-lan", br)
     rep.add("router", "LAN bridge members", PASS if members else FAIL, ", ".join(members) or "none")
@@ -548,6 +548,7 @@ def g_router(rep: Report, cfg) -> None:
         c = run(["curl", "-s", "-m", "15", "https://www.cloudflare.com/cdn-cgi/trace"], ns=ns, timeout=20)
         rep.add("router", "LAN client HTTPS", PASS if "ip=" in c.stdout else FAIL,
                 "ok" if "ip=" in c.stdout else c.stderr.strip()[:100])
+        _router_ipv6(rep, cfg, ns, details)
         if wan:
             rep.add("router", "WAN in the state file", PASS, wan)
     except Exception as e:
@@ -555,6 +556,42 @@ def g_router(rep: Report, cfg) -> None:
     finally:
         _cleanup_ns(ns)
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _router_ipv6(rep: Report, cfg, ns: str, details: Dict[str, Any]) -> None:
+    """IPv6 for the LAN (nmb/netd/ipv6_lan.py): the delegated prefix on br-lan, a SLAAC address on the
+    simulated client from the box's router advert, and HTTPS over IPv6 from it. No address is printed."""
+    v6 = details.get("ipv6_lan") or {}
+    if not getattr(cfg.network, "lan_ipv6", True):
+        rep.add("router", "IPv6 for the LAN", SKIP, "turned off ([network] lan_ipv6)")
+        return
+    wan = details.get("wan_interface") or ""
+    wan_v6 = [a for a in __import__("nmb.netd.interfaces", fromlist=["x"]).get_ip_addresses(wan)
+              if ":" in a and not a.lower().startswith(("fe80", "fd", "fc"))] if wan else []
+    if wan != "ppp0":
+        rep.add("router", "IPv6 for the LAN", SKIP, f"only on a PPPoE WAN (WAN is {wan or 'none'})")
+        return
+    rep.add("router", "box's own IPv6 on the WAN", PASS if wan_v6 else FAIL,
+            "public address from the ISP's router advert" if wan_v6 else "none (accept_ra on ppp0?)")
+    rep.add("router", "delegated prefix on the LAN", PASS if v6.get("prefixes") else FAIL,
+            f"{v6.get('prefixes', 0)} prefix(es); dhcpcd {'running' if v6.get('dhcpcd_running') else 'not running'}")
+    if not v6.get("prefixes"):
+        return
+    run(["sysctl", "-w", "net.ipv6.conf.all.accept_ra=1"], ns=ns)
+    addr = ""
+    for _ in range(20):
+        out = run(["ip", "-6", "-o", "addr", "show", "scope", "global"], ns=ns).stdout
+        if out.strip():
+            addr = out
+            break
+        time.sleep(1)
+    rep.add("router", "LAN client gets IPv6 (SLAAC)", PASS if addr else FAIL,
+            "address from the box's router advert" if addr else "no address in 20 s")
+    if not addr:
+        return
+    c6 = run(["curl", "-6", "-s", "-m", "10", "-o", "/dev/null", "-w", "%{http_code}",
+              "https://www.cloudflare.com/cdn-cgi/trace"], ns=ns, timeout=15).stdout.strip()
+    rep.add("router", "LAN client HTTPS over IPv6", PASS if c6 == "200" else FAIL, f"HTTP {c6 or 'none'}")
 
 
 def g_dhcp_probe(rep: Report, cfg) -> None:

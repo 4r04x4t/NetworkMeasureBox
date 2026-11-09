@@ -22,7 +22,8 @@ SupplementaryGroups=nmb
 
 # Security hardening while allowing required network management capabilities
 # Note: CAP_SETUID and CAP_SETGID allow spawned dnsmasq to drop privileges to 'nobody'
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE CAP_SYS_MODULE CAP_KILL CAP_SETUID CAP_SETGID
+# CAP_SYS_CHROOT: dhcpcd (IPv6 prefix for the LAN in router mode) locks its helpers into /usr/lib/dhcpcd.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE CAP_SYS_MODULE CAP_KILL CAP_SETUID CAP_SETGID CAP_SYS_CHROOT
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID
 ProtectSystem=full
 ProtectHome=true

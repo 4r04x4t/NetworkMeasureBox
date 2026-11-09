@@ -230,14 +230,41 @@ def miniupnpd_conf(wan_iface: str, lan_iface: str, lan: ipaddress.IPv4Network, u
         "upnp_forward_chain=forward",
         "upnp_nat_chain=prerouting",
         "upnp_nat_postrouting_chain=postrouting",
-        "upnp_nftables_family=inet",
+        "upnp_nftables_family_split=no",   # one inet table (miniupnpd 2.3.9 has no upnp_nftables_family)
         f"allow 1024-65535 {lan} 1024-65535",
         "deny 0-65535 0.0.0.0/0 0-65535",
         "",
     ])
 
 
-def upnp_mappings() -> List[Dict[str, Any]]:
+_L4 = {"0x6": "tcp", "0x06": "tcp", "0x11": "udp"}
+_MAP_LINE = re.compile(r"(?:\b(tcp|udp)\b|@nh,72,8 (0x[0-9a-f]+)).*?\bdport (\d+) dnat ip to ([\d.]+):(\d+)")
+
+
+def parse_upnp_chain(text: str, leases: str = "") -> List[Dict[str, Any]]:
+    """Mappings from `nft list chain inet nmb_upnp prerouting`. miniupnpd 2.3.9 writes the protocol as a raw
+    match (`@nh,72,8 0x6 th dport 38080 dnat ip to 192.168.100.251:8000`); the names come from its lease
+    file (`TCP:38080:192.168.100.251:8000:<expiry>:<description>`)."""
+    names = {}
+    for line in leases.splitlines():
+        parts = line.split(":", 5)
+        if len(parts) == 6 and parts[1].isdigit():
+            names[(parts[0].lower(), int(parts[1]))] = parts[5].strip()[:64]
+    out = []
+    for line in text.splitlines():
+        m = _MAP_LINE.search(line)
+        if not m:
+            continue
+        proto = m.group(1) or _L4.get(m.group(2) or "", "")
+        if not proto:
+            continue
+        ext = int(m.group(3))
+        out.append({"proto": proto, "ext": ext, "ip": m.group(4), "port": int(m.group(5)),
+                    "name": names.get((proto, ext), "")})
+    return out
+
+
+def upnp_mappings(lease_file: str = "/run/nmb/upnp.leases") -> List[Dict[str, Any]]:
     """What LAN devices opened over UPnP / NAT-PMP right now (from miniupnpd's nftables chain)."""
     import subprocess
     nft = shutil.which("nft")
@@ -245,8 +272,8 @@ def upnp_mappings() -> List[Dict[str, Any]]:
         return []
     res = subprocess.run([nft, "list", "chain", "inet", UPNP_TABLE, "prerouting"], capture_output=True, text=True,
                          timeout=10, check=False)
-    out = []
-    for m in re.finditer(r"(tcp|udp) dport (\d+) dnat ip to ([\d.]+):(\d+)(?:.*comment \"([^\"]*)\")?", res.stdout):
-        out.append({"proto": m.group(1), "ext": int(m.group(2)), "ip": m.group(3), "port": int(m.group(4)),
-                    "name": (m.group(5) or "")[:64]})
-    return out
+    try:
+        leases = Path(lease_file).read_text()
+    except OSError:
+        leases = ""
+    return parse_upnp_chain(res.stdout, leases)

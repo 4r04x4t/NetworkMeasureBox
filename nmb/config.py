@@ -454,6 +454,7 @@ class NetworkConfig:
     wifi_enabled: bool = True
     wifi_ssid: str = "NMB-Diagnostic"
     wifi_psk: str = ""   # set per box by setup.sh; the access point does not start without one
+    lan_ipv6: bool = True                # router mode: IPv6 for the LAN from the ISP's delegated prefix
     wifi_band: str = "auto"              # "auto", "2.4ghz", "5ghz", "6ghz"
     wifi_standard: str = "auto"          # "auto", "be", "ax", "ac", "n", "g", "a", "b"
     wifi_channel: int = 0                # 0 = auto channel selection
@@ -882,6 +883,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.network.wifi_enabled = n.getboolean("wifi_enabled", fallback=cfg.network.wifi_enabled)
         cfg.network.wifi_ssid = n.get("wifi_ssid", cfg.network.wifi_ssid)
         cfg.network.wifi_psk = n.get("wifi_psk", cfg.network.wifi_psk)
+        cfg.network.lan_ipv6 = n.getboolean("lan_ipv6", fallback=True)
         cfg.network.wifi_band = n.get("wifi_band", getattr(cfg.network, "wifi_band", "auto")).strip().lower()
         cfg.network.wifi_standard = n.get("wifi_standard", getattr(cfg.network, "wifi_standard", "auto")).strip().lower()
         cfg.network.wifi_channel = n.getint("wifi_channel", fallback=cfg.network.wifi_channel)
@@ -1251,6 +1253,7 @@ def _fill_parser(cfg: "Config", parser) -> None:
     parser["network"]["wifi_enabled"] = str(cfg.network.wifi_enabled).lower()
     parser["network"]["wifi_ssid"] = str(cfg.network.wifi_ssid)
     parser["network"]["wifi_psk"] = str(cfg.network.wifi_psk)
+    parser["network"]["lan_ipv6"] = str(getattr(cfg.network, "lan_ipv6", True)).lower()
     parser["network"]["wifi_band"] = str(getattr(cfg.network, "wifi_band", "auto"))
     parser["network"]["wifi_standard"] = str(getattr(cfg.network, "wifi_standard", "auto"))
     parser["network"]["wifi_channel"] = str(cfg.network.wifi_channel)

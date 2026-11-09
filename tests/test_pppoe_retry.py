@@ -214,3 +214,27 @@ class WanFirewallTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PppdOptionsFileTest(unittest.TestCase):
+    """2026-11-09: after an update the old options file belonged to nmb; nmb-netd (no CAP_FOWNER) could not
+    chmod it and router mode on PPPoE did not start. The file is now written new and moved over."""
+
+    def test_old_file_is_replaced_not_edited(self):
+        import os
+        cfg = SimpleNamespace(pppoe_user="u", pppoe_password="p", pppoe_service_name="")
+        with TemporaryDirectory() as d, patch.object(services, "kernel_pppoe_plugin", return_value="pppoe.so"):
+            path = Path(d) / "ppp-options"
+            path.write_text("old")
+            os.chmod(path, 0o660)
+            ino = path.stat().st_ino
+            with patch.object(services.os, "chmod", side_effect=PermissionError(1, "Operation not permitted")):
+                services.build_pppd_cmd("/usr/sbin/pppd", cfg, "eth0", path)
+            self.assertNotEqual(path.stat().st_ino, ino)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertIn('password "p"', path.read_text())
+            self.assertEqual([p.name for p in Path(d).iterdir()], ["ppp-options"])
+
+    def test_installer_does_not_chown_run_files(self):
+        text = (Path(__file__).resolve().parent.parent / "setup.sh").read_text()
+        self.assertNotRegex(text, r"chown -R [^\n]*/run/nmb")

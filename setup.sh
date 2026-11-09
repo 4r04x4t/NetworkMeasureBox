@@ -472,8 +472,12 @@ install -d -m 0750 -o "$NMB_USER" -g "$NMB_USER" /var/lib/nmb/ookla /var/lib/nmb
 if [ -f /root/.config/ookla/speedtest-cli.json ] && [ ! -f /var/lib/nmb/ookla/.config/ookla/speedtest-cli.json ]; then
     install -m 0640 -o "$NMB_USER" -g "$NMB_USER" /root/.config/ookla/speedtest-cli.json /var/lib/nmb/ookla/.config/ookla/speedtest-cli.json || true
 fi
-chown -R "$NMB_USER:$NMB_USER" /var/lib/nmb /var/log/nmb /run/nmb 2>/dev/null || true
-chmod -R u+rwX,g+rwX /var/lib/nmb /var/log/nmb /run/nmb 2>/dev/null || true
+chown -R "$NMB_USER:$NMB_USER" /var/lib/nmb /var/log/nmb 2>/dev/null || true
+chmod -R u+rwX,g+rwX /var/lib/nmb /var/log/nmb 2>/dev/null || true
+# /run/nmb: only the directory. Its files belong to the service that wrote them; nmb-netd (root, no
+# CAP_FOWNER) could not rewrite its own pppd options after the installer had given them to nmb, so
+# router mode on PPPoE did not start after an update (2026-11-09).
+chown "$NMB_USER:$NMB_USER" /run/nmb 2>/dev/null || true
 chmod 2775 /var/lib/nmb /var/lib/nmb/live /var/lib/nmb/persist /var/lib/nmb/persist/reports /var/lib/nmb/adblock /var/log/nmb /run/nmb 2>/dev/null || true
 # Root-only files must stay root-only after the recursive chown above (2026-11-09: the secrets copy became nmb's).
 for f in /var/lib/nmb/secrets.keep /var/lib/nmb/usb-import.json /var/lib/nmb/scenario-restore.json; do

@@ -238,6 +238,8 @@ class NetworkDaemon:
                 if isinstance(self.current_mode_inst, ModeA):
                     self.current_mode_inst.check_wan_failover()
                     self._timed("pppd watch", self.current_mode_inst.check_pppd)
+                    self._timed("upnp watch", self.current_mode_inst.check_upnp)
+                    self._timed("ipv6 lan watch", self.current_mode_inst.check_ipv6_lan)
                     # USB tethering as the WAN when nothing upstream answers on the WAN port, and back.
                     self.current_mode_inst.full_cfg = self.cfg
                     self.current_mode_inst.check_usb_wan()
