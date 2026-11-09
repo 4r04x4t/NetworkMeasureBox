@@ -72,6 +72,18 @@ class Scenario:
         except OSError:
             pass
 
+    def watch(self, cond: Callable[[], bool], timeout: float, every: float = 2.0) -> Optional[float]:
+        """Seconds until cond() held, or None: for checks where nothing happening is the good outcome."""
+        t0 = time.monotonic()
+        while time.monotonic() - t0 < timeout * self.scale:
+            try:
+                if cond():
+                    return time.monotonic() - t0
+            except Exception:
+                pass
+            time.sleep(every)
+        return None
+
     def wait(self, what: str, cond: Callable[[], bool], timeout: float, every: float = 2.0) -> Optional[float]:
         """Seconds until cond() held, or None after the timeout."""
         t0 = time.monotonic()
@@ -201,6 +213,7 @@ class Scenario:
         SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
         SNAPSHOT.write_text(json.dumps({
             "override_mode": row[0] if row else None,
+            "network_mode": str(self.cfg.network.mode),
             "wifi_enabled": bool(self.cfg.network.wifi_enabled),
             "wifi_share_enabled": bool(self.cfg.wifi_share.enabled),
             "wifi_share_lan": self.cfg.wifi_share.lan_interface,
@@ -229,7 +242,10 @@ def restore(verbose: bool = True) -> bool:
         else:
             conn.execute("DELETE FROM kv WHERE k = 'override_mode'")
     conn.close()
-    Scenario.api("POST", "/api/config", {"wifi_enabled": bool(snap.get("wifi_enabled"))})
+    body = {"wifi_enabled": bool(snap.get("wifi_enabled"))}
+    if snap.get("network_mode"):
+        body["network_mode"] = snap["network_mode"]   # the automatic-mode scenario changes it
+    Scenario.api("POST", "/api/config", body)
     Scenario.api("POST", "/api/wifi-share/save", {"enabled": bool(snap.get("wifi_share_enabled")),
                                                  "lan_interface": snap.get("wifi_share_lan") or "eth0"})
     live.run(["nft", "delete", "table", "inet", COUNT_TABLE])
@@ -243,7 +259,7 @@ def restore(verbose: bool = True) -> bool:
     # A secret wiped during the run (a bug, not the owner) comes back too.
     try:
         from nmb.common import secret_keep
-        if secret_keep.lost():
+        if secret_keep.CONFIG.exists() and secret_keep.KEEP_FILE.exists() and secret_keep.lost():
             live._secrets_restore()
     except Exception as e:
         print(f"secrets: {e}")
@@ -550,6 +566,11 @@ def run_usb(steps: List[str], wait_scale: float = 1.0) -> int:
 def _finish(rep: Report, sc: Scenario) -> int:
     sc.finished = True
     c = rep.counts()
+    bad = [r for r in rep.rows if r["status"] in (FAIL, WARN)]
+    if bad:
+        print("To look at:", flush=True)
+        for r in bad:
+            print(f"  {r['status']:<4} {r['group']}/{r['check']}: {r['detail']}", flush=True)
     sc.step = "done"
     sc.say(f"Finished: {c[PASS]} passed, {c[WARN]} warnings, {c[FAIL]} failed, {c[SKIP]} skipped.", waiting=False)
     out = live.LOG_DIR / time.strftime(f"scenario-{getattr(sc, 'name', 'usb')}-%Y%m%d-%H%M%S.json")

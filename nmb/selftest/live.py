@@ -818,6 +818,49 @@ def g_ipv6(rep: Report, cfg) -> None:
     rep.add("ipv6", "HTTPS over IPv6", PASS if ok else FAIL, "works" if ok else "no IPv6 internet")
 
 
+def g_mode(rep: Report, cfg) -> None:
+    """The running network mode fits the setting and the network (automatic mode included)."""
+    st = _netd_state()
+    active, configured = st.get("active_mode"), st.get("configured_mode") or cfg.network.mode
+    try:
+        conn = _db()
+        row = conn.execute("SELECT v FROM kv WHERE k = 'override_mode'").fetchone()
+        conn.close()
+        override = row[0] if row else None
+    except Exception:
+        override = None
+    rep.add("mode", "network mode", PASS if active else FAIL,
+            f"running {active}, configured {configured}" + (f", override {override}" if override and override != "auto" else ""))
+    wanted = override if override in ("mode_a", "mode_b", "standalone") else (configured if configured != "auto" else None)
+    d = st.get("auto_decision") or {}
+    if wanted:
+        rep.add("mode", "running mode is the set one", PASS if active == wanted else WARN,
+                "" if active == wanted else f"set {wanted}, running {active} (a switch may be pending)")
+    elif configured == "auto":
+        rep.add("mode", "automatic decision", PASS if d.get("mode") == active else WARN,
+                f"{d.get('mode')}: {d.get('reason') or 'no decision yet'}")
+    ap = run(["pgrep", "-x", "hostapd"]).returncode == 0
+    if active != "mode_a":
+        rep.add("mode", "no access point outside router mode", PASS if not ap else FAIL,
+                "" if not ap else "hostapd runs: the radio should be a Wi-Fi client here")
+        dev = (st.get("details") or {}).get("interface") or cfg.network.wan_interface
+        from nmb.netd import interfaces
+        lease = [a for a in interfaces.get_ip_addresses(dev) if ":" not in a and not a.startswith("169.254.")]
+        if interfaces.get_carrier(cfg.network.wan_interface):
+            rep.add("mode", f"address from the router on {dev}", PASS if lease else FAIL, "yes" if lease else "none")
+    else:
+        dhcp = run(["pgrep", "-f", "dnsmasq --conf-file=/run/nmb/dnsmasq.conf"]).returncode == 0
+        rep.add("mode", "router mode serves its LAN", PASS if dhcp else FAIL, "DHCP running" if dhcp else "no DHCP server")
+        if configured == "auto" and not override:
+            from nmb.netd.wifi_share import probe_dhcp_servers
+            from nmb.netd import interfaces
+            wan = cfg.network.wan_interface
+            if interfaces.get_carrier(wan):
+                found = [s for s in probe_dhcp_servers(wan, timeout=5) if s != cfg.network.gateway_ip]
+                rep.add("mode", "no router on the WAN port in automatic router mode", PASS if not found else FAIL,
+                        "none answered" if not found else f"{', '.join(found)} answers: should be standalone")
+
+
 def g_speed(rep: Report, cfg, hours: int = 48) -> None:
     conn = _db()
     since = int((time.time() - hours * 3600) * 1000)
@@ -964,11 +1007,22 @@ def g_collector(rep: Report, cfg, url: str = "", token: str = "") -> None:
 
 
 GROUPS: Dict[str, Callable] = {
-    "services": g_services, "internet": g_internet, "config": g_config, "web": g_web, "cli": g_cli,
+    "services": g_services, "mode": g_mode, "internet": g_internet, "config": g_config, "web": g_web, "cli": g_cli,
     "usb": g_usb, "router": g_router, "dhcp-probe": g_dhcp_probe, "speed": g_speed, "wifi-ap": g_wifi_ap,
     "collector": g_collector, "telegram": g_telegram, "pppoe": g_pppoe, "dyndns": g_dyndns, "ipv6": g_ipv6,
 }
 QUICK = [g for g in GROUPS if g not in ("telegram",)]
+
+
+def to_markdown(rep: Report, groups: List[str]) -> str:
+    """The report as a Markdown table. Details never hold secrets or public addresses (see the checks)."""
+    c = rep.counts()
+    head = (f"# nmb-selftest {time.strftime('%Y-%m-%d %H:%M')}\n\n"
+            f"Groups: {', '.join(groups)}. **{c[PASS]} passed, {c[WARN]} warnings, {c[FAIL]} failed, {c[SKIP]} skipped.**\n\n"
+            "| | Group | Check | Detail |\n|---|---|---|---|\n")
+    icon = {PASS: "✅", WARN: "⚠️", FAIL: "❌", SKIP: "—"}
+    esc = lambda t: str(t).replace("|", "\\|").replace("\n", " ")
+    return head + "".join(f"| {icon[r['status']]} | {r['group']} | {esc(r['check'])} | {esc(r['detail'])} |\n" for r in rep.rows)
 
 
 def _secrets_restore() -> int:
@@ -999,13 +1053,14 @@ def _scenario_main(argv: List[str]) -> int:
     from nmb.selftest import scenario
     p = argparse.ArgumentParser(prog="nmb-selftest scenario", description=scenario.__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    from nmb.selftest import scenario_router
-    p.add_argument("name", choices=["usb", "router"])
+    from nmb.selftest import scenario_auto, scenario_router
+    p.add_argument("name", choices=["usb", "router", "auto"])
     p.add_argument("--steps", default=None, help="Comma-separated. usb: " + ", ".join(scenario.STEPS)
-                   + "; router: " + ", ".join(scenario_router.STEPS))
+                   + "; router: " + ", ".join(scenario_router.STEPS)
+                   + "; auto: " + ", ".join(scenario_auto.STEPS))
     p.add_argument("--plan", action="store_true", help="Only print the steps")
     args = p.parse_args(argv)
-    mod = scenario_router if args.name == "router" else scenario
+    mod = {"router": scenario_router, "auto": scenario_auto}.get(args.name, scenario)
     known = mod.STEPS
     steps = known if args.steps is None else [s.strip() for s in args.steps.split(",") if s.strip()]
     bad = [s for s in steps if s not in known]
@@ -1017,6 +1072,8 @@ def _scenario_main(argv: List[str]) -> int:
     if os.geteuid() != 0:
         print("Run as root.", file=sys.stderr)
         return 2
+    if args.name == "auto":
+        return scenario_auto.run_auto(steps)
     return scenario_router.run_router(steps) if args.name == "router" else scenario.run_usb(steps)
 
 
@@ -1037,6 +1094,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                                                        "the token is read from NMB_SELFTEST_COLLECTOR_TOKEN")
     p.add_argument("--pppoe-real", action="store_true", help="pppoe group: also dial the real line on the WAN port "
                    "with the saved credentials (the port must be on the ONT or modem); never changes the box's routes")
+    p.add_argument("--md", default="", help="Also write a Markdown report here (to paste into an issue or a chat)")
     p.add_argument("--json", default="", help="Write the report here (default: /var/log/nmb/selftest-<time>.json)")
     args = p.parse_args(argv)
     unknown = [g for g in args.groups if g not in GROUPS]
@@ -1059,7 +1117,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         except Exception as e:
             rep.add(g, "group crashed", FAIL, f"{type(e).__name__}: {str(e)[:160]}")
     c = rep.counts()
+    bad = [r for r in rep.rows if r["status"] in (FAIL, WARN)]
+    if bad:
+        print("\nTo look at:")
+        for r in bad:
+            print(f"  {r['status']:<4} {r['group']}/{r['check']}: {r['detail']}")
     print(f"\n{c[PASS]} passed, {c[WARN]} warnings, {c[FAIL]} failed, {c[SKIP]} skipped")
+    if args.md:
+        try:
+            Path(args.md).write_text(to_markdown(rep, groups), encoding="utf-8")
+            print(f"markdown: {args.md}")
+        except OSError as e:
+            print(f"could not write the markdown report: {e}", file=sys.stderr)
     out = Path(args.json) if args.json else LOG_DIR / time.strftime("selftest-%Y%m%d-%H%M%S.json")
     try:
         out.parent.mkdir(parents=True, exist_ok=True)

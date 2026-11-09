@@ -104,9 +104,12 @@ class NetworkDaemon:
         try:
             self.state_file.parent.mkdir(parents=True, exist_ok=True)
             mode_status = self.current_mode_inst.get_status() if self.current_mode_inst else {}
+            d = getattr(self.detector, "last_decision", None) if self.cfg.network.mode == "auto" else None
             state_data = {
                 "active_mode": self.current_mode_name,
                 "configured_mode": self.cfg.network.mode,
+                "auto_decision": ({"mode": d.mode, "reason": d.reason, "passthrough_ports": d.passthrough_ports,
+                                   "pppoe": d.pppoe} if d else None),
                 "timestamp_ms": db.now_ms(),
                 "details": mode_status,
             }
