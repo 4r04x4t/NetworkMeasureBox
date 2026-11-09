@@ -80,3 +80,46 @@ class RouterWanDownTest(unittest.TestCase):
     def test_a_chosen_interface_still_runs(self):
         _, outcome, _ = self._cycle(target_iface="eth1")
         self.assertNotIn("wan_down", outcome)
+
+
+class DynDnsIpv4DetectionTest(unittest.TestCase):
+    """2026-11-09: with IPv6 on the box a dual-stack detector answered with the IPv6 address, and it was sent
+    to dynv6 as the IPv4 one (the A record then pointed elsewhere)."""
+
+    def test_an_ipv6_answer_is_not_an_ipv4_address(self):
+        from nmb.netd import duckdns
+        answers = iter(["2a01:db8::1", "198.51.100.7"])
+        with mock.patch.object(duckdns, "_get_over_ipv4", side_effect=lambda url, t: next(answers)):
+            self.assertEqual(duckdns.detect_public_ip(), "198.51.100.7")
+
+    def test_nothing_usable_gives_none(self):
+        from nmb.netd import duckdns
+        with mock.patch.object(duckdns, "_get_over_ipv4", side_effect=["", "not an ip", OSError("down")]):
+            self.assertIsNone(duckdns.detect_public_ip())
+
+    def test_detectors_are_ipv4_only_names(self):
+        from nmb.netd import duckdns
+        self.assertNotIn("https://icanhazip.com", duckdns.IP_DETECTORS_V4)
+        self.assertNotIn("https://ifconfig.me/ip", duckdns.IP_DETECTORS_V4)
+
+
+class DynDnsSendsIpv4Test(unittest.TestCase):
+    def test_dynv6_gets_the_ipv4_address_not_auto(self):
+        from nmb.netd import duckdns
+        sent = {}
+
+        class Resp:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return b"addresses updated"
+
+        def fake_open(req, timeout=0):
+            sent["url"] = req.full_url
+            return Resp()
+        with mock.patch.object(duckdns, "detect_public_ip", return_value="198.51.100.7"), \
+             mock.patch.object(duckdns, "detect_public_ipv6", return_value=""), \
+             mock.patch.object(duckdns.urllib.request, "urlopen", side_effect=fake_open):
+            duckdns.update_duckdns(domain="x.v6.army", token="t" * 30, provider="dynv6", ipv6_mode="none")
+        self.assertIn("ipv4=198.51.100.7", sent["url"])
+        self.assertNotIn("ipv4=auto", sent["url"])

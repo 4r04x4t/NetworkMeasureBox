@@ -469,7 +469,7 @@ def g_usb(rep: Report, cfg) -> None:
 _UDHCPC_SCRIPT = """#!/bin/sh
 case "$1" in
   bound|renew)
-    ip addr flush dev "$interface"
+    ip -4 addr flush dev "$interface"   # IPv4 only: a full flush also took the IPv6 link-local address (no SLAAC then)
     ip addr add "$ip/${mask:-24}" dev "$interface"
     for r in $router; do ip route replace default via "$r" dev "$interface"; break; done
     : > "$RESOLV"; for d in $dns; do echo "nameserver $d" >> "$RESOLV"; done

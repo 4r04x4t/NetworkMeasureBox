@@ -52,8 +52,8 @@ _duckdns_state: Dict[str, Any] = {
 
 IP_DETECTORS_V4 = [
     "https://api.ipify.org",
-    "https://icanhazip.com",
-    "https://ifconfig.me/ip",
+    "https://ipv4.icanhazip.com",
+    "https://v4.ident.me",
 ]
 
 IP_DETECTORS_V6 = [
@@ -112,19 +112,35 @@ def detect_public_ipv6(timeout: float = 2.0) -> Optional[str]:
     return None
 
 
+def _get_over_ipv4(url: str, timeout: float) -> str:
+    """GET url over IPv4 only: once the box had IPv6 (router mode on PPPoE, 2026-11-09), a dual-stack
+    "what is my IP" service answered with the IPv6 address and it was sent to dynv6 as the IPv4 one."""
+    import http.client
+    import ssl
+    from urllib.parse import urlparse
+    u = urlparse(url)
+    host, port = u.hostname or "", u.port or 443
+    infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+    raw = socket.create_connection(infos[0][4][:2], timeout=timeout)
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection(host, port, timeout=timeout, context=ctx)
+    conn.sock = ctx.wrap_socket(raw, server_hostname=host)
+    try:
+        conn.request("GET", u.path or "/", headers={"User-Agent": "NetworkMeasureBox-DynDNS/1.0", "Host": host})
+        resp = conn.getresponse()
+        return resp.read(256).decode("utf-8", errors="ignore").strip() if resp.status == 200 else ""
+    finally:
+        conn.close()
+
+
 def detect_public_ip(timeout: float = 4.0) -> Optional[str]:
-    """Detect current public WAN IPv4 address."""
+    """Detect current public WAN IPv4 address (asked over IPv4; only an IPv4 answer counts)."""
+    import ipaddress
     for url in IP_DETECTORS_V4:
         try:
-            req = urllib.request.Request(
-                url,
-                headers={"User-Agent": "NetworkMeasureBox-DuckDNS/1.0"},
-            )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                if resp.status == 200:
-                    ip = resp.read().decode("utf-8", errors="ignore").strip()
-                    if ip and (ip.count(".") == 3 or ":" in ip):
-                        return ip
+            text = _get_over_ipv4(url, timeout)
+            if ipaddress.ip_address(text).version == 4:
+                return text
         except Exception as e:
             log.debug("failed to detect public IP from %s: %s", url, e)
             continue
@@ -168,7 +184,9 @@ def update_duckdns(
             if ip:
                 params["ipv4"] = ip.strip()
             else:
-                params["ipv4"] = "auto"
+                # Not "auto": dynv6 then takes the request's source address, and over IPv6 that is no IPv4 one
+                # (2026-11-09, router mode with IPv6: the A record was not updated). Asked over IPv4 instead.
+                params["ipv4"] = detect_public_ip(timeout=3.0) or "auto"
 
             if ipv6:
                 params["ipv6"] = ipv6.strip()
@@ -269,6 +287,12 @@ def update_duckdns(
     else:
         if ip:
             params["ip"] = ip.strip()
+        else:
+            # DuckDNS, like dynv6, takes the request's source address when none is given; over IPv6 that
+            # would leave the A record as it was.
+            v4 = detect_public_ip(timeout=3.0)
+            if v4:
+                params["ip"] = v4
         if ipv6:
             params["ipv6"] = ipv6.strip()
 
