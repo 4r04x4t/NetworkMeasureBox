@@ -2,7 +2,9 @@
 
 Mit, hol, hogyan és milyen eredménnyel teszteltünk. Ha egy teszt újra lefut vagy új kerül be, ezt a fájlt is frissíteni kell. A README *Tesztelési Állapot* táblázata ennek az összefoglalója. Angol változat: [TESTING.md](TESTING.md).
 
-Utolsó teljes kör: 2026-11-07. Utolsó frissítés: 2026-11-08.
+Utolsó teljes kör: 2026-11-07. Utolsó frissítés: 2026-11-09 (este: a valódi PPPoE vonal, router mód rajta, port-továbbítás, UPnP, IPv6 a LAN-nak, Wi-Fi 5 GHz-en).
+
+**A 2026-11-09-i munka környezete:** az aznapi összes javítás, teszt és bővítés a dobozon, **Debian GNU/Linux 13 (trixie)** alatt, a Raspberry Pi 4-en készült és ott lett tesztelve, egy Garuda Linuxot (Arch-alapú) futtató fejlesztői gépről, Tailscale-en keresztül. A fejlesztés Windowsra költözése (WSL2, lásd `DEV_SETUP_WINDOWS.hu.md`) ez után jön.
 
 ## Hol futottak a tesztek
 
@@ -10,7 +12,7 @@ Utolsó teljes kör: 2026-11-07. Utolsó frissítés: 2026-11-08.
 
 | Név | Mi ez |
 |---|---|
-| **Box** | Raspberry Pi 4, Debian 13 (arm64), `standalone` mód, a fejlesztő főrouterére, egy GL.iNet Flint 4-re kötve. Napi használatban, 1000/300 Mbps-os otthoni optikai (FTTH) vonalon. |
+| **Box** | Raspberry Pi 4, Debian 13 (arm64), `standalone` mód, a fejlesztő főrouterére, egy GL.iNet Flint 4-re kötve. Napi használatban, 1000/300 Mbps-os otthoni optikai (FTTH) vonalon.. 2026-11-09 este közvetlenül a szolgáltató ONT-jára kötve is (PPPoE, DIGI), router módban; a Tailscale-t közben egy USB-s Netgear Nighthawk M6 Pro tartotta fenn. |
 | **VM-D13** | QEMU/KVM x86-64 PC-n, Debian 13 felhőkép a teljes `linux-image-amd64` kernellel. Két hálókártya (felhasználói NAT mint WAN, socket-kapcsolat mint LAN). Wi-Fi `mac80211_hwsim`-mel (három szimulált rádió); a kliensek hálózati névterekben. |
 | **VM-disztró** | Tiszta Debian 13, Debian 12, Ubuntu 24.04 LTS és Alpine 3.20 (x86-64) virtuális gépek, mindegyik `setup.sh`-val nulláról telepítve. |
 | **Unit-tesztek** | `python3 -m unittest discover tests` (303 teszt) a fejlesztői gépen és rootként a VM-D13-on. |
@@ -64,7 +66,30 @@ Jelölés: ✅ működik · ⚠️ korláttal működik · ❌ nem működik · 
 | DMZ-elkülönítés | ✅ | A DMZ eléri az internetet, a LAN-t és a webes felületet nem |
 | PPPoE tárcsázás és újratárcsázás | ⚠️ | `pppoe-server` ellen; a box saját forgalma a `ppp0`-n ment. A LAN-kliens teljes oda-vissza útját a szimuláció saját NAT-ja miatt nem lehetett ellenőrizni |
 | DHCP a box újraindítása után | ✅ | Javítva: `dhcp-authoritative`, így a régi bérletét megújító kliens azonnal választ kap |
-| Valódi hardver, Nighthawk M6 Pro | — | A fejlesztő tervezi |
+| Valódi hardver, Nighthawk M6 Pro | ✅ | A Pi 4-en USB-n: mérési link, router módú WAN, és a doboz távoli elérése a PPPoE-teszt alatt (lásd fent) |
+
+### Valódi PPPoE vonal és router mód (a doboz az ONT-n, DIGI, 2026-11-09 este)
+
+Csak Tailscale-en keresztül elérve (a fejlesztői gép másik hálózaton, a Nighthawk Wi-Fi-jén volt). Az `nmb-selftest scenario pppoe` vezetésével (140 ellenőrzés sikeres, 5 figyelmeztetés, 6 hiba: az IPv6-ellenőrzések a javításuk előtt, a Wi-Fi-kliens és a webes felület lépése, amit éjjel senki nem végzett el, és a DynDNS késése a javítása előtt), illetve kézzel.
+
+| Funkció | Eredmény | Hogyan |
+|---|---|---|
+| PPPoE felderítés, belépés, kernelbeli PPPoE a szolgáltatásnévvel | ✅ | `nmb-selftest pppoe --pppoe-real`: koncentrátor DIGI, szolgáltatás `Diginet`, `pppoe.so`; az első próbát elutasította („Invalid username or password”): a mentett felhasználónévben `_` volt, a szolgáltatóéban `-`; a régi routerből vett névvel csatlakozott |
+| Internet, HTTPS, MTU PPPoE-n | ✅ | Az első ping-válasz 6 s-mal a kapcsolat felépülése után (a szolgáltató eldobja az első csomagokat), MTU 1492, HTTPS 200 |
+| Az automatikus mód router módot választ PPPoE-vel | ✅ | 15 s-mal a `mode = auto` után, a kábel az ONT-n |
+| NAT, MSS-csökkentés, a doboz internete és DNS-e a ppp0-n, hozzáférési pont és DHCP, szimulált LAN-kliens | ✅ | A forgatókönyv `pppoe-up` lépése és a router csoport |
+| Sebesség PPPoE-n (1000/300-as csomag) | ✅ | Cloudflare 899/308, Fast.com 870/324, RTR 749/321, iPerf3 904/322 Mbit/s, a ppp0-hoz kötve |
+| Újratárcsázás | ✅ | A pppd-t bontásra utasítva 12 s alatt vissza; leállított pppd: az nmb-netd 41 s után újraindította |
+| Valódi Wi-Fi-kliens a router módon át, PPPoE-n | ✅ | A tulajdonos telefonja a doboz Wi-Fi-jén (2,4 GHz, 802.11n): „tökéletesen működik”. A forgatókönyv saját kliens- és webes lépése nem készült el (éjszaka) |
+| A WAN zárva az internet felé | ✅ | Másik hálózatról: SSH, DNS (TCP és UDP), webes felület és iperf3 zárva IPv4-en és IPv6-on, a ping válaszol |
+| A doboz saját IPv6-ja PPPoE-n | ✅ | A javítás után: cím és alapértelmezett útvonal a szolgáltató router-hirdetéséből, HTTPS IPv6-on |
+| IPv6 a LAN-nak (előtag-delegálás, router-hirdetés) | ✅ | A dhcpcd egy /64-et kapott a DIGI-től, a dnsmasq hirdette; egy szimulált LAN-kliens SLAAC-címet kapott és IPv6-on elérte az internetet; egy LAN-eszköz nyitott portja az internetről nem volt elérhető. Valódi telefonnal: nem ellenőrizve |
+| Port-továbbítás | ✅ | Egy LAN-eszköz (névtér webszerverrel) másik hálózatról elérve a vonal címén; hairpin egy második LAN-eszközről; `nmb-selftest portfwd` 9/9 |
+| UPnP / NAT-PMP / PCP | ✅ | NAT-PMP-leképezés és IGD AddPortMapping egy LAN-eszközről, másik hálózatról elérve; a 22-es port és egy másik eszköznek kért leképezés elutasítva; az UPnP kikapcsolásakor törölve. Valódi alkalmazással (játékkonzol, torrentkliens): nem ellenőrizve |
+| A DynDNS követi az új címet | ⚠️ | 246 s után, a következő ütemezett frissítéskor; az útvonalváltásra azonnali frissítés egységtesztelt, élesben még nem |
+| Wi-Fi alapbeállítással (auto) | ✅ | A javítás után: 802.11ac, 80 MHz, 36-os csatorna elsőre; a gépről 5180 MHz-en látszott; utána vissza a tulajdonos 2,4 GHz-es 802.11n-es beállítására. 5 GHz-es kliens: nem ellenőrizve |
+| A sebességmérések router módban a router WAN-jához kötődnek | ✅ | A javítás után; előtte az eth0-hoz (csak link-local cím) vagy a WAN kiesésekor a USB-s hotspothoz kötődtek |
+| nmb-netd újraindítása élő PPPoE mellett | ✅ javítás után | Először (20:31) a leállítási időkorlát a PADT előtt kilőtte a pppd-t; a DIGI megtartotta a régi munkamenetet, a következő belépést elutasította („Too many sessions”), a PADI-ra nem válaszolt, és kb. 6 perc után engedte el. Javítva (a pppd bont elsőként, 45 s-os leállítási idő); újratesztelve 20:40:09-kor és 20:40:39-kor: „Sent PADT” egy másodpercen belül, a következő belépés azonnal elfogadva |
 
 ### Wi-Fi hozzáférési pont (VM-D13, szimulált rádiók)
 
@@ -263,7 +288,8 @@ Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Mind
 | Wi-Fi uplink a box saját profiljával | `nmb-cli run wifi.uplink ssid=... password=... enabled=true` egy még nem Wi-Fi-s boxon; utána mérés `measurement_link = wifi` beállítással, számlálók a `wlan0`-n |
 | Vendég és fő Wi-Fi két rádión | USB Wi-Fi adapter `wlan1`-ként: egyik fő, másik vendég; mindkét sáv az eszközfelderítőben |
 | Valódi rádiók hozzáférési pontként | 2,4/5/6 GHz, Wi-Fi 6/7, valódi kliensekkel |
-| PPPoE valódi vonalon, Nighthawk M6 Pro, Pi 5 | |
+| Második rádió valódi kétsávos működéshez | A Pi 4-nek egy rádiója van: egyszerre egy sáv. Mindkét sávhoz egyszerre egy USB-s Wi-Fi adapter kell második hozzáférési pontként (nincs megírva) |
+| Pi 5 | |
 | Tervezett routerek | Routeren még semmi sem fut; lásd a portolási tervet |
 
 ### A box és USB tethering kell hozzá (`nmb-selftest scenario usb`)
@@ -273,14 +299,14 @@ Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Mind
 | A 2026-11-09-i naplóátnézés javításai | Telegram kiesés közben (kábel ki a routerből): a bot naplójában egyre hosszabb szünetek, nem másodpercenként több kérés. A Telegramból küldött `/dyndns off` és `/dyndns on` elmentődik. Csak a DNS letiltása (pl. az 53-as port a routeren): a tartalék elindul, miközben az IP működik, és a tiltás vége után 15 percen belül visszajön a rendes DNS. Router mód a Pi-n: a `journalctl -u nmb-netd` nem mutat „hostapd did not start” sort. A `/var/lib/nmb/.rmbt_client_uuid` változatlan marad az RTR mérések között. Egy kábelhúzás után nincsenek ismétlődő „dead default route” sorok |
 | Automatikus mód (`mode = auto`) | A box `auto`-ban, a kábel az otthoni routerben: standalone, nincs váltás. A kábel 90 mp-re kihúzva a routerből: router mód hozzáférési ponttal (a Tailscale-nek USB-n vagy Wi-Fin meg kell maradnia). A kábel az ONT-n, mentett PPPoE-vel: router mód PPPoE-vel. A kábel vissza a routerbe: kb. 30 mp-en belül standalone. Router újraindítás (90 mp alatt): marad standalone. Több vezetékes portos boxon: a többi port hídban a WAN porttal, a mögötte lévő PC a router címét kapja |
 | IPv6 a vonalon | `sudo nmb-selftest ipv6`: a LAN router hirdetése (élettartam, előtagok), a box nyilvános IPv6-címe és útvonala, HTTPS IPv6-on. 2026-11-09, Pi 4: az otthoni router (GL.iNet Flint 4) 0 élettartamot és előtag nélküli hirdetést küldött, ezért a LAN nem kapott IPv6-ot, pedig a szolgáltató adja; újratesztelendő, miután a router LAN-oldalán bekapcsolták az IPv6-ot. Utána a DynDNS-nek be kell állítania az AAAA-rekordot |
-| IPv6 router módban | Még nincs megírva: router módban a box nem kér előtagot a szolgáltatótól (DHCPv6-PD), és a LAN-on nem küld router-hirdetést, így a kliensei csak IPv4-et kapnak |
-| Valódi PPPoE vonal | 2026-11-09 estére tervezve (DIGI, szolgáltatásnév `Diginet`), kernelbeli PPPoE pluginnal és MSS-csökkentéssel; a box csak Tailscale-en érhető el. Kell hozzá a szolgáltató PPPoE felhasználóneve és jelszava (webes felület, Router > PPPoE, vagy USB pendrive), és a box WAN portja az ONT-n vagy modemen, nem az otthoni router mögött (a szolgáltató lehet, hogy csak egy munkamenetet enged, ezért a teszt idejére az otthoni router PPPoE-jét ki kell kapcsolni). Utána `sudo nmb-selftest pppoe --pppoe-real`: felderítés, tárcsázás a mentett adatokkal, internet PPPoE-n át, mindez külön névtérben egy macvlan-on, így a box saját útvonalai és a Tailscale megmaradnak. Utána router mód `pppoe_enabled = true`-val |
+| IPv6 router módban DHCP-s WAN-on vagy USB-n | Csak PPPoE-s WAN-ra készült el (2026-11-09); másik router mögött vagy hotspoton a LAN továbbra is csak IPv4-et kap |
+| Valódi PPPoE vonal, ami hátravan | 2026-11-09-én elkészült (lásd Eredmények). Hátravan: egy elutasított belépés után 10 percet kell várnia (`journalctl -u nmb-netd`: „dialing again in 600 s”); amíg a vonal nem él, nem futhat mérés USB-n vagy Wi-Fi-n (ütemező: „its internet line is down”); a DynDNS-nek egy percen belül követnie kell egy új PPPoE-címet; IPv6 és egy továbbított port valódi telefonon vagy gépen; UPnP valódi alkalmazásból; 5 GHz-es kliens |
 | Beállítások USB pendrive-ról | A `config/usb-import.example.conf` `nmb.conf` néven egy FAT32 pendrive-on, új Telegram tokennel: bedugva a token megváltozik, az `nmb-import-result.txt` felsorolja a `telegram.token`-t, mentés a `/var/lib/nmb/config-backups/`-ban, újra bedugva semmi nem változik |
 | Router mód Ethernet WAN-nal (`nmb-selftest scenario router`) | Egy telefon vagy PC a box Wi-Fi-jén: internet, webes felület és SSH a Wi-Firől, WAN kábel kihúzása és visszadugása; ha a távoli elérés 2 percre megszakad, a Tailscale-őrnek le kell állítania és vissza kell állítania mindent |
 | Wi-Fi megosztás a LAN porton, USB-ről jövő internettel | A box Wi-Fin, a kábel a routerből a laptopba, majd a box lecsatlakozik a Wi-Firől: a laptopnak tovább kell böngésznie az USB-n át (`wifi-share`, `usb-fallback` lépések; a kliens `eth1`-en kimenő csomagjait számolja) |
 | Router módban a LAN portok linkje beállítás után leesik | Laptop a kábelen egy korábbi címmel (pl. 192.168.77.x): újradugás nélkül egy percen belül 192.168.100.x címet kell kapnia és böngésznie kell |
 | A halott alapútvonalak eltűnnek | Kábel a routerből a laptopba: egy netd körön belül nem maradhat alapútvonal az `eth0`-n; a box forgalma Wi-Fin vagy USB-n megy, a Tailscale nem szakad meg (`nmb-selftest internet`: „no dead default route”) |
-| Hozzáférési pont 5 GHz-en, Wi-Fi 5/6 | Eddig csak 2,4 GHz, 802.11n; a Pi 4 rádiója 40/80 MHz-et csak 5 GHz-en tud |
+| Hozzáférési pont 5 GHz-en klienssel | A 802.11ac 80 MHz-en elindul alapbeállítással (2026-11-09); telefon vagy laptop rajta és egy sebességmérés rajta még hátravan |
 | USB eszköz kihúzása router módban és standalone-ban | A forgatókönyv `unplug` lépése: nem marad USB útvonal vagy szabály, a mód `eth0`-val épül újra |
 | Titkok visszaállítása | A Telegram token kézi törlése az `nmb.conf`-ból: az `nmb-selftest config` a nevével bukjon el, a `sudo nmb-selftest secrets-restore` hozza vissza, és a bot válaszoljon |
 | iPerf3 szerver pihentetése | Az ötször egymás után elbukó szervert 6 órára ki kell hagyni (naplósor: „left out for up to 6 h”), utána újra próbálni |
@@ -333,12 +359,16 @@ A kódban vagy a box naplóiban talált, még nem javított hibák (a 2026-11-09
 | RTR sorok kliens IP nélkül | A javítás óta kb. 8% (208-ból 16): a cím lekérdezése a mért linken néha nem sikerül |
 | SD-kártya írások | A fejlesztői napló kb. 10 MB-ot nő naponta az SD-kártyán (a diagnosztikai pillanatkép boot partíciós másolata már óránként legfeljebb egyszer készül) |
 | Vezetékes útvonal a NetworkManageren kívül | A webes felület maga tesz fel egy statikus `eth0` alapútvonalat (50-es metrika); helyette a NetworkManager profil metrikáját kellene állítani |
-| IPv6 router módban | Nincs DHCPv6 előtag-delegálás a WAN-on és nincs router-hirdetés a LAN-on |
+| A beállítások újratöltése lassú | Minden újratöltés előbb újra alkalmazza a kernelhangolást (kb. 8 s a Pi-n), csak utána nézi meg, mi változott |
+| dnsmasq pid-fájl | „chown of PID file /run/nmb/dnsmasq.pid failed: please add capability CAP_CHOWN” minden router-induláskor (ártalmatlan, zajos) |
+| A tulajdonos ütemezése által használt adat | A doboz 2-5 percenként minden motort futtat (a tulajdonos beállítása): egy 1000 Mbit/s-os vonalon ez óránként sok GB. A USB-nek nincs napi korlátja (0); 2026-11-09 óta a router mód nem vált USB-re méréshez, de USB-korlát beállítása így is ajánlott |
 | `nmcli device reapply` | Az IPv4 DNS előresorolása egyszer újraalkalmazza a profilt; ez egyszer megszakította a bot egy nyitott kapcsolatát (újracsatlakozott) |
 | Maradékok a teszt-boxon | 22 régi `/tmp/nmb-install-*` mappa a 2026-11-07-i telepítésekből |
 
 ## Ismert korlátok
 
+- A Raspberry Pi 4-nek egy Wi-Fi rádiója van: a hozzáférési pontja egyszerre egy sávot használ (2,4 vagy 5 GHz, az „auto” az 5 GHz-et választja). Mindkét sávhoz egyszerre második rádió kell.
+- A DIGI PPPoE-je belépésenként egy munkamenetet enged: az otthoni router és a doboz nem lehet egyszerre online ugyanazzal a belépéssel, és egy nem bontott munkamenet (PADT nélkül) percekre blokkolja a következő belépést.
 - Az Ookla letiltja azt a nyilvános IP-címet, amelyről túl gyakran mérnek, és az elutasított próbálkozások fenntartják a tiltást; ez 2026. nov. 8-án igazolódott, amikor egy új nyilvános IP-vel (a főrouter újraindítása után) a mérés azonnal sikerült. A box ilyenkor szünetelteti az Ooklát (30 perc, duplázódva legfeljebb 4 óráig). Az NMB nem cserél IP-t a megkerüléshez; az Ooklát legfeljebb óránként futtasd.
 - Áramszünetnél legfeljebb 15 perc eredménye veszhet el, szándékosan (az élő adatbázis RAM-ban van).
 - A fenti futásokhoz használt VM-szkriptek és bot-ellenőrző szkriptek nincsenek a tárolóban; minden sor leírja, mi volt beállítva.

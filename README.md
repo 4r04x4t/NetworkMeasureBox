@@ -77,7 +77,10 @@ NMB records independent measurements at your network edge. It can run behind you
 ### 1. Dual Operating Modes
 * **Automatic (`mode = auto`, the default for new installs)**: a router gives the box an address over DHCP: **standalone** (on a box with several wired ports the other ports are bridged to it, LAN passthrough, almost like a switch). No router and no internet for 90 s (cable on an ONT or modem, on a PC, or no cable): **router mode** until a router answers again, dialing PPPoE when its login is saved and a PPPoE server answers, otherwise with the Wi-Fi access point and the LAN ports for setup. A router appearing on the WAN port: standalone at once. A fixed mode, a manual override or the owner's own passthrough/aggregation settings always win. Rules: `nmb/netd/auto_mode.py`. Unit-tested; not yet tested live.
 * **Mode A (Active Gateway / Router)**:
-  * Router with DHCP or static IP WAN. A PPPoE client (with 802.1Q VLAN tagging) redials after a dropped line; it is tested against a simulated ISP only.
+  * Router with DHCP, static IP or PPPoE WAN (kernel PPPoE, 802.1Q VLAN tagging, MSS clamping). PPPoE redials after a dropped line and waits longer after a refused login; tested on a real 1000/300 Mbps PPPoE line (2026-11-09).
+  * The WAN is closed to the internet except answers, ICMP and the VPN ports that are on; a home router in front keeps full access for the owner.
+  * **Port forwarding**, switchable (Web UI > Router > Port forwarding): rules for TCP, UDP or both, single ports or ranges, hairpin NAT; and **UPnP / NAT-PMP / PCP** for LAN devices (off by default, only their own address, only ports 1024-65535).
+  * **IPv6 for the LAN** on a PPPoE line: the ISP's delegated prefix (DHCPv6-PD) advertised to the clients (SLAAC); LAN devices are not reachable from the internet.
   * Local gateway services: `dnsmasq` DHCP server, DNS caching, and iptables/nftables NAT masquerading.
   * Wi-Fi access point (`hostapd`) on the LAN bridge, **in router mode only**; in standalone and bridge mode the radio stays a Wi-Fi client of the home network. It adapts to the radio and steps down if `hostapd` rejects a setting. See Tested Status.
 * **Mode B (Passive Transparent Inline Bridge)**:
@@ -303,11 +306,12 @@ What has actually been run, so you can judge what to rely on. The full record (w
 | Area | Status |
 |---|---|
 | Raspberry Pi 4, Debian 13, `standalone` mode | In daily use |
+| Router mode on a real PPPoE line (Raspberry Pi 4, Debian 13, 2026-11-09) | Automatic mode chose it, kernel PPPoE about 900/320 Mbit/s, redial, a real phone on the box's Wi-Fi, the WAN closed from another network, the box's IPv6 and IPv6 for a simulated LAN client, port forwarding and UPnP reached from another network. These fixes and tests were made under Debian 13 on the box. See TESTING.md |
 | Clean install, x86-64 | Tested in a simulated environment on a PC with these operating systems: Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 and Rocky Linux 10 (for RHEL 10) and Alpine 3.22 / 3.20. Install, services, Web UI, a real speed test, reinstall and (on Alpine) reboot |
 | `mode_a` router and `mode_b` bridge | Tested in virtual machines, with DHCP, NAT, DMZ isolation and client traffic. Not on Raspberry Pi hardware |
-| Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. On the Raspberry Pi 4 radio: router mode, 2.4 GHz, 802.11n, 20 MHz, a phone and a laptop browsed (2026-11-08); 5 GHz and Wi-Fi 5/6 not yet |
+| Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. On the Raspberry Pi 4 radio: router mode, 2.4 GHz, 802.11n, 20 MHz, a phone and a laptop browsed (2026-11-08); the default settings start 802.11ac at 80 MHz on 5 GHz (2026-11-09), no client on 5 GHz yet. One radio: one band at a time |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Not verified. The hostapd in Debian 13 rejected the Wi-Fi 7 settings, so NMB steps down to an older standard |
-| PPPoE | Dial-in and redial after a dropped line tested against a simulated ISP. Not on a real line |
+| PPPoE | On a real line (DIGI, 2026-11-09) and against a simulated ISP: dial-in, the ISP's refusal shown, redial, router mode on it |
 | VLAN, multi-WAN load balancing, link aggregation | Code exists, not tested on a real line |
 | Other distributions (such as Raspberry Pi OS, Arch), 32-bit systems | Not tested; setup supports Debian-based systems, Fedora, RHEL and its rebuilds, and Alpine |
 | Devices with 512 MB RAM | Tested in a VM with 512 MB: 25 minutes of tests every minute, no out-of-memory kill, no swap used |

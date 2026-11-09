@@ -2,7 +2,9 @@
 
 What has been tested, where, how, and with what result. Update this file whenever a test is run again or a new one is added. The README's *Tested Status* table summarises it.
 
-Last full sweep: 2026-11-07. Last update: 2026-11-08.
+Last full sweep: 2026-11-07. Last update: 2026-11-09 (evening: the real PPPoE line, router mode on it, port forwarding, UPnP, IPv6 for the LAN, Wi-Fi on 5 GHz).
+
+**Environment of the 2026-11-09 work:** all fixes, tests and extensions of that day were made and tested on the box under **Debian GNU/Linux 13 (trixie)** on the Raspberry Pi 4, from a development PC with Garuda Linux (Arch-based) over Tailscale. The move of development to Windows (WSL2, see `DEV_SETUP_WINDOWS.md`) comes after this.
 
 ## Where the tests ran
 
@@ -10,7 +12,7 @@ Last full sweep: 2026-11-07. Last update: 2026-11-08.
 
 | Name | What it is |
 |---|---|
-| **Box** | Raspberry Pi 4, Debian 13 (arm64), `standalone` mode, wired to the developer's main router, a GL.iNet Flint 4. In daily use on a 1000/300 Mbps home fibre (FTTH) line. |
+| **Box** | Raspberry Pi 4, Debian 13 (arm64), `standalone` mode, wired to the developer's main router, a GL.iNet Flint 4. In daily use on a 1000/300 Mbps home fibre (FTTH) line. On 2026-11-09 evening also directly on the ISP's ONT (PPPoE, DIGI), in router mode, with a Netgear Nighthawk M6 Pro on USB keeping Tailscale up. |
 | **VM-D13** | QEMU/KVM on an x86-64 PC, Debian 13 cloud image with the full `linux-image-amd64` kernel. Two NICs (user-mode NAT as WAN, a socket link as LAN). Wi-Fi with `mac80211_hwsim` (three simulated radios); clients in network namespaces. |
 | **VM-distro** | Clean QEMU/KVM VMs of Debian 13, Debian 12, Ubuntu 24.04 LTS and Alpine 3.20 (x86-64), each installed from scratch with `setup.sh`. |
 | **Unit tests** | `python3 -m unittest discover tests` (303 tests) on the developer PC and, as root, inside VM-D13. |
@@ -64,7 +66,30 @@ Legend: ✅ works · ⚠️ works with a limit · ❌ fails · — not tested
 | DMZ isolation | ✅ | DMZ reaches the internet, not the LAN or the Web UI |
 | PPPoE dial-in and redial | ⚠️ | Against `pppoe-server`; the box's own traffic used `ppp0`. A LAN client's full round trip could not be checked because of the simulation's own NAT |
 | DHCP after a box restart | ✅ | Fixed: `dhcp-authoritative`, so a client renewing an old lease gets it at once |
-| Real hardware, Nighthawk M6 Pro | — | Planned by the developer |
+| Real hardware, Nighthawk M6 Pro | ✅ | On the Pi 4 over USB: measuring link, router mode WAN, and the box's remote access during the PPPoE test (see above) |
+
+### Real PPPoE line and router mode (Box on the ONT, DIGI, 2026-11-09 evening)
+
+Reached only over Tailscale (the developer PC was on another network, the Nighthawk's Wi-Fi). Guided by `nmb-selftest scenario pppoe` (140 checks passed, 5 warnings, 6 failed: the IPv6 checks before their fix, the Wi-Fi client and Web UI steps nobody did at night, and the DynDNS delay before its fix) and by hand.
+
+| Feature | Result | How |
+|---|---|---|
+| PPPoE discovery, login, kernel PPPoE with the service name | ✅ | `nmb-selftest pppoe --pppoe-real`: concentrator DIGI, service `Diginet`, `pppoe.so`; the first try was refused ("Invalid username or password"): the saved user name had `_` where the ISP's has `-`; with the name from the old router it connected |
+| Internet, HTTPS, MTU over PPPoE | ✅ | First ping answer 6 s after the link came up (the ISP drops the first packets), MTU 1492, HTTPS 200 |
+| Automatic mode picks router mode with PPPoE | ✅ | 15 s after `mode = auto` with the cable on the ONT |
+| NAT, MSS clamping, the box's internet and DNS on ppp0, access point and DHCP, a simulated LAN client | ✅ | Scenario step `pppoe-up` and the router group |
+| Speed over PPPoE (1000/300 plan) | ✅ | Cloudflare 899/308, Fast.com 870/324, RTR 749/321, iPerf3 904/322 Mbit/s, bound to ppp0 |
+| Redial | ✅ | pppd told to hang up: back in 12 s; pppd stopped: nmb-netd started it again after 41 s |
+| A real Wi-Fi client through router mode on PPPoE | ✅ | The owner's phone on the box's Wi-Fi (2.4 GHz, 802.11n): "works perfectly". The scenario's own steps for a client and the Web UI were not done (at night) |
+| The WAN closed to the internet | ✅ | From another network: SSH, DNS (TCP and UDP), Web UI and iperf3 closed on IPv4 and IPv6, ping answers |
+| The box's own IPv6 on PPPoE | ✅ | After the fix: an address and default route from the ISP's router advert, HTTPS over IPv6 |
+| IPv6 for the LAN (prefix delegation, router adverts) | ✅ | dhcpcd got a /64 from DIGI, dnsmasq advertised it; a simulated LAN client got a SLAAC address and reached the internet over IPv6; a LAN device's open port was not reachable from the internet. A real phone: not checked |
+| Port forwarding | ✅ | A LAN device (namespace with a web server) reached from another network through the line's address; hairpin from a second LAN device; `nmb-selftest portfwd` 9/9 |
+| UPnP / NAT-PMP / PCP | ✅ | NAT-PMP mapping and IGD AddPortMapping from a LAN device, reached from another network; port 22 and a mapping for another device refused; removed when UPnP is turned off. A real application (game console, torrent client): not checked |
+| DynDNS follows the new address | ⚠️ | After 246 s, at the next scheduled update; the immediate update on a route change is unit-tested, not yet live |
+| Wi-Fi with the default settings (auto) | ✅ | After the fix: 802.11ac, 80 MHz, channel 36 at the first try, seen from the PC at 5180 MHz; then put back to the owner's 2.4 GHz 802.11n. A client on 5 GHz: not checked |
+| Speed tests in router mode bind to the router's WAN | ✅ | After the fix; before it they bound to eth0 (only a link-local address) or, with the WAN down, to the USB hotspot |
+| nmb-netd restart while PPPoE is up | ✅ after a fix | First (20:31) the stop timeout killed pppd before PADT; DIGI kept the old session, refused the next login ("Too many sessions"), did not answer PADI, and let the session go after about 6 minutes. Fixed (pppd hung up first, 45 s stop timeout); re-tested at 20:40:09 and 20:40:39: "Sent PADT" within a second, the next login accepted at once |
 
 ### Wi-Fi access point (VM-D13, simulated radios)
 
@@ -262,8 +287,9 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | Wi-Fi shared on a LAN port, for real | Box on Wi-Fi, Ethernet cable from the box to a laptop (no router): the laptop gets 192.168.77.x and reaches the internet. Then plug the box's cable into the home router: the box must stop its DHCP within seconds and get the router's address |
 | Wi-Fi uplink with the box's own profile | `nmb-cli run wifi.uplink ssid=... password=... enabled=true` on a box not yet on Wi-Fi; then a speed test with `measurement_link = wifi`, counters on `wlan0` |
 | Guest Wi-Fi and main Wi-Fi on two radios | A USB Wi-Fi adapter as `wlan1`: one main, one guest; both banners in the device explorer |
-| Real Wi-Fi radios as an access point | 2.4/5/6 GHz, Wi-Fi 6/7, with real clients |
-| PPPoE on a real line, the Nighthawk M6 Pro, a Pi 5 | |
+| Real Wi-Fi radios as an access point | 2.4 GHz 802.11n with a real phone works (2026-11-09); 5 GHz 802.11ac starts (80 MHz) but no client has used it yet; Wi-Fi 6/7 and 6 GHz need other hardware |
+| A second radio for real dual-band | The Pi 4 has one radio: one band at a time. Both bands at once need a USB Wi-Fi adapter as a second access point (not built) |
+| A Pi 5 | |
 | Planned routers | Nothing runs on routers yet; see the porting plan |
 
 ### Needs the box with USB tethering (run `nmb-selftest scenario usb`)
@@ -273,14 +299,14 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | Fixes of the 2026-11-09 log review | Telegram during an outage (cable out of the router): the bot log shows growing pauses, not several requests a second. `/dyndns off` and `/dyndns on` from Telegram are saved. Block only DNS (for example port 53 on the router): the fallback starts while IP works, and the normal DNS comes back within 15 minutes after the block ends. Router mode on the Pi: `journalctl -u nmb-netd` shows no "hostapd did not start". `/var/lib/nmb/.rmbt_client_uuid` stays the same across RTR tests. A cable pull leaves no repeated "dead default route" lines |
 | Automatic mode (`mode = auto`) | Box in `auto` with the cable in the home router: standalone, no switch. Cable out of the router for 90 s: router mode with the access point (Tailscale over USB or Wi-Fi must stay up). Cable on the ONT with PPPoE saved: router mode with PPPoE. Cable back in the router: standalone within about 30 s. Router reboot (under 90 s): stays standalone. On a box with several wired ports: the other ports bridged to the WAN port, a PC behind it gets the router's address |
 | IPv6 on the line | `sudo nmb-selftest ipv6`: the LAN router's advertisement (lifetime, prefixes), the box's public IPv6 address and route, HTTPS over IPv6. 2026-11-09 on the Pi 4: the home router (GL.iNet Flint 4) advertised lifetime 0 and no prefix, so the LAN got no IPv6 although the ISP provides it; to re-test after IPv6 is turned on for the router's LAN. DynDNS must then set the AAAA record |
-| IPv6 in router mode | Not built yet: router mode asks the ISP for no prefix (DHCPv6-PD) and sends no router advertisements on its LAN, so its clients get IPv4 only |
-| Real PPPoE line | Planned for 2026-11-09 evening (DIGI, service name `Diginet`), with the kernel PPPoE plugin and MSS clamping; the box reached only over Tailscale. Needs the ISP's PPPoE user name and password (enter them in the Web UI, Router > PPPoE, or with a USB stick) and the box's WAN port on the ONT or modem, not behind the home router (the ISP may allow only one session, so the home router's PPPoE may have to be off for the test). Then `sudo nmb-selftest pppoe --pppoe-real`: discovery, dial with the saved credentials, internet over PPPoE, all in a separate namespace on a macvlan, so the box's own routes and Tailscale stay. Then router mode with `pppoe_enabled = true` |
+| IPv6 in router mode on a DHCP WAN or USB | Built for a PPPoE WAN only (2026-11-09); behind another router or on a hotspot the LAN still gets IPv4 only |
+| Real PPPoE line, what is left | Done on 2026-11-09 (see Results). Left: a refused login must wait 10 minutes (`journalctl -u nmb-netd`: "dialing again in 600 s"); while the line is down no speed test may run over USB or Wi-Fi (scheduler: "its internet line is down"); DynDNS must follow a new PPPoE address within a minute; IPv6 and a forwarded port on a real phone or PC; UPnP from a real application; a client on 5 GHz |
 | Settings from a USB stick | `config/usb-import.example.conf` as `nmb.conf` on a FAT32 stick with a new Telegram token: plugged in, the token changes, `nmb-import-result.txt` lists `telegram.token`, a backup is in `/var/lib/nmb/config-backups/`, plugging in again changes nothing |
 | Router mode with the Ethernet WAN (`nmb-selftest scenario router`) | A phone or PC on the box's Wi-Fi: internet, Web UI and SSH from the Wi-Fi, a WAN cable loss and return; the Tailscale guard must stop and restore if remote access drops for 2 minutes |
 | Wi-Fi sharing on the LAN port with USB as the upstream | Box on Wi-Fi, cable from the router to a laptop, then the box leaves its Wi-Fi: the laptop must keep browsing over USB (scenario steps `wifi-share`, `usb-fallback`; the client's packets out of `eth1` are counted) |
 | Router mode drops the LAN ports' link after setup | Laptop on the cable with an address from before (for example 192.168.77.x): without replugging it must get 192.168.100.x and browse within a minute |
 | Dead default routes are removed | Cable from the router to a laptop: within one netd loop no default route may stay on `eth0`; Wi-Fi or USB carries the box's traffic and Tailscale stays up (`nmb-selftest internet`: "no dead default route") |
-| Access point on 5 GHz, Wi-Fi 5/6 | So far only 2.4 GHz with 802.11n; the Pi 4 radio does 40/80 MHz only on 5 GHz |
+| Access point on 5 GHz with a client | 802.11ac at 80 MHz starts with the default settings (2026-11-09); a phone or laptop on it and a speed test over it are still to do |
 | Unplugging the USB device in router mode and in standalone | Scenario step `unplug`: no USB route or rule left, the mode rebuilds with `eth0` |
 | Secrets restore | Clear the Telegram token by hand in `nmb.conf`: `nmb-selftest config` must fail with its name, `sudo nmb-selftest secrets-restore` must bring it back and the bot must answer |
 | iPerf3 server resting | A server that fails five tests in a row must be left out for 6 hours (log line "left out for up to 6 h"), then tried again |
@@ -333,12 +359,16 @@ Found in the code or in the box's logs and not fixed yet (the log review of 2026
 | RTR rows without the client IP | About 8 % since the fix (16 of 208): the address lookup over the measured link sometimes fails |
 | SD card writes | The developer log grows about 10 MB a day on the SD card (the boot-partition copy of the diagnostic snapshot is already limited to once an hour) |
 | Wired route outside NetworkManager | The Web UI adds a static `eth0` default route (metric 50) itself; it should set the metric in the NetworkManager profile instead |
-| IPv6 in router mode | No DHCPv6 prefix delegation on the WAN and no router advertisements on the LAN |
+| Configuration reload is slow | Every reload applies the kernel tuning again (about 8 s on the Pi) before it looks at what changed |
+| dnsmasq pid file | "chown of PID file /run/nmb/dnsmasq.pid failed: please add capability CAP_CHOWN" at each router start (harmless, noisy) |
+| Data used by the owner's schedule | The box runs every engine every 2-5 minutes (the owner's setting): on a 1000 Mbit/s line that is many GB an hour. USB has no daily limit set (0); since 2026-11-09 router mode does not fall back to USB for tests, but a limit for USB is still advisable |
 | `nmcli device reapply` | Putting IPv4 DNS first reapplies the profile once; that reset an open connection of the bot once (it reconnected) |
 | Leftovers on the test box | 22 old `/tmp/nmb-install-*` folders from 2026-11-07 deploys |
 
 ## Known limits
 
+- The Raspberry Pi 4 has one Wi-Fi radio: its access point uses one band at a time (2.4 or 5 GHz, "auto" picks 5 GHz). Both bands at once need a second radio.
+- DIGI's PPPoE allows one session per login: the home router and the box cannot be online on the same login at once, and a session that was not hung up (no PADT) blocks the next login for minutes.
 - Ookla blocks the public IP address that tests too often, and refused attempts keep the block going; shown on 8 Nov 2026 when a new public IP (main router restarted) passed at once. The box then pauses Ookla (30 min, doubling up to 4 h). NMB does not change the IP to get around it; run Ookla at most hourly.
 - Up to 15 minutes of results can be lost on a power cut, by design (the live database is in RAM).
 - The VM scripts and the bot check scripts used for the runs above are not part of the repository; each row says what was set up.

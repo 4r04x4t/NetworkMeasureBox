@@ -62,6 +62,10 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 * **Kettős Működési Mód**:
   * **Automatikus (`mode = auto`, új telepítésnél ez az alapértelmezett)**: ha egy router DHCP-n címet ad a doboznak: **standalone** (több vezetékes portnál a többi port hídba kerül vele, LAN passthrough, majdnem mint egy switch). Ha 90 másodpercig nincs router és internet (a kábel ONT-n vagy modemen, PC-n van, vagy nincs kábel): **router mód**, amíg router nem válaszol újra; mentett belépés és válaszoló PPPoE-szerver esetén PPPoE-vel tárcsáz, egyébként a Wi-Fi hozzáférési ponttal és a LAN portokkal elérhető a beállításhoz. Ha router jelenik meg a WAN porton: azonnal standalone. Rögzített mód, kézi felülbírálás vagy a tulajdonos saját passthrough/aggregációs beállítása mindig erősebb. Szabályok: `nmb/netd/auto_mode.py`. Egységtesztekkel ellenőrizve; élesben még nincs tesztelve.
   * **Mode A (Aktív Router / Gateway)**: Teljes értékű router PPPoE tárcsázással, VLAN tageléssel, NAT masquerade-del, DHCP kiszolgálóval (`dnsmasq`).
+    * Kernelbeli PPPoE (VLAN, MSS-csökkentés), vonalszakadás után újratárcsáz, elutasított belépés után hosszabban vár; valódi 1000/300 Mbps-os PPPoE vonalon tesztelve (2026-11-09).
+    * A WAN zárva az internet felé, kivéve a válaszokat, az ICMP-t és a bekapcsolt VPN-portokat; egy elé kötött otthoni router felől a tulajdonos teljes hozzáférése megmarad.
+    * **Port-továbbítás**, ki-be kapcsolható (webes felület > Router > Port-továbbítás): TCP, UDP vagy mindkettő, egyes portok vagy tartományok, hairpin NAT; és **UPnP / NAT-PMP / PCP** a LAN-eszközöknek (alapból ki, csak a saját címükre, csak 1024-65535 portokra).
+    * **IPv6 a LAN-nak** PPPoE vonalon: a szolgáltató delegált előtagja (DHCPv6-PD) a klienseknek hirdetve (SLAAC); a LAN-eszközök az internetről nem érhetők el.
   * **Mode B (Transzparens Híd / Inline Bridge)**: Két fizikai interfész közötti Layer 2 híd (`br0`). A doboz DHCP-vel saját címet kér a méréshez, így a szolgáltatói oldalnak ezt biztosítania kell. Ha a doboz leáll, megszakad a kapcsolat.
 * **LAN Passthrough és Link Aggregation** (routerhez csatlakoztatott, önálló mérőeszköz; WebGUI: Portok és Illesztőprogramok):
   * **Passthrough**: a kiválasztott portok 2. rétegben az uplinkre hidalódnak, így a doboz mögötti eszközök a router alhálózatán maradnak.
@@ -630,11 +634,12 @@ Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz. A részlet
 | Terület | Állapot |
 |---|---|
 | Raspberry Pi 4, Debian 13, `standalone` mód | Napi használatban |
+| Router mód valódi PPPoE vonalon (Raspberry Pi 4, Debian 13, 2026-11-09) | Az automatikus mód választotta, kernelbeli PPPoE kb. 900/320 Mbit/s, újratárcsázás, egy valódi telefon a doboz Wi-Fi-jén, a WAN zárva másik hálózatról nézve, a doboz IPv6-ja és IPv6 egy szimulált LAN-kliensnek, port-továbbítás és UPnP másik hálózatról elérve. Ezek a javítások és tesztek Debian 13 alatt, a dobozon készültek. Lásd TESTING.hu.md |
 | Tiszta telepítés, x86-64 | Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 és Rocky Linux 10 (a RHEL 10 helyett) és Alpine 3.22 / 3.20. Telepítés, szolgáltatások, webes felület, valódi sebességmérés, újratelepítés és (Alpine-on) újraindítás |
 | `mode_a` router és `mode_b` híd | Virtuális gépeken tesztelve, DHCP-vel, NAT-tal, DMZ-izolációval és kliensforgalommal. Raspberry Pi hardveren nem |
-| Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. A Raspberry Pi 4 rádióján: router mód, 2,4 GHz, 802.11n, 20 MHz, egy telefon és egy laptop böngészett (2026-11-08); 5 GHz és Wi-Fi 5/6 még nem. Csak router módban fut; standalone és híd módban a rádió az otthoni Wi-Fi kliense marad |
+| Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. A Raspberry Pi 4 rádióján: router mód, 2,4 GHz, 802.11n, 20 MHz, egy telefon és egy laptop böngészett (2026-11-08); alapbeállítással 5 GHz-en 802.11ac, 80 MHz indul (2026-11-09), 5 GHz-es kliens még nem volt rajta. Egy rádió: egyszerre egy sáv. Csak router módban fut; standalone és híd módban a rádió az otthoni Wi-Fi kliense marad |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Nincs igazolva. A Debian 13 hostapd-ja elutasította a Wi-Fi 7 beállításokat, ezért az NMB régebbi szabványra lép vissza |
-| PPPoE | Tárcsázás és vonalszakadás utáni újratárcsázás szimulált szolgáltatóval tesztelve. Valódi vonalon nem |
+| PPPoE | Valódi vonalon (DIGI, 2026-11-09) és szimulált szolgáltatóval: tárcsázás, a szolgáltató elutasító üzenete megjelenik, újratárcsázás, router mód rajta |
 | VLAN, Multi-WAN terheléselosztás, link aggregáció | A kód megvan, valódi vonalon nincs tesztelve |
 | Más disztribúciók (például Raspberry Pi OS, Arch), 32 bites rendszerek | Nincs tesztelve; a telepítő Debian-alapú rendszert, Fedorát, RHEL-t és klónjait, valamint Alpine-t támogat |
 | 512 MB RAM-os eszközök | 512 MB-os virtuális gépen tesztelve: 25 perc percenkénti méréssel, memóriahiány miatti leállítás és swap-használat nélkül |
