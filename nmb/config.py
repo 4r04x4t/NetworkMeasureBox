@@ -311,6 +311,11 @@ log_requests = true
 # Optional add-on: runs weekly when enabled.
 enabled = false
 
+[usb_import]
+# Settings from a USB stick: a file named nmb.conf at the top level of the stick is applied when it is
+# plugged in (only the keys it contains; result written back as nmb-import-result.txt).
+enabled = true
+
 [collector]
 # Send measurements to a central collector (nmb-collector) run by an ISP or a specialist.
 enabled = false

@@ -1,0 +1,2 @@
+# NetworkMeasureBox: a USB storage file system may carry settings (nmb.conf at its top level).
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}+="nmb-usb-import@%k.service"

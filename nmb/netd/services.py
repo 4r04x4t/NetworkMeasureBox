@@ -12,7 +12,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from nmb.config import NetworkConfig
 
@@ -286,39 +286,8 @@ pid-file={pid_file}
         if not pppd_bin:
             log.error("pppd binary not found")
             return False
-
-        secrets_file = self.run_dir / "ppp-secrets"
         pid_file = self.run_dir / "pppd.pid"
-
-        secrets_file.write_text(f'"{self.cfg.pppoe_user}" * "{self.cfg.pppoe_password}" *\n')
-        secrets_file.chmod(0o600)
-
-        pppoe_opt = f"pppoe -I {iface} -T 1412"
-        if getattr(self.cfg, "pppoe_service_name", None):
-            pppoe_opt += f" -S {self.cfg.pppoe_service_name}"
-
-        cmd = [
-            pppd_bin,
-            "pty", pppoe_opt,
-            "noauth",
-            "user", self.cfg.pppoe_user,
-            "password", self.cfg.pppoe_password,
-            "defaultroute",
-            "replacedefaultroute",
-            "hide-password",
-            # Redial for as long as the line stays down.
-            "persist",
-            # Without echo requests pppd never notices a dead line, so it never redials.
-            "lcp-echo-interval", "10",
-            "lcp-echo-failure", "3",
-            "maxfail", "0",
-            "holdoff", "5",
-            "nodetach",
-            "usepeerdns",
-            "mtu", "1492",
-            "mru", "1492",
-            "linkname", "nmb-pppoe",
-        ]
+        cmd = build_pppd_cmd(pppd_bin, self.cfg, iface, self.run_dir / "ppp-options")
         proc = ManagedProcess("pppd", cmd, pid_file)
         self.processes["pppd"] = proc
         return proc.start()
@@ -332,3 +301,39 @@ pid-file={pid_file}
         self.stop_pppd()
         self.stop_dnsmasq()
         self.stop_hostapd()
+
+
+def _ppp_quote(value: str) -> str:
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def build_pppd_cmd(pppd_bin: str, cfg: Any, iface: str, options_file: Path, linkname: str = "nmb-pppoe",
+                   default_route: bool = True) -> List[str]:
+    """The pppd command for PPPoE on iface. The user name and password go into a private options file:
+    on the command line (as before 2026-11-09) every local user could read them with `ps`."""
+    options_file.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(options_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(f"user {_ppp_quote(cfg.pppoe_user)}\npassword {_ppp_quote(cfg.pppoe_password)}\n")
+    os.chmod(options_file, 0o600)
+    pppoe_opt = f"pppoe -I {iface} -T 1412"
+    if getattr(cfg, "pppoe_service_name", None):
+        pppoe_opt += f" -S {cfg.pppoe_service_name}"
+    cmd = [pppd_bin, "pty", pppoe_opt, "noauth", "file", str(options_file)]
+    if default_route:
+        cmd += ["defaultroute", "replacedefaultroute"]
+    return cmd + [
+        "hide-password",
+        # Redial for as long as the line stays down.
+        "persist",
+        # Without echo requests pppd never notices a dead line, so it never redials.
+        "lcp-echo-interval", "10",
+        "lcp-echo-failure", "3",
+        "maxfail", "0",
+        "holdoff", "5",
+        "nodetach",
+        "usepeerdns",
+        "mtu", "1492",
+        "mru", "1492",
+        "linkname", linkname,
+    ]

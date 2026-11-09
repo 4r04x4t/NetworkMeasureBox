@@ -96,6 +96,20 @@ def _metric(parts: List[str]) -> int:
     return int(parts[parts.index("metric") + 1]) if "metric" in parts else 0
 
 
+def tailscale_online() -> Optional[bool]:
+    """True/False when Tailscale runs, None when it is not installed or not logged in."""
+    exe = shutil.which("tailscale")
+    if not exe:
+        return None
+    try:
+        d = json.loads(run([exe, "status", "--json"], timeout=10).stdout or "{}")
+    except Exception:
+        return False
+    if d.get("BackendState") not in ("Running",):
+        return None if d.get("BackendState") in ("NeedsLogin", "Stopped", None) else False
+    return bool((d.get("Self") or {}).get("Online"))
+
+
 def interfaces_kind(iface: Optional[str]) -> str:
     from nmb.netd import interfaces
     return str(interfaces.usb_tether_kind(iface)) if iface else "none"
@@ -231,6 +245,9 @@ def g_internet(rep: Report, cfg) -> None:
         rep.add("internet", "DNS", PASS, "www.netztest.at resolves")
     except OSError as e:
         rep.add("internet", "DNS", FAIL, str(e))
+    ts = tailscale_online()
+    rep.add("internet", "Tailscale online", SKIP if ts is None else (PASS if ts else FAIL),
+            "not installed or not logged in" if ts is None else ("connected" if ts else "offline: remote access is gone"))
     res = run(["curl", "-s", "-m", "10", "https://www.cloudflare.com/cdn-cgi/trace"], timeout=15)
     rep.add("internet", "HTTPS", PASS if "ip=" in res.stdout else FAIL,
             "Cloudflare answered" if "ip=" in res.stdout else (res.stderr.strip() or "no answer"))
@@ -519,6 +536,12 @@ def g_router(rep: Report, cfg) -> None:
                 f"avg {mm.group(1)} ms" if mm else "no answer")
         d = run(["getent", "hosts", "www.netztest.at"], ns=ns, timeout=15)
         rep.add("router", "LAN client DNS", PASS if d.returncode == 0 else FAIL, "resolves" if d.returncode == 0 else "no answer")
+        gw = str(getattr(cfg.network, "gateway_ip", "192.168.100.1") or "192.168.100.1")
+        port = int(getattr(cfg.web, "port", 80) or 80)
+        w = run(["curl", "-s", "-m", "10", "-o", "/dev/null", "-w", "%{http_code}", f"http://{gw}:{port}/"], ns=ns, timeout=15).stdout.strip()
+        rep.add("router", "Web UI reachable from the LAN", PASS if w[:1] in ("2", "3") or w == "401" else FAIL, f"HTTP {w or 'no answer'}")
+        ssh = run(["bash", "-c", f"exec 3<>/dev/tcp/{gw}/22 && head -c 7 <&3"], ns=ns, timeout=10).stdout
+        rep.add("router", "SSH reachable from the LAN", PASS if ssh.startswith("SSH-") else FAIL, ssh.strip() or "no answer")
         c = run(["curl", "-s", "-m", "15", "https://www.cloudflare.com/cdn-cgi/trace"], ns=ns, timeout=20)
         rep.add("router", "LAN client HTTPS", PASS if "ip=" in c.stdout else FAIL,
                 "ok" if "ip=" in c.stdout else c.stderr.strip()[:100])
@@ -576,6 +599,111 @@ def g_dhcp_probe(rep: Report, cfg) -> None:
         kill_srv()
         Path(f"/run/{ns}.leases").unlink(missing_ok=True)
         _cleanup_ns(ns)
+
+
+def _pppd_in_ns(ns: str, iface: str, user: str, password: str, linkname: str, timeout: float = 25.0) -> Tuple[bool, str]:
+    """Dial PPPoE with NMB's own pppd command inside a namespace; True when ppp got an address."""
+    import types
+    from nmb.netd.services import build_pppd_cmd
+    pppd = shutil.which("pppd") or "/usr/sbin/pppd"
+    opts = Path(tempfile.mkdtemp(prefix="nmbst-ppp")) / "options"
+    cfg = types.SimpleNamespace(pppoe_user=user, pppoe_password=password, pppoe_service_name="")
+    cmd = ["ip", "netns", "exec", ns] + build_pppd_cmd(pppd, cfg, iface, opts, linkname=linkname)
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    addr = ""
+    try:
+        t0 = time.time()
+        while time.time() - t0 < timeout and proc.poll() is None:
+            out = run(["ip", "-4", "-o", "addr", "show"], ns=ns).stdout
+            m = re.search(r"\d+: (ppp\d+)\s+inet (\S+)", out)
+            if m:
+                addr = f"{m.group(1)} {m.group(2)}"
+                break
+            time.sleep(1)
+        return bool(addr), addr or "no PPP address"
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        shutil.rmtree(opts.parent, ignore_errors=True)
+
+
+def g_pppoe(rep: Report, cfg, real: bool = False) -> None:
+    """PPPoE with NMB's own pppd command: against a throwaway PPPoE server (right and wrong password), and
+    with --real against the line on the WAN port, through a macvlan in a namespace (the box's routes stay)."""
+    server = shutil.which("pppoe-server") or ("/usr/sbin/pppoe-server" if os.path.exists("/usr/sbin/pppoe-server") else "")
+    if not real:
+        if not server:
+            rep.add("pppoe", "pppoe-server", SKIP, "not installed (package pppoe)")
+            return
+        srv, cli = f"{NS_PREFIX}ps", f"{NS_PREFIX}pc"
+        etc = Path(f"/etc/netns/{srv}")
+        try:
+            for ns in (srv, cli):
+                run(["ip", "netns", "del", ns])
+            run(["ip", "netns", "add", srv], check=True)
+            run(["ip", "netns", "add", cli], check=True)
+            run(["ip", "link", "add", f"{NS_PREFIX}pa", "type", "veth", "peer", "name", f"{NS_PREFIX}pb"], check=True)
+            run(["ip", "link", "set", f"{NS_PREFIX}pa", "netns", srv], check=True)
+            run(["ip", "link", "set", f"{NS_PREFIX}pb", "netns", cli], check=True)
+            run(["ip", "link", "set", f"{NS_PREFIX}pa", "up"], ns=srv, check=True)
+            run(["ip", "link", "set", f"{NS_PREFIX}pb", "up"], ns=cli, check=True)
+            # The server's pppd reads /etc/ppp; inside its namespace that is /etc/netns/<ns>/ppp.
+            if etc.exists():
+                shutil.rmtree(etc)
+            shutil.copytree("/etc/ppp", etc / "ppp")
+            (etc / "ppp" / "pap-secrets").write_text('"nmbtest" * "Right-Pass-77" *\n')
+            (etc / "ppp" / "chap-secrets").write_text('"nmbtest" * "Right-Pass-77" *\n')
+            (etc / "ppp" / "pppoe-server-options").write_text("require-pap\nlcp-echo-interval 10\nlcp-echo-failure 2\n")
+            run([server, "-I", f"{NS_PREFIX}pa", "-L", "10.77.0.1", "-R", "10.77.0.100", "-N", "4"], ns=srv, check=True)
+            time.sleep(1)
+            ok, detail = _pppd_in_ns(cli, f"{NS_PREFIX}pb", "nmbtest", "Right-Pass-77", "nmbst-ok")
+            rep.add("pppoe", "dial with the right password (simulated line)", PASS if ok else FAIL, detail)
+            if ok:
+                p = run(["ping", "-c", "2", "-W", "2", "10.77.0.1"], ns=cli, timeout=10)
+                rep.add("pppoe", "traffic over the PPP link", PASS if p.returncode == 0 else FAIL, "ping to the server")
+            bad, detail = _pppd_in_ns(cli, f"{NS_PREFIX}pb", "nmbtest", "wrong-pass", "nmbst-bad", timeout=15)
+            rep.add("pppoe", "wrong password is refused", PASS if not bad else FAIL, "no link" if not bad else detail)
+            leak = run(["pgrep", "-af", "pppd"]).stdout
+            rep.add("pppoe", "password not on any command line", PASS if "Right-Pass-77" not in leak else FAIL, "")
+        except Exception as e:
+            rep.add("pppoe", "simulated line", FAIL, f"{type(e).__name__}: {str(e)[:150]}")
+        finally:
+            run(["pkill", "-f", f"pppoe-server -I {NS_PREFIX}pa"])
+            for ns in (srv, cli):
+                run(["ip", "netns", "del", ns])
+            shutil.rmtree(etc, ignore_errors=True)
+        return
+    # The real line: the WAN port must reach the ISP's PPPoE server (the ONT or modem, not the home router).
+    net = cfg.network
+    if not (getattr(net, "pppoe_user", "") and getattr(net, "pppoe_password", "")):
+        rep.add("pppoe", "real line", SKIP, "no PPPoE user name and password set (Web UI > Router > PPPoE)")
+        return
+    ns, mv = f"{NS_PREFIX}pr", f"{NS_PREFIX}mv"
+    wan = getattr(net, "wan_interface", "eth0") or "eth0"
+    try:
+        run(["ip", "netns", "del", ns])
+        run(["ip", "netns", "add", ns], check=True)
+        run(["ip", "link", "add", mv, "link", wan, "type", "macvlan", "mode", "bridge"], check=True)
+        run(["ip", "link", "set", mv, "netns", ns], check=True)
+        run(["ip", "link", "set", mv, "up"], ns=ns, check=True)
+        disc = run(["pppoe-discovery", "-I", mv], ns=ns, timeout=20)
+        found = "Access-Concentrator" in disc.stdout
+        rep.add("pppoe", f"PPPoE server answers on {wan}", PASS if found else FAIL,
+                "found" if found else "none: the WAN port must be on the ONT or modem, not behind a router")
+        if found:
+            ok, detail = _pppd_in_ns(ns, mv, net.pppoe_user, net.pppoe_password, "nmbst-real", timeout=40)
+            rep.add("pppoe", "dial the real line with the saved credentials", PASS if ok else FAIL,
+                    "connected" if ok else detail)   # the address is the public one: not printed
+            if ok:
+                p = run(["ping", "-c", "3", "-W", "3", "1.1.1.1"], ns=ns, timeout=20)
+                rep.add("pppoe", "internet over PPPoE", PASS if p.returncode == 0 else FAIL, "ping 1.1.1.1")
+    except Exception as e:
+        rep.add("pppoe", "real line", FAIL, f"{type(e).__name__}: {str(e)[:150]}")
+    finally:
+        run(["ip", "netns", "del", ns])
 
 
 def g_speed(rep: Report, cfg, hours: int = 48) -> None:
@@ -726,9 +854,9 @@ def g_collector(rep: Report, cfg, url: str = "", token: str = "") -> None:
 GROUPS: Dict[str, Callable] = {
     "services": g_services, "internet": g_internet, "config": g_config, "web": g_web, "cli": g_cli,
     "usb": g_usb, "router": g_router, "dhcp-probe": g_dhcp_probe, "speed": g_speed, "wifi-ap": g_wifi_ap,
-    "collector": g_collector, "telegram": g_telegram,
+    "collector": g_collector, "telegram": g_telegram, "pppoe": g_pppoe,
 }
-QUICK = [g for g in GROUPS if g != "telegram"]
+QUICK = [g for g in GROUPS if g not in ("telegram",)]
 
 
 def _secrets_restore() -> int:
@@ -795,6 +923,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--full", action="store_true", help="Also run the Telegram bot through every command (minutes)")
     p.add_argument("--collector-url", default="", help="Upload a copy of the data to this collector instead of a local one; "
                                                        "the token is read from NMB_SELFTEST_COLLECTOR_TOKEN")
+    p.add_argument("--pppoe-real", action="store_true", help="pppoe group: also dial the real line on the WAN port "
+                   "with the saved credentials (the port must be on the ONT or modem); never changes the box's routes")
     p.add_argument("--json", default="", help="Write the report here (default: /var/log/nmb/selftest-<time>.json)")
     args = p.parse_args(argv)
     unknown = [g for g in args.groups if g not in GROUPS]
@@ -808,7 +938,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     rep = Report()
     for g in groups:
         try:
-            if g == "collector":
+            if g == "pppoe" and args.pppoe_real:
+                g_pppoe(rep, cfg, real=True)
+            elif g == "collector":
                 g_collector(rep, cfg, args.collector_url, os.environ.get("NMB_SELFTEST_COLLECTOR_TOKEN", ""))
             else:
                 GROUPS[g](rep, cfg)

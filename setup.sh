@@ -477,6 +477,11 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
     systemctl disable --now nmb-speed.timer 2>/dev/null || true
     rm -f /etc/systemd/system/nmb-speed.timer
     cp "$SCRIPT_DIR/systemd/"* /etc/systemd/system/
+    # Settings from a USB stick (nmb.conf at the top level of the stick)
+    if [ -d /etc/udev/rules.d ]; then
+        cp "$SCRIPT_DIR/os/90-nmb-usb-import.rules" /etc/udev/rules.d/90-nmb-usb-import.rules
+        udevadm control --reload-rules 2>/dev/null || true
+    fi
     systemctl daemon-reload
 
     info "Enabling and starting NetworkMeasureBox systemd target..."

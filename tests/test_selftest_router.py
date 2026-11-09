@@ -55,3 +55,24 @@ class InputCounterTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TailscaleGuardTest(unittest.TestCase):
+    def test_offline_tailscale_stops_and_restores(self):
+        import threading
+        sc = S.Scenario(live.Report(), SimpleNamespace())
+        sc.step = "router-up"
+        states = iter([True] + [False] * 50)    # online at the start, then gone
+        killed = threading.Event()
+        with patch.object(live, "tailscale_online", side_effect=lambda: next(states)), \
+             patch.object(S.time, "sleep"), patch.object(S, "TAILSCALE_GRACE_SEC", 0), \
+             patch.object(S.os, "kill", side_effect=lambda pid, sig: killed.set()), patch("builtins.print"):
+            S._tailscale_guard(sc)
+            self.assertTrue(killed.wait(5))
+        self.assertEqual(sc.rep.rows[-1]["status"], live.FAIL)
+
+    def test_no_guard_when_tailscale_is_not_used(self):
+        sc = S.Scenario(live.Report(), SimpleNamespace())
+        with patch.object(live, "tailscale_online", return_value=None), patch.object(S.threading if hasattr(S, "threading") else __import__("threading"), "Thread") as th:
+            S._tailscale_guard(sc)
+        th.assert_not_called()

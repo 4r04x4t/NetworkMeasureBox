@@ -475,6 +475,37 @@ STEP_FUNCS = {"usb-speed": s_usb_speed, "wifi-share": s_wifi_share, "usb-fallbac
               "router": s_router, "guard": s_guard, "restore": s_restore, "unplug": s_unplug}
 
 
+TAILSCALE_GRACE_SEC = 120
+
+
+def _tailscale_guard(sc: "Scenario") -> None:
+    """Remote access must survive the test: Tailscale offline for 2 minutes stops the scenario and restores.
+
+    The owner runs these tests from another network; losing Tailscale means losing the box.
+    """
+    import signal
+    import threading
+    if live.tailscale_online() is not True:
+        return   # not used on this box, or already offline before the start: nothing to protect
+
+    def watch() -> None:
+        down_since = None
+        while not getattr(sc, "finished", False):
+            time.sleep(15)
+            ok = live.tailscale_online()
+            if ok is False:
+                down_since = down_since or time.monotonic()
+                if time.monotonic() - down_since >= TAILSCALE_GRACE_SEC:
+                    sc.rep.add(sc.step or "guard", "Tailscale stayed online", FAIL,
+                               f"offline for {TAILSCALE_GRACE_SEC} s: stopping and restoring")
+                    os.kill(os.getpid(), signal.SIGTERM)
+                    return
+            else:
+                down_since = None
+
+    threading.Thread(target=watch, daemon=True, name="tailscale-guard").start()
+
+
 def run_steps(steps: List[str], funcs: Dict[str, Callable], preflight: Callable, changes: set,
               wait_scale: float = 1.0, name: str = "usb") -> int:
     """Run the steps; settings changed by them are always put back, also after a crash or a stop."""
@@ -487,6 +518,7 @@ def run_steps(steps: List[str], funcs: Dict[str, Callable], preflight: Callable,
     rep = Report()
     cfg = live._cfg()
     sc = Scenario(rep, cfg, wait_scale)
+    _tailscale_guard(sc)
     sc.name = name
     try:
         if not preflight(sc):
@@ -516,6 +548,7 @@ def run_usb(steps: List[str], wait_scale: float = 1.0) -> int:
 
 
 def _finish(rep: Report, sc: Scenario) -> int:
+    sc.finished = True
     c = rep.counts()
     sc.step = "done"
     sc.say(f"Finished: {c[PASS]} passed, {c[WARN]} warnings, {c[FAIL]} failed, {c[SKIP]} skipped.", waiting=False)

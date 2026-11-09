@@ -279,6 +279,10 @@ case "${1:-}" in
             exec /opt/nmb/bin/nmb-factory-reset "$@"
         fi
         ;;
+    usb-import)
+        shift
+        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.usb_import "$@"
+        ;;
     sync-drive-config)
         PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.config import sync_drive_config; sync_drive_config()"
         ;;
@@ -404,7 +408,7 @@ case "${1:-}" in
         esac
         ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|invasive-log|diagnostic-bundle|crashes-list|crashes-clear|heal-symlink|heal-permissions|heal-restore-config|heal-install-file|heal-dpkg-repair|heal-pkg-install|heal-audit|heal-fix|self-update}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|usb-import <dev>|invasive-log|diagnostic-bundle|crashes-list|crashes-clear|heal-symlink|heal-permissions|heal-restore-config|heal-install-file|heal-dpkg-repair|heal-pkg-install|heal-audit|heal-fix|self-update}" >&2
         exit 1
         ;;
 esac
