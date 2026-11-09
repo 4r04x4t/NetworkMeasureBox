@@ -642,7 +642,8 @@ def _factory_config_text() -> str:
     """Return default settings with a Wi-Fi password unique to this box."""
     import secrets
     from nmb.config import DEFAULT_CONFIG_TEXT
-    return DEFAULT_CONFIG_TEXT.replace("wifi_psk = NetworkMeasureBox123", f"wifi_psk = {secrets.token_urlsafe(12)}")
+    import re
+    return re.sub(r"(?m)^wifi_psk\s*=.*$", f"wifi_psk = {secrets.token_urlsafe(12)}", DEFAULT_CONFIG_TEXT, count=1)
 
 
 def _reset_credentials_files() -> None:

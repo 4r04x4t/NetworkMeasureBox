@@ -23,6 +23,9 @@ typedef struct {
 } RmbtConn;
 
 /* Connect + HTTP/WS upgrade.  Returns NULL on error (message printed to stderr). */
+/* Source address for every test and control connection (--bind); NULL = the routing table decides. */
+extern const char *g_bind_addr;
+
 RmbtConn *conn_connect(const char *host, uint16_t port,
                        int use_tls, int no_tls_verify, int protocol);
 

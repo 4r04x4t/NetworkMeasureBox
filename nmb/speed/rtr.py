@@ -14,7 +14,7 @@ import shutil
 import statistics
 import subprocess
 import time
-from typing import Optional
+from typing import Optional, Tuple
 from urllib.parse import urlparse
 
 from nmb.speed import cancel
@@ -45,6 +45,35 @@ def _output_tail(*streams, limit: int = 400) -> str:
     return "(no output)"
 
 
+def _client_ips(interface: Optional[str], bind_ip: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """The public address the test used: asked over the same link (by source address), not the default route.
+
+    2026-11-08: the native client's rows had no client IP at all (2512 of 2522), and the generic lookup
+    would give the home line's address for a test over USB.
+    """
+    if bind_ip and ":" not in bind_ip:
+        try:
+            import http.client
+            import ssl
+            conn = http.client.HTTPSConnection("www.cloudflare.com", 443, timeout=6,
+                                               source_address=(bind_ip, 0), context=ssl.create_default_context())
+            conn.request("GET", "/cdn-cgi/trace", headers={"User-Agent": "NetworkMeasureBox"})
+            body = conn.getresponse().read(4096).decode("utf-8", "replace")
+            conn.close()
+            for line in body.splitlines():
+                if line.startswith("ip="):
+                    ip = line[3:].strip()
+                    return (None, ip) if ":" in ip else (ip, None)
+        except Exception:
+            log.debug("client IP over %s failed", bind_ip, exc_info=True)
+    try:
+        from nmb.netd.interfaces import get_dual_stack_ips
+        dual = get_dual_stack_ips(interface)
+        return dual.get("ipv4"), dual.get("ipv6")
+    except Exception:
+        return None, None
+
+
 def _run_native_rmbt_speedtest(
     host: str,
     duration_sec: int,
@@ -64,6 +93,9 @@ def _run_native_rmbt_speedtest(
         "-t", str(force_threads or 3),
         "--set-version", f"NMB-{VERSION}",
     ]
+    if bind_ip:
+        # Leave over the asked link (USB, Wi-Fi), not the default route (2026-11-09: it was never passed).
+        cmd += ["--bind", bind_ip]
     log.info("invoking native C Open-RMBT binary: %s", " ".join(cmd))
     try:
         proc = cancel.run(cmd, timeout=duration_sec * 3 + 30)
@@ -99,7 +131,10 @@ def _run_native_rmbt_speedtest(
 
     down_mbps = float(final_data.get("down", 0.0))
     up_mbps = float(final_data.get("up", 0.0))
-    ping_ms = float(final_data.get("pingMedian", 15.0))
+    ping_ms = float(final_data.get("pingMedian") or 0.0)
+    # Older binaries print only the median; never invent the minimum or the jitter.
+    ping_min_ms = float(final_data["pingMin"]) if final_data.get("pingMin") else None
+    jitter_ms = float(final_data["pingJitter"]) if final_data.get("pingJitter") is not None and "pingMin" in final_data else None
     down_bps = int(down_mbps * 1e6)
     up_bps = int(up_mbps * 1e6)
     ping_us = int(ping_ms * 1000)
@@ -122,17 +157,21 @@ def _run_native_rmbt_speedtest(
         "share_url": share_url,
         "dl_threads": final_data.get("downThreads", force_threads),
         "ul_threads": final_data.get("upThreads", force_threads),
-        "ping_min_ms": ping_ms,
+        "ping_min_ms": ping_min_ms,
         "ping_median_ms": ping_ms,
+        "ping_count": final_data.get("pingCount"),
     })
+    v4, v6 = _client_ips(interface, bind_ip)
 
     return SpeedtestResult(
         status="ok",
         down_bps=down_bps,
         up_bps=up_bps,
-        ping_us=ping_us,
-        jitter_us=500,
+        ping_us=int((ping_min_ms if ping_min_ms is not None else ping_ms) * 1000),
+        jitter_us=int(jitter_ms * 1000) if jitter_ms is not None else None,
         loss_pct=0.0,
+        client_ip=v4,
+        client_ipv6=v6,
         server_name="RTR-NetTest (Native C Open-RMBT)",
         server_host=urlparse(host).netloc,
         server_location="Vienna, Austria (BEREC Cluster)",
@@ -299,15 +338,7 @@ def execute_rtr_speedtest(
     # RTR does not sample latency under load, so bufferbloat stays unknown instead of estimated.
     bb_grade, bb_delta = None, None
 
-    v4 = None
-    v6 = None
-    try:
-        from nmb.netd.interfaces import get_dual_stack_ips
-        dual = get_dual_stack_ips()
-        v4 = dual.get("ipv4")
-        v6 = dual.get("ipv6")
-    except Exception:
-        log.debug("suppressed exception", exc_info=True)
+    v4, v6 = _client_ips(interface, bind_ip)
 
     res = SpeedtestResult(
         status="ok" if (dl_bytes > 0 or ul_bytes > 0) else "error",

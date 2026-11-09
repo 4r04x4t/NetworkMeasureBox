@@ -191,6 +191,7 @@ static void print_usage(const char *prog)
         "      --debug             Print control server JSON\n"
         "      --intermediate      Print upload throughput every 40 ms per thread\n"
         "  -v, --verbose           Emit machine-readable JSON progress on stdout (GUI)\n"
+        "      --bind ADDR         Source address for all connections (measure over that link)\n"
         "      --nettype CODE      Network type code (default 98 = LAN)\n"
         "      --type TYPE         Client type (default DESKTOP)\n"
         "      --platform NAME     Platform label\n"
@@ -251,7 +252,7 @@ int main(int argc, char *argv[])
 
     enum {
         OPT_NETTYPE = 1000, OPT_TYPE, OPT_PLATFORM, OPT_OS, OPT_OSVER,
-        OPT_MODEL, OPT_SET_VERSION, OPT_SERVER_UUID, OPT_LOOP, OPT_LOOP_DELAY,
+        OPT_MODEL, OPT_BIND, OPT_SET_VERSION, OPT_SERVER_UUID, OPT_LOOP, OPT_LOOP_DELAY,
         OPT_LOOP_COUNTER, OPT_LOOP_UUID, OPT_LOOP_MAX_TESTS, OPT_LOOP_CERT
     };
 
@@ -275,6 +276,7 @@ int main(int argc, char *argv[])
         {"model",         required_argument, NULL, OPT_MODEL},
         {"server_uuid",   required_argument, NULL, OPT_SERVER_UUID},
         {"set-version",   required_argument, NULL, OPT_SET_VERSION},
+        {"bind",          required_argument, NULL, OPT_BIND},
         {"user-loop-mode",              no_argument,       NULL, OPT_LOOP},
         {"user-loop-mode-max-delay",    required_argument, NULL, OPT_LOOP_DELAY},
         {"user-loop-mode-test-counter", required_argument, NULL, OPT_LOOP_COUNTER},
@@ -304,6 +306,7 @@ int main(int argc, char *argv[])
         case OPT_PLATFORM:    platform_s  = optarg;       break;
         case OPT_MODEL:       model_s     = optarg;       break;
         case OPT_SET_VERSION: set_version = optarg;       break;
+        case OPT_BIND:        g_bind_addr = optarg;       break;
         case OPT_SERVER_UUID: server_uuid = optarg;       break;
         case OPT_OS: case OPT_OSVER:                      break; /* accepted, unused */
         case OPT_LOOP:         loop_mode     = 1;         break;
@@ -533,6 +536,12 @@ int main(int argc, char *argv[])
     }
     if (ping_shortest_server == UINT64_MAX) ping_shortest_server = 0;
     double ping_median_ns = median_u64(server_ns_arr, num_pings);
+    double ping_jitter_ns = 0.0;
+    for (int i = 1; i < num_pings; i++) {
+        uint64_t a = ping_results[i].server_ns, b = ping_results[i - 1].server_ns;
+        ping_jitter_ns += (double)(a > b ? a - b : b - a);
+    }
+    if (num_pings > 1) ping_jitter_ns /= (double)(num_pings - 1);
 
     printf("\n=== Results ===\n");
     printf("Ping:           %7.3f ms  (%d pings)\n",
@@ -549,6 +558,8 @@ int main(int argc, char *argv[])
         .down_mbps      = dl_mbps,
         .up_mbps        = ul_mbps,
         .ping_median_ns = ping_median_ns,
+        .ping_min_ns    = (double)ping_shortest_server,
+        .ping_jitter_ns = ping_jitter_ns,
         .ping_count     = num_pings,
         .down_bytes     = dl_bytes,
         .down_ns        = dl_ns,

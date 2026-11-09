@@ -260,6 +260,21 @@ Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Mind
 | PPPoE valódi vonalon, Nighthawk M6 Pro, Pi 5 | |
 | Tervezett routerek | Routeren még semmi sem fut; lásd a portolási tervet |
 
+### A box és USB tethering kell hozzá (`nmb-selftest scenario usb`)
+
+| Mit | Hogyan |
+|---|---|
+| Wi-Fi megosztás a LAN porton, USB-ről jövő internettel | A box Wi-Fin, a kábel a routerből a laptopba, majd a box lecsatlakozik a Wi-Firől: a laptopnak tovább kell böngésznie az USB-n át (`wifi-share`, `usb-fallback` lépések; a kliens `eth1`-en kimenő csomagjait számolja) |
+| Router módban a LAN portok linkje beállítás után leesik | Laptop a kábelen egy korábbi címmel (pl. 192.168.77.x): újradugás nélkül egy percen belül 192.168.100.x címet kell kapnia és böngésznie kell |
+| A halott alapútvonalak eltűnnek | Kábel a routerből a laptopba: egy netd körön belül nem maradhat alapútvonal az `eth0`-n; a box forgalma Wi-Fin vagy USB-n megy, a Tailscale nem szakad meg (`nmb-selftest internet`: „no dead default route”) |
+| Hozzáférési pont 5 GHz-en, Wi-Fi 5/6 | Eddig csak 2,4 GHz, 802.11n; a Pi 4 rádiója 40/80 MHz-et csak 5 GHz-en tud |
+| RTR az USB-hez kötve, kliens IP | `nmb-speed -e rtr -i eth1`: a bájtoknak az `eth1`-en kell átmenniük (a natív kliens `--bind`-ot kapott), a sorban a mobilszolgáltató nyilvános IP-je, ping minimum és jitter legyen |
+| USB eszköz kihúzása router módban és standalone-ban | A forgatókönyv `unplug` lépése: nem marad USB útvonal vagy szabály, a mód `eth0`-val épül újra |
+| Titkok visszaállítása | A Telegram token kézi törlése az `nmb.conf`-ból: az `nmb-selftest config` a nevével bukjon el, a `sudo nmb-selftest secrets-restore` hozza vissza, és a bot válaszoljon |
+| iPerf3 szerver pihentetése | Az ötször egymás után elbukó szervert 6 órára ki kell hagyni (naplósor: „left out for up to 6 h”), utána újra próbálni |
+| Ookla szünet | Ookla rate limit alatt az ütemező kihagyott sorokat tároljon, ne hibákat (`nmb-selftest speed`: nincs „rate-limit pauses” figyelmeztetés) |
+| Gyűjtő az interneten át, HTTPS-sel | Eddig box → PC Tailscale-en, HTTP-vel; gyűjtő valódi tanúsítvánnyal, másik hálózaton |
+
 ### Most is elvégezhető (VM vagy box)
 
 | Mit | Hogyan |

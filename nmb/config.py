@@ -211,7 +211,7 @@ pppoe_vlan = 0
 # Diagnostic Wi-Fi AP (hostapd)
 wifi_enabled = true
 wifi_ssid = NMB-Diagnostic
-wifi_psk = NetworkMeasureBox123
+wifi_psk = 
 wifi_band = auto
 wifi_standard = auto
 wifi_channel = 0

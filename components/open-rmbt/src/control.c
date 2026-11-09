@@ -1,5 +1,6 @@
 #include "control.h"
 #include "gui.h"
+#include "connection.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -130,6 +131,11 @@ static int do_post(const char *url, const char *body,
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,  curl_write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA,      resp);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT,        30L);
+    if (g_bind_addr && *g_bind_addr) {
+        char iface[96];
+        snprintf(iface, sizeof(iface), "host!%s", g_bind_addr);
+        curl_easy_setopt(curl, CURLOPT_INTERFACE, iface);
+    }
 
     if (debug) {
         fprintf(stderr, "[debug] POST %s\n[debug] request body:\n%s\n", url, body);

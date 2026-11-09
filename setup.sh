@@ -358,9 +358,14 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # A shared factory Wi-Fi password would be identical on every box.
-if grep -q "wifi_psk = NetworkMeasureBox123" "$CONFIG_FILE" 2>/dev/null; then
+# The owner's own password, wiped by an earlier bug, comes back from the root-only copy instead.
+if grep -qE "^wifi_psk = (NetworkMeasureBox123)?[[:space:]]*$" "$CONFIG_FILE" 2>/dev/null \
+        && grep -q '"network.wifi_psk"' /var/lib/nmb/secrets.keep 2>/dev/null; then
+    "$INSTALL_DIR/bin/nmb-selftest" secrets-restore >/dev/null 2>&1 && info "Restored settings secrets from /var/lib/nmb/secrets.keep."
+fi
+if grep -qE "^wifi_psk = (NetworkMeasureBox123)?[[:space:]]*$" "$CONFIG_FILE" 2>/dev/null; then
     WIFI_PSK=$(head -c 16 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)
-    sed -i "s/wifi_psk = NetworkMeasureBox123/wifi_psk = $WIFI_PSK/" "$CONFIG_FILE"
+    sed -i -E "s/^wifi_psk = (NetworkMeasureBox123)?[[:space:]]*$/wifi_psk = $WIFI_PSK/" "$CONFIG_FILE"
     # Not printed: the install log stays on the box. It is shown in the Web UI (Settings > Wi-Fi).
     unset WIFI_PSK
     info "Generated a unique Wi-Fi access point password for this box (see Settings > Wi-Fi)."

@@ -260,6 +260,21 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | PPPoE on a real line, the Nighthawk M6 Pro, a Pi 5 | |
 | Planned routers | Nothing runs on routers yet; see the porting plan |
 
+### Needs the box with USB tethering (run `nmb-selftest scenario usb`)
+
+| What | How |
+|---|---|
+| Wi-Fi sharing on the LAN port with USB as the upstream | Box on Wi-Fi, cable from the router to a laptop, then the box leaves its Wi-Fi: the laptop must keep browsing over USB (scenario steps `wifi-share`, `usb-fallback`; the client's packets out of `eth1` are counted) |
+| Router mode drops the LAN ports' link after setup | Laptop on the cable with an address from before (for example 192.168.77.x): without replugging it must get 192.168.100.x and browse within a minute |
+| Dead default routes are removed | Cable from the router to a laptop: within one netd loop no default route may stay on `eth0`; Wi-Fi or USB carries the box's traffic and Tailscale stays up (`nmb-selftest internet`: "no dead default route") |
+| Access point on 5 GHz, Wi-Fi 5/6 | So far only 2.4 GHz with 802.11n; the Pi 4 radio does 40/80 MHz only on 5 GHz |
+| RTR bound to USB, client IP | `nmb-speed -e rtr -i eth1`: the bytes must cross `eth1` (the native client got `--bind`), the row must have the mobile operator's public IP, a ping minimum and a jitter |
+| Unplugging the USB device in router mode and in standalone | Scenario step `unplug`: no USB route or rule left, the mode rebuilds with `eth0` |
+| Secrets restore | Clear the Telegram token by hand in `nmb.conf`: `nmb-selftest config` must fail with its name, `sudo nmb-selftest secrets-restore` must bring it back and the bot must answer |
+| iPerf3 server resting | A server that fails five tests in a row must be left out for 6 hours (log line "left out for up to 6 h"), then tried again |
+| Ookla pause | During an Ookla rate-limit pause the schedule must store skipped rows, not errors (`nmb-selftest speed`: no "rate-limit pauses" warning) |
+| Collector over the internet with HTTPS | So far box to PC over Tailscale with HTTP; a collector behind a real certificate on another network |
+
 ### Can be done now (VM or box)
 
 | What | How |

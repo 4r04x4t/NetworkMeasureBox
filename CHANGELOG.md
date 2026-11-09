@@ -84,6 +84,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- RTR (native client): the test never used the asked link (no source address was passed; it now gets `--bind`), the row had no client IP (it is now asked over the same link), and the ping minimum and jitter were invented (minimum = median, jitter a fixed 500 µs); the client now reports the real minimum and jitter, and an older binary leaves them empty.
+- Ookla: scheduled runs during a rate-limit pause are stored as skipped, not as failed tests.
+- iPerf3: a server whose last five tests all failed is left out for 6 hours (one extra server failed 282 of 283 tests and was tried every minute).
+- Wi-Fi password: the shared factory password is gone from the built-in defaults and the example config, so it can no longer come back from them; the installer first restores the owner's password from the root-only copy, and only generates a new one when there is none.
 - Router mode: a PC on the LAN port kept an address from before (for example from Wi-Fi sharing) and had no internet until its cable was replugged. After setting up, router mode now drops the wired LAN ports' link for 4 seconds so devices ask again. With this, router mode on USB tethering passed live: laptop on the cable and a Wi-Fi client (2.4 GHz) browsed over 5G, Web UI and Tailscale reachable, DHCP guard stopped serving 50 s after the home router came back.
 - `nmb-selftest scenario`: the client packet counter used an invalid nftables rule; the "laptop got an address" check could count the simulated client's lease.
 - Router mode, Wi-Fi sharing and the USB fallback failed when the box's cable moved from the home router to a laptop: the box's own static default route on `eth0` (metric 50) stayed, beat Wi-Fi and USB, and the box lost its internet and Tailscale, while Wi-Fi sharing thought the port had its own internet. `nmb-netd` now removes default routes through a port with no link or no address, and the kernel ignores routes on a port without link (`ignore_routes_with_linkdown`). `nmb-selftest` fails on such a route.

@@ -267,9 +267,10 @@ def _run_single_engine(
                                       bound_iface=bound_iface, bound_ip=bound_ip)
                 ookla_paused = True
             elif wait_sec > 0:
-                # Asking again while limited only extends Ookla's block.
+                # Asking again while limited only extends Ookla's block. No test ran, so this is a skip,
+                # not a failed test (2026-11-08: 28 such rows counted as Ookla errors).
                 res = SpeedtestResult(
-                    status="error",
+                    status="skipped_busy",
                     error=f"Ookla rate limit: paused for another {int(wait_sec // 60) + 1} min",
                     bound_iface=bound_iface, bound_ip=bound_ip,
                 )
@@ -624,8 +625,38 @@ def _answers(host: str, port: int) -> bool:
         return False
 
 
-def _usable_iperf3_servers(cfg: Config) -> List[tuple]:
-    return [hp for hp in iperf3_servers(cfg) if _answers(*hp)]
+IPERF3_FAIL_STREAK = 5
+IPERF3_REST_SEC = 6 * 3600
+
+
+def _iperf3_failing(conn, host: str, now_ms: Optional[int] = None) -> bool:
+    """The last few scheduled tests against host all failed, the last one less than 6 hours ago.
+
+    2026-11-08: one extra server accepted the TCP connection but closed every test (282 of 283
+    "control socket has closed unexpectedly"), and it was tried again every minute.
+    """
+    if conn is None:
+        return False
+    now_ms = now_ms or int(time.time() * 1000)
+    try:
+        rows = conn.execute("SELECT status, ts FROM speedtest WHERE engine = 'iperf3' AND server_host = ? "
+                            "AND status != 'skipped_busy' ORDER BY id DESC LIMIT ?", (host, IPERF3_FAIL_STREAK)).fetchall()
+    except Exception:
+        return False
+    return (len(rows) == IPERF3_FAIL_STREAK and all(r[0] == "error" for r in rows)
+            and now_ms - int(rows[0][1] or 0) < IPERF3_REST_SEC * 1000)
+
+
+def _usable_iperf3_servers(cfg: Config, conn=None) -> List[tuple]:
+    out = []
+    for hp in iperf3_servers(cfg):
+        if _iperf3_failing(conn, hp[0]):
+            log.warning("iPerf3 server %s:%d left out for up to 6 h: its last %d tests all failed",
+                        hp[0], hp[1], IPERF3_FAIL_STREAK)
+            continue
+        if _answers(*hp):
+            out.append(hp)
+    return out
 
 
 def _iperf3_usable(cfg: Config) -> bool:
@@ -938,7 +969,7 @@ def run_measurement_cycle(
                     # Each set iPerf3 server that answers, one after the other, each in its own row.
                     import copy
                     runs = []
-                    for host, port in _usable_iperf3_servers(cfg) or iperf3_servers(cfg)[:1]:
+                    for host, port in _usable_iperf3_servers(cfg, conn) or iperf3_servers(cfg)[:1]:
                         c2 = copy.copy(cfg)
                         c2.iperf = copy.copy(cfg.iperf)
                         c2.iperf.target_host, c2.iperf.target_port = host, port

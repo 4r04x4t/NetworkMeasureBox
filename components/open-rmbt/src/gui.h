@@ -33,6 +33,8 @@ typedef struct {
     double      down_mbps;
     double      up_mbps;
     double      ping_median_ns;
+    double      ping_min_ns;
+    double      ping_jitter_ns;   /* mean difference between consecutive pings */
     int         ping_count;
     uint64_t    down_bytes;
     uint64_t    down_ns;

@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <netdb.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -409,6 +411,28 @@ static SSL_CTX *make_ssl_ctx(int no_verify)
 
 /* ── Public API ──────────────────────────────────────────────────────────────── */
 
+const char *g_bind_addr = NULL;
+
+/* Bind fd to g_bind_addr when it is of the socket's family: the test then leaves over that link's source
+ * routing (for example USB tethering) instead of the default route. */
+static int bind_source(int fd, int family)
+{
+    if (!g_bind_addr || !*g_bind_addr) return 0;
+    if (family == AF_INET) {
+        struct sockaddr_in sa = {0};
+        sa.sin_family = AF_INET;
+        if (inet_pton(AF_INET, g_bind_addr, &sa.sin_addr) != 1) return -1;
+        return bind(fd, (struct sockaddr *)&sa, sizeof(sa));
+    }
+    if (family == AF_INET6) {
+        struct sockaddr_in6 sa = {0};
+        sa.sin6_family = AF_INET6;
+        if (inet_pton(AF_INET6, g_bind_addr, &sa.sin6_addr) != 1) return -1;
+        return bind(fd, (struct sockaddr *)&sa, sizeof(sa));
+    }
+    return -1;
+}
+
 RmbtConn *conn_connect(const char *host, uint16_t port,
                        int use_tls, int no_tls_verify, int protocol)
 {
@@ -418,6 +442,7 @@ RmbtConn *conn_connect(const char *host, uint16_t port,
 
     struct addrinfo hints = {0}, *res = NULL;
     hints.ai_family   = AF_UNSPEC;
+    if (g_bind_addr && *g_bind_addr) hints.ai_family = strchr(g_bind_addr, ':') ? AF_INET6 : AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     if (getaddrinfo(host, port_str, &hints, &res) != 0 || !res) {
         gui_report_error("Cannot resolve %s\n", host);
@@ -428,6 +453,10 @@ RmbtConn *conn_connect(const char *host, uint16_t port,
     for (struct addrinfo *rp = res; rp; rp = rp->ai_next) {
         fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (fd < 0) continue;
+        if (bind_source(fd, rp->ai_family) != 0) {
+            gui_report_error("Cannot bind to source address %s\n", g_bind_addr);
+            close(fd); fd = -1; continue;
+        }
         if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) break;
         close(fd); fd = -1;
     }

@@ -92,7 +92,7 @@ class NoDisguisedFallbackTest(unittest.TestCase):
             rtr.assert_not_called()
             cf.assert_not_called()
             ook.assert_not_called()
-            self.assertEqual(res.status, "error")
+            self.assertEqual(res.status, "skipped_busy")   # no test ran: a pause, not a failed test
             self.assertIn("paused", res.error)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM speedtest").fetchone()[0], 0)
         finally:
