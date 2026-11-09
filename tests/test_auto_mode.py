@@ -58,6 +58,11 @@ class PolicyTest(unittest.TestCase):
         self.assertFalse(self.p.decide(NetworkConfig(mode="auto"), obs(pppoe_server=True), None).pppoe)
         self.assertFalse(self.p.decide(cfg, obs(pppoe_server=False), None).pppoe)
 
+    def test_pppoe_answer_on_the_ont_is_router_mode_at_once(self):
+        cfg = NetworkConfig(mode="auto", pppoe_user="u", pppoe_password="p")
+        d = self.p.decide(cfg, obs(pppoe_server=True, internet=False), "standalone")
+        self.assertEqual((d.mode, d.pppoe), ("mode_a", True))   # no 90 s wait: a home router never answers PPPoE
+
     def test_internet_without_lease_stays_standalone(self):
         self.clock.t += 1000
         self.assertEqual(self.p.decide(self.cfg, obs(internet=True), "standalone").mode, "standalone")
@@ -80,6 +85,33 @@ class ObserverTest(unittest.TestCase):
         o2, p2 = self._observe(ob, servers=[])
         p2.assert_not_called()
         self.assertEqual(o2.dhcp_servers, ["192.168.8.1"])          # same answer every loop: debounce can pass
+
+
+class ObserverInternetTest(unittest.TestCase):
+    def test_wifi_or_usb_internet_does_not_count_for_the_wan_port(self):
+        ob = A.Observer(Clock())
+        with patch.object(A, "_has_lease", return_value=False), patch.object(A, "_ipv4_of", return_value=None), \
+             patch.object(A, "_internet", return_value=True) as net, \
+             patch("nmb.netd.interfaces.get_carrier", return_value=True), \
+             patch("nmb.netd.wifi_share.wired_ports", return_value=["eth0"]), \
+             patch("nmb.netd.wifi_share.probe_dhcp_servers", return_value=[]):
+            o = ob.observe(NetworkConfig(), "standalone")
+        self.assertFalse(o.internet)          # eth0 has no address: whatever Wi-Fi does, the WAN port has no internet
+        net.assert_not_called()
+
+    def test_pppoe_discovery_is_throttled(self):
+        clock = Clock()
+        ob = A.Observer(clock)
+        cfg = NetworkConfig(pppoe_user="u", pppoe_password="p")
+        with patch.object(A, "_has_lease", return_value=False), patch.object(A, "_ipv4_of", return_value=None), \
+             patch("nmb.netd.interfaces.get_carrier", return_value=True), \
+             patch("nmb.netd.wifi_share.wired_ports", return_value=["eth0"]), \
+             patch("nmb.netd.wifi_share.probe_dhcp_servers", return_value=[]), \
+             patch.object(A, "_pppoe_discovery", return_value=True) as disc:
+            for _ in range(10):
+                ob.observe(cfg, "standalone")
+                clock.t += 5
+        self.assertEqual(disc.call_count, 1)  # 50 s with an answer: asked once, not every loop
 
 
 class DetectorAutoTest(unittest.TestCase):

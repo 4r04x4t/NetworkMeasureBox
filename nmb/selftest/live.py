@@ -602,13 +602,13 @@ def g_dhcp_probe(rep: Report, cfg) -> None:
 
 
 def _pppd_in_ns(ns: str, iface: str, user: str, password: str, linkname: str, timeout: float = 25.0,
-                while_up: Optional[Callable[[], None]] = None) -> Tuple[bool, str]:
+                while_up: Optional[Callable[[], None]] = None, service: str = "") -> Tuple[bool, str]:
     """Dial PPPoE with NMB's own pppd command inside a namespace; True when ppp got an address."""
     import types
     from nmb.netd.services import build_pppd_cmd
     pppd = shutil.which("pppd") or "/usr/sbin/pppd"
     opts = Path(tempfile.mkdtemp(prefix="nmbst-ppp")) / "options"
-    cfg = types.SimpleNamespace(pppoe_user=user, pppoe_password=password, pppoe_service_name="")
+    cfg = types.SimpleNamespace(pppoe_user=user, pppoe_password=password, pppoe_service_name=service)
     cmd = ["ip", "netns", "exec", ns] + build_pppd_cmd(pppd, cfg, iface, opts, linkname=linkname)
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     addr = ""
@@ -693,18 +693,40 @@ def g_pppoe(rep: Report, cfg, real: bool = False) -> None:
         run(["ip", "link", "add", mv, "link", wan, "type", "macvlan", "mode", "bridge"], check=True)
         run(["ip", "link", "set", mv, "netns", ns], check=True)
         run(["ip", "link", "set", mv, "up"], ns=ns, check=True)
-        disc = run(["pppoe-discovery", "-I", mv], ns=ns, timeout=20)
-        found = "Access-Concentrator" in disc.stdout
+        disc = run(["pppoe-discovery", "-I", mv, "-a", "3", "-t", "3"], ns=ns, timeout=25)
+        acs = re.findall(r"Access-Concentrator:\s*(.+)", disc.stdout)
+        services = sorted(set(s.strip() for s in re.findall(r"Service-Name:\s*(.*)", disc.stdout)))
+        found = bool(acs)
         rep.add("pppoe", f"PPPoE server answers on {wan}", PASS if found else FAIL,
-                "found" if found else "none: the WAN port must be on the ONT or modem, not behind a router")
+                f"concentrator {', '.join(a.strip() for a in acs[:2])}; service names {services or ['(none)']}" if found
+                else "none: the WAN port must be on the ONT or modem, not behind a router")
+        want = str(getattr(net, "pppoe_service_name", "") or "").strip()
+        if found and want:
+            ok_name = want in services or not services or services == [""]
+            rep.add("pppoe", "saved service name is offered", PASS if ok_name else WARN,
+                    f"'{want}'" + ("" if ok_name else f" not among {services}: dialing would fail; clear it or use one of these"))
         if found:
+            from nmb.netd.services import kernel_pppoe_plugin
+            rep.add("pppoe", "kernel PPPoE", PASS if kernel_pppoe_plugin() else WARN,
+                    kernel_pppoe_plugin() or "user-space pppoe only: slower than the line on a Pi")
             pinged = []
-            ok, detail = _pppd_in_ns(ns, mv, net.pppoe_user, net.pppoe_password, "nmbst-real", timeout=40,
-                                     while_up=lambda: pinged.append(run(["ping", "-c", "3", "-W", "3", "1.1.1.1"], ns=ns, timeout=20).returncode == 0))
+
+            def check() -> None:
+                pinged.append(run(["ping", "-c", "3", "-W", "3", "1.1.1.1"], ns=ns, timeout=20).returncode == 0)
+                mtu = run(["cat", "/sys/class/net/ppp0/mtu"], ns=ns).stdout.strip()
+                pinged.append(mtu)
+            ok, detail = _pppd_in_ns(ns, mv, net.pppoe_user, net.pppoe_password, "nmbst-real", timeout=45,
+                                     while_up=check, service=want)
+            if not ok and want:
+                ok, detail = _pppd_in_ns(ns, mv, net.pppoe_user, net.pppoe_password, "nmbst-real2", timeout=45,
+                                         while_up=check, service="")
+                if ok:
+                    rep.add("pppoe", "dial with the saved service name", WARN, f"failed with '{want}', works without it")
             rep.add("pppoe", "dial the real line with the saved credentials", PASS if ok else FAIL,
-                    "connected" if ok else detail)   # the address is the public one: not printed
-            if ok:
-                rep.add("pppoe", "internet over PPPoE", PASS if pinged and pinged[0] else FAIL, "ping 1.1.1.1")
+                    "connected" if ok else detail + " (check the user name and password, or the ISP's session limit)")
+            if ok:   # the address is the public one: never printed
+                rep.add("pppoe", "internet over PPPoE", PASS if pinged and pinged[0] else FAIL,
+                        f"ping 1.1.1.1; ppp MTU {pinged[1] if len(pinged) > 1 else '?'}")
     except Exception as e:
         rep.add("pppoe", "real line", FAIL, f"{type(e).__name__}: {str(e)[:150]}")
     finally:

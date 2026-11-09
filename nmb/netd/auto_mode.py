@@ -81,11 +81,16 @@ class AutoPolicy:
         missing_for = now - self.missing_since
         pppoe = bool(obs.pppoe_server) and _pppoe_credentials(cfg)
 
-        if current == "mode_a":
+        if pppoe and current != "mode_a":
+            # A PPPoE server answered on the WAN port and the login is saved: the cable is on the ISP's ONT or
+            # modem. A home router never answers PPPoE discovery, so no grace time is needed.
+            d = Decision("mode_a", f"a PPPoE server answers on {wan} and a PPPoE login is saved: router mode with PPPoE",
+                         pppoe=True)
+        elif current == "mode_a":
             d = Decision("mode_a", "still no router on " + wan, pppoe=pppoe or bool(self.last and self.last.pppoe))
         elif obs.internet and current == "standalone":
-            # Internet without a lease: a static address or another way out; nothing to rescue.
-            d = Decision("standalone", "internet works without a router lease")
+            # Internet on the WAN port without a lease (a static address): nothing to rescue.
+            d = Decision("standalone", f"internet works on {wan} without a router lease")
             self.missing_since = None
         elif missing_for < ROUTER_MISSING_SEC and current is not None:
             d = Decision(current, f"no router on {wan} for {int(missing_for)} s; waiting "
@@ -115,14 +120,25 @@ def _has_lease(dev: str) -> bool:
     return bool((getattr(res, "stdout", "") or "").strip())
 
 
-def _internet(timeout: float = 2.0) -> bool:
+def _internet(timeout: float = 2.0, source: Optional[str] = None) -> bool:
+    """Internet from `source` (an address of the WAN port). Wi-Fi or USB internet does not count: the
+    question is what the WAN port is connected to (2026-11-09)."""
     for host, port in (("1.1.1.1", 443), ("8.8.8.8", 53)):
         try:
-            with socket.create_connection((host, port), timeout=timeout):
+            with socket.create_connection((host, port), timeout=timeout,
+                                          source_address=(source, 0) if source else None):
                 return True
         except OSError:
             continue
     return False
+
+
+def _ipv4_of(dev: str) -> Optional[str]:
+    from nmb.netd import interfaces
+    for a in interfaces.get_ip_addresses(dev):
+        if ":" not in a and not a.startswith("169.254."):
+            return a.split("/")[0]
+    return None
 
 
 def _pppoe_discovery(dev: str) -> bool:
@@ -156,7 +172,8 @@ class Observer:
         obs = Observation(carrier=interfaces.get_carrier(wan), wired_ports=wired_ports())
         dev = ip_device or wan
         obs.lease = current != "mode_a" and _has_lease(dev)
-        obs.internet = _internet()
+        src = _ipv4_of(dev)
+        obs.internet = bool(src) and _internet(source=src)
         now = self.clock()
         plugged_in = obs.carrier and self.last_carrier is False   # a cable just went in: ask at once
         self.last_carrier = obs.carrier
@@ -171,13 +188,16 @@ class Observer:
                 self.last_servers = []
             obs.probed = True
         obs.dhcp_servers = list(self.last_servers)
-        if current == "mode_a" and obs.carrier and not obs.dhcp_servers and _pppoe_credentials(cfg):
-            if now - self.last_pppoe >= PPPOE_PROBE_EVERY_SEC or self.pppoe_cache is None:
+        if obs.carrier and not obs.lease and not obs.dhcp_servers and _pppoe_credentials(cfg):
+            # Discovery takes a few seconds: at most every PPPOE_PROBE_EVERY_SEC once a server answered (every
+            # PROBE_EVERY_SEC before), and at once after a cable goes in.
+            every = PPPOE_PROBE_EVERY_SEC if self.pppoe_cache else PROBE_EVERY_SEC
+            if plugged_in or self.pppoe_cache is None or now - self.last_pppoe >= every:
                 self.last_pppoe = now
                 self.pppoe_cache = _pppoe_discovery(wan)
             obs.pppoe_server = self.pppoe_cache
-        elif current != "mode_a" and obs.carrier and not obs.lease and _pppoe_credentials(cfg):
-            obs.pppoe_server = _pppoe_discovery(wan)
+        elif not obs.carrier:
+            self.pppoe_cache = None
         return obs
 
 

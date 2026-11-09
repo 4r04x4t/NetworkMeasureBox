@@ -303,6 +303,17 @@ pid-file={pid_file}
         self.stop_hostapd()
 
 
+def kernel_pppoe_plugin() -> str:
+    """The pppd kernel-mode PPPoE plugin when installed ("pppoe.so" on pppd 2.5, "rp-pppoe.so" before)."""
+    if os.environ.get("NMB_PPPOE_USERSPACE") == "1":
+        return ""
+    for base in sorted(Path("/usr/lib/pppd").glob("*"), reverse=True):
+        for name in ("pppoe.so", "rp-pppoe.so"):
+            if (base / name).is_file():
+                return name
+    return ""
+
+
 def _ppp_quote(value: str) -> str:
     return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
@@ -316,10 +327,20 @@ def build_pppd_cmd(pppd_bin: str, cfg: Any, iface: str, options_file: Path, link
     with os.fdopen(fd, "w") as f:
         f.write(f"user {_ppp_quote(cfg.pppoe_user)}\npassword {_ppp_quote(cfg.pppoe_password)}\n")
     os.chmod(options_file, 0o600)
-    pppoe_opt = f"pppoe -I {iface} -T 1412"
-    if getattr(cfg, "pppoe_service_name", None):
-        pppoe_opt += f" -S {cfg.pppoe_service_name}"
-    cmd = [pppd_bin, "pty", pppoe_opt, "noauth", "file", str(options_file)]
+    service = str(getattr(cfg, "pppoe_service_name", "") or "").strip()
+    plugin = kernel_pppoe_plugin()
+    if plugin:
+        # Kernel PPPoE: the user-space `pppoe` program (pty) tops out around 300-400 Mbit/s on a
+        # Raspberry Pi 4, which would cap what a 1000 Mbit/s line can show (2026-11-09).
+        cmd = [pppd_bin, "plugin", plugin, f"nic-{iface}"]
+        if service:
+            cmd += ["pppoe-service", service]
+        cmd += ["noauth", "file", str(options_file)]
+    else:
+        pppoe_opt = f"pppoe -I {iface} -T 1412"
+        if service:
+            pppoe_opt += f" -S {service}"
+        cmd = [pppd_bin, "pty", pppoe_opt, "noauth", "file", str(options_file)]
     if default_route:
         cmd += ["defaultroute", "replacedefaultroute"]
     return cmd + [

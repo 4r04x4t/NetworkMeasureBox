@@ -67,6 +67,9 @@ table inet {NFT_TABLE} {{
     }}
     chain forward {{
         type filter hook forward priority filter; policy accept;
+        # PPPoE (MTU 1492) and tunnels: clients send 1500-byte segments, so clamp the MSS to the path MTU,
+        # or some sites hang for them (2026-11-09).
+        tcp flags syn tcp option maxseg size set rt mtu
         ct state established,related accept
         {dmz_forward}
         iifname {lan_set} oifname "{wan_iface}" accept
@@ -92,6 +95,8 @@ table inet {NFT_TABLE} {{
                                check=False)
             subprocess.run([ipt_bin, "-A", "FORWARD", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"],
                            check=False)
+            subprocess.run([ipt_bin, "-t", "mangle", "-A", "FORWARD", "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN",
+                            "-j", "TCPMSS", "--clamp-mss-to-pmtu"], check=False)
             if block_public_wan:
                 # Only drop on WAN if source is NOT a private RFC1918 subnet
                 for priv in ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"]:
