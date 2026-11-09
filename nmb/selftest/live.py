@@ -861,9 +861,14 @@ def g_mode(rep: Report, cfg) -> None:
                         "none answered" if not found else f"{', '.join(found)} answers: should be standalone")
 
 
-def g_speed(rep: Report, cfg, hours: int = 48) -> None:
+SPEED_HOURS = 24
+
+
+def g_speed(rep: Report, cfg, hours: Optional[int] = None) -> None:
+    hours = hours or SPEED_HOURS
     conn = _db()
     since = int((time.time() - hours * 3600) * 1000)
+    rep.add("speed", "window", PASS, f"tests of the last {hours} h (--speed-hours)")
     rows = []
     errors: Dict[str, List[int]] = {}
     messages: Dict[str, Dict[str, int]] = {}
@@ -1094,6 +1099,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                                                        "the token is read from NMB_SELFTEST_COLLECTOR_TOKEN")
     p.add_argument("--pppoe-real", action="store_true", help="pppoe group: also dial the real line on the WAN port "
                    "with the saved credentials (the port must be on the ONT or modem); never changes the box's routes")
+    p.add_argument("--speed-hours", type=int, default=24, help="speed group: look at this many hours (default 24)")
     p.add_argument("--md", default="", help="Also write a Markdown report here (to paste into an issue or a chat)")
     p.add_argument("--json", default="", help="Write the report here (default: /var/log/nmb/selftest-<time>.json)")
     args = p.parse_args(argv)
@@ -1104,6 +1110,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if os.geteuid() != 0:
         print("Run as root: the checks build throwaway network namespaces.", file=sys.stderr)
         return 2
+    global SPEED_HOURS
+    SPEED_HOURS = max(1, args.speed_hours)
     cfg = _cfg()
     rep = Report()
     for g in groups:
