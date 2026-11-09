@@ -78,7 +78,7 @@ NMB records independent measurements at your network edge. It can run behind you
 * **Mode A (Active Gateway / Router)**:
   * Router with DHCP or static IP WAN. A PPPoE client (with 802.1Q VLAN tagging) redials after a dropped line; it is tested against a simulated ISP only.
   * Local gateway services: `dnsmasq` DHCP server, DNS caching, and iptables/nftables NAT masquerading.
-  * Wi-Fi access point (`hostapd`) on the LAN bridge. It adapts to the radio and steps down if `hostapd` rejects a setting. See Tested Status.
+  * Wi-Fi access point (`hostapd`) on the LAN bridge, **in router mode only**; in standalone and bridge mode the radio stays a Wi-Fi client of the home network. It adapts to the radio and steps down if `hostapd` rejects a setting. See Tested Status.
 * **Mode B (Passive Transparent Inline Bridge)**:
   * Bridges an existing modem/ONT and router at Layer 2. The box itself requests an IP address through DHCP so it can measure, so the upstream connection must offer it one.
   * Measures on the bridge (`br0`). If the box stops, the connection stops too. PPPoE or single-address connections are not handled yet.
@@ -303,7 +303,7 @@ What has actually been run, so you can judge what to rely on. The full record (w
 | Raspberry Pi 4, Debian 13, `standalone` mode | In daily use |
 | Clean install, x86-64 | Tested in a simulated environment on a PC with these operating systems: Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 and Rocky Linux 10 (for RHEL 10) and Alpine 3.22 / 3.20. Install, services, Web UI, a real speed test, reinstall and (on Alpine) reboot |
 | `mode_a` router and `mode_b` bridge | Tested in virtual machines, with DHCP, NAT, DMZ isolation and client traffic. Not on Raspberry Pi hardware |
-| Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. Not on real Wi-Fi hardware |
+| Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. On the Raspberry Pi 4 radio: router mode, 2.4 GHz, 802.11n, 20 MHz, a phone and a laptop browsed (2026-11-08); 5 GHz and Wi-Fi 5/6 not yet |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Not verified. The hostapd in Debian 13 rejected the Wi-Fi 7 settings, so NMB steps down to an older standard |
 | PPPoE | Dial-in and redial after a dropped line tested against a simulated ISP. Not on a real line |
 | VLAN, multi-WAN load balancing, link aggregation | Code exists, not tested on a real line |

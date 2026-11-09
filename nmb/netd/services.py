@@ -217,11 +217,21 @@ pid-file={pid_file}
         if nmcli:
             subprocess.run([nmcli, "device", "set", iface, "managed", "no"], capture_output=True, timeout=10, check=False)
 
-    def return_to_network_manager(self, iface: str) -> None:
-        """Give an interface back to NetworkManager (its saved Wi-Fi or Ethernet profile reconnects)."""
+    def return_to_network_manager(self, iface: str, reconnect: bool = False) -> None:
+        """Give an interface back to NetworkManager (its saved Wi-Fi or Ethernet profile reconnects).
+
+        reconnect: also ask it to connect now when it is not, since a device that was disconnected by
+        hand (or taken by an access point) does not connect again by itself.
+        """
         nmcli = shutil.which("nmcli")
         if nmcli:
             subprocess.run([nmcli, "device", "set", iface, "managed", "yes"], capture_output=True, timeout=10, check=False)
+            if reconnect:
+                st = subprocess.run([nmcli, "-g", "GENERAL.STATE", "device", "show", iface],
+                                    capture_output=True, text=True, timeout=10, check=False).stdout.strip()
+                if not st.startswith("100"):
+                    subprocess.run([nmcli, "--wait", "0", "device", "connect", iface],
+                                   capture_output=True, timeout=10, check=False)
 
     def start_hostapd(self, iface: str, bridge: Optional[str] = None) -> bool:
         hostapd_bin = shutil.which("hostapd")

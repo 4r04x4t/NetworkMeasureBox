@@ -208,3 +208,20 @@ class DeadRouteTest(unittest.TestCase):
                   "default dev ppp0 scope link\n")
         dead = interfaces.dead_default_routes(routes, lambda d: d in ("wlan0", "eth1"))
         self.assertEqual([p[p.index("dev") + 1] for p in dead], ["eth0", "eth1"])
+
+
+class NoAccessPointOutsideRouterModeTest(unittest.TestCase):
+    def test_standalone_keeps_the_radio_a_wifi_client(self):
+        # Owner's choice 2026-11-09: the access point only in router mode; standalone stays on the home Wi-Fi.
+        cfg = Config()
+        cfg.network.wifi_enabled = True
+        svc = MagicMock()
+        mode = modes.ModeStandalone(cfg.network, svc)
+        ifs = MagicMock()
+        ifs.interface_exists.return_value = True
+        ifs.get_default_gateway_iface.return_value = "eth0"
+        with patch.object(modes, "interfaces", ifs), patch.object(modes, "firewall", MagicMock()), \
+             patch.object(modes.lan_topology, "apply_topology", return_value=None):
+            mode.setup()
+        svc.start_hostapd.assert_not_called()
+        svc.return_to_network_manager.assert_called_with("wlan0", reconnect=True)

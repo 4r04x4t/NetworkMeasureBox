@@ -630,7 +630,7 @@ Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz. A részlet
 | Raspberry Pi 4, Debian 13, `standalone` mód | Napi használatban |
 | Tiszta telepítés, x86-64 | Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 és Rocky Linux 10 (a RHEL 10 helyett) és Alpine 3.22 / 3.20. Telepítés, szolgáltatások, webes felület, valódi sebességmérés, újratelepítés és (Alpine-on) újraindítás |
 | `mode_a` router és `mode_b` híd | Virtuális gépeken tesztelve, DHCP-vel, NAT-tal, DMZ-izolációval és kliensforgalommal. Raspberry Pi hardveren nem |
-| Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. Valódi Wi-Fi hardveren nem |
+| Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. A Raspberry Pi 4 rádióján: router mód, 2,4 GHz, 802.11n, 20 MHz, egy telefon és egy laptop böngészett (2026-11-08); 5 GHz és Wi-Fi 5/6 még nem. Csak router módban fut; standalone és híd módban a rádió az otthoni Wi-Fi kliense marad |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Nincs igazolva. A Debian 13 hostapd-ja elutasította a Wi-Fi 7 beállításokat, ezért az NMB régebbi szabványra lép vissza |
 | PPPoE | Tárcsázás és vonalszakadás utáni újratárcsázás szimulált szolgáltatóval tesztelve. Valódi vonalon nem |
 | VLAN, Multi-WAN terheléselosztás, link aggregáció | A kód megvan, valódi vonalon nincs tesztelve |

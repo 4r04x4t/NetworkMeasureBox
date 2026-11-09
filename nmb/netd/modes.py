@@ -415,23 +415,10 @@ class ModeB(NetworkMode):
 
         # 4. Bring up Diagnostic Wi-Fi AP if enabled
         wlan = self.cfg.wlan_interface or "wlan0"
-        if self.cfg.wifi_enabled and interfaces.interface_exists(wlan):
-            log.info("configuring Diagnostic Wi-Fi in Bridge Mode on %s", wlan)
-            from nmb.netd.wifi import unblock_wifi
-            unblock_wifi()
-            interfaces.set_link_up(wlan)
-            ap_ip = getattr(self.cfg, "diag_wifi_ip", "172.16.42.1")
-            interfaces.flush_ip_addresses(wlan)
-            interfaces.add_ip_address(wlan, f"{ap_ip}/24")
-            self.svc_mgr.start_hostapd(wlan)
-            self.svc_mgr.start_dnsmasq(
-                listen_ifaces=[wlan],
-                gateway_ip=ap_ip,
-                dhcp_start="172.16.42.100",
-                dhcp_end="172.16.42.200",
-                netmask="255.255.255.0",
-            )
-            self.wlan_active = True
+        # The access point runs only in router mode (owner's choice, 2026-11-09). Here the radio stays a Wi-Fi
+        # client of the home network, which is the box's second internet; give it back if an AP held it.
+        if interfaces.interface_exists(wlan):
+            self.svc_mgr.return_to_network_manager(wlan, reconnect=True)
 
         return True
 
@@ -523,26 +510,10 @@ class ModeStandalone(NetworkMode):
 
         # 2. Configure Diagnostic Wi-Fi AP if enabled (crucial for wireless access in non-router mode)
         wlan = self.cfg.wlan_interface or "wlan0"
-        if self.cfg.wifi_enabled and interfaces.interface_exists(wlan):
-            log.info("configuring Diagnostic Wi-Fi in Standalone Mode on %s", wlan)
-            from nmb.netd.wifi import unblock_wifi
-            unblock_wifi()
-            interfaces.set_link_up(wlan)
-            ap_ip = getattr(self.cfg, "diag_wifi_ip", "172.16.42.1")
-            interfaces.flush_ip_addresses(wlan)
-            interfaces.add_ip_address(wlan, f"{ap_ip}/24")
-            self.svc_mgr.start_hostapd(wlan)
-            self.svc_mgr.start_dnsmasq(
-                listen_ifaces=[wlan],
-                gateway_ip=ap_ip,
-                dhcp_start="172.16.42.100",
-                dhcp_end="172.16.42.200",
-                netmask="255.255.255.0",
-            )
-            # Route/NAT client traffic from wlan to active LAN/WAN interface if available
-            if self.active_wan and self.active_wan != wlan:
-                firewall.enable_nat_simple(self.active_wan, [wlan])
-            self.wlan_active = True
+        # The access point runs only in router mode (owner's choice, 2026-11-09). Here the radio stays a Wi-Fi
+        # client of the home network, which is the box's second internet; give it back if an AP held it.
+        if interfaces.interface_exists(wlan):
+            self.svc_mgr.return_to_network_manager(wlan, reconnect=True)
 
         return True
 
