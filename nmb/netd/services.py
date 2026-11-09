@@ -292,6 +292,13 @@ pid-file={pid_file}
         self.processes["pppd"] = proc
         return proc.start()
 
+    def pppd_exit_code(self) -> Optional[int]:
+        """pppd's exit code once it has given up, None while it runs (or was never started here)."""
+        proc = self.processes.get("pppd")
+        if proc is None or proc.proc is None:
+            return None
+        return proc.proc.poll()
+
     def stop_pppd(self) -> None:
         if "pppd" in self.processes:
             self.processes["pppd"].stop()
@@ -318,10 +325,25 @@ def _ppp_quote(value: str) -> str:
     return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+# pppd exit codes (pppd(8)) that mean something to the owner.
+PPPD_EXIT_AUTH = 19
+PPPD_EXIT_TEXT = {
+    PPPD_EXIT_AUTH: "the ISP refused the PPPoE user name or password",
+    8: "no PPPoE server answered on the WAN port (cable, ONT or service name)",
+    10: "the PPP link could not be negotiated with the ISP",
+    15: "the ISP stopped answering on the PPP link",
+    16: "the PPPoE line went down",
+}
+
+
 def build_pppd_cmd(pppd_bin: str, cfg: Any, iface: str, options_file: Path, linkname: str = "nmb-pppoe",
-                   default_route: bool = True) -> List[str]:
+                   default_route: bool = True, maxfail: int = 3) -> List[str]:
     """The pppd command for PPPoE on iface. The user name and password go into a private options file:
-    on the command line (as before 2026-11-09) every local user could read them with `ps`."""
+    on the command line (as before 2026-11-09) every local user could read them with `ps`.
+
+    maxfail: pppd gives up after this many failed attempts in a row, and nmb-netd decides when to dial
+    again (ModeA.check_pppd). With `maxfail 0` pppd redialed every 8 s for ever, also with a wrong
+    password: 5 refused logins in 40 s on 2026-11-09, after which the ISP did not answer for a while."""
     options_file.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(options_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
@@ -350,7 +372,7 @@ def build_pppd_cmd(pppd_bin: str, cfg: Any, iface: str, options_file: Path, link
         # Without echo requests pppd never notices a dead line, so it never redials.
         "lcp-echo-interval", "10",
         "lcp-echo-failure", "3",
-        "maxfail", "0",
+        "maxfail", str(int(maxfail)),
         "holdoff", "5",
         "nodetach",
         "usepeerdns",

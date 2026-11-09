@@ -55,6 +55,10 @@ class ModeA(NetworkMode):
         self.needs_resetup = False
         self._usb_guard_ts = 0.0
         self.on_wan2 = False
+        self.pppoe_iface = ""         # the port pppd dials on, while PPPoE is the WAN
+        self.pppoe_error = ""         # why pppd gave up last time, for the status page
+        self.pppoe_auth_fails = 0     # refused logins in a row: each one doubles the pause
+        self._pppd_retry_at = 0.0
 
     def _setup_vlan_if_needed(self) -> str:
         if self.cfg.pppoe_vlan > 0:
@@ -128,6 +132,45 @@ class ModeA(NetworkMode):
             log.warning("primary WAN %s recovered; removing failover route", self.active_wan)
             interfaces.run_cmd([ip_bin, "route", "del", "default", "dev", wan2, "metric", "10"], check=False)
             self.on_wan2 = False
+
+    # Pause before dialing again after pppd gave up: a refused login waits 10, 20, then 30 minutes (an ISP
+    # may lock an account or a port after many refused logins); a line problem waits 30 seconds.
+    PPPD_AUTH_PAUSE_SEC = 600
+    PPPD_AUTH_PAUSE_MAX_SEC = 1800
+    PPPD_LINE_PAUSE_SEC = 30
+
+    def check_pppd(self, now: Optional[float] = None) -> None:
+        """Every loop: when pppd has given up (maxfail), note why and dial again after a pause."""
+        import time as _t
+        from nmb.netd.services import PPPD_EXIT_AUTH, PPPD_EXIT_TEXT
+        if not self.pppoe_iface or self.active_wan != "ppp0":
+            return
+        now = _t.monotonic() if now is None else now
+        if self._pppd_retry_at:
+            if now >= self._pppd_retry_at:
+                log.info("PPPoE: dialing again on %s", self.pppoe_iface)
+                self._pppd_retry_at = 0.0
+                self.svc_mgr.start_pppd(self.pppoe_iface)
+            return
+        rc = self.svc_mgr.pppd_exit_code()
+        if rc is None:
+            if self.pppoe_error and interfaces.get_ip_addresses("ppp0"):
+                log.info("PPPoE is up again on %s", self.pppoe_iface)
+                self.pppoe_error, self.pppoe_auth_fails = "", 0
+            return
+        why = PPPD_EXIT_TEXT.get(rc, f"pppd stopped (exit code {rc})")
+        if rc == PPPD_EXIT_AUTH:
+            self.pppoe_auth_fails += 1
+            pause = min(self.PPPD_AUTH_PAUSE_SEC * self.pppoe_auth_fails, self.PPPD_AUTH_PAUSE_MAX_SEC)
+        else:
+            pause = self.PPPD_LINE_PAUSE_SEC
+        self.pppoe_error = why
+        self._pppd_retry_at = now + pause
+        log.warning("PPPoE: %s; dialing again in %d s", why, pause)
+        if rc == PPPD_EXIT_AUTH:
+            from nmb.netd.usb_uplink import _log_event
+            _log_event("pppoe_auth_refused", f"The ISP refused the PPPoE login (attempt {self.pppoe_auth_fails}); "
+                                             f"check the user name and password in Router > PPPoE. Next try in {pause // 60} min.")
 
     def _usb_wan_candidate(self) -> Optional[str]:
         """USB tethering as the WAN: only when it is up and nothing upstream answers on the WAN port.
@@ -208,7 +251,7 @@ class ModeA(NetworkMode):
                 if "dev" in parts and parts[parts.index("dev") + 1] != self.usb_wan:
                     interfaces.run_cmd(["ip", "-4", "route", "del"] + interfaces.route_delete_args(parts), check=False)
             if self.full_cfg is not None:
-                usb_uplink.sync_default_fallback(self.full_cfg)
+                usb_uplink.sync_default_fallback(self.full_cfg, allow_rescue=False)
             self._renew_lan_clients([self.cfg.wan_interface])
             return ok
 
@@ -223,6 +266,8 @@ class ModeA(NetworkMode):
         if (self.cfg.pppoe_enabled or getattr(self, 'auto_pppoe', False)) and self.cfg.pppoe_user:
             log.info("launching PPPoE client on %s", wan)
             self.svc_mgr.start_pppd(wan)
+            self.pppoe_iface = wan
+            self._pppd_retry_at = 0.0
             self.active_wan = "ppp0"
         else:
             self._configure_wan_ip(wan, self.cfg.wan_proto, self.cfg.wan_ip, self.cfg.wan_netmask, self.cfg.wan_gateway)
@@ -354,6 +399,8 @@ class ModeA(NetworkMode):
             self.svc_mgr.return_to_network_manager(p)
         self.nm_released = []
         self.usb_wan = None
+        self.pppoe_iface = ""
+        self._pppd_retry_at = 0.0
         from nmb.netd import usb_uplink
         usb_uplink.set_router_wan(None)
 
@@ -387,6 +434,7 @@ class ModeA(NetworkMode):
             "dnsmasq_running": self.svc_mgr.processes.get("dnsmasq") is not None and self.svc_mgr.processes["dnsmasq"].is_running(),
             "hostapd_running": self.svc_mgr.processes.get("hostapd") is not None and self.svc_mgr.processes["hostapd"].is_running(),
             "pppoe_running": self.svc_mgr.processes.get("pppd") is not None and self.svc_mgr.processes["pppd"].is_running(),
+            "pppoe_error": self.pppoe_error,
         }
 
 

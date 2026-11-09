@@ -228,6 +228,7 @@ class NetworkDaemon:
 
                 if isinstance(self.current_mode_inst, ModeA):
                     self.current_mode_inst.check_wan_failover()
+                    self._timed("pppd watch", self.current_mode_inst.check_pppd)
                     # USB tethering as the WAN when nothing upstream answers on the WAN port, and back.
                     self.current_mode_inst.full_cfg = self.cfg
                     self.current_mode_inst.check_usb_wan()
@@ -254,7 +255,9 @@ class NetworkDaemon:
                 # A phone, hotspot or modem on USB: its own profile, never the default route.
                 self._timed("usb keep_up", usb_uplink.keep_up, self.cfg)
                 self._timed("usb source routing", usb_uplink.sync_source_routing, self.cfg)
-                self._timed("usb default fallback", usb_uplink.sync_default_fallback, self.cfg)
+                # Router mode picks its own WAN (check_usb_wan); elsewhere USB may also replace a dead route.
+                self._timed("usb default fallback", usb_uplink.sync_default_fallback, self.cfg,
+                            not isinstance(self.current_mode_inst, ModeA))
                 # The Wi-Fi internet on the LAN port, only while that port has no upstream.
                 self._timed("wifi share", wifi_share_sync, self.cfg)
                 # Free space before the disk fills up (checks every 10 minutes).

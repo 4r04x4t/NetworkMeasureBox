@@ -601,15 +601,28 @@ def g_dhcp_probe(rep: Report, cfg) -> None:
         _cleanup_ns(ns)
 
 
+def _pppd_remote_message(since: float) -> str:
+    """The last message the PPP peer sent with a refusal ("Remote message: ..." in pppd's log)."""
+    out = run(["journalctl", "-t", "pppd", "--since", f"@{int(since)}", "-o", "cat", "--no-pager"], timeout=10).stdout
+    msgs = re.findall(r"Remote message:\s*(.*)", out)
+    return msgs[-1].replace("^J", " ").strip()[:120] if msgs else ""
+
+
 def _pppd_in_ns(ns: str, iface: str, user: str, password: str, linkname: str, timeout: float = 25.0,
-                while_up: Optional[Callable[[], None]] = None, service: str = "") -> Tuple[bool, str]:
-    """Dial PPPoE with NMB's own pppd command inside a namespace; True when ppp got an address."""
+                while_up: Optional[Callable[[], None]] = None, service: str = "",
+                info: Optional[dict] = None) -> Tuple[bool, str]:
+    """Dial PPPoE with NMB's own pppd command inside a namespace; True when ppp got an address.
+
+    One attempt only (maxfail 1): a wrong password is not sent again and again, since an ISP may stop
+    answering a port after several refused logins (2026-11-09: 5 in 40 s, then no PADO for a minute).
+    info, when given, gets pppd's exit code as "rc" (None while it was still dialing)."""
     import types
-    from nmb.netd.services import build_pppd_cmd
+    from nmb.netd.services import PPPD_EXIT_TEXT, build_pppd_cmd
     pppd = shutil.which("pppd") or "/usr/sbin/pppd"
     opts = Path(tempfile.mkdtemp(prefix="nmbst-ppp")) / "options"
     cfg = types.SimpleNamespace(pppoe_user=user, pppoe_password=password, pppoe_service_name=service)
-    cmd = ["ip", "netns", "exec", ns] + build_pppd_cmd(pppd, cfg, iface, opts, linkname=linkname)
+    cmd = ["ip", "netns", "exec", ns] + build_pppd_cmd(pppd, cfg, iface, opts, linkname=linkname, maxfail=1)
+    started = time.time()
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     addr = ""
     try:
@@ -623,7 +636,18 @@ def _pppd_in_ns(ns: str, iface: str, user: str, password: str, linkname: str, ti
             time.sleep(1)
         if addr and while_up:
             while_up()   # checks that need the link, before it is hung up
-        return bool(addr), addr or "no PPP address"
+        rc = proc.poll()
+        if info is not None:
+            info["rc"] = rc
+        if addr:
+            return True, addr
+        detail = "no PPP address"
+        if rc is not None and rc in PPPD_EXIT_TEXT:
+            detail += f": {PPPD_EXIT_TEXT[rc]}"
+        msg = _pppd_remote_message(started)
+        if msg:
+            detail += f"; the ISP said '{msg}'"
+        return False, detail
     finally:
         proc.terminate()
         try:
@@ -715,15 +739,23 @@ def g_pppoe(rep: Report, cfg, real: bool = False) -> None:
                 pinged.append(run(["ping", "-c", "3", "-W", "3", "1.1.1.1"], ns=ns, timeout=20).returncode == 0)
                 mtu = run(["cat", "/sys/class/net/ppp0/mtu"], ns=ns).stdout.strip()
                 pinged.append(mtu)
+            from nmb.netd.services import PPPD_EXIT_AUTH
+            info: dict = {}
             ok, detail = _pppd_in_ns(ns, mv, net.pppoe_user, net.pppoe_password, "nmbst-real", timeout=45,
-                                     while_up=check, service=want)
-            if not ok and want:
+                                     while_up=check, service=want, info=info)
+            refused = info.get("rc") == PPPD_EXIT_AUTH
+            # A refused login means the service name was accepted: dialing again would only send the
+            # wrong password once more.
+            if not ok and want and not refused:
                 ok, detail = _pppd_in_ns(ns, mv, net.pppoe_user, net.pppoe_password, "nmbst-real2", timeout=45,
-                                         while_up=check, service="")
+                                         while_up=check, service="", info=info)
+                refused = info.get("rc") == PPPD_EXIT_AUTH
                 if ok:
                     rep.add("pppoe", "dial with the saved service name", WARN, f"failed with '{want}', works without it")
+            hint = (" (retype the user name and password exactly as the ISP gave them, e.g. from the old router)"
+                    if refused else " (check the user name and password, or the ISP's session limit)")
             rep.add("pppoe", "dial the real line with the saved credentials", PASS if ok else FAIL,
-                    "connected" if ok else detail + " (check the user name and password, or the ISP's session limit)")
+                    "connected" if ok else detail + hint)
             if ok:   # the address is the public one: never printed
                 rep.add("pppoe", "internet over PPPoE", PASS if pinged and pinged[0] else FAIL,
                         f"ping 1.1.1.1; ppp MTU {pinged[1] if len(pinged) > 1 else '?'}")

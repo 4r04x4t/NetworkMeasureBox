@@ -21,6 +21,7 @@ import ipaddress
 import logging
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -236,22 +237,77 @@ def _is_bridge_port(dev: str) -> bool:
     return (SYS_CLASS_NET / dev / "brport").exists() or (SYS_CLASS_NET / dev / "master").exists()
 
 
-def _other_default_route(iface: str) -> bool:
-    """A usable default route in the main table through anything but the USB interface.
+def _other_default_devs(iface: str) -> List[str]:
+    """The devices of usable default routes in the main table, other than the USB interface.
 
     A route on a link that is down, or through a bridge port (a LAN port of router mode, where a stale
     DHCP route from NetworkManager can linger), carries nothing, so it does not count.
     """
     rc, out, _ = _run(["ip", "-4", "route", "show", "default"], timeout=4)
+    devs: List[str] = []
     for line in out.splitlines() if rc == 0 else []:
         parts = line.split()
         if "dev" not in parts:
             continue
         dev = parts[parts.index("dev") + 1]
-        if dev == iface or "linkdown" in parts or _is_bridge_port(dev):
+        if dev == iface or "linkdown" in parts or _is_bridge_port(dev) or dev in devs:
             continue
-        return True
+        devs.append(dev)
+    return devs
+
+
+def _other_default_route(iface: str) -> bool:
+    return bool(_other_default_devs(iface))
+
+
+# A default route that is there but leads nowhere: 2026-11-09 the box stayed on the home router's Wi-Fi
+# (route via wlan0) after the router's own internet cable was pulled, while the hotspot on USB worked.
+# Then USB takes over with a metric below every other default route, until one of them works again.
+RESCUE_METRIC = 40
+RESCUE_PROBE_SEC = 30
+RESCUE_AFTER_FAILS = 3       # about 90 s without internet on every other route
+RESCUE_END_AFTER_OKS = 2
+PROBE_TARGETS = ("1.1.1.1", "9.9.9.9")
+_rescue = {"active": False, "fails": 0, "oks": 0, "ts": -1e9}
+
+
+def _internet_via(dev: str) -> bool:
+    for target in PROBE_TARGETS:
+        rc, _, _ = _run(["ping", "-n", "-c", "1", "-W", "2", "-I", dev, target], timeout=5)
+        if rc == 0:
+            return True
     return False
+
+
+def _sync_rescue(iface: Optional[str], gw: Optional[str], others: List[str], allowed: bool, now: float) -> bool:
+    """True while USB must carry the box's internet although other default routes exist."""
+    if not (allowed and iface and gw and others):
+        _rescue.update(active=False, fails=0, oks=0)
+        return False
+    if now - _rescue["ts"] < RESCUE_PROBE_SEC:
+        return bool(_rescue["active"])
+    _rescue["ts"] = now
+    others_ok = any(_internet_via(d) for d in others)
+    if others_ok:
+        _rescue["fails"], _rescue["oks"] = 0, _rescue["oks"] + 1
+        if _rescue["active"] and _rescue["oks"] >= RESCUE_END_AFTER_OKS:
+            _rescue["active"] = False
+            log.info("internet works again via %s: USB tethering is no longer the box's internet", ", ".join(others))
+            _log_event("uplink_usb_rescue_end", f"Internet works again via {', '.join(others)}: "
+                                                "USB tethering is no longer the box's internet")
+    else:
+        _rescue["oks"], _rescue["fails"] = 0, _rescue["fails"] + 1
+        if not _rescue["active"] and _rescue["fails"] >= RESCUE_AFTER_FAILS and _internet_via(iface):
+            _rescue["active"] = True
+            log.warning("no internet via %s although it has the default route: the box now uses USB tethering on %s",
+                        ", ".join(others), iface)
+            _log_event("uplink_usb_rescue", f"No internet via {', '.join(others)} (the route is there, the internet "
+                                            f"is not): using USB tethering on {iface}")
+    return bool(_rescue["active"])
+
+
+def rescue_active() -> bool:
+    return bool(_rescue["active"])
 
 
 def _log_event(kind: str, detail: str) -> None:
@@ -268,21 +324,34 @@ def _log_event(kind: str, detail: str) -> None:
         log.warning("usb fallback event not written", exc_info=True)
 
 
-def sync_default_fallback(cfg: Any) -> bool:
+def sync_default_fallback(cfg: Any, allow_rescue: bool = True, now: Optional[float] = None) -> bool:
     """The USB link becomes the box's internet only when nothing else is (root, nmb-netd).
 
     No default route through Ethernet or Wi-Fi, USB up: a default route via the hotspot with metric 900.
     As soon as another default route is back it is removed, so the cable or Wi-Fi wins again.
+    Other default routes there but no internet through any of them for about 90 s: USB takes over with
+    metric 40 (allow_rescue; not in router mode, which has its own WAN choice), until one works again.
     Every switch is written as an event, so reports show when the box ran on the mobile link.
     """
     global _fallback_active
+    now = time.monotonic() if now is None else now
     enabled = bool(getattr(getattr(cfg, "usb_uplink", None), "enabled", False))
     iface = uplink_interface(cfg) if enabled else None
     ip, gw = _address_and_gateway(iface) if iface else (None, None)
+    others: List[str] = []
     if _router_wan and _router_wan == iface and ip and gw:
         want = True     # router mode on USB: this is the WAN, whatever else the routing table holds
     else:
-        want = bool(iface and ip and gw and not _other_default_route(iface))
+        others = _other_default_devs(iface) if iface else []
+        want = bool(iface and ip and gw and not others)
+    rescue = _sync_rescue(iface if ip else None, gw, others, allow_rescue and not want, now)
+    rc, out, _ = _run(["ip", "-4", "route", "show", "default", "metric", str(RESCUE_METRIC)], timeout=4)
+    have_rescue = rc == 0 and "default" in out
+    if rescue:
+        if not have_rescue or f"dev {iface}" not in out:
+            _run(["ip", "-4", "route", "replace", "default", "via", gw, "dev", iface, "metric", str(RESCUE_METRIC)], timeout=4)
+    elif have_rescue:
+        _run(["ip", "-4", "route", "del", "default", "metric", str(RESCUE_METRIC)], timeout=4)
     rc, out, _ = _run(["ip", "-4", "route", "show", "default", "metric", str(FALLBACK_METRIC)], timeout=4)
     have = rc == 0 and "default" in out
     if want:
