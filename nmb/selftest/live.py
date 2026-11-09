@@ -594,6 +594,126 @@ def _router_ipv6(rep: Report, cfg, ns: str, details: Dict[str, Any]) -> None:
     rep.add("router", "LAN client HTTPS over IPv6", PASS if c6 == "200" else FAIL, f"HTTP {c6 or 'none'}")
 
 
+_NATPMP_CLIENT = r"""
+import socket, struct, sys
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(3)
+gw, inner, ext, life = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+try:
+    s.sendto(struct.pack("!BBHHHI", 0, 2, 0, inner, ext, life), (gw, 5351))
+    d = s.recvfrom(64)[0]
+    print(struct.unpack("!BBHIHHI", d[:16])[2], struct.unpack("!BBHIHHI", d[:16])[5])
+except socket.timeout:
+    print("timeout")
+"""
+
+
+def _api_json(method: str, path: str, body: Optional[dict] = None) -> Dict[str, Any]:
+    res = _cli("api", method, path, *( [json.dumps(body)] if body is not None else []), timeout=60)
+    try:
+        return json.loads(res.stdout)
+    except ValueError:
+        return {"status": "error", "message": (res.stderr or res.stdout)[:200]}
+
+
+def g_portfwd(rep: Report, cfg) -> None:
+    """Port forwarding and UPnP in router mode, on the box itself: a LAN device in a namespace with a small web
+    server, a temporary rule, the DNAT and hairpin path from a second LAN device, and a NAT-PMP mapping.
+    The owner's settings are put back at the end. Reaching the port from the internet needs a host outside
+    (see docs/TESTING.md, done by hand on 2026-11-09)."""
+    state = _netd_state()
+    if state.get("active_mode") != "mode_a":
+        rep.add("portfwd", "router mode", SKIP, f"the box is in {state.get('active_mode')} mode")
+        return
+    wan = (state.get("details") or {}).get("wan_interface") or ""
+    from nmb.netd import interfaces
+    wan_ip = next((a.split("/")[0] for a in interfaces.get_ip_addresses(wan) if ":" not in a), "")
+    if not wan_ip:
+        rep.add("portfwd", "WAN address", FAIL, f"{wan or 'no WAN'} has no IPv4 address")
+        return
+    before = _api_json("GET", "/api/port-forward")
+    if "rules" not in before:
+        rep.add("portfwd", "settings", FAIL, before.get("message", "no answer from the Web API"))
+        return
+    gw = str(cfg.network.gateway_ip)
+    lan_net = before.get("lan", "192.168.100.0/24")
+    import ipaddress
+    hosts = list(ipaddress.IPv4Network(lan_net).hosts())
+    dev_ip, peer_ip = str(hosts[-4]), str(hosts[-3])            # .250 and .251 on a /24, outside the DHCP range
+    used = {int(p) for r in before["rules"] for p in str(r.get("ext", "")).split("-") if p.isdigit()}
+    ext = next(p for p in range(18081, 18100) if p not in used)
+    token = f"nmb-portfwd-{os.getpid()}"
+    dev, peer = f"{NS_PREFIX}pf", f"{NS_PREFIX}pp"
+    tmp = Path(tempfile.mkdtemp(prefix="nmbst"))
+    server = None
+    try:
+        for ns, ip in ((dev, dev_ip), (peer, peer_ip)):
+            _cleanup_ns(ns)
+            run(["ip", "netns", "add", ns], check=True)
+            run(["ip", "link", "add", f"{ns}a", "type", "veth", "peer", "name", f"{ns}b"], check=True)
+            run(["ip", "link", "set", f"{ns}a", "master", "br-lan"], check=True)
+            run(["ip", "link", "set", f"{ns}a", "up"], check=True)
+            run(["ip", "link", "set", f"{ns}b", "netns", ns], check=True)
+            run(["ip", "link", "set", "lo", "up"], ns=ns)
+            run(["ip", "link", "set", f"{ns}b", "up"], ns=ns, check=True)
+            run(["ip", "addr", "add", f"{ip}/{ipaddress.IPv4Network(lan_net).prefixlen}", "dev", f"{ns}b"], ns=ns, check=True)
+            run(["ip", "route", "add", "default", "via", gw], ns=ns, check=True)
+        (tmp / "index.html").write_text(token)
+        server = subprocess.Popen(["ip", "netns", "exec", dev, "python3", "-m", "http.server", "8000", "--bind", dev_ip,
+                                   "--directory", str(tmp)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1.5)
+        test_rule = {"name": "nmb-selftest", "proto": "tcp", "ext": str(ext), "ip": dev_ip, "port": 8000, "on": True}
+        res = _api_json("POST", "/api/port-forward/save", {"enabled": True, "rules": before["rules"] + [test_rule]})
+        rep.add("portfwd", "temporary rule saved", PASS if res.get("status") == "ok" else FAIL, res.get("message", "")[:120])
+        dnat = f"dport {ext} dnat ip to {dev_ip}:8000"
+        ok = False
+        for _ in range(20):
+            if dnat in run(["nft", "list", "table", "inet", "nmb_nat"]).stdout:
+                ok = True
+                break
+            time.sleep(1)
+        rep.add("portfwd", "DNAT rule in the router firewall", PASS if ok else FAIL, f"TCP {ext} on {wan}" if ok else "not applied in 20 s")
+        got = run(["curl", "-s", "-m", "8", f"http://{wan_ip}:{ext}/"], ns=peer, timeout=12).stdout.strip()
+        rep.add("portfwd", "hairpin: a LAN device reaches the forwarded port", PASS if got == token else FAIL,
+                "via the line's own address" if got == token else "no answer")
+        if before.get("upnp_installed"):
+            _api_json("POST", "/api/port-forward/save", {"upnp": True})
+            running = False
+            for _ in range(25):
+                if run(["pgrep", "-x", "miniupnpd"]).returncode == 0:
+                    running = True
+                    break
+                time.sleep(1)
+            rep.add("portfwd", "UPnP service starts", PASS if running else FAIL, "miniupnpd" if running else "not running in 25 s")
+            if running:
+                time.sleep(2)
+                script = tmp / "natpmp.py"
+                script.write_text(_NATPMP_CLIENT)
+                out = run(["python3", str(script), gw, "8000", str(ext + 10), "120"], ns=dev, timeout=10).stdout.split()
+                mapped = bool(out) and out[0] == "0"
+                rep.add("portfwd", "NAT-PMP mapping from a LAN device", PASS if mapped else FAIL,
+                        f"TCP {ext + 10}" if mapped else f"answer {' '.join(out) or 'none'}")
+                low = run(["python3", str(script), gw, "22", "22", "120"], ns=dev, timeout=10).stdout.split()
+                rep.add("portfwd", "UPnP refuses ports below 1024", PASS if low and low[0] != "0" else FAIL,
+                        f"result {low[0] if low else 'none'}")
+                if mapped:
+                    run(["python3", str(script), gw, "8000", "0", "0"], ns=dev, timeout=10)
+        else:
+            rep.add("portfwd", "UPnP service", SKIP, "miniupnpd is not installed")
+    except Exception as e:
+        rep.add("portfwd", "port forwarding test", FAIL, f"{type(e).__name__}: {str(e)[:150]}")
+    finally:
+        back = _api_json("POST", "/api/port-forward/save",
+                         {"enabled": before.get("enabled", False), "upnp": before.get("upnp", False), "rules": before.get("rules", [])})
+        if server is not None:
+            server.terminate()
+        for ns in (dev, peer):
+            _cleanup_ns(ns)
+        shutil.rmtree(tmp, ignore_errors=True)
+        rep.add("portfwd", "owner's settings put back", PASS if back.get("status") == "ok" else FAIL,
+                f"forwarding {'on' if before.get('enabled') else 'off'}, UPnP {'on' if before.get('upnp') else 'off'}, "
+                f"{len(before.get('rules', []))} rule(s)")
+
+
 def g_dhcp_probe(rep: Report, cfg) -> None:
     """The DHCP guard against a throwaway DHCP server, on a plain port and on a bridge port."""
     if not shutil.which("dnsmasq"):
@@ -1152,8 +1272,9 @@ GROUPS: Dict[str, Callable] = {
     "services": g_services, "mode": g_mode, "internet": g_internet, "config": g_config, "web": g_web, "cli": g_cli,
     "usb": g_usb, "router": g_router, "dhcp-probe": g_dhcp_probe, "speed": g_speed, "wifi-ap": g_wifi_ap,
     "collector": g_collector, "telegram": g_telegram, "pppoe": g_pppoe, "dyndns": g_dyndns, "ipv6": g_ipv6,
+    "portfwd": g_portfwd,
 }
-QUICK = [g for g in GROUPS if g not in ("telegram",)]
+QUICK = [g for g in GROUPS if g not in ("telegram", "portfwd")]   # portfwd changes settings for a minute: --full or by name
 
 
 def prune_reports(keep: int = 30, folder: Optional[Path] = None) -> int:
