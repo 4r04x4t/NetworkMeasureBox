@@ -331,11 +331,10 @@ Found in the code or in the box's logs and not fixed yet (the log review of 2026
 |---|---|
 | Ookla rate limits at an hourly schedule | Ookla still refused the box every few hours (2026-11-08 17:20, 20:22-22:24, 11-09 01:27, 06:37, 07:41). One cause is fixed (the bot ran Ookla as a new client each time); watch whether it stops, and count manual and Telegram runs against the hour too |
 | RTR rows without the client IP | About 8 % since the fix (16 of 208): the address lookup over the measured link sometimes fails |
-| SD card writes | The diagnostic snapshot runs every 3 minutes and is copied to the boot partition (about 70 KB each); the developer log grows about 10 MB a day |
+| SD card writes | The developer log grows about 10 MB a day on the SD card (the boot-partition copy of the diagnostic snapshot is already limited to once an hour) |
 | Wired route outside NetworkManager | The Web UI adds a static `eth0` default route (metric 50) itself; it should set the metric in the NetworkManager profile instead |
 | IPv6 in router mode | No DHCPv6 prefix delegation on the WAN and no router advertisements on the LAN |
 | `nmcli device reapply` | Putting IPv4 DNS first reapplies the profile once; that reset an open connection of the bot once (it reconnected) |
-| Self-test reports | `selftest-*.json` and `scenario-*.json` pile up in /var/log/nmb without rotation |
 | Leftovers on the test box | 22 old `/tmp/nmb-install-*` folders from 2026-11-07 deploys |
 
 ## Known limits

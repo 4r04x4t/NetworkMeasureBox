@@ -12,7 +12,7 @@ md, meta = generate_invasive_snapshot(force_write=True)
 print(f'Snapshot written to: {PRIMARY_SNAPSHOT_PATH}', file=sys.stderr)
 boot_target = get_boot_drive_snapshot_target()
 if boot_target:
-    print(f'FAT32 Boot drive mirror: {boot_target}', file=sys.stderr)
+    print(f'FAT32 boot drive copy (at most once an hour): {boot_target}', file=sys.stderr)
 
 if '--json' in sys.argv:
     import json

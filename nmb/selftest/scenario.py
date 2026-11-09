@@ -577,6 +577,7 @@ def _finish(rep: Report, sc: Scenario) -> int:
     try:
         out.write_text(json.dumps({"ts": int(time.time()), "counts": c, "results": rep.rows}, indent=1))
         print(f"report: {out}", flush=True)
+        live.prune_reports()
     except OSError:
         pass
     return 1 if c[FAIL] else 0

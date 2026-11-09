@@ -93,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Self-test and scenario reports in /var/log/nmb are rotated (the newest 30 of each kind stay); the snapshot tool no longer says it mirrored to the boot partition when the hourly limit skipped it.
 - Telegram bot: on an HTTP error (429 Too Many Requests, 502) or without network it asked Telegram again at once, about 8 times a second; it now waits (Telegram's retry_after, or a growing pause), and a message refused with "retry after a few seconds" is sent once more instead of being lost.
 - Telegram bot sandbox: only the live database was writable, so `/dyndns on|off|token|domain|interval` could not save, `/heal` could not keep its state, and Ookla started as a new client on every test the bot ran (more rate limits). The bot may now write `/var/lib/nmb`, `/etc/nmb` and the boot partition copy.
 - Dead default routes were never removed when the kernel marked them `dead`: `ip route del ... dead` fails, yet the log said "removed" every 5 seconds. Only the route's selector is passed now, and success is checked (also in router mode on USB).

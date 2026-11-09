@@ -1019,6 +1019,21 @@ GROUPS: Dict[str, Callable] = {
 QUICK = [g for g in GROUPS if g not in ("telegram",)]
 
 
+def prune_reports(keep: int = 30, folder: Optional[Path] = None) -> int:
+    """Keep the newest `keep` self-test and scenario reports of each kind; older ones are deleted."""
+    folder = folder or LOG_DIR
+    removed = 0
+    for pattern in ("selftest-2*.json", "scenario-*-2*.json"):
+        files = sorted(folder.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+        for old in files[keep:]:
+            try:
+                old.unlink()
+                removed += 1
+            except OSError:
+                pass
+    return removed
+
+
 def to_markdown(rep: Report, groups: List[str]) -> str:
     """The report as a Markdown table. Details never hold secrets or public addresses (see the checks)."""
     c = rep.counts()
@@ -1142,6 +1157,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps({"ts": int(time.time()), "groups": groups, "counts": c, "results": rep.rows}, indent=1))
         print(f"report: {out}")
+        prune_reports()
     except OSError as e:
         print(f"could not write the report: {e}", file=sys.stderr)
     return 1 if c[FAIL] else 0

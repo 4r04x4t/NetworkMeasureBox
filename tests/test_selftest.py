@@ -100,3 +100,20 @@ class ReportTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PruneTest(unittest.TestCase):
+    def test_keeps_the_newest_reports(self):
+        import os
+        import tempfile
+        from pathlib import Path
+        d = Path(tempfile.mkdtemp())
+        for i in range(35):
+            p = d / f"selftest-20261109-{i:06d}.json"
+            p.write_text("{}")
+            os.utime(p, (1000 + i, 1000 + i))
+        (d / "selftest-latest.md").write_text("x")
+        self.assertEqual(live.prune_reports(keep=30, folder=d), 5)
+        self.assertFalse((d / "selftest-20261109-000000.json").exists())
+        self.assertTrue((d / "selftest-20261109-000034.json").exists())
+        self.assertTrue((d / "selftest-latest.md").exists())

@@ -331,11 +331,10 @@ A kódban vagy a box naplóiban talált, még nem javított hibák (a 2026-11-09
 |---|---|
 | Ookla rate limit óránkénti ütemezésnél | Az Ookla néhány óránként még elutasította a boxot (2026-11-08 17:20, 20:22-22:24, 11-09 01:27, 06:37, 07:41). Egy ok javítva (a bot minden alkalommal új kliensként futtatta az Ooklát); figyelni kell, megszűnik-e, és a kézi és Telegramos futásokat is bele kell számolni az órába |
 | RTR sorok kliens IP nélkül | A javítás óta kb. 8% (208-ból 16): a cím lekérdezése a mért linken néha nem sikerül |
-| SD-kártya írások | A diagnosztikai pillanatkép 3 percenként fut, és a boot partícióra is kimásolódik (kb. 70 KB-onként); a fejlesztői napló kb. 10 MB-ot nő naponta |
+| SD-kártya írások | A fejlesztői napló kb. 10 MB-ot nő naponta az SD-kártyán (a diagnosztikai pillanatkép boot partíciós másolata már óránként legfeljebb egyszer készül) |
 | Vezetékes útvonal a NetworkManageren kívül | A webes felület maga tesz fel egy statikus `eth0` alapútvonalat (50-es metrika); helyette a NetworkManager profil metrikáját kellene állítani |
 | IPv6 router módban | Nincs DHCPv6 előtag-delegálás a WAN-on és nincs router-hirdetés a LAN-on |
 | `nmcli device reapply` | Az IPv4 DNS előresorolása egyszer újraalkalmazza a profilt; ez egyszer megszakította a bot egy nyitott kapcsolatát (újracsatlakozott) |
-| Önteszt jelentések | A `selftest-*.json` és `scenario-*.json` fájlok forgatás nélkül gyűlnek a /var/log/nmb-ben |
 | Maradékok a teszt-boxon | 22 régi `/tmp/nmb-install-*` mappa a 2026-11-07-i telepítésekből |
 
 ## Ismert korlátok
