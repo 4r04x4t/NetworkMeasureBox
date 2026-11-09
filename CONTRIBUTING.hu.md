@@ -6,6 +6,7 @@ Köszönjük a segítséget. Az NMB-vel azt lehet megmutatni a szolgáltatónak,
 
 - Egy kisebb javításnál nagyobb dolog előtt nyiss egy issue-t, és írd le, mit és miért változtatnál.
 - Olvasd el a [docs/TESTING.hu.md](docs/TESTING.hu.md)-t: leírja, mi van tesztelve, hol, és hogyan kell tesztelni.
+- Windowson fejlesztéshez WSL2 és Tailscale kell, lásd [docs/DEV_SETUP_WINDOWS.hu.md](docs/DEV_SETUP_WINDOWS.hu.md).
 - Az NMB-t egyetlen 1000/300 Mbps-os otthoni optikai vonalon, Raspberry Pi 4-gyel fejlesztjük és teszteljük. Ha máson tesztelsz (más vonal, lap vagy disztribúció), az nagyon hasznos: írd le pontosan, mi volt az.
 
 ## Szabályok a kódhoz

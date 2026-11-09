@@ -6,6 +6,7 @@ Thank you for helping. NMB is used to show an internet provider what a line real
 
 - For anything bigger than a small fix, open an issue first and say what you want to change and why.
 - Read [docs/TESTING.md](docs/TESTING.md): it says what has been tested, where, and how to test.
+- Developing on Windows: use WSL2 and reach the box over Tailscale, see [docs/DEV_SETUP_WINDOWS.md](docs/DEV_SETUP_WINDOWS.md).
 - NMB is developed and tested on one 1000/300 Mbps home fibre line with a Raspberry Pi 4. If you test on something else (another line, board or distribution), that is welcome: say exactly what it was.
 
 ## Rules for code
