@@ -266,6 +266,9 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 
 | What | How |
 |---|---|
+| Real PPPoE line | Needs the ISP's PPPoE user name and password (enter them in the Web UI, Router > PPPoE, or with a USB stick) and the box's WAN port on the ONT or modem, not behind the home router (the ISP may allow only one session, so the home router's PPPoE may have to be off for the test). Then `sudo nmb-selftest pppoe --pppoe-real`: discovery, dial with the saved credentials, internet over PPPoE, all in a separate namespace on a macvlan, so the box's own routes and Tailscale stay. Then router mode with `pppoe_enabled = true` |
+| Settings from a USB stick | `config/usb-import.example.conf` as `nmb.conf` on a FAT32 stick with a new Telegram token: plugged in, the token changes, `nmb-import-result.txt` lists `telegram.token`, a backup is in `/var/lib/nmb/config-backups/`, plugging in again changes nothing |
+| Router mode with the Ethernet WAN (`nmb-selftest scenario router`) | A phone or PC on the box's Wi-Fi: internet, Web UI and SSH from the Wi-Fi, a WAN cable loss and return; the Tailscale guard must stop and restore if remote access drops for 2 minutes |
 | Wi-Fi sharing on the LAN port with USB as the upstream | Box on Wi-Fi, cable from the router to a laptop, then the box leaves its Wi-Fi: the laptop must keep browsing over USB (scenario steps `wifi-share`, `usb-fallback`; the client's packets out of `eth1` are counted) |
 | Router mode drops the LAN ports' link after setup | Laptop on the cable with an address from before (for example 192.168.77.x): without replugging it must get 192.168.100.x and browse within a minute |
 | Dead default routes are removed | Cable from the router to a laptop: within one netd loop no default route may stay on `eth0`; Wi-Fi or USB carries the box's traffic and Tailscale stays up (`nmb-selftest internet`: "no dead default route") |

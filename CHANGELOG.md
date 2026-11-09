@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Settings from a USB stick: `nmb.conf` at the top level of a stick is applied once when plugged in (only its keys, secrets never wiped by empty values, backup first, `nmb-import-result.txt` written back with names only). Template `config/usb-import.example.conf`; `[usb_import] enabled = false` turns it off.
+- `nmb-selftest pppoe`: NMB's own pppd command against a throwaway PPPoE server (right password connects and carries traffic, wrong password is refused, the password is on no command line); `--pppoe-real` dials the real line on the WAN port in a separate namespace. Passed on the Pi 4 (simulated line).
+- Scenarios stop and restore when Tailscale is offline for 2 minutes; `nmb-selftest internet` checks Tailscale; `nmb-selftest router` checks the Web UI and SSH from the LAN.
 - `nmb-selftest scenario router`: a guided live test of router mode with the Ethernet port as WAN (router mode up with a simulated client, a real device on the box's Wi-Fi and its traffic counted, the Web UI from that device, a WAN cable loss and return, restore). Stopping a scenario (`systemctl stop`) now restores the settings too.
 - `nmb-selftest scenario usb`: a guided live test with USB tethering (speed tests bound to USB, Wi-Fi shared on the LAN port, USB fallback, router mode on USB with real clients, the DHCP guard, restore, unplugging the device); it waits for each cable move, counts the clients' forwarded packets, and always puts the settings back (also after 45 minutes by a separate service).
 - `nmb-selftest`: live checks on a running box (services, internet, settings, web and terminal interfaces, USB tethering, router mode with a simulated LAN client, the DHCP guard against a throwaway server, speed engines against each other, the Wi-Fi access point, the central collector, and with `--full` the Telegram bot in all 11 languages). Throwaway namespaces only; never prints secrets. See TESTING.md, 2a.
@@ -86,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- PPPoE: the user name and password were on the pppd command line, readable by every local user with `ps`; they are now in a private options file.
 - Standalone mode with the access point on: devices could join but got no address. Starting the access point flushed every address from the radio, including its own one added just before, so dnsmasq failed ("unknown interface wlan0"). Only a DHCP client's dynamic addresses and routes are removed now; `nmb-selftest wifi-ap` fails when an access point has no address or no DHCP. (Regression from the 2026-11-08 fix for the radio's leftover client lease.)
 - RTR (native client): the test never used the asked link (no source address was passed; it now gets `--bind`), the row had no client IP (it is now asked over the same link), and the ping minimum and jitter were invented (minimum = median, jitter a fixed 500 µs); the client now reports the real minimum and jitter, and an older binary leaves them empty.
 - Ookla: scheduled runs during a rate-limit pause are stored as skipped, not as failed tests.

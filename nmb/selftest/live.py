@@ -601,7 +601,8 @@ def g_dhcp_probe(rep: Report, cfg) -> None:
         _cleanup_ns(ns)
 
 
-def _pppd_in_ns(ns: str, iface: str, user: str, password: str, linkname: str, timeout: float = 25.0) -> Tuple[bool, str]:
+def _pppd_in_ns(ns: str, iface: str, user: str, password: str, linkname: str, timeout: float = 25.0,
+                while_up: Optional[Callable[[], None]] = None) -> Tuple[bool, str]:
     """Dial PPPoE with NMB's own pppd command inside a namespace; True when ppp got an address."""
     import types
     from nmb.netd.services import build_pppd_cmd
@@ -620,6 +621,8 @@ def _pppd_in_ns(ns: str, iface: str, user: str, password: str, linkname: str, ti
                 addr = f"{m.group(1)} {m.group(2)}"
                 break
             time.sleep(1)
+        if addr and while_up:
+            while_up()   # checks that need the link, before it is hung up
         return bool(addr), addr or "no PPP address"
     finally:
         proc.terminate()
@@ -659,11 +662,12 @@ def g_pppoe(rep: Report, cfg, real: bool = False) -> None:
             (etc / "ppp" / "pppoe-server-options").write_text("require-pap\nlcp-echo-interval 10\nlcp-echo-failure 2\n")
             run([server, "-I", f"{NS_PREFIX}pa", "-L", "10.77.0.1", "-R", "10.77.0.100", "-N", "4"], ns=srv, check=True)
             time.sleep(1)
-            ok, detail = _pppd_in_ns(cli, f"{NS_PREFIX}pb", "nmbtest", "Right-Pass-77", "nmbst-ok")
+            pinged = []
+            ok, detail = _pppd_in_ns(cli, f"{NS_PREFIX}pb", "nmbtest", "Right-Pass-77", "nmbst-ok",
+                                     while_up=lambda: pinged.append(run(["ping", "-c", "2", "-W", "2", "10.77.0.1"], ns=cli, timeout=10).returncode == 0))
             rep.add("pppoe", "dial with the right password (simulated line)", PASS if ok else FAIL, detail)
             if ok:
-                p = run(["ping", "-c", "2", "-W", "2", "10.77.0.1"], ns=cli, timeout=10)
-                rep.add("pppoe", "traffic over the PPP link", PASS if p.returncode == 0 else FAIL, "ping to the server")
+                rep.add("pppoe", "traffic over the PPP link", PASS if pinged and pinged[0] else FAIL, "ping to the server")
             bad, detail = _pppd_in_ns(cli, f"{NS_PREFIX}pb", "nmbtest", "wrong-pass", "nmbst-bad", timeout=15)
             rep.add("pppoe", "wrong password is refused", PASS if not bad else FAIL, "no link" if not bad else detail)
             leak = run(["pgrep", "-af", "pppd"]).stdout
@@ -694,12 +698,13 @@ def g_pppoe(rep: Report, cfg, real: bool = False) -> None:
         rep.add("pppoe", f"PPPoE server answers on {wan}", PASS if found else FAIL,
                 "found" if found else "none: the WAN port must be on the ONT or modem, not behind a router")
         if found:
-            ok, detail = _pppd_in_ns(ns, mv, net.pppoe_user, net.pppoe_password, "nmbst-real", timeout=40)
+            pinged = []
+            ok, detail = _pppd_in_ns(ns, mv, net.pppoe_user, net.pppoe_password, "nmbst-real", timeout=40,
+                                     while_up=lambda: pinged.append(run(["ping", "-c", "3", "-W", "3", "1.1.1.1"], ns=ns, timeout=20).returncode == 0))
             rep.add("pppoe", "dial the real line with the saved credentials", PASS if ok else FAIL,
                     "connected" if ok else detail)   # the address is the public one: not printed
             if ok:
-                p = run(["ping", "-c", "3", "-W", "3", "1.1.1.1"], ns=ns, timeout=20)
-                rep.add("pppoe", "internet over PPPoE", PASS if p.returncode == 0 else FAIL, "ping 1.1.1.1")
+                rep.add("pppoe", "internet over PPPoE", PASS if pinged and pinged[0] else FAIL, "ping 1.1.1.1")
     except Exception as e:
         rep.add("pppoe", "real line", FAIL, f"{type(e).__name__}: {str(e)[:150]}")
     finally:
