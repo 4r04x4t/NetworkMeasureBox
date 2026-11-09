@@ -607,6 +607,14 @@ except socket.timeout:
 """
 
 
+_TEST_WEB_SERVER = (
+    "import functools, http.server, socketserver, sys\n"
+    "socketserver.TCPServer.allow_reuse_address = True\n"
+    "h = functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[2])\n"
+    "socketserver.TCPServer((sys.argv[1], 8000), h).serve_forever()\n"
+)
+
+
 def _api_json(method: str, path: str, body: Optional[dict] = None) -> Dict[str, Any]:
     res = _cli("api", method, path, *( [json.dumps(body)] if body is not None else []), timeout=60)
     try:
@@ -657,10 +665,25 @@ def g_portfwd(rep: Report, cfg) -> None:
             run(["ip", "link", "set", f"{ns}b", "up"], ns=ns, check=True)
             run(["ip", "addr", "add", f"{ip}/{ipaddress.IPv4Network(lan_net).prefixlen}", "dev", f"{ns}b"], ns=ns, check=True)
             run(["ip", "route", "add", "default", "via", gw], ns=ns, check=True)
+        reach = all(run(["ping", "-c", "1", "-W", "2", gw], ns=ns, timeout=5).returncode == 0 for ns in (dev, peer))
+        rep.add("portfwd", "test LAN devices reach the box", PASS if reach else FAIL,
+                "on br-lan" if reach else "no answer from the gateway (router mode still starting?)")
+        if not reach:
+            return
         (tmp / "index.html").write_text(token)
-        server = subprocess.Popen(["ip", "netns", "exec", dev, "python3", "-m", "http.server", "8000", "--bind", dev_ip,
-                                   "--directory", str(tmp)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(1.5)
+        # socketserver, not http.server: HTTPServer looks up its own name (reverse DNS of a private address),
+        # which took 5-30 s from the namespace (2026-11-09) and made the test fail.
+        server = subprocess.Popen(["ip", "netns", "exec", dev, "python3", "-c", _TEST_WEB_SERVER, dev_ip, str(tmp)],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        up = False
+        for _ in range(20):
+            if run(["curl", "-s", "-m", "2", f"http://{dev_ip}:8000/"], ns=peer, timeout=5).stdout.strip() == token:
+                up = True
+                break
+            time.sleep(0.5)
+        rep.add("portfwd", "test web server on the LAN device", PASS if up else FAIL, "answers on the LAN" if up else "did not start")
+        if not up:
+            return
         test_rule = {"name": "nmb-selftest", "proto": "tcp", "ext": str(ext), "ip": dev_ip, "port": 8000, "on": True}
         res = _api_json("POST", "/api/port-forward/save", {"enabled": True, "rules": before["rules"] + [test_rule]})
         rep.add("portfwd", "temporary rule saved", PASS if res.get("status") == "ok" else FAIL, res.get("message", "")[:120])
@@ -693,7 +716,8 @@ def g_portfwd(rep: Report, cfg) -> None:
                 rep.add("portfwd", "NAT-PMP mapping from a LAN device", PASS if mapped else FAIL,
                         f"TCP {ext + 10}" if mapped else f"answer {' '.join(out) or 'none'}")
                 low = run(["python3", str(script), gw, "22", "22", "120"], ns=dev, timeout=10).stdout.split()
-                rep.add("portfwd", "UPnP refuses ports below 1024", PASS if low and low[0] != "0" else FAIL,
+                refused = bool(low) and low[0].isdigit() and low[0] != "0"   # an answer, and not "success"
+                rep.add("portfwd", "UPnP refuses ports below 1024", PASS if refused else FAIL,
                         f"result {low[0] if low else 'none'}")
                 if mapped:
                     run(["python3", str(script), gw, "8000", "0", "0"], ns=dev, timeout=10)
