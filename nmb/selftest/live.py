@@ -636,6 +636,14 @@ def g_wifi_ap(rep: Report, cfg) -> None:
         rep.add("wifi-ap", "access point", SKIP, "not running")
         return
     conf = parse_hostapd(conf_path.read_text())
+    # An access point without DHCP lets devices join but gives them nothing (2026-11-09: dnsmasq failed
+    # with "unknown interface wlan0" because the radio's own address had been flushed).
+    ap_if = conf.get("bridge") or conf.get("interface") or "wlan0"
+    from nmb.netd import interfaces as _ifs
+    has_ip = any(":" not in a for a in _ifs.get_ip_addresses(ap_if))
+    dhcp = run(["pgrep", "-f", "dnsmasq --conf-file=/run/nmb/dnsmasq.conf"]).returncode == 0
+    rep.add("wifi-ap", "access point hands out addresses", PASS if has_ip and dhcp else FAIL,
+            f"{ap_if}: address {'yes' if has_ip else 'none'}, DHCP {'running' if dhcp else 'not running'}")
     band = "5ghz" if conf.get("hw_mode") == "a" else "2.4ghz"
     wide = "HT40" in conf.get("ht_capab", "")
     cap = bands.get(band, {})

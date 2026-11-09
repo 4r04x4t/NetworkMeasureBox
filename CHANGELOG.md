@@ -84,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Standalone mode with the access point on: devices could join but got no address. Starting the access point flushed every address from the radio, including its own one added just before, so dnsmasq failed ("unknown interface wlan0"). Only a DHCP client's dynamic addresses and routes are removed now; `nmb-selftest wifi-ap` fails when an access point has no address or no DHCP. (Regression from the 2026-11-08 fix for the radio's leftover client lease.)
 - RTR (native client): the test never used the asked link (no source address was passed; it now gets `--bind`), the row had no client IP (it is now asked over the same link), and the ping minimum and jitter were invented (minimum = median, jitter a fixed 500 µs); the client now reports the real minimum and jitter, and an older binary leaves them empty.
 - Ookla: scheduled runs during a rate-limit pause are stored as skipped, not as failed tests.
 - iPerf3: a server whose last five tests all failed is left out for 6 hours (one extra server failed 282 of 283 tests and was tried every minute).

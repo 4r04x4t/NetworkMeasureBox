@@ -243,8 +243,10 @@ pid-file={pid_file}
         # (USB tethering has 900) and send the box's own traffic into its own access point.
         ip_bin = shutil.which("ip")
         if ip_bin:
-            subprocess.run([ip_bin, "addr", "flush", "dev", iface], capture_output=True, timeout=10, check=False)
-            subprocess.run([ip_bin, "-4", "route", "flush", "dev", iface], capture_output=True, timeout=10, check=False)
+            # Only what a DHCP client left (dynamic address, its routes): the access point's own static
+            # address, added just before in standalone mode, must stay, or dnsmasq cannot bind (2026-11-09).
+            subprocess.run([ip_bin, "-4", "addr", "flush", "dev", iface, "dynamic"], capture_output=True, timeout=10, check=False)
+            subprocess.run([ip_bin, "-4", "route", "flush", "dev", iface, "proto", "dhcp"], capture_output=True, timeout=10, check=False)
         self.run_dir.mkdir(parents=True, exist_ok=True)
         # The radio may report features the installed hostapd cannot use, so step down until one starts.
         for overrides in HOSTAPD_ATTEMPTS:

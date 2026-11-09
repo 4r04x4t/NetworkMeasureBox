@@ -48,7 +48,10 @@ class WifiPskTest(unittest.TestCase):
             proc.return_value.start.return_value = True
             self.assertTrue(mgr.start_hostapd("wlan0"))
         cmds = [c[0][0] for c in run.call_args_list]
-        self.assertIn(["/usr/sbin/ip", "addr", "flush", "dev", "wlan0"], cmds)
+        self.assertIn(["/usr/sbin/ip", "-4", "addr", "flush", "dev", "wlan0", "dynamic"], cmds)
+        self.assertIn(["/usr/sbin/ip", "-4", "route", "flush", "dev", "wlan0", "proto", "dhcp"], cmds)
+        # Never a full flush: standalone mode puts the access point's own address on the radio first.
+        self.assertNotIn(["/usr/sbin/ip", "addr", "flush", "dev", "wlan0"], cmds)
 
 
 if __name__ == "__main__":
