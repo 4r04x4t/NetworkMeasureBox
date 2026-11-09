@@ -211,7 +211,7 @@ def p_dyndns(sc: S.Scenario) -> None:
     sc.say(f"Waiting for the next DynDNS update (every {interval} min).", waiting=False)
 
     def points_here() -> bool:
-        probe = live.Report()
+        probe = live.Report(quiet=True)
         live.g_dyndns(probe, sc.cfg)
         return any(r["check"].startswith("name points") and r["status"] == PASS for r in probe.rows)
 

@@ -969,3 +969,40 @@ def prefer_ipv4_dns(run: Optional[Callable[..., Any]] = None) -> List[str]:
         log.info("IPv4 DNS now before IPv6 DNS on %s (%s)", name, dev)
         changed.append(name)
     return changed
+
+
+def accept_ra_with_forwarding(iface: str) -> bool:
+    """Let iface learn its IPv6 address and default route from router adverts although the box forwards.
+
+    With forwarding on (router mode, the VPN servers) the kernel ignores router adverts unless accept_ra
+    is 2: on the first real PPPoE line (2026-11-09) ppp0 got no IPv6 although the ISP advertises it.
+    True when the setting had to be changed.
+    """
+    path = Path(f"/proc/sys/net/ipv6/conf/{iface}/accept_ra")
+    try:
+        if path.read_text().strip() == "2":
+            return False
+        path.write_text("2")
+        return True
+    except OSError:
+        return False
+
+
+def send_router_solicitation(iface: str) -> bool:
+    """Ask the routers on iface for an advert now (ICMPv6 type 133 to ff02::2), instead of waiting for one."""
+    import socket
+    import struct
+    try:
+        idx = socket.if_nametoindex(iface)
+        s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_ICMPV6)
+    except OSError:
+        return False
+    try:
+        s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, idx)
+        s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, 255)
+        s.sendto(struct.pack("!BBHI", 133, 0, 0, 0), ("ff02::2", 0, 0, idx))   # the kernel fills the checksum
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()

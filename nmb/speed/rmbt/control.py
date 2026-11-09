@@ -77,14 +77,11 @@ def _post(url, body, debug):
     except urllib.error.HTTPError as e:
         raise RuntimeError(f'HTTP {e.code}: {e.read().decode().strip()}')
     except Exception as e:
+        # No unbound retry: it would reach the control server over another link (the default route) and
+        # the test would then measure a line the owner did not choose.
         if bound_ip:
-            try:
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    raw = resp.read().decode()
-            except Exception:
-                raise e
-        else:
-            raise e
+            raise RuntimeError(f"control server not reachable from {bound_iface or bound_ip}: {e}") from e
+        raise
     if debug:
         try:
             pretty = json.dumps(json.loads(raw), indent=2)

@@ -63,12 +63,16 @@ def wan_input_rules(wan_iface: str, open_ports: Optional[List[Tuple[str, int]]] 
 
 
 def enable_nat_mode_a(wan_iface: str, lan_ifaces: List[str], block_public_wan: bool = True, dmz_iface: str = "",
-                      open_ports: Optional[List[Tuple[str, int]]] = None) -> bool:
+                      open_ports: Optional[List[Tuple[str, int]]] = None, forwards: Optional[List[dict]] = None,
+                      gateway_ip: str = "", gateway_netmask: str = "255.255.255.0") -> bool:
     """Setup NAT and forwarding rules for Mode A (Active Gateway).
 
     block_public_wan: the internet reaches the box on the WAN only for answers to its own traffic, ICMP and
     open_ports (the VPN servers: Tailscale, WireGuard, OpenVPN). Private sources (a home router or hotspot
     in front of the WAN) reach everything, as before.
+    forwards: port forwarding rules (nmb/netd/port_forward.py), already checked; DNAT from the WAN, and
+    hairpin NAT so LAN devices can use the public address too.
+    The table is replaced in one nft transaction, so this can be called again when the rules change.
     """
     _set_sysctl_forward(True)
     nft_bin = shutil.which("nft")
@@ -90,15 +94,35 @@ def enable_nat_mode_a(wan_iface: str, lan_ifaces: List[str], block_public_wan: b
                          f'        iifname "{dmz_iface}" drop')
             dmz_forward = (f'iifname "{dmz_iface}" oifname "{wan_iface}" accept\n'
                            f'        iifname "{dmz_iface}" drop')
+        pre_rules, post_rules = [], []
+        if forwards and gateway_ip:
+            from nmb.netd.port_forward import lan_network, nat_rules
+            pre_rules, post_rules = nat_rules(wan_iface, lan_set, gateway_ip, lan_network(gateway_ip, gateway_netmask), forwards)
+        prerouting = ""
+        if pre_rules:
+            prerouting = ("    chain prerouting {\n        type nat hook prerouting priority dstnat; policy accept;\n        "
+                          + "\n        ".join(pre_rules) + "\n    }\n")
+        wan_forward = ""
+        if block_public_wan:
+            # From the WAN only answers, forwarded ports and private sources (a home LAN in front) reach the LAN.
+            wan_forward = "\n        ".join([
+                f'iifname "{wan_iface}" ct status dnat accept',
+                f'iifname "{wan_iface}" ip saddr {{ {PRIVATE_V4} }} accept',
+                f'iifname "{wan_iface}" ip6 saddr {{ {PRIVATE_V6} }} accept',
+                f'iifname "{wan_iface}" drop',
+            ])
         nft_rules = f"""
+table inet {NFT_TABLE}
+delete table inet {NFT_TABLE}
 table inet {NFT_TABLE} {{
-    chain input {{
+{prerouting}    chain input {{
         type filter hook input priority filter; policy accept;
         {wan_drop_rule}
         {dmz_input}
     }}
     chain postrouting {{
         type nat hook postrouting priority srcnat; policy accept;
+        {chr(10).join(post_rules)}
         oifname "{wan_iface}" masquerade
     }}
     chain forward {{
@@ -109,6 +133,7 @@ table inet {NFT_TABLE} {{
         ct state established,related accept
         {dmz_forward}
         iifname {lan_set} oifname "{wan_iface}" accept
+        {wan_forward}
     }}
 }}
 """

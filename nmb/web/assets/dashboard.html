@@ -2827,6 +2827,7 @@
       <div class="router-subnav">
         <button type="button" class="router-subtab-btn active" id="btn-rsub-wan" onclick="switchRouterSubtab('rsub-wan')" data-i18n="subtab_wan">🌐 WAN / Internet</button>
         <button type="button" class="router-subtab-btn" id="btn-rsub-lan" onclick="switchRouterSubtab('rsub-lan')" data-i18n="subtab_lan">🏠 LAN / Local Network</button>
+        <button type="button" class="router-subtab-btn" id="btn-rsub-portfwd" onclick="switchRouterSubtab('rsub-portfwd'); loadPortForward()" data-i18n="subtab_portfwd">↪️ Port forwarding</button>
         <button type="button" class="router-subtab-btn" id="btn-rsub-wifi" onclick="switchRouterSubtab('rsub-wifi')" data-i18n="subtab_wifi">📶 Wi-Fi Network (AP)</button>
         <button type="button" class="router-subtab-btn" id="btn-rsub-guest" onclick="switchRouterSubtab('rsub-guest')" data-i18n="subtab_guest_wifi">📶 Guest Wi-Fi Receiver</button>
         <button type="button" class="router-subtab-btn" id="btn-rsub-ports" onclick="switchRouterSubtab('rsub-ports')" data-i18n="subtab_ports">🔀 Ports & Drivers</button>
@@ -2967,6 +2968,42 @@
       </div>
 
       <!-- SUBTAB 2: LAN / LOCAL NETWORK -->
+      <!-- SUBTAB: PORT FORWARDING (router mode) -->
+      <div id="rsub-portfwd" class="router-subtab-content">
+        <div class="router-section-card">
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 8px;" data-i18n="pf_title">↪️ Port forwarding (router mode)</div>
+          <p class="form-hint" style="margin-bottom: 10px;" data-i18n="pf_desc">Opens chosen ports of the internet line to a device on the box's LAN or Wi-Fi.</p>
+          <div id="pf-status" class="form-hint" style="margin-bottom: 10px; color: #cbd5e1;">--</div>
+          <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+            <input type="checkbox" id="pf-enabled"> <span data-i18n="pf_enable">Forward these ports</span>
+          </label>
+          <div class="data-table-wrap">
+            <table class="data-table" style="min-width: 640px;">
+              <thead><tr>
+                <th data-i18n="pf_col_on">On</th><th data-i18n="pf_col_name">Name</th><th data-i18n="pf_col_proto">Protocol</th>
+                <th data-i18n="pf_col_ext">Internet port</th><th data-i18n="pf_col_ip">LAN device</th><th data-i18n="pf_col_port">Device port</th><th></th>
+              </tr></thead>
+              <tbody id="pf-rules"></tbody>
+            </table>
+          </div>
+          <button type="button" class="btn-secondary" style="margin-top: 10px; padding: 7px 14px;" onclick="pfAddRow()" data-i18n="pf_add">+ Add rule</button>
+          <div id="pf-hint" class="form-hint" style="margin-top: 8px;"></div>
+        </div>
+        <div class="router-section-card">
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 8px;" data-i18n="pf_upnp_title">🔌 UPnP / NAT-PMP (automatic port forwarding)</div>
+          <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+            <input type="checkbox" id="pf-upnp"> <span data-i18n="pf_upnp_enable">LAN devices may open ports for themselves (UPnP IGD, NAT-PMP, PCP)</span>
+          </label>
+          <div class="form-hint" style="color: #fbbf24;" data-i18n="pf_upnp_warn">Any program on any LAN device can then open a port to itself. Off by default.</div>
+          <div id="pf-upnp-status" class="form-hint" style="margin-top: 8px; color: #cbd5e1;"></div>
+          <ul id="pf-upnp-list" style="margin: 6px 0 0 18px; font-family: monospace; font-size: 12px; color: #94a3b8;"></ul>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <button type="button" class="btn-primary" style="padding: 9px 18px;" onclick="savePortForward()" data-i18n="pf_save">💾 Save port forwarding</button>
+          <span id="pf-msg" class="form-hint"></span>
+        </div>
+      </div>
+
       <div id="rsub-lan" class="router-subtab-content">
         <div class="router-section-card">
           <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;" data-i18n="lan_title">Local Area Network (LAN & DHCP Server)</div>

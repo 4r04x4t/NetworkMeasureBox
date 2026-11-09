@@ -10385,3 +10385,74 @@ Signal: ${sigName}`;
     }
   }
 
+  // ---- Port forwarding (router mode): the owner's rules and UPnP / NAT-PMP ----
+  function pfRowHtml(r) {
+    const proto = (r && r.proto) || 'tcp';
+    const opt = (v, label) => `<option value="${v}"${proto === v ? ' selected' : ''}>${label}</option>`;
+    return `<tr>
+      <td><input type="checkbox" class="pf-on"${!r || r.on !== false ? ' checked' : ''}></td>
+      <td><input type="text" class="form-input pf-name" maxlength="32" value="${escapeHtml((r && r.name) || '')}" style="min-width: 90px;"></td>
+      <td><select class="form-input pf-proto">${opt('tcp', 'TCP')}${opt('udp', 'UDP')}${opt('both', escapeHtml(t('pf_both', 'TCP and UDP')))}</select></td>
+      <td><input type="text" class="form-input pf-ext" placeholder="8080" value="${escapeHtml((r && r.ext) || '')}" style="width: 100px;"></td>
+      <td><input type="text" class="form-input pf-ip" placeholder="192.168.100.20" value="${escapeHtml((r && r.ip) || '')}" style="width: 140px;"></td>
+      <td><input type="text" class="form-input pf-port" placeholder="=" value="${r && r.port ? escapeHtml(String(r.port)) : ''}" style="width: 80px;"></td>
+      <td><button type="button" class="btn-secondary" style="padding: 4px 10px;" onclick="this.closest('tr').remove()">✕</button></td>
+    </tr>`;
+  }
+
+  function pfAddRow() {
+    const body = document.getElementById('pf-rules');
+    if (body) body.insertAdjacentHTML('beforeend', pfRowHtml(null));
+  }
+
+  function renderPortForward(d) {
+    const en = document.getElementById('pf-enabled');
+    if (en) en.checked = !!d.enabled;
+    const up = document.getElementById('pf-upnp');
+    if (up) up.checked = !!d.upnp;
+    const body = document.getElementById('pf-rules');
+    if (body) body.innerHTML = (d.rules || []).map(pfRowHtml).join('');
+    const st = document.getElementById('pf-status');
+    if (st) st.textContent = d.router_mode
+      ? t('pf_router_on', 'Router mode on {wan}: {count} rule(s) applied.').replace('{wan}', d.wan || '--').replace('{count}', d.applied_rules || 0)
+      : t('pf_not_router', 'The box is not in router mode: the rules are saved and apply when router mode runs.');
+    const hint = document.getElementById('pf-hint');
+    if (hint) hint.textContent = t('pf_hint', 'Ports the box itself uses on the internet side: {ports}.').replace('{ports}', (d.reserved || []).join(', ') || '--');
+    const us = document.getElementById('pf-upnp-status');
+    const ul = document.getElementById('pf-upnp-list');
+    if (us) {
+      if (d.upnp && !d.upnp_installed) us.textContent = t('pf_upnp_missing', 'The UPnP service (miniupnpd) is not installed; run the installer again.');
+      else if (d.upnp_running) us.textContent = (d.upnp_mappings || []).length ? t('pf_upnp_running', 'UPnP is running; ports opened by devices:') : t('pf_upnp_none', 'No port is open by UPnP right now.');
+      else us.textContent = '';
+    }
+    if (ul) ul.innerHTML = (d.upnp_mappings || []).map(m =>
+      `<li>${escapeHtml(String(m.proto).toUpperCase())} ${escapeHtml(String(m.ext))} → ${escapeHtml(m.ip)}:${escapeHtml(String(m.port))}${m.name ? ' (' + escapeHtml(m.name) + ')' : ''}</li>`).join('');
+  }
+
+  async function loadPortForward() {
+    try { const r = await fetch('/api/port-forward'); if (r.ok) renderPortForward(await r.json()); } catch (e) {}
+  }
+
+  async function savePortForward() {
+    const rules = Array.from(document.querySelectorAll('#pf-rules tr')).map(tr => ({
+      on: tr.querySelector('.pf-on').checked,
+      name: tr.querySelector('.pf-name').value.trim(),
+      proto: tr.querySelector('.pf-proto').value,
+      ext: tr.querySelector('.pf-ext').value.trim(),
+      ip: tr.querySelector('.pf-ip').value.trim(),
+      port: tr.querySelector('.pf-port').value.trim(),
+    })).filter(r => r.ext || r.ip || r.name);
+    const msg = document.getElementById('pf-msg');
+    try {
+      const r = await fetch('/api/port-forward/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enabled: document.getElementById('pf-enabled').checked, upnp: document.getElementById('pf-upnp').checked, rules})});
+      const d = await r.json();
+      if (msg) { msg.textContent = r.ok ? t('pf_saved', 'Saved. Router mode applies it within a few seconds.') : (d.message || 'Error'); msg.style.color = r.ok ? '#34d399' : '#f87171'; }
+      if (r.ok) { renderPortForward(d); setTimeout(loadPortForward, 6000); }
+    } catch (e) {
+      if (msg) { msg.textContent = 'Network error: ' + e; msg.style.color = '#f87171'; }
+    }
+  }
+  window.pfAddRow = pfAddRow;
+  window.loadPortForward = loadPortForward;
+  window.savePortForward = savePortForward;

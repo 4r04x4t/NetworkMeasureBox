@@ -40,11 +40,14 @@ HU_LEAK = re.compile(r"[őűŐŰ]")
 
 
 class Report:
-    def __init__(self) -> None:
+    def __init__(self, quiet: bool = False) -> None:
         self.rows: List[Dict[str, Any]] = []
+        self.quiet = quiet   # a probe report used only to poll a condition prints nothing
 
     def add(self, group: str, name: str, status: str, detail: str = "") -> None:
         self.rows.append({"group": group, "check": name, "status": status, "detail": detail})
+        if self.quiet:
+            return
         mark = {"PASS": "ok  ", "WARN": "warn", "FAIL": "FAIL", "SKIP": "skip"}[status]
         print(f"[{mark}] {group:<10} {name:<38} {detail}", flush=True)
 
@@ -883,7 +886,9 @@ def router_advert(iface: str, wait: float = 12.0) -> Optional[Dict[str, Any]]:
 
 def g_ipv6(rep: Report, cfg) -> None:
     """IPv6 on the line: the LAN router's advertisement, the box's address and route, and real traffic."""
-    wan = _netd_state().get("details", {}).get("interface") or getattr(cfg.network, "wan_interface", "eth0")
+    details = _netd_state().get("details", {}) or {}
+    # Router mode names its WAN (ppp0 on PPPoE); the other modes the port the box measures on.
+    wan = details.get("wan_interface") or details.get("interface") or getattr(cfg.network, "wan_interface", "eth0")
     ra = router_advert(wan)
     if ra is None:
         rep.add("ipv6", f"IPv6 router on {wan}", WARN, "no router advertisement: the network has no IPv6")

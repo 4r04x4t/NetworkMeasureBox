@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import datetime
 import logging
+import re
 import socket
+import subprocess
 import threading
 import time
 import urllib.error
@@ -423,9 +425,30 @@ def get_duckdns_status(cfg: Optional[Any] = None) -> Dict[str, Any]:
     return state
 
 
+ROUTE_CHECK_SEC = 30.0
+
+
+def _route_signature() -> str:
+    """The box's way to the internet (device and source address), read locally: no request leaves the box."""
+    try:
+        out = subprocess.run(["ip", "-4", "route", "get", "1.1.1.1"], capture_output=True, text=True,
+                             timeout=3, check=False).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    dev = re.search(r"\bdev (\S+)", out)
+    src = re.search(r"\bsrc (\S+)", out)
+    return f"{dev.group(1) if dev else ''} {src.group(1) if src else ''}".strip()
+
+
 def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Event) -> None:
-    """Background loop to keep DynDNS synchronized on strict schedule."""
+    """Background loop to keep DynDNS synchronized on strict schedule.
+
+    Between the scheduled updates the box's route to the internet is checked every 30 s; when it changes
+    (router mode on PPPoE, a new PPPoE address, USB taking over) the name is updated at once. Before
+    2026-11-09 it pointed at the old line for up to the whole interval after a switch.
+    """
     log.info("DynDNS updater background loop started")
+    last_sig = None
     while not stop_event.is_set():
         try:
             _duckdns_wake_event.clear()
@@ -497,6 +520,7 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
                         except Exception:
                             log.debug("suppressed exception", exc_info=True)
 
+                last_sig = _route_signature()
                 update_duckdns(
                     domain=duck_cfg.domain,
                     token=duck_cfg.token,
@@ -518,8 +542,18 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
             with _duckdns_lock:
                 _duckdns_state["next_update_ts"] = time.time() + remaining
 
-            # Sleep for remaining seconds, or wake instantly on config change or shutdown
-            _duckdns_wake_event.wait(timeout=remaining)
+            # Sleep for remaining seconds, or wake instantly on config change, shutdown or a new route
+            deadline = time.time() + remaining
+            while not stop_event.is_set():
+                left = deadline - time.time()
+                if left <= 0 or _duckdns_wake_event.wait(timeout=min(ROUTE_CHECK_SEC, left)):
+                    break
+                sig = _route_signature()
+                if sig and last_sig is not None and sig != last_sig and not duck_cfg.custom_ip:
+                    log.info("the box's way to the internet changed (now via %s): updating DynDNS now", sig.split()[0])
+                    with _duckdns_lock:
+                        _duckdns_state["last_update_ts"] = 0.0
+                    break
 
         except Exception as e:
             log.error("error in duckdns loop: %s", e)

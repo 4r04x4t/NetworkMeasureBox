@@ -52,8 +52,17 @@ class NetworkDaemon:
         self.reload_requested = False
         _apply_kernel_tuning()
         old_network = self.cfg.network
+        old_pf = getattr(self.cfg, "port_forward", None)
         self.cfg = load_config()
         if self.cfg.network == old_network:
+            if self.cfg.port_forward != old_pf and isinstance(self.current_mode_inst, ModeA):
+                # Port forwarding or UPnP changed: only the firewall and miniupnpd, not the whole router.
+                log.info("port forwarding settings changed; re-applying the router firewall")
+                self.current_mode_inst.full_cfg = self.cfg
+                try:
+                    self.current_mode_inst.apply_firewall()
+                except Exception as e:
+                    log.error("port forwarding not applied: %s", e)
             return
         log.info("network configuration changed; re-applying active mode")
         active_mode = self.current_mode_name

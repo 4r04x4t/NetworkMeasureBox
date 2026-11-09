@@ -231,6 +231,11 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
         A("lan.save", "Save LAN settings", "/api/config", "gateway_ip gateway_netmask dhcp_enabled:bool dhcp_range_start dhcp_range_end dhcp_lease_time", confirm="YES"),
         A("lan.scan", "Scan devices", "/api/network/devices/scan", "iface"),
     )),
+    "tab-info/rsub-portfwd": (("/api/port-forward",), (
+        A("pf.save", "Port forwarding and UPnP on or off", "/api/port-forward/save", "enabled:bool upnp:bool"),
+        A("pf.rules", 'Port forwarding rules, as a JSON list: [{"name":"nas","proto":"tcp","ext":"8443","ip":"192.168.100.20","port":443,"on":true}]',
+          "/api/port-forward/save", "rules:json"),
+    )),
     "tab-info/rsub-wifi": (("/api/network/wifi/status", "/api/network/wifi/capabilities"), (
         A("wifi.save", "Save Wi-Fi settings", "/api/config", "wifi_enabled:bool wifi_ssid wifi_psk:secret wifi_band wifi_standard wifi_channel:int wifi_channel_width wifi_country_code wifi_security", confirm="YES"),
     )),
@@ -388,6 +393,9 @@ def coerce_value(field: Field, raw: str):
         return int(raw)
     if field.kind == "float":
         return float(raw)
+    if field.kind == "json":
+        import json
+        return json.loads(raw)
     return raw
 
 

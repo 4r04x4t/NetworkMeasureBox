@@ -133,6 +133,14 @@ if [ "$OS_TYPE" = "debian" ]; then
     # Install common hardware firmware if available in repositories
     apt-get install -y --no-install-recommends firmware-realtek 2>/dev/null || true
 
+    # UPnP IGD / NAT-PMP for router mode (Router > Port forwarding). nmb-netd starts it with its own
+    # configuration only when the owner turns UPnP on; the package's own service stays off.
+    if apt-get install -y --no-install-recommends miniupnpd-nftables 2>/dev/null; then
+        systemctl disable --now miniupnpd.service >/dev/null 2>&1 || true
+    else
+        warn "miniupnpd-nftables not installed: UPnP / NAT-PMP in router mode is unavailable (manual port forwarding works)."
+    fi
+
     # Install OONI Probe (Censorship & Internet Freedom Engine)
     if ! command -v ooniprobe >/dev/null 2>&1 && ! command -v ooniprobe-cli >/dev/null 2>&1; then
         info "Configuring official OONI Probe repository..."

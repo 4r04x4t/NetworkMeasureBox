@@ -6,13 +6,14 @@ Uses configparser (standard library).
 from __future__ import annotations
 
 import configparser
+import json
 import logging
 import os
 import threading
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("nmb.config")
 
@@ -643,6 +644,14 @@ class WifiShareConfig:
 
 
 @dataclass
+class PortForwardConfig:
+    """Port forwarding in router mode (nmb/netd/port_forward.py): the owner's rules and UPnP / NAT-PMP."""
+    enabled: bool = False          # the rules below are applied
+    upnp: bool = False             # LAN devices may open ports themselves (UPnP IGD, NAT-PMP, PCP)
+    rules: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
 class CollectorConfig:
     enabled: bool = False
     url: str = ""          # e.g. https://collector.example.net:8600
@@ -726,6 +735,7 @@ class Config:
     wifi_uplink: WifiUplinkConfig = field(default_factory=WifiUplinkConfig)
     usb_uplink: UsbUplinkConfig = field(default_factory=UsbUplinkConfig)
     wifi_share: WifiShareConfig = field(default_factory=WifiShareConfig)
+    port_forward: PortForwardConfig = field(default_factory=PortForwardConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
     ooni: OoniConfig = field(default_factory=OoniConfig)
     wireguard: WireGuardConfig = field(default_factory=WireGuardConfig)
@@ -1055,6 +1065,13 @@ def load_config(path: Path | None = None) -> Config:
         cfg.storage.min_free_mb = max(0, min(100_000, so.getint("min_free_mb", fallback=0)))
         cfg.storage.keep_days = max(1, min(3650, so.getint("keep_days", fallback=7)))
 
+    if parser.has_section("port_forward"):
+        from nmb.netd.port_forward import parse_config_rules
+        pf = parser["port_forward"]
+        cfg.port_forward.enabled = pf.getboolean("enabled", fallback=False)
+        cfg.port_forward.upnp = pf.getboolean("upnp", fallback=False)
+        cfg.port_forward.rules = parse_config_rules(pf.get("rules", ""))
+
     if parser.has_section("wifi_share"):
         sh = parser["wifi_share"]
         cfg.wifi_share.enabled = sh.getboolean("enabled", fallback=False)
@@ -1176,7 +1193,7 @@ def _filled(cfg: "Config"):
 
 def _fill_parser(cfg: "Config", parser) -> None:
     """Write every setting of cfg into parser (the keys save_config owns)."""
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "usb_uplink", "wifi_share", "storage", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "usb_uplink", "wifi_share", "port_forward", "storage", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -1378,6 +1395,9 @@ def _fill_parser(cfg: "Config", parser) -> None:
     parser["wifi_share"]["enabled"] = str(cfg.wifi_share.enabled).lower()
     parser["wifi_share"]["lan_interface"] = str(cfg.wifi_share.lan_interface)
     parser["wifi_share"]["address"] = str(cfg.wifi_share.address)
+    parser["port_forward"]["enabled"] = str(cfg.port_forward.enabled).lower()
+    parser["port_forward"]["upnp"] = str(cfg.port_forward.upnp).lower()
+    parser["port_forward"]["rules"] = json.dumps(cfg.port_forward.rules, separators=(",", ":"))
 
     # Central collector
     parser["collector"]["enabled"] = str(cfg.collector.enabled).lower()

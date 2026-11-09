@@ -792,6 +792,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(usb_uplink.status(self.server.cfg))
             return
 
+        if path == "/api/port-forward":
+            self._send_json(self._port_forward_payload())
+            return
+
         if path == "/api/wifi-share/status":
             from nmb.netd import wifi_share
             self._send_json(wifi_share.status(self.server.cfg))
@@ -2468,6 +2472,30 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(st, status=200 if ok else 400)
             return
 
+        if path == "/api/port-forward/save":
+            from nmb.netd import port_forward as pf
+            cfg = self.server.cfg
+            new_rules = cfg.port_forward.rules
+            if "rules" in body_json:
+                try:
+                    new_rules = pf.clean_rules(body_json["rules"],
+                                               pf.lan_network(cfg.network.gateway_ip, cfg.network.gateway_netmask),
+                                               cfg.network.gateway_ip, reserved=pf.box_open_ports(cfg))
+                except pf.RuleError as e:
+                    self._send_json({"status": "error", "message": str(e)}, status=400)
+                    return
+            cfg.port_forward.rules = new_rules
+            if "enabled" in body_json:
+                cfg.port_forward.enabled = bool(body_json["enabled"])
+            if "upnp" in body_json:
+                cfg.port_forward.upnp = bool(body_json["upnp"])
+            save_config(cfg)
+            self._notify_daemon_reload()
+            out = self._port_forward_payload()
+            out.update(status="ok", message="Saved; router mode applies it within a few seconds.")
+            self._send_json(out)
+            return
+
         if path in ("/api/usb-uplink/save", "/api/usb-uplink/disconnect"):
             from nmb.netd import usb_uplink, wifi_uplink
             uu = self.server.cfg.usb_uplink
@@ -4069,6 +4097,30 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.server.cfg.iperf.server_enabled = (res.get("status") == "ok")
         save_config(self.server.cfg)
         self._send_json({"status": "ok", "server": get_iperf_server_status()})
+
+    def _port_forward_payload(self) -> dict:
+        """Port forwarding settings and what router mode applies now (from nmb-netd's state file)."""
+        from nmb.netd import port_forward as pf
+        cfg = self.server.cfg
+        try:
+            st = json.loads((cfg.system.run_dir / "netd_state.json").read_text())
+        except (OSError, ValueError):
+            st = {}
+        det = st.get("details") or {}
+        live = det.get("port_forward") or {}
+        return {
+            "enabled": bool(cfg.port_forward.enabled),
+            "upnp": bool(cfg.port_forward.upnp),
+            "rules": list(cfg.port_forward.rules),
+            "router_mode": st.get("active_mode") == "mode_a",
+            "wan": det.get("wan_interface", "") if st.get("active_mode") == "mode_a" else "",
+            "lan": str(pf.lan_network(cfg.network.gateway_ip, cfg.network.gateway_netmask)),
+            "applied_rules": int(live.get("rules", 0) or 0),
+            "upnp_installed": bool(pf.miniupnpd_bin()),
+            "upnp_running": bool(live.get("upnp_running")),
+            "upnp_mappings": live.get("upnp_mappings", []),
+            "reserved": [f"{p.upper()} {n}" for p, n in pf.box_open_ports(cfg)],
+        }
 
     def _notify_daemon_reload(self) -> None:
         """Send SIGHUP to nmb-netd and nmb-telegram if running."""

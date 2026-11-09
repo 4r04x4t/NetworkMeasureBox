@@ -304,7 +304,55 @@ pid-file={pid_file}
             self.processes["pppd"].stop()
             del self.processes["pppd"]
 
+    def start_miniupnpd(self, wan_iface: str, lan_iface: str, lan_net: Any) -> bool:
+        """UPnP IGD / NAT-PMP / PCP for the LAN (router mode only; see nmb/netd/port_forward.py)."""
+        from nmb.netd import port_forward
+        binary = port_forward.miniupnpd_bin()
+        if not binary:
+            log.warning("UPnP is on but miniupnpd is not installed (package miniupnpd-nftables)")
+            return False
+        nft = shutil.which("nft")
+        if nft:
+            res = subprocess.run([nft, "-f", "-"], input=port_forward.upnp_table_ruleset(), text=True,
+                                 capture_output=True, timeout=15, check=False)
+            if res.returncode != 0:
+                log.error("UPnP: nftables table not created: %s", res.stderr.strip()[:200])
+                return False
+        conf = self.run_dir / "miniupnpd.conf"
+        key = (wan_iface, lan_iface, str(lan_net))
+        proc = self.processes.get("miniupnpd")
+        if proc is not None and proc.is_running() and getattr(self, "_upnp_key", None) == key:
+            return True
+        self.stop_miniupnpd(keep_table=True)
+        try:
+            uuid = Path("/etc/machine-id").read_text().strip()
+            uuid = f"{uuid[:8]}-{uuid[8:12]}-{uuid[12:16]}-{uuid[16:20]}-{uuid[20:32]}"
+        except (OSError, IndexError):
+            uuid = "6b6d6e62-0000-4000-8000-000000000001"
+        _write_private(conf, port_forward.miniupnpd_conf(wan_iface, lan_iface, lan_net, uuid,
+                                                         str(self.run_dir / "upnp.leases")), mode=0o644)
+        proc = ManagedProcess("miniupnpd", [binary, "-d", "-f", str(conf)], self.run_dir / "miniupnpd.pid")
+        self.processes["miniupnpd"] = proc
+        self._upnp_key = key
+        ok = proc.start()
+        if ok:
+            log.info("UPnP / NAT-PMP on for %s (WAN %s)", lan_iface, wan_iface)
+        return ok
+
+    def stop_miniupnpd(self, keep_table: bool = False) -> None:
+        if "miniupnpd" in self.processes:
+            self.processes["miniupnpd"].stop()
+            del self.processes["miniupnpd"]
+            log.info("UPnP / NAT-PMP off")
+        self._upnp_key = None
+        if not keep_table:
+            nft = shutil.which("nft")
+            if nft:
+                from nmb.netd.port_forward import UPNP_TABLE
+                subprocess.run([nft, "delete", "table", "inet", UPNP_TABLE], capture_output=True, timeout=10, check=False)
+
     def stop_all(self) -> None:
+        self.stop_miniupnpd()
         self.stop_pppd()
         self.stop_dnsmasq()
         self.stop_hostapd()

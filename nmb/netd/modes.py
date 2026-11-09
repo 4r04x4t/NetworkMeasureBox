@@ -154,9 +154,12 @@ class ModeA(NetworkMode):
             return
         rc = self.svc_mgr.pppd_exit_code()
         if rc is None:
-            if self.pppoe_error and interfaces.get_ip_addresses("ppp0"):
+            addrs = interfaces.get_ip_addresses("ppp0")
+            if self.pppoe_error and addrs:
                 log.info("PPPoE is up again on %s", self.pppoe_iface)
                 self.pppoe_error, self.pppoe_auth_fails = "", 0
+            if addrs:
+                self._pppoe_ipv6(addrs, now)
             return
         why = PPPD_EXIT_TEXT.get(rc, f"pppd stopped (exit code {rc})")
         if rc == PPPD_EXIT_AUTH:
@@ -171,6 +174,52 @@ class ModeA(NetworkMode):
             from nmb.netd.usb_uplink import _log_event
             _log_event("pppoe_auth_refused", f"The ISP refused the PPPoE login (attempt {self.pppoe_auth_fails}); "
                                              f"check the user name and password in Router > PPPoE. Next try in {pause // 60} min.")
+
+    RS_EVERY_SEC = 60
+    RS_MAX = 3
+
+    def _start_ra_watch(self) -> None:
+        """Set accept_ra=2 on ppp0 the moment pppd creates it (also after every redial).
+
+        The ISP sends its router advert right after IPv6CP comes up, about 3 s after ppp0 appears; the
+        5-second loop of nmb-netd is too slow for it, and later the ISP may not answer a solicitation
+        (2026-11-09: no advert in 20 s on a running session)."""
+        import threading
+        old = getattr(self, "_ra_stop", None)
+        if old is not None:
+            old.set()
+        stop = threading.Event()
+        self._ra_stop = stop
+
+        def watch() -> None:
+            last = None
+            while not stop.wait(0.25):
+                try:
+                    idx = Path("/sys/class/net/ppp0/ifindex").read_text().strip()
+                except OSError:
+                    last = None
+                    continue
+                if idx != last:
+                    last = idx
+                    if interfaces.accept_ra_with_forwarding("ppp0"):
+                        log.info("PPPoE: ppp0 accepts the ISP's IPv6 router adverts")
+
+        threading.Thread(target=watch, daemon=True, name="nmb-ppp0-ra").start()
+
+    def _pppoe_ipv6(self, addrs: List[str], now: float) -> None:
+        """The box's own IPv6 on the PPPoE line: accept router adverts despite forwarding, ask for one."""
+        if interfaces.accept_ra_with_forwarding("ppp0"):
+            self._rs_sent, self._rs_ts = 0, -1e9
+        has_global = any(":" in a and not a.lower().startswith(("fe80", "fd", "fc")) for a in addrs)
+        if has_global:
+            if getattr(self, "_rs_sent", 0):
+                log.info("PPPoE: the ISP's router advert gave ppp0 an IPv6 address")
+                self._rs_sent = 0
+            return
+        if getattr(self, "_rs_sent", 0) < self.RS_MAX and now - getattr(self, "_rs_ts", -1e9) >= self.RS_EVERY_SEC:
+            self._rs_ts = now
+            self._rs_sent = getattr(self, "_rs_sent", 0) + 1
+            interfaces.send_router_solicitation("ppp0")
 
     def _usb_wan_candidate(self) -> Optional[str]:
         """USB tethering as the WAN: only when it is up and nothing upstream answers on the WAN port.
@@ -265,6 +314,7 @@ class ModeA(NetworkMode):
 
         if (self.cfg.pppoe_enabled or getattr(self, 'auto_pppoe', False)) and self.cfg.pppoe_user:
             log.info("launching PPPoE client on %s", wan)
+            self._start_ra_watch()
             self.svc_mgr.start_pppd(wan)
             self.pppoe_iface = wan
             self._pppd_retry_at = 0.0
@@ -275,25 +325,39 @@ class ModeA(NetworkMode):
         self._renew_lan_clients(list(getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]))
         return ok
 
+    def _full(self):
+        if self.full_cfg is not None:
+            return self.full_cfg
+        try:
+            from nmb.config import load_config
+            return load_config()
+        except Exception:
+            return None
+
+    def apply_firewall(self) -> None:
+        """NAT, the WAN guard, port forwarding and UPnP; called at setup and again when those settings change."""
+        from nmb.netd import port_forward
+        full = self._full()
+        forwards = port_forward.active_rules(full) if full is not None else []
+        firewall.enable_nat_mode_a(self.active_wan, self.lan_ifaces, dmz_iface=getattr(self, "dmz_iface", ""),
+                                   open_ports=self._wan_open_ports(), forwards=forwards,
+                                   gateway_ip=self.cfg.gateway_ip,
+                                   gateway_netmask=getattr(self.cfg, "gateway_netmask", "255.255.255.0"))
+        if forwards:
+            log.info("port forwarding: %d rule(s) on %s", len(forwards), self.active_wan)
+        upnp = bool(full is not None and getattr(full.port_forward, "upnp", False))
+        lan_iface = self.lan_ifaces[0] if self.lan_ifaces else ""
+        if upnp and lan_iface:
+            self.svc_mgr.start_miniupnpd(self.active_wan, lan_iface,
+                                         port_forward.lan_network(self.cfg.gateway_ip, getattr(self.cfg, "gateway_netmask", "255.255.255.0")))
+        else:
+            self.svc_mgr.stop_miniupnpd()
+
     def _wan_open_ports(self) -> List[tuple]:
         """Ports the internet may reach on the WAN: the VPN servers that are turned on, and Tailscale's
         direct connections (UDP 41641; Tailscale also works without it, through its relays)."""
-        full = self.full_cfg
-        if full is None:
-            try:
-                from nmb.config import load_config
-                full = load_config()
-            except Exception:
-                full = None
-        ports = [("udp", 41641)]
-        wg = getattr(full, "wireguard", None)
-        if wg is not None and getattr(wg, "enabled", False):
-            ports.append(("udp", int(getattr(wg, "port", 51820) or 51820)))
-        ov = getattr(full, "openvpn", None)
-        if ov is not None and getattr(ov, "enabled", False):
-            proto = "tcp" if "tcp" in str(getattr(ov, "proto", "udp")).lower() else "udp"
-            ports.append((proto, int(getattr(ov, "port", 1194) or 1194)))
-        return ports
+        from nmb.netd.port_forward import box_open_ports
+        return box_open_ports(self._full())
 
     def _renew_lan_clients(self, ports: List[str]) -> None:
         """Drop the link of wired LAN ports for a moment, so a PC asks for a new address.
@@ -387,8 +451,7 @@ class ModeA(NetworkMode):
             self.svc_mgr.start_dnsmasq(self.lan_ifaces, dmz_iface=self.dmz_iface)
 
         # 5. Enable NAT and IPv4 forwarding
-        firewall.enable_nat_mode_a(self.active_wan, self.lan_ifaces, dmz_iface=self.dmz_iface,
-                                   open_ports=self._wan_open_ports())
+        self.apply_firewall()
 
         # 6. Bring up Secondary WAN2 if configured
         wan2 = getattr(self.cfg, "wan2_interface", "")
@@ -422,6 +485,9 @@ class ModeA(NetworkMode):
         self.usb_wan = None
         self.pppoe_iface = ""
         self._pppd_retry_at = 0.0
+        if getattr(self, "_ra_stop", None) is not None:
+            self._ra_stop.set()
+            self._ra_stop = None
         from nmb.netd import usb_uplink
         usb_uplink.set_router_wan(None)
 
@@ -456,7 +522,17 @@ class ModeA(NetworkMode):
             "hostapd_running": self.svc_mgr.processes.get("hostapd") is not None and self.svc_mgr.processes["hostapd"].is_running(),
             "pppoe_running": self.svc_mgr.processes.get("pppd") is not None and self.svc_mgr.processes["pppd"].is_running(),
             "pppoe_error": self.pppoe_error,
+            "port_forward": self._port_forward_status(),
         }
+
+    def _port_forward_status(self) -> dict:
+        from nmb.netd import port_forward
+        full = self._full()
+        upnp = self.svc_mgr.processes.get("miniupnpd")
+        running = bool(upnp is not None and upnp.is_running())
+        return {"rules": len(port_forward.active_rules(full)) if full is not None else 0,
+                "upnp_running": running,
+                "upnp_mappings": port_forward.upnp_mappings() if running else []}
 
 
 class ModeB(NetworkMode):

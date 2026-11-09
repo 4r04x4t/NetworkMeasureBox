@@ -296,6 +296,14 @@ def _run_single_engine(
                 log.warning("Ookla not run: %s", res.error)
     except cancel.MeasurementCancelled:
         res = None
+    except Exception as e:
+        # An engine that raises (no route, the bound address gone, a control server down) is a failed
+        # measurement of that engine, stored as such. Before 2026-11-09 the exception left the cycle: the
+        # other engines did not run and no row showed the failure (seen with RTR while the box was offline).
+        expected = isinstance(e, (OSError, RuntimeError, ValueError, TimeoutError))
+        log.warning("%s speed test failed: %s", engine, e, exc_info=not expected)
+        res = SpeedtestResult(status="error", error=f"{type(e).__name__}: {str(e)[:200]}", engine=engine,
+                              bound_iface=bound_iface, bound_ip=bound_ip)
     finally:
         set_speedtest_running(False)
         cpu_telemetry = sampler.stop()
