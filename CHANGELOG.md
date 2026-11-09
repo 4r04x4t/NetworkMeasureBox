@@ -90,6 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Web UI, DynDNS: with unsaved changes the card's badge got the whole warning sentence and squeezed the title into a column one letter wide; the badge now says "Unsaved" and the header wraps. After saving, the live status is fetched again once the update has run (it showed "never" and the old error until a reload). The live card no longer says DuckDNS when dynv6 is used (11 languages).
+- `nmb-selftest dyndns` checks the name in public DNS (the home router's resolver can cache an old address) and warns about an AAAA record on a line without IPv6.
 - DynDNS: turned on with a domain but no token, it updated nothing and said nothing; it now logs it and the status shows "the token is missing". `nmb-selftest dyndns` checks the token, a recent successful update and that the name points at the current line.
 - Telegram bot: a speed test blocked the bot for its whole duration (minutes with all engines), so it did not answer anything else; tests now run in their own thread and a second one is refused politely. The result shows only this test's own rows (one line per engine), not whatever row was newest, and the start message no longer promises 15-25 seconds.
 - Speed tests: one at a time on the whole box. The lock was per process, so a Telegram test and a scheduled test of the web server could run at once and measure each other's traffic; a scheduled test now skips, a manual, web or Telegram test waits up to 10 minutes.

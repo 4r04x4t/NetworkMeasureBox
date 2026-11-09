@@ -8562,7 +8562,7 @@ ${pkgList}`;
       badgeEl.style.background = 'rgba(245, 158, 11, 0.15)';
       badgeEl.style.color = '#f59e0b';
       badgeEl.style.border = '1px solid rgba(245, 158, 11, 0.35)';
-      badgeEl.textContent = t('duckdns_unsaved_warning', '⚠️ Unsaved changes');
+      badgeEl.textContent = t('duckdns_badge_unsaved', '⚠️ Unsaved');   // short: the long warning squeezed the title
     } else {
       alertEl.style.display = 'none';
       badgeEl.className = 'badge';
@@ -8744,6 +8744,9 @@ ${pkgList}`;
         if (tokInput && token) tokInput.value = '';
         showToast(t('dyndns_saved_success', `✅ ${provider === 'dynv6' ? 'dynv6.com' : 'DuckDNS'} settings saved successfully! Interval: ${interval_min} min`));
         await loadDuckdnsStatus();
+        // The update itself runs a moment later in the background: show its result too.
+        setTimeout(() => loadDuckdnsStatus(), 6000);
+        setTimeout(() => loadDuckdnsStatus(), 20000);
 
         // Highlight card to visually confirm save
         const svCard = document.getElementById('duckdns-saved-card');

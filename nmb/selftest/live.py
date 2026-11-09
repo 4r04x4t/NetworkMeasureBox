@@ -731,16 +731,27 @@ def g_dyndns(rep: Report, cfg) -> None:
     rep.add("dyndns", "updated recently", PASS if ok else FAIL,
             f"last {st.get('last_status')} {int(age // 60)} min ago" if st.get("last_update_ts") else f"never: {st.get('last_message') or st.get('last_status')}")
     fqdn = st.get("fqdn") or d.domain
-    import socket
-    try:
-        names = {a[4][0] for a in socket.getaddrinfo(fqdn, 443)}
-    except OSError as e:
-        rep.add("dyndns", "name resolves", FAIL, f"{fqdn}: {e}")
-        return
-    trace = run(["curl", "-s", "-m", "10", "https://www.cloudflare.com/cdn-cgi/trace"], timeout=15).stdout
+
+    def doh(rtype: str) -> List[str]:
+        # Public DNS over HTTPS: the home router's resolver may cache an old answer (2026-11-09: it did).
+        out = run(["curl", "-s", "-m", "8", "-H", "accept: application/dns-json",
+                   f"https://dns.google/resolve?name={fqdn}&type={rtype}"], timeout=12).stdout
+        try:
+            return [a["data"] for a in json.loads(out).get("Answer", []) if a.get("type") in (1, 28)]
+        except Exception:
+            return []
+    trace = run(["curl", "-4", "-s", "-m", "10", "https://www.cloudflare.com/cdn-cgi/trace"], timeout=15).stdout
     mine = next((ln[3:] for ln in trace.splitlines() if ln.startswith("ip=")), "")
-    rep.add("dyndns", "name points at this line", PASS if mine and mine in names else WARN,
-            "matches the current public address" if mine in names else "does not match yet (DNS cache or a different line)")
+    a = doh("A")
+    rep.add("dyndns", "name points at this line (IPv4, public DNS)", PASS if mine and mine in a else FAIL,
+            "matches the current public address" if mine in a else ("no A record" if not a else "points elsewhere"))
+    aaaa = doh("AAAA")
+    has_v6 = run(["curl", "-6", "-s", "-m", "8", "-o", "/dev/null", "-w", "%{http_code}",
+                  "https://www.cloudflare.com/cdn-cgi/trace"], timeout=12).stdout.strip() == "200"
+    if aaaa and not has_v6:
+        rep.add("dyndns", "IPv6 record", WARN, "the name has an AAAA record, but this line has no IPv6: clients trying IPv6 first fail")
+    else:
+        rep.add("dyndns", "IPv6 record", PASS, "line has IPv6" if has_v6 else "no IPv6 on this line and no AAAA record")
 
 
 def g_speed(rep: Report, cfg, hours: int = 48) -> None:

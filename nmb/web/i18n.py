@@ -6735,6 +6735,31 @@ _ROUTER_TEXTS = {
 for _lang, _texts in _ROUTER_TEXTS.items():
     TRANSLATIONS.setdefault(_lang, {}).update(_texts)
 
+_DYNDNS_TEXTS = {
+    "en": {
+        "duckdns_badge_unsaved": "⚠️ Unsaved",
+        "duckdns_live_title": "🌐 DynDNS Live Status"
+    },
+    "hu": {
+        "duckdns_badge_unsaved": "⚠️ Nincs mentve",
+        "duckdns_live_title": "🌐 DynDNS élő állapot"
+    },
+    "de": {
+        "duckdns_badge_unsaved": "⚠️ Nicht gespeichert",
+        "duckdns_live_title": "🌐 DynDNS Live-Status"
+    },
+    "fr": {
+        "duckdns_badge_unsaved": "⚠️ Non enregistré",
+        "duckdns_live_title": "🌐 État en direct DynDNS"
+    },
+    "uk": {
+        "duckdns_badge_unsaved": "⚠️ Не збережено",
+        "duckdns_live_title": "🌐 Стан DynDNS наживо"
+    }
+}
+for _lang, _texts in _DYNDNS_TEXTS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_texts)
+
 # More languages, one JSON file each in nmb/web/locales/ (key -> text). A key missing there is shown
 # in English, never in another language.
 LOCALE_LANGUAGES = ("ro", "it", "es", "pt", "pt-br", "zh")

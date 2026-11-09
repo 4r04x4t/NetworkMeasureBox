@@ -294,7 +294,7 @@
  "duckdns_last_saved": "Ultima salvare:",
  "duckdns_last_status": "Starea ultimei actualizări:",
  "duckdns_last_updated": "Ultima sincronizare:",
- "duckdns_live_title": "🦆 Starea live DuckDNS DynDNS",
+ "duckdns_live_title": "🌐 Stare DynDNS în timp real",
  "duckdns_minutes_abbr": "minute",
  "duckdns_next_sync": "Următoarea sincronizare programată:",
  "duckdns_saved_active": "Salvat și activ",
@@ -1402,5 +1402,6 @@
  "rt_wan_pppoe": "PPPoE (protocol punct-la-punct peste Ethernet)",
  "rt_wan_static": "IP static (atribuire manuală)",
  "rt_wifi_off": "Dezactivat (radio oprit)",
- "rt_wifi_on": "Activat (emite)"
+ "rt_wifi_on": "Activat (emite)",
+ "duckdns_badge_unsaved": "⚠️ Nesalvat"
 }

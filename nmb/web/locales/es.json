@@ -294,7 +294,7 @@
  "duckdns_last_saved": "Último guardado:",
  "duckdns_last_status": "Estado de la última actualización:",
  "duckdns_last_updated": "Última sincronización:",
- "duckdns_live_title": "🦆 Estado en directo de DuckDNS DynDNS",
+ "duckdns_live_title": "🌐 Estado de DynDNS en directo",
  "duckdns_minutes_abbr": "minutos",
  "duckdns_next_sync": "Próxima sincronización programada:",
  "duckdns_saved_active": "Guardado y activo",
@@ -1402,5 +1402,6 @@
  "rt_wan_pppoe": "PPPoE (protocolo punto a punto sobre Ethernet)",
  "rt_wan_static": "IP estática (asignación manual)",
  "rt_wifi_off": "Desactivado (radio apagada)",
- "rt_wifi_on": "Activado (emitiendo)"
+ "rt_wifi_on": "Activado (emitiendo)",
+ "duckdns_badge_unsaved": "⚠️ Sin guardar"
 }

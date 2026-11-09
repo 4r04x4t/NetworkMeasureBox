@@ -294,7 +294,7 @@
  "duckdns_last_saved": "上次保存：",
  "duckdns_last_status": "上次更新状态：",
  "duckdns_last_updated": "上次同步：",
- "duckdns_live_title": "🦆 DuckDNS DynDNS 实时状态",
+ "duckdns_live_title": "🌐 DynDNS 实时状态",
  "duckdns_minutes_abbr": "分钟",
  "duckdns_next_sync": "下次计划同步：",
  "duckdns_saved_active": "已保存并启用",
@@ -1402,5 +1402,6 @@
  "rt_wan_pppoe": "PPPoE（以太网上的点对点协议）",
  "rt_wan_static": "静态 IP（手动分配）",
  "rt_wifi_off": "已禁用（射频关闭）",
- "rt_wifi_on": "已启用（广播中）"
+ "rt_wifi_on": "已启用（广播中）",
+ "duckdns_badge_unsaved": "⚠️ 未保存"
 }
