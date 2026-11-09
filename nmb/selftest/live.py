@@ -759,21 +759,25 @@ def _scenario_main(argv: List[str]) -> int:
     from nmb.selftest import scenario
     p = argparse.ArgumentParser(prog="nmb-selftest scenario", description=scenario.__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("name", choices=["usb"])
-    p.add_argument("--steps", default=",".join(scenario.STEPS), help="Comma-separated: " + ", ".join(scenario.STEPS))
+    from nmb.selftest import scenario_router
+    p.add_argument("name", choices=["usb", "router"])
+    p.add_argument("--steps", default=None, help="Comma-separated. usb: " + ", ".join(scenario.STEPS)
+                   + "; router: " + ", ".join(scenario_router.STEPS))
     p.add_argument("--plan", action="store_true", help="Only print the steps")
     args = p.parse_args(argv)
-    steps = [s.strip() for s in args.steps.split(",") if s.strip()]
-    bad = [s for s in steps if s not in scenario.STEPS]
+    mod = scenario_router if args.name == "router" else scenario
+    known = mod.STEPS
+    steps = known if args.steps is None else [s.strip() for s in args.steps.split(",") if s.strip()]
+    bad = [s for s in steps if s not in known]
     if bad:
         p.error("unknown step(s): " + ", ".join(bad))
     if args.plan:
-        print(scenario.plan(steps))
+        print(mod.plan(steps))
         return 0
     if os.geteuid() != 0:
         print("Run as root.", file=sys.stderr)
         return 2
-    return scenario.run_usb(steps)
+    return scenario_router.run_router(steps) if args.name == "router" else scenario.run_usb(steps)
 
 
 def main(argv: Optional[List[str]] = None) -> int:

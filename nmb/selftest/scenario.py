@@ -146,6 +146,15 @@ class Scenario:
                   "{ type filter hook forward priority -5; policy accept; }"], check=True)
         live.run(["nft", "add", "rule", "inet", COUNT_TABLE, "cnt", "ip", "saddr", saddr, "oifname", oif, "counter"], check=True)
 
+    def count_start_input(self, saddr: str, dport: int) -> None:
+        """Count packets from saddr to the box itself on TCP dport (for example the Web UI)."""
+        live.run(["nft", "delete", "table", "inet", COUNT_TABLE])
+        live.run(["nft", "add", "table", "inet", COUNT_TABLE], check=True)
+        live.run(["nft", "add", "chain", "inet", COUNT_TABLE, "cnt",
+                  "{ type filter hook input priority -5; policy accept; }"], check=True)
+        live.run(["nft", "add", "rule", "inet", COUNT_TABLE, "cnt", "ip", "saddr", saddr, "tcp", "dport", str(dport), "counter"],
+                 check=True)
+
     @staticmethod
     def count_packets() -> int:
         out = live.run(["nft", "list", "table", "inet", COUNT_TABLE]).stdout
@@ -466,29 +475,43 @@ STEP_FUNCS = {"usb-speed": s_usb_speed, "wifi-share": s_wifi_share, "usb-fallbac
               "router": s_router, "guard": s_guard, "restore": s_restore, "unplug": s_unplug}
 
 
-def run_usb(steps: List[str], wait_scale: float = 1.0) -> int:
+def run_steps(steps: List[str], funcs: Dict[str, Callable], preflight: Callable, changes: set,
+              wait_scale: float = 1.0) -> int:
+    """Run the steps; settings changed by them are always put back, also after a crash or a stop."""
+    import signal
+
+    def _stop(signum, frame):
+        raise SystemExit(f"stopped by signal {signum}")
+
+    signal.signal(signal.SIGTERM, _stop)   # `systemctl stop nmb-scenario` restores too
     rep = Report()
     cfg = live._cfg()
     sc = Scenario(rep, cfg, wait_scale)
-    changes = {"wifi-share", "usb-fallback", "router", "guard"}
     try:
-        if not s_preflight(sc):
+        if not preflight(sc):
             sc.say("Preflight failed; nothing was changed.", waiting=False)
             return _finish(rep, sc)
         if changes & set(steps):
             sc.snapshot()
         for name in steps:
             try:
-                STEP_FUNCS[name](sc)
+                funcs[name](sc)
+            except SystemExit:
+                rep.add(name, "stopped", WARN, "the scenario was stopped; restoring")
+                break
             except Exception as e:
                 rep.add(name, "step crashed", FAIL, f"{type(e).__name__}: {str(e)[:160]}")
             sc.cfg = live._cfg()
     finally:
-        if SNAPSHOT.exists():   # a step crashed, or the restore step was not asked for: never leave changes behind
+        if SNAPSHOT.exists():   # a step crashed, it was stopped, or no restore step was asked for
             sc.step = "restore"
             restore(verbose=False)
             live.run(["systemctl", "stop", WATCHDOG_UNIT])
     return _finish(rep, sc)
+
+
+def run_usb(steps: List[str], wait_scale: float = 1.0) -> int:
+    return run_steps(steps, STEP_FUNCS, s_preflight, {"wifi-share", "usb-fallback", "router", "guard"}, wait_scale)
 
 
 def _finish(rep: Report, sc: Scenario) -> int:
