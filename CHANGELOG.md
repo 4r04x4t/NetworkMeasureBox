@@ -93,6 +93,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Telegram bot: on an HTTP error (429 Too Many Requests, 502) or without network it asked Telegram again at once, about 8 times a second; it now waits (Telegram's retry_after, or a growing pause), and a message refused with "retry after a few seconds" is sent once more instead of being lost.
+- Telegram bot sandbox: only the live database was writable, so `/dyndns on|off|token|domain|interval` could not save, `/heal` could not keep its state, and Ookla started as a new client on every test the bot ran (more rate limits). The bot may now write `/var/lib/nmb`, `/etc/nmb` and the boot partition copy.
+- Dead default routes were never removed when the kernel marked them `dead`: `ip route del ... dead` fails, yet the log said "removed" every 5 seconds. Only the route's selector is passed now, and success is checked (also in router mode on USB).
+- DNS fallback: a short failure (a router reboot) replaced the box's resolvers with public ones even without any IP connectivity, and nothing undid it. It now acts only when IP works but DNS does not (three tries), keeps a fresh copy of the old settings, and puts the normal DNS back after 15 minutes if it works.
+- With IPv6 DNS servers from the router but no IPv6 route, NetworkManager's three nameserver slots held only IPv6 servers and every lookup failed; the box now puts IPv4 DNS first on its wired and Wi-Fi profiles.
+- Access point: on the Raspberry Pi 4 every start failed once (40 MHz asked on 2.4 GHz, where the radio does 20 MHz only; 802.11ac asked on 2.4 GHz). The channel width now follows what the radio does on that band, and 802.11ac is never asked on 2.4 GHz.
+- The native RTR client lost its client ID on every test (it keeps it in $HOME, which does not exist for the services); it now uses /var/lib/nmb.
+- The installer made the root-only secrets copy readable by the `nmb` user; root-only files stay root-only now.
+- Less log noise: a rested iPerf3 server is logged once per rest period, not every minute; scheduler errors now carry a traceback.
 - Web UI, DynDNS: with unsaved changes the card's badge got the whole warning sentence and squeezed the title into a column one letter wide; the badge now says "Unsaved" and the header wraps. After saving, the live status is fetched again once the update has run (it showed "never" and the old error until a reload). The live card no longer says DuckDNS when dynv6 is used (11 languages).
 - `nmb-selftest dyndns` checks the name in public DNS (the home router's resolver can cache an old address) and warns about an AAAA record on a line without IPv6.
 - DynDNS: turned on with a domain but no token, it updated nothing and said nothing; it now logs it and the status shows "the token is missing". `nmb-selftest dyndns` checks the token, a recent successful update and that the name points at the current line.

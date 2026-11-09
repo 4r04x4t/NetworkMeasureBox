@@ -45,6 +45,18 @@ def _output_tail(*streams, limit: int = 400) -> str:
     return "(no output)"
 
 
+RTR_HOME = "/var/lib/nmb"
+
+
+def _rtr_env() -> Optional[dict]:
+    """HOME for the native client: it keeps its client UUID in $HOME/.rmbt_client_uuid. The services run with
+    HOME=/home/nmb, which does not exist, so every test was a new client (2026-11-09)."""
+    import os
+    if os.path.isdir(RTR_HOME) and os.access(RTR_HOME, os.W_OK):
+        return dict(os.environ, HOME=RTR_HOME)
+    return None
+
+
 def _client_ips(interface: Optional[str], bind_ip: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
     """The public address the test used: asked over the same link (by source address), not the default route.
 
@@ -98,7 +110,7 @@ def _run_native_rmbt_speedtest(
         cmd += ["--bind", bind_ip]
     log.info("invoking native C Open-RMBT binary: %s", " ".join(cmd))
     try:
-        proc = cancel.run(cmd, timeout=duration_sec * 3 + 30)
+        proc = cancel.run(cmd, timeout=duration_sec * 3 + 30, env=_rtr_env())
     except subprocess.TimeoutExpired as e:
         log.warning(
             "native C rmbt-client timed out after %ss; falling back to Python engine; output: %s",

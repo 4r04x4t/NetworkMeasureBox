@@ -238,6 +238,10 @@ class NetworkDaemon:
                 # A default route through a port with no cable or no address leads nowhere but still wins.
                 from nmb.netd import interfaces as _ifs
                 self._timed("dead route reaper", _ifs.reap_dead_default_routes)
+                # IPv4 DNS before IPv6 DNS (checked every 10 minutes; a no-op once set).
+                if time.monotonic() - getattr(self, "_dns_prio_ts", -1e9) > 600:
+                    self._dns_prio_ts = time.monotonic()
+                    self._timed("dns priority", _ifs.prefer_ipv4_dns)
                 # Keep a root-only copy of the secrets the owner typed, to restore them if a bug wipes them.
                 from nmb.common import secret_keep
                 self._timed("secret keep", secret_keep.update)

@@ -41,3 +41,14 @@ class DispatchTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BotSandboxTest(unittest.TestCase):
+    def test_bot_can_write_where_its_commands_write(self):
+        # 2026-11-09: only /var/lib/nmb/live was writable, so /dyndns on|off|token, /heal state and the Ookla
+        # licence (a new client every run, rate limits) all failed under the bot.
+        from pathlib import Path
+        unit = (Path(__file__).resolve().parent.parent / "systemd" / "nmb-telegram.service").read_text()
+        rw = next(ln for ln in unit.splitlines() if ln.startswith("ReadWritePaths=")).split("=", 1)[1].split()
+        for path in ("/var/lib/nmb", "/etc/nmb", "/run/nmb", "/var/log/nmb"):
+            self.assertIn(path, rw)

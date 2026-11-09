@@ -54,6 +54,10 @@ def _save(data: Dict[str, Dict[str, object]]) -> None:
     with os.fdopen(fd, "w") as f:
         json.dump(data, f)
     os.replace(tmp, KEEP_FILE)
+    try:
+        os.chown(KEEP_FILE, 0, 0)   # root-only, also when an nmb-owned copy was left by an older installer
+    except OSError:
+        pass
 
 
 def update(config_text: str | None = None, now: float | None = None) -> None:

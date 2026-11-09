@@ -206,7 +206,7 @@ class ModeA(NetworkMode):
             for line in (getattr(res, "stdout", "") or "").splitlines():
                 parts = line.split()
                 if "dev" in parts and parts[parts.index("dev") + 1] != self.usb_wan:
-                    interfaces.run_cmd(["ip", "-4", "route", "del"] + parts, check=False)
+                    interfaces.run_cmd(["ip", "-4", "route", "del"] + interfaces.route_delete_args(parts), check=False)
             if self.full_cfg is not None:
                 usb_uplink.sync_default_fallback(self.full_cfg)
             self._renew_lan_clients([self.cfg.wan_interface])

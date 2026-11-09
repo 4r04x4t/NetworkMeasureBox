@@ -467,6 +467,11 @@ fi
 chown -R "$NMB_USER:$NMB_USER" /var/lib/nmb /var/log/nmb /run/nmb 2>/dev/null || true
 chmod -R u+rwX,g+rwX /var/lib/nmb /var/log/nmb /run/nmb 2>/dev/null || true
 chmod 2775 /var/lib/nmb /var/lib/nmb/live /var/lib/nmb/persist /var/lib/nmb/persist/reports /var/lib/nmb/adblock /var/log/nmb /run/nmb 2>/dev/null || true
+# Root-only files must stay root-only after the recursive chown above (2026-11-09: the secrets copy became nmb's).
+for f in /var/lib/nmb/secrets.keep /var/lib/nmb/usb-import.json /var/lib/nmb/scenario-restore.json; do
+    [ -e "$f" ] && chown root:root "$f" && chmod 600 "$f"
+done
+[ -d /var/lib/nmb/config-backups ] && chown -R root:root /var/lib/nmb/config-backups && chmod 700 /var/lib/nmb/config-backups
 
 # ------------------------------------------------------------------------------
 # 8. Service Units Deployment & Activation

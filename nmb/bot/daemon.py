@@ -165,8 +165,9 @@ class TelegramDaemon:
 
             except Exception as e:
                 if self.running:
-                    log.warning("error in telegram polling loop: %s; retrying in %.1fs", e, backoff)
-                    time.sleep(backoff)
+                    wait = max(backoff, float(getattr(e, "retry_after", 0) or 0))
+                    log.warning("error in telegram polling loop: %s; retrying in %.1fs", e, wait)
+                    time.sleep(wait)
                     backoff = min(60.0, backoff * 1.5)
 
         pid_file.unlink(missing_ok=True)

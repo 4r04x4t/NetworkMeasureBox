@@ -628,6 +628,7 @@ def _answers(host: str, port: int) -> bool:
 
 IPERF3_FAIL_STREAK = 5
 IPERF3_REST_SEC = 6 * 3600
+_IPERF3_REST_LOGGED: dict = {}
 
 
 def _iperf3_failing(conn, host: str, now_ms: Optional[int] = None) -> bool:
@@ -652,9 +653,13 @@ def _usable_iperf3_servers(cfg: Config, conn=None) -> List[tuple]:
     out = []
     for hp in iperf3_servers(cfg):
         if _iperf3_failing(conn, hp[0]):
-            log.warning("iPerf3 server %s:%d left out for up to 6 h: its last %d tests all failed",
-                        hp[0], hp[1], IPERF3_FAIL_STREAK)
+            # Once per rest period, not every minute (2026-11-09: 200 identical warnings in 36 h).
+            if time.time() - _IPERF3_REST_LOGGED.get(hp, 0.0) > IPERF3_REST_SEC:
+                log.warning("iPerf3 server %s:%d left out for up to 6 h: its last %d tests all failed",
+                            hp[0], hp[1], IPERF3_FAIL_STREAK)
+                _IPERF3_REST_LOGGED[hp] = time.time()
             continue
+        _IPERF3_REST_LOGGED.pop(hp, None)
         if _answers(*hp):
             out.append(hp)
     return out

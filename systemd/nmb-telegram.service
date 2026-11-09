@@ -17,7 +17,9 @@ TimeoutStopSec=5s
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/var/lib/nmb/live /var/log/nmb /run/nmb
+# The bot saves settings (/dyndns ...), runs speed tests (Ookla keeps its licence under /var/lib/nmb/ookla),
+# self-healing (/var/lib/nmb state) and syncs the editable settings copy on the boot partition.
+ReadWritePaths=/var/lib/nmb /var/log/nmb /run/nmb /etc/nmb -/boot/firmware -/boot
 
 [Install]
 WantedBy=multi-user.target

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -17,10 +19,19 @@ log = logging.getLogger("nmb.bot.client")
 API_BASE = "https://api.telegram.org/bot"
 
 
+class TelegramUnavailable(Exception):
+    """getUpdates failed (HTTP error or no network): the caller must wait before asking again."""
+
+    def __init__(self, reason: str, retry_after: float = 0.0):
+        super().__init__(reason)
+        self.retry_after = retry_after
+
+
 class TelegramClient:
     def __init__(self, token: str):
         self.token = token
         self.endpoint = f"{API_BASE}{token}/"
+        self._tls = threading.local()   # the last error per thread: the alert and speed-test threads share the client
 
     def _request(self, method: str, data: Optional[Dict[str, Any]] = None, timeout: float = 35.0) -> Optional[Dict[str, Any]]:
         url = self.endpoint + method
@@ -31,21 +42,36 @@ class TelegramClient:
             body = json.dumps(data).encode("utf-8")
             headers["Content-Type"] = "application/json"
 
-        req = urllib.request.Request(url, data=body, headers=headers)
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                res_data = json.loads(resp.read().decode("utf-8"))
-                if res_data.get("ok"):
-                    return res_data.get("result")
-                log.warning("telegram API returned error: %s", res_data)
+        self._tls.last_error = ""
+        self._tls.retry_after = 0.0
+        for attempt in (1, 2):
+            req = urllib.request.Request(url, data=body, headers=headers)
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    res_data = json.loads(resp.read().decode("utf-8"))
+                    if res_data.get("ok"):
+                        return res_data.get("result")
+                    log.warning("telegram API returned error: %s", res_data)
+                    self._tls.last_error = "api error"
+                    return None
+            except urllib.error.HTTPError as e:
+                err_body = e.read().decode("utf-8", errors="ignore")
+                try:
+                    self._tls.retry_after = float((json.loads(err_body).get("parameters") or {}).get("retry_after") or 0)
+                except (ValueError, AttributeError):
+                    self._tls.retry_after = 0.0
+                self._tls.last_error = f"HTTP {e.code}"
+                log.warning("telegram %s: HTTP %d (%s): %s", method, e.code, e.reason, err_body[:200])
+                # A message asked to wait a few seconds is sent once more instead of being lost.
+                if e.code == 429 and method != "getUpdates" and attempt == 1 and 0 < self._tls.retry_after <= 10:
+                    time.sleep(self._tls.retry_after)
+                    continue
                 return None
-        except urllib.error.HTTPError as e:
-            err_body = e.read().decode("utf-8", errors="ignore")
-            log.warning("telegram HTTP %d (%s): %s", e.code, e.reason, err_body)
-            return None
-        except Exception as e:
-            log.debug("telegram request %s failed: %s", method, e)
-            return None
+            except Exception as e:
+                self._tls.last_error = f"{type(e).__name__}: {e}"
+                log.debug("telegram request %s failed: %s", method, e)
+                return None
+        return None
 
     def get_me(self) -> Optional[Dict[str, Any]]:
         res = self._request("getMe", timeout=8.0)
@@ -56,6 +82,9 @@ class TelegramClient:
         if offset is not None:
             payload["offset"] = offset
         res = self._request("getUpdates", payload, timeout=float(timeout + 5))
+        if res is None and getattr(self._tls, "last_error", ""):
+            # 2026-11-09: an error returned [] at once, and the loop asked again ~8 times a second.
+            raise TelegramUnavailable(self._tls.last_error, self._tls.retry_after)
         return res if isinstance(res, list) else []
 
     def send_message(self, chat_id: int, text: str, parse_mode: str = "HTML", reply_markup: Optional[Dict[str, Any]] = None) -> bool:

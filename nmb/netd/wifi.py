@@ -101,6 +101,23 @@ _cached_wifi_caps_ts: Dict[str, float] = {}
 _wifi_caps_lock = threading.Lock()
 
 
+def band_ht40(iw_phy: str) -> Optional[List[str]]:
+    """Bands whose block in `iw phy` lists HT20/HT40; None when the output has no band blocks."""
+    if "Band " not in (iw_phy or ""):
+        return None
+    names = {"1": "2.4ghz", "2": "5ghz", "4": "6ghz"}
+    out: List[str] = []
+    cur = None
+    for line in iw_phy.splitlines():
+        m = re.match(r"\s*Band (\d+):", line)
+        if m:
+            cur = names.get(m.group(1))
+            continue
+        if cur and "HT20/HT40" in line and cur not in out:
+            out.append(cur)
+    return out
+
+
 def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) -> Dict[str, Any]:
     """Detect comprehensive hardware capabilities of wireless interface using nl80211/iw.
 
@@ -194,6 +211,10 @@ def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) 
     if "320MHz" in out or "320 MHz" in out or "be" in supported_standards:
         supported_widths.append("320")
 
+    # 6b. HT40 per band: a radio may do 40 MHz on 5 GHz only (Raspberry Pi 4: 2.4 GHz is HT20 only). Asking
+    # for 40 MHz there made every access point start fail once before stepping down (2026-11-09).
+    ht40_bands = band_ht40(out)
+
     # 7. Detect WPA3 SAE Support
     wpa3_supported = bool(re.search(r"SAE", out, re.I)) or ("brcmfmac" in driver_name)
 
@@ -244,6 +265,7 @@ def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) 
         "supported_bands": supported_bands,
         "supported_standards": supported_standards,
         "supported_widths": supported_widths,
+        "ht40_bands": ht40_bands,
         "highest_standard": highest_standard,
         "standards_catalog": STANDARD_DESCRIPTIONS,
         "channels": {
@@ -420,6 +442,10 @@ def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, D
         log.warning("Requested Wi-Fi standard '%s' not supported by hardware %s; falling back to '%s'",
                     req_std, iface, eff_std)
 
+    # 802.11ac exists only on 5 GHz: on 2.4 GHz it can only fail. Use n there (ax/be stay: they have 2.4 GHz).
+    if eff_band == "2.4ghz" and eff_std == "ac":
+        eff_std = "n"
+
     # 3. Resolve Channel Width
     req_width = str(getattr(cfg, "wifi_channel_width", "auto")).strip().lower()
     supported_widths = caps.get("supported_widths", ["20"])
@@ -441,6 +467,9 @@ def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, D
             eff_width = w_int if str(w_int) in supported_widths else 20
         except ValueError:
             eff_width = 20
+    ht40 = caps.get("ht40_bands")
+    if eff_width >= 40 and ht40 is not None and eff_band not in ht40:
+        eff_width = 20   # this band of this radio has no HT40
 
     # 4. Resolve Channel Number
     raw_channel = getattr(cfg, "wifi_channel", 0)

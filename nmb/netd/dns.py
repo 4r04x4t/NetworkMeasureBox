@@ -61,6 +61,21 @@ def get_current_nameservers() -> List[str]:
     return nameservers
 
 
+FALLBACK_RETRY_SEC = 15 * 60
+
+
+def _ip_connectivity(timeout: float = 2.0) -> bool:
+    """IP reaches the internet (no DNS involved)."""
+    import socket
+    for host, port in (("1.1.1.1", 443), ("8.8.8.8", 443), ("9.9.9.9", 443)):
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def is_fallback_active() -> bool:
     """Check if fallback DNS is currently injected."""
     if FALLBACK_MARKER.exists():
@@ -229,17 +244,40 @@ def ensure_dns_fallback(
 
     # Check if current DNS works
     curr_ns = get_current_nameservers()
+    if not force and is_fallback_active():
+        # Put the normal DNS back after a while; it stays only if it works (2026-11-09: a brief failure during
+        # an update left the fallback marker for hours, and nothing ever undid it).
+        try:
+            age = time.time() - FALLBACK_MARKER.stat().st_mtime
+        except OSError:
+            age = FALLBACK_RETRY_SEC
+        if age >= FALLBACK_RETRY_SEC:
+            restore_system_dns(iface or "eth0")
+            time.sleep(1)
+            if test_dns_resolution(timeout=2.0)[0]:
+                log.info("normal DNS works again; fallback resolvers removed")
+                return True, "Normal DNS works again"
+            log.warning("normal DNS still fails; fallback resolvers back")
+            curr_ns = get_current_nameservers()
+        else:
+            return True, "Fallback DNS active"
     if not force and curr_ns:
-        ok, res_ip, lat = test_dns_resolution(timeout=1.5)
-        if ok:
-            return True, f"DNS healthy ({len(curr_ns)} nameservers, {lat:.1f}ms)"
+        for attempt in range(3):   # one lost packet is not a broken resolver
+            ok, res_ip, lat = test_dns_resolution(timeout=1.5)
+            if ok:
+                return True, f"DNS healthy ({len(curr_ns)} nameservers, {lat:.1f}ms)"
+            time.sleep(1.5)
+    if not force and not _ip_connectivity():
+        # Without IP connectivity it is an outage, not a DNS problem: other resolvers cannot help, and
+        # changing the box's DNS would stay behind after the line comes back.
+        return False, "No IP connectivity; DNS left as it is"
 
     log.warning("DNS resolution failed or missing (nameservers: %s). Activating fallback resolvers: %s",
                 curr_ns, ", ".join(cleaned_servers))
 
-    # Backup existing resolv.conf if not already backed up and not already our fallback
+    # Backup the current resolv.conf (fresh each time: the network may have changed since an older backup)
     try:
-        if RESOLV_CONF.exists() and not is_fallback_active():
+        if RESOLV_CONF.exists():
             BACKUP_RESOLV_CONF.parent.mkdir(parents=True, exist_ok=True)
             txt = RESOLV_CONF.read_text(encoding="utf-8", errors="replace")
             if "Fallback DNS Active" not in txt:

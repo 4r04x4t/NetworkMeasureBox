@@ -429,7 +429,7 @@ class AutonomousScheduler(threading.Thread):
                     self.last_detail = f"Measurement failed ({engine})"
                 log.debug("AutonomousScheduler worker finished: outcome=%s, detail=%s", self.last_outcome, self.last_detail)
             except Exception as ex:
-                log.error("AutonomousScheduler worker error: %s", ex)
+                log.error("AutonomousScheduler worker error: %s", ex, exc_info=True)
                 self.last_outcome = "error"
                 self.last_detail = str(ex)
             finally:

@@ -14,7 +14,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 log = logging.getLogger("nmb.netd.iface")
 
@@ -908,9 +908,18 @@ def dead_default_routes(route_lines: str, has_ipv4: Callable[[str], bool]) -> Li
         if not parts or parts[0] != "default" or "via" not in parts or "dev" not in parts:
             continue
         dev = parts[parts.index("dev") + 1]
-        if "linkdown" in parts or not has_ipv4(dev):
+        if "linkdown" in parts or "dead" in parts or not has_ipv4(dev):
             dead.append(parts)
     return dead
+
+
+def route_delete_args(parts: List[str]) -> List[str]:
+    """The selector of a route for `ip route del`: flags such as `dead` or `linkdown` make it fail."""
+    out = ["default"]
+    for key in ("via", "dev", "proto", "metric", "table"):
+        if key in parts and parts.index(key) + 1 < len(parts):
+            out += [key, parts[parts.index(key) + 1]]
+    return out
 
 
 def reap_dead_default_routes() -> List[str]:
@@ -919,9 +928,44 @@ def reap_dead_default_routes() -> List[str]:
     gone = []
     for parts in dead_default_routes(getattr(res, "stdout", "") or "",
                                      lambda d: any(":" not in a for a in get_ip_addresses(d))):
-        cmd = [p for p in parts if p != "linkdown"]
-        run_cmd(["ip", "-4", "route", "del"] + cmd, check=False)
+        res = run_cmd(["ip", "-4", "route", "del"] + route_delete_args(parts), check=False)
         dev = parts[parts.index("dev") + 1]
-        log.warning("removed a dead default route through %s (%s): no link or no address", dev, " ".join(parts))
-        gone.append(dev)
+        if getattr(res, "returncode", 1) == 0:
+            log.warning("removed a dead default route through %s (%s): no link or no address", dev, " ".join(parts))
+            gone.append(dev)
+        else:
+            log.warning("could not remove the dead default route through %s (%s): %s", dev, " ".join(parts),
+                        (getattr(res, "stderr", "") or "").strip()[:120])
     return gone
+
+
+IPV4_DNS_PRIORITY = "50"
+
+
+def prefer_ipv4_dns(run: Optional[Callable[..., Any]] = None) -> List[str]:
+    """Put the IPv4 DNS servers before the IPv6 ones on the box's own wired and Wi-Fi profiles.
+
+    NetworkManager writes at most three nameservers. 2026-11-09: the home router started to hand out three
+    IPv6 DNS servers while the line had no IPv6 route; they pushed the router's IPv4 DNS out of
+    resolv.conf and every lookup failed. Returns the profiles changed.
+    """
+    run = run or (lambda cmd: run_cmd(cmd, check=False))
+    if not shutil.which("nmcli"):
+        return []
+    res = run(["nmcli", "-t", "-f", "NAME,TYPE,DEVICE", "connection", "show", "--active"])
+    changed = []
+    for line in (getattr(res, "stdout", "") or "").splitlines():
+        parts = line.replace("\\:", "\x00").split(":")
+        if len(parts) < 3:
+            continue
+        name, ctype, dev = (p.replace("\x00", ":") for p in parts[:3])
+        if ctype not in ("802-3-ethernet", "802-11-wireless") or not dev:
+            continue
+        cur = (getattr(run(["nmcli", "-g", "ipv4.dns-priority", "connection", "show", name]), "stdout", "") or "").strip()
+        if cur == IPV4_DNS_PRIORITY:
+            continue
+        run(["nmcli", "connection", "modify", name, "ipv4.dns-priority", IPV4_DNS_PRIORITY])
+        run(["nmcli", "device", "reapply", dev])
+        log.info("IPv4 DNS now before IPv6 DNS on %s (%s)", name, dev)
+        changed.append(name)
+    return changed

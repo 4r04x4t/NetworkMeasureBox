@@ -38,5 +38,15 @@ class Iperf3RestTest(unittest.TestCase):
             self.assertEqual(runner._usable_iperf3_servers(cfg, object()), [("good", 5201)])
 
 
+class RestLogTest(unittest.TestCase):
+    def test_rest_is_logged_once(self):
+        runner._IPERF3_REST_LOGGED.clear()
+        cfg = SimpleNamespace(iperf=SimpleNamespace(target_host="bad", target_port=5201, extra_servers=""))
+        with patch.object(runner, "_iperf3_failing", return_value=True), patch.object(runner.log, "warning") as warn:
+            for _ in range(5):
+                runner._usable_iperf3_servers(cfg, object())
+        self.assertEqual(warn.call_count, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

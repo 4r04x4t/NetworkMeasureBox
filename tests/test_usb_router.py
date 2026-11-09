@@ -60,7 +60,8 @@ class UsbRouterModeTest(unittest.TestCase):
         # 2026-11-08 on the box: the radio kept its home Wi-Fi lease and route (metric 600) after it became
         # the access point, which beat USB's 900 and sent the box's own traffic into its own AP.
         mode, svc, ifs, patches = _router(self.cfg, dhcp_on_wan=False)
-        ifs.run_cmd.return_value = MagicMock(stdout="default via 192.168.8.1 dev wlan0 proto dhcp metric 600\n"
+        ifs.route_delete_args.side_effect = __import__("nmb.netd.interfaces", fromlist=["x"]).route_delete_args
+        ifs.run_cmd.return_value = MagicMock(stdout="default via 192.168.8.1 dev wlan0 proto dhcp metric 600 linkdown\n"
                                                     "default via 192.168.1.1 dev eth1 metric 900\n")
         for p in patches:
             p.start()
@@ -69,6 +70,7 @@ class UsbRouterModeTest(unittest.TestCase):
             mode.setup()
         deleted = [c[0][0] for c in ifs.run_cmd.call_args_list if c[0][0][:4] == ["ip", "-4", "route", "del"]]
         self.assertTrue(any("wlan0" in d for d in deleted), deleted)
+        self.assertFalse(any("linkdown" in d or "dead" in d for d in deleted), deleted)
         self.assertFalse(any("eth1" in d for d in deleted), deleted)
 
     def test_a_dhcp_server_on_the_port_keeps_it_as_wan(self):
@@ -200,6 +202,14 @@ if __name__ == "__main__":
 
 
 class DeadRouteTest(unittest.TestCase):
+    def test_delete_args_drop_the_flags(self):
+        # 2026-11-09 on the box: "ip route del ... dead" fails ('"dead" is garbage') and the route stayed.
+        from nmb.netd import interfaces
+        parts = "default via 192.168.8.1 dev wlan0 proto dhcp src 192.168.8.219 metric 600 dead linkdown".split()
+        self.assertEqual(interfaces.route_delete_args(parts),
+                         ["default", "via", "192.168.8.1", "dev", "wlan0", "proto", "dhcp", "metric", "600"])
+        self.assertEqual(len(interfaces.dead_default_routes(" ".join(parts), lambda d: True)), 1)
+
     def test_static_route_on_a_port_without_address_is_dead(self):
         from nmb.netd import interfaces
         routes = ("default via 192.168.8.1 dev eth0 proto boot metric 50\n"
@@ -225,3 +235,24 @@ class NoAccessPointOutsideRouterModeTest(unittest.TestCase):
             mode.setup()
         svc.start_hostapd.assert_not_called()
         svc.return_to_network_manager.assert_called_with("wlan0", reconnect=True)
+
+
+class DnsPriorityTest(unittest.TestCase):
+    def test_ipv4_dns_first_on_wired_and_wifi_only(self):
+        from types import SimpleNamespace
+        from nmb.netd import interfaces
+        calls = []
+
+        def run(cmd):
+            calls.append(cmd)
+            if cmd[:3] == ["nmcli", "-t", "-f"]:
+                return SimpleNamespace(stdout="netplan-eth0:802-3-ethernet:eth0\nwg0:wireguard:wg0\n"
+                                              "home\\:5g:802-11-wireless:wlan0\ntailscale0:tun:tailscale0\n")
+            if cmd[:2] == ["nmcli", "-g"]:
+                return SimpleNamespace(stdout="50\n" if cmd[-1] == "home:5g" else "0\n")
+            return SimpleNamespace(stdout="")
+        with patch.object(interfaces.shutil, "which", return_value="/usr/bin/nmcli"):
+            changed = interfaces.prefer_ipv4_dns(run)
+        self.assertEqual(changed, ["netplan-eth0"])          # the Wi-Fi profile already had it
+        self.assertIn(["nmcli", "connection", "modify", "netplan-eth0", "ipv4.dns-priority", "50"], calls)
+        self.assertIn(["nmcli", "device", "reapply", "eth0"], calls)
