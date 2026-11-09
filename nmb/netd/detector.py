@@ -22,6 +22,13 @@ class NetworkDetector:
         self.last_candidate_mode: Optional[str] = None
         self.candidate_since: float = 0.0
         self.debounce_sec: float = 4.0
+        # mode = auto: the owner's rule (nmb/netd/auto_mode.py); the daemon fills these in each loop.
+        from nmb.netd.auto_mode import AutoPolicy, Observer
+        self.auto = AutoPolicy()
+        self.observer = Observer()
+        self.current_mode: Optional[str] = None
+        self.ip_device: Optional[str] = None
+        self.last_decision = None
 
     def check_reachability(self, targets: List[str], timeout: float = 1.0) -> bool:
         """Quick TCP probe to known external targets (port 53 DNS or 80 HTTP)."""
@@ -53,31 +60,15 @@ class NetworkDetector:
         if getattr(self.cfg, "lan_passthrough_enabled", False) or getattr(self.cfg, "lag_enabled", False):
             return "standalone", "LAN passthrough or link aggregation enabled"
 
-        # 4. Dynamic Auto-detection
-        wan_carrier = interfaces.get_carrier(self.cfg.wan_interface)
-        lan_ports = getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]
-        lan_carrier = any(interfaces.get_carrier(p) for p in lan_ports)
-
-        log.debug("detector scan: wan(%s)=%s, lan(%s)=%s",
-                  self.cfg.wan_interface, wan_carrier,
-                  self.cfg.lan_interface, lan_carrier)
-
-        # Both ports connected: ideal inline deployment -> Mode B
-        if wan_carrier and lan_carrier:
-            return "mode_b", "both WAN and LAN links active; transparent inline bridge selected"
-
-        # Only WAN has carrier: either standalone probe or PPPoE direct-to-ONT
-        if wan_carrier and not lan_carrier:
-            if self.cfg.pppoe_enabled:
-                return "mode_a", "WAN active with PPPoE configured; active gateway selected"
-            return "mode_b", "WAN active without LAN clients; bridging enabled for upstream probe"
-
-        # Only LAN has carrier: user plugged laptop/switch directly into LAN port for diagnostics
-        if not wan_carrier and lan_carrier:
-            return "mode_a", "LAN active without WAN link; starting gateway & DHCP for diagnostics"
-
-        # Neither link has carrier: default to Mode B to minimize startup friction
-        return "mode_b", "no physical links detected; standing by in bridge mode"
+        # 4. Automatic: standalone behind a router, router mode without one (auto_mode.py)
+        try:
+            obs = self.observer.observe(self.cfg, self.current_mode, self.ip_device, own_gateway=self.cfg.gateway_ip)
+            decision = self.auto.decide(self.cfg, obs, self.current_mode)
+        except Exception as e:
+            log.warning("auto mode: could not decide (%s); keeping %s", e, self.current_mode or "standalone")
+            return (self.current_mode or "standalone"), "auto mode could not observe the network"
+        self.last_decision = decision
+        return decision.mode, decision.reason
 
     def get_debounced_mode(self, override_mode: Optional[str] = None) -> Tuple[str, str, bool]:
         """Evaluate mode with debouncing to prevent flapping during link negotiation.

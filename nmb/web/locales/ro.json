@@ -1403,5 +1403,7 @@
  "rt_wan_static": "IP static (atribuire manuală)",
  "rt_wifi_off": "Dezactivat (radio oprit)",
  "rt_wifi_on": "Activat (emite)",
- "duckdns_badge_unsaved": "⚠️ Nesalvat"
+ "duckdns_badge_unsaved": "⚠️ Nesalvat",
+ "mode_auto": "Automat",
+ "mode_auto_desc": "În spatele unui router (dă adresă prin DHCP): standalone; cu mai multe porturi cu fir, celelalte porturi sunt puse în punte cu el, ca un switch. Fără router și fără internet timp de 90 s (ONT sau modem, un PC, fără cablu): mod router, cu PPPoE dacă datele de autentificare sunt salvate, până când un router răspunde din nou."
 }

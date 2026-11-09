@@ -138,7 +138,7 @@ class ModeA(NetworkMode):
         full = self.full_cfg
         if full is None or not getattr(getattr(full, "usb_uplink", None), "enabled", False):
             return None
-        if (self.cfg.pppoe_enabled and self.cfg.pppoe_user) or str(self.cfg.wan_proto).lower() == "static":
+        if ((self.cfg.pppoe_enabled or getattr(self, 'auto_pppoe', False)) and self.cfg.pppoe_user) or str(self.cfg.wan_proto).lower() == "static":
             return None
         from nmb.netd import usb_uplink
         ui = usb_uplink.uplink_interface(full)
@@ -220,7 +220,7 @@ class ModeA(NetworkMode):
         interfaces.set_link_up(wan)
         self.active_wan = wan
 
-        if self.cfg.pppoe_enabled and self.cfg.pppoe_user:
+        if (self.cfg.pppoe_enabled or getattr(self, 'auto_pppoe', False)) and self.cfg.pppoe_user:
             log.info("launching PPPoE client on %s", wan)
             self.svc_mgr.start_pppd(wan)
             self.active_wan = "ppp0"
@@ -500,8 +500,14 @@ class ModeStandalone(NetworkMode):
         default_iface = interfaces.get_default_gateway_iface()
         self.active_wan = default_iface if default_iface and interfaces.interface_exists(default_iface) else self.cfg.wan_interface
 
-        # LAN passthrough / link aggregation: the probe's IP moves to the bridge or bond
-        self.topology = lan_topology.apply_topology(self.cfg)
+        # LAN passthrough / link aggregation: the probe's IP moves to the bridge or bond. In mode = auto on a
+        # box with several wired ports, the other ports join the WAN port's bridge (switch-like).
+        topo_cfg = self.cfg
+        auto_pt = list(getattr(self, "auto_passthrough", []) or [])
+        if auto_pt and not self.cfg.lan_passthrough_enabled and not self.cfg.lag_enabled:
+            import dataclasses
+            topo_cfg = dataclasses.replace(self.cfg, lan_passthrough_enabled=True, passthrough_ports=auto_pt)
+        self.topology = lan_topology.apply_topology(topo_cfg)
         if self.topology:
             self.active_wan = self.topology.ip_device
             if not interfaces.get_ip_addresses(self.active_wan) and not interfaces.request_dhcp_lease(self.active_wan):

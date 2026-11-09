@@ -179,8 +179,9 @@ log_dir = /var/log/nmb
 memory_profile = auto
 
 [network]
-# Operational mode: auto, mode_a (active gateway), mode_b (passive inline), standalone (endpoint probe)
-mode = standalone
+# Operational mode: auto (standalone behind a router; router mode when there is no router and no internet),
+# mode_a (active gateway), mode_b (passive inline), standalone (endpoint probe)
+mode = auto
 wan_interface = eth0
 wan2_interface = 
 wan2_proto = dhcp
@@ -396,7 +397,7 @@ class SystemConfig:
 
 @dataclass
 class NetworkConfig:
-    mode: str = "standalone"  # auto, mode_a, mode_b, standalone
+    mode: str = "auto"  # auto, mode_a, mode_b, standalone (see nmb/netd/auto_mode.py)
     wan_interface: str = "eth0"
     wan2_interface: str = ""
     wan2_proto: str = "dhcp"   # dhcp, static, pppoe

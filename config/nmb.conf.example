@@ -16,12 +16,14 @@ memory_profile = auto
 [network]
 # Operational Mode:
 #   standalone - Endpoint Probe on existing LAN (leaves interfaces untouched, monitors via default route)
-#   auto       - Detects topology automatically:
-#                Both WAN & LAN links up -> Mode B (Passive Inline Bridge)
-#                WAN-only with PPPoE or LAN-only diagnostic -> Mode A (Active Gateway)
+#   auto       - (default) A router gives an address over DHCP on the WAN port -> standalone;
+#                several wired ports -> the others are bridged to it (LAN passthrough, switch-like).
+#                No router and no internet for 90 s (ONT/modem, a PC, no cable) -> router mode (Mode A),
+#                with PPPoE when pppoe_user/pppoe_password are saved and a PPPoE server answers,
+#                until a router answers DHCP again.
 #   mode_a     - Forced Active Gateway (NAT, DHCP server, diagnostic AP)
 #   mode_b     - Forced Passive Inline Probe (Transparent Bridge)
-mode = standalone
+mode = auto
 
 # Primary WAN Uplink
 wan_interface = eth0

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Automatic mode (`mode = auto`, the default for new installs, and a new "Automatic" choice in the Web UI in 11 languages): standalone while a router gives the box an address over DHCP (with several wired ports, the other ports are bridged to the WAN port like a switch); router mode when there has been no router and no internet for 90 s, dialing PPPoE when its login is saved and a PPPoE server answers; back to standalone as soon as a router answers on the WAN port. Rules in `nmb/netd/auto_mode.py`; unit-tested, not yet tested live. Existing installs keep their configured mode.
 - `nmb-selftest ipv6`: reads the LAN router's IPv6 advertisement and says why the box has no IPv6 (for example a router that advertises no prefix), then checks the box's public IPv6 address, route and HTTPS over IPv6.
 - `docs/DEV_SETUP_WINDOWS.md` (and Hungarian): developing on Windows with WSL2, reaching the box over Tailscale, SSH keys, safe sudo, GitHub access, deploying with `setup.sh`, the guided scenarios and moving the agent's memory.
 - Settings from a USB stick: `nmb.conf` at the top level of a stick is applied once when plugged in (only its keys, secrets never wiped by empty values, backup first, `nmb-import-result.txt` written back with names only). Template `config/usb-import.example.conf`; `[usb_import] enabled = false` turns it off.

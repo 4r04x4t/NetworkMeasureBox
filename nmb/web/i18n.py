@@ -6760,6 +6760,31 @@ _DYNDNS_TEXTS = {
 for _lang, _texts in _DYNDNS_TEXTS.items():
     TRANSLATIONS.setdefault(_lang, {}).update(_texts)
 
+_AUTO_MODE_TEXTS = {
+    "en": {
+        "mode_auto": "Automatic",
+        "mode_auto_desc": "Behind a router (it gives an address over DHCP): standalone; with several wired ports, the other ports are bridged to it like a switch. No router and no internet for 90 s (ONT or modem, a PC, no cable): router mode, with PPPoE when its login is saved, until a router answers again."
+    },
+    "hu": {
+        "mode_auto": "Automatikus",
+        "mode_auto_desc": "Router mögött (DHCP-n címet ad): standalone; több vezetékes portnál a többi port switch-szerűen hídba kerül vele. Ha 90 másodpercig nincs router és internet (ONT vagy modem, PC, nincs kábel): router mód, mentett belépés esetén PPPoE-vel, amíg router nem válaszol újra."
+    },
+    "de": {
+        "mode_auto": "Automatisch",
+        "mode_auto_desc": "Hinter einem Router (vergibt Adressen per DHCP): Standalone; bei mehreren LAN-Ports werden die anderen Ports wie bei einem Switch dazu gebrückt. 90 s ohne Router und Internet (ONT oder Modem, PC, kein Kabel): Routermodus, mit PPPoE bei gespeicherten Zugangsdaten, bis wieder ein Router antwortet."
+    },
+    "fr": {
+        "mode_auto": "Automatique",
+        "mode_auto_desc": "Derrière un routeur (il attribue une adresse en DHCP) : autonome ; avec plusieurs ports filaires, les autres ports lui sont pontés comme un switch. Sans routeur ni internet pendant 90 s (ONT ou modem, un PC, pas de câble) : mode routeur, avec PPPoE si l'identifiant est enregistré, jusqu'à ce qu'un routeur réponde à nouveau."
+    },
+    "uk": {
+        "mode_auto": "Автоматично",
+        "mode_auto_desc": "За роутером (видає адресу через DHCP): standalone; за кількох дротових портів інші порти об'єднуються з ним у міст, як у комутаторі. Без роутера й інтернету 90 с (ONT або модем, ПК, без кабелю): режим роутера, з PPPoE за збережених облікових даних, доки роутер знову не відповість."
+    }
+}
+for _lang, _texts in _AUTO_MODE_TEXTS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_texts)
+
 # More languages, one JSON file each in nmb/web/locales/ (key -> text). A key missing there is shown
 # in English, never in another language.
 LOCALE_LANGUAGES = ("ro", "it", "es", "pt", "pt-br", "zh")

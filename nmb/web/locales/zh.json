@@ -1403,5 +1403,7 @@
  "rt_wan_static": "静态 IP（手动分配）",
  "rt_wifi_off": "已禁用（射频关闭）",
  "rt_wifi_on": "已启用（广播中）",
- "duckdns_badge_unsaved": "⚠️ 未保存"
+ "duckdns_badge_unsaved": "⚠️ 未保存",
+ "mode_auto": "自动",
+ "mode_auto_desc": "在路由器后面（通过 DHCP 分配地址）：独立模式；有多个有线端口时，其他端口像交换机一样桥接到它。90 秒内没有路由器也没有互联网（光猫或调制解调器、电脑、未接网线）：路由模式，若已保存 PPPoE 账号则拨号，直到路由器再次响应。"
 }

@@ -75,6 +75,7 @@ NMB records independent measurements at your network edge. It can run behind you
 ## Core Capabilities
 
 ### 1. Dual Operating Modes
+* **Automatic (`mode = auto`, the default for new installs)**: a router gives the box an address over DHCP: **standalone** (on a box with several wired ports the other ports are bridged to it, LAN passthrough, almost like a switch). No router and no internet for 90 s (cable on an ONT or modem, on a PC, or no cable): **router mode** until a router answers again, dialing PPPoE when its login is saved and a PPPoE server answers, otherwise with the Wi-Fi access point and the LAN ports for setup. A router appearing on the WAN port: standalone at once. A fixed mode, a manual override or the owner's own passthrough/aggregation settings always win. Rules: `nmb/netd/auto_mode.py`. Unit-tested; not yet tested live.
 * **Mode A (Active Gateway / Router)**:
   * Router with DHCP or static IP WAN. A PPPoE client (with 802.1Q VLAN tagging) redials after a dropped line; it is tested against a simulated ISP only.
   * Local gateway services: `dnsmasq` DHCP server, DNS caching, and iptables/nftables NAT masquerading.

@@ -1403,5 +1403,7 @@
  "rt_wan_static": "IP estático (atribuição manual)",
  "rt_wifi_off": "Desativado (rádio desligado)",
  "rt_wifi_on": "Ativado (transmitindo)",
- "duckdns_badge_unsaved": "⚠️ Não salvo"
+ "duckdns_badge_unsaved": "⚠️ Não salvo",
+ "mode_auto": "Automático",
+ "mode_auto_desc": "Atrás de um roteador (ele dá um endereço por DHCP): standalone; com várias portas cabeadas, as outras portas ficam em ponte como um switch. Sem roteador nem internet por 90 s (ONT ou modem, um PC, sem cabo): modo roteador, com PPPoE se o acesso estiver salvo, até um roteador responder de novo."
 }

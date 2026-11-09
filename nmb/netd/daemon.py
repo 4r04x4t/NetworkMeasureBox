@@ -146,6 +146,25 @@ class NetworkDaemon:
             self._record_event("crit", "mode_change_failed", f"Failed switching to {new_mode}: {e}")
             return False
 
+    def _apply_auto_details(self, override: Optional[str]) -> None:
+        """mode = auto: pass the decision's details to the modes (LAN passthrough ports, PPPoE)."""
+        d = self.detector.last_decision if (self.cfg.network.mode == "auto" and not override) else None
+        std, ma = self.modes["standalone"], self.modes["mode_a"]
+        want_pt = list(d.passthrough_ports) if d and d.mode == "standalone" else []
+        want_ppp = bool(d and d.mode == "mode_a" and d.pppoe)
+        if want_pt != getattr(std, "auto_passthrough", []):
+            std.auto_passthrough = want_pt
+            if self.current_mode_name == "standalone" and self.current_mode_inst is std:
+                log.info("auto mode: LAN passthrough ports now %s; rebuilding standalone", want_pt or "none")
+                std.teardown()
+                std.setup()
+        if want_ppp != getattr(ma, "auto_pppoe", False):
+            ma.auto_pppoe = want_ppp
+            if self.current_mode_name == "mode_a" and self.current_mode_inst is ma:
+                log.info("auto mode: PPPoE %s; rebuilding router mode", "on" if want_ppp else "off")
+                ma.teardown()
+                ma.setup()
+
     def handle_signal(self, signum: int, frame) -> None:
         if signum in (signal.SIGTERM, signal.SIGINT):
             log.info("received termination signal (%d), stopping netd...", signum)
@@ -199,7 +218,10 @@ class NetworkDaemon:
                     self._apply_reload()
                 loop_t0 = time.monotonic()
                 override = self._get_override_mode()
+                self.detector.current_mode = self.current_mode_name
+                self.detector.ip_device = getattr(self.current_mode_inst, "active_wan", None)
                 target_mode, reason, is_ready = self.detector.get_debounced_mode(override)
+                self._apply_auto_details(override)
 
                 if isinstance(self.current_mode_inst, ModeA):
                     self.current_mode_inst.check_wan_failover()

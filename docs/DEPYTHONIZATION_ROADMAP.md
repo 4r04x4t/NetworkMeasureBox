@@ -413,6 +413,16 @@ The Python reference (`nmb/netd/usb_uplink.py`, partly tested on the Pi 4 over 5
 
 **Tests for the native build:** the same as the Python reference (`tests/test_usb_tether.py`, `tests/test_usb_uplink.py`, `tests/test_usb_router.py`) plus a real device per platform: plug in, measure over USB with the byte counters, pull the cable and the Wi-Fi (fallback and back), router mode with a PC on the Ethernet port and a Wi-Fi client, and the home router on the port (the box must stop its DHCP).
 
+### 4.28 Automatic Mode (`mode = auto`, the Owner's Rule)
+
+The Python reference is `nmb/netd/auto_mode.py` (unit-tested; not yet live-tested). The native `nmbd` must behave the same on every device:
+
+- A router gives the box an address over DHCP on its WAN port: **standalone**. On a device with several wired ports, the other ports are bridged to the WAN port (LAN passthrough, transparent bridge), so the device behaves almost like a switch and the clients behind it get their addresses from the same router.
+- No router lease, no DHCP answer and no internet for 90 seconds (cable on an ONT or modem, on a PC, or no cable): **router mode**, until a router answers again. With PPPoE credentials saved and a PPPoE server answering discovery on the WAN port, router mode dials PPPoE; with USB tethering it uses that; the Wi-Fi access point and the LAN ports always serve their own network so the device can be reached and configured.
+- A DHCP server appearing on the WAN port in router mode: standalone at once. The device must never hand out addresses into another network.
+- The probes are a real DHCP DISCOVER from 0.0.0.0 on the WAN port (read before the bridge sees the frames), a PPPoE discovery, and a TCP connection to the internet. A probe's answer stays valid until the next one (30 s), so the debounce sees a stable answer.
+- An explicit setting always wins: a fixed mode, a manual override, or a LAN passthrough or link aggregation configured by the owner.
+
 ## 5. Architectural Proposal: The Unified Single-Binary Monolith (`nmbd`)
 
 Instead of maintaining multiple distinct daemons and spawning external helper binaries with high process overhead, the ultimate embedded architecture unifies all components into a single multi-call static binary:

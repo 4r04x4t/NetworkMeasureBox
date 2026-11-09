@@ -1403,5 +1403,7 @@
  "rt_wan_static": "IP statico (assegnazione manuale)",
  "rt_wifi_off": "Disattivato (radio spenta)",
  "rt_wifi_on": "Attivo (trasmette)",
- "duckdns_badge_unsaved": "⚠️ Non salvato"
+ "duckdns_badge_unsaved": "⚠️ Non salvato",
+ "mode_auto": "Automatico",
+ "mode_auto_desc": "Dietro un router (assegna un indirizzo via DHCP): standalone; con più porte cablate, le altre porte vengono collegate in bridge come uno switch. Senza router né internet per 90 s (ONT o modem, un PC, nessun cavo): modalità router, con PPPoE se le credenziali sono salvate, finché un router non risponde di nuovo."
 }

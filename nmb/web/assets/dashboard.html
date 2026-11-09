@@ -3421,6 +3421,17 @@
           </p>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <!-- Automatic Card -->
+            <label id="card-mode-auto" style="cursor: pointer; background: #0f172a; border: 2px solid #334155; border-radius: 8px; padding: 18px; display: block; transition: all 0.2s;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 700; font-size: 14px; color: #a78bfa;" data-i18n="mode_auto">Automatic</span>
+                <input type="radio" name="net_mode_radio" value="auto" id="radio-mode-auto">
+              </div>
+              <p style="font-size: 12px; color: #cbd5e1; line-height: 1.5; margin: 0;" data-i18n="mode_auto_desc">
+                Behind a router (it gives an address over DHCP): standalone; with several wired ports, the other ports are bridged to it like a switch. No router and no internet for 90 s (ONT or modem, a PC, no cable): router mode, with PPPoE when its login is saved, until a router answers again.
+              </p>
+            </label>
+
             <!-- Mode A Card -->
             <label id="card-mode-a" style="cursor: pointer; background: #0f172a; border: 2px solid #334155; border-radius: 8px; padding: 18px; display: block; transition: all 0.2s;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
