@@ -754,6 +754,70 @@ def g_dyndns(rep: Report, cfg) -> None:
         rep.add("dyndns", "IPv6 record", PASS, "line has IPv6" if has_v6 else "no IPv6 on this line and no AAAA record")
 
 
+def router_advert(iface: str, wait: float = 12.0) -> Optional[Dict[str, Any]]:
+    """Ask the LAN's IPv6 router (router solicitation) and read its advertisement (root).
+
+    Returns {"lifetime": s, "managed": bool, "other": bool, "prefixes": [(len, autonomous)]}, or None
+    when no router answered. 2026-11-09: the home router answered with lifetime 0 and no prefix, so no
+    device on the LAN could get IPv6 although the line has it.
+    """
+    import socket
+    import struct
+    try:
+        s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_ICMPV6)
+    except OSError:
+        return None
+    try:
+        s.setsockopt(socket.SOL_SOCKET, 25, iface.encode())   # SO_BINDTODEVICE
+        s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, 255)
+        s.sendto(bytes([133, 0, 0, 0, 0, 0, 0, 0]), ("ff02::2", 0, 0, socket.if_nametoindex(iface)))
+        s.settimeout(1)
+        t0 = time.time()
+        while time.time() - t0 < wait:
+            try:
+                data, _ = s.recvfrom(2048)
+            except socket.timeout:
+                continue
+            if not data or data[0] != 134 or len(data) < 16:
+                continue
+            opts, prefixes = data[16:], []
+            while len(opts) >= 8 and opts[1]:
+                if opts[0] == 3 and len(opts) >= 32:
+                    prefixes.append((opts[2], bool(opts[3] & 0x40)))
+                opts = opts[opts[1] * 8:]
+            return {"lifetime": struct.unpack("!H", data[6:8])[0], "managed": bool(data[5] & 0x80),
+                    "other": bool(data[5] & 0x40), "prefixes": prefixes}
+        return None
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+def g_ipv6(rep: Report, cfg) -> None:
+    """IPv6 on the line: the LAN router's advertisement, the box's address and route, and real traffic."""
+    wan = _netd_state().get("details", {}).get("interface") or getattr(cfg.network, "wan_interface", "eth0")
+    ra = router_advert(wan)
+    if ra is None:
+        rep.add("ipv6", f"IPv6 router on {wan}", WARN, "no router advertisement: the network has no IPv6")
+    else:
+        usable = ra["lifetime"] > 0 and any(a for _, a in ra["prefixes"])
+        detail = (f"router lifetime {ra['lifetime']} s, prefixes {[f'/{l}' for l, _ in ra['prefixes']] or 'none'}, "
+                  f"DHCPv6 {'yes' if ra['managed'] else 'no'}")
+        if not usable:
+            detail += (": the router gives the LAN no IPv6 (no prefix or not a default router); "
+                       "turn on IPv6 for the LAN on the router (SLAAC or DHCPv6, with prefix delegation from the ISP)")
+        rep.add("ipv6", f"IPv6 router on {wan}", PASS if usable else FAIL, detail)
+    from nmb.netd import interfaces
+    glob = [a for a in interfaces.get_ip_addresses(wan) if ":" in a and not a.lower().startswith(("fe80", "fd", "fc"))]
+    rep.add("ipv6", f"public IPv6 address on {wan}", PASS if glob else FAIL, f"{len(glob)} address(es)")
+    route = run(["ip", "-6", "route", "show", "default"]).stdout.strip()
+    rep.add("ipv6", "IPv6 default route", PASS if route else FAIL, "present" if route else "none")
+    ok = run(["curl", "-6", "-s", "-m", "8", "-o", "/dev/null", "-w", "%{http_code}",
+              "https://www.cloudflare.com/cdn-cgi/trace"], timeout=12).stdout.strip() == "200"
+    rep.add("ipv6", "HTTPS over IPv6", PASS if ok else FAIL, "works" if ok else "no IPv6 internet")
+
+
 def g_speed(rep: Report, cfg, hours: int = 48) -> None:
     conn = _db()
     since = int((time.time() - hours * 3600) * 1000)
@@ -902,7 +966,7 @@ def g_collector(rep: Report, cfg, url: str = "", token: str = "") -> None:
 GROUPS: Dict[str, Callable] = {
     "services": g_services, "internet": g_internet, "config": g_config, "web": g_web, "cli": g_cli,
     "usb": g_usb, "router": g_router, "dhcp-probe": g_dhcp_probe, "speed": g_speed, "wifi-ap": g_wifi_ap,
-    "collector": g_collector, "telegram": g_telegram, "pppoe": g_pppoe, "dyndns": g_dyndns,
+    "collector": g_collector, "telegram": g_telegram, "pppoe": g_pppoe, "dyndns": g_dyndns, "ipv6": g_ipv6,
 }
 QUICK = [g for g in GROUPS if g not in ("telegram",)]
 

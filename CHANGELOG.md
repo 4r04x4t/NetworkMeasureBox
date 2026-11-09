@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `nmb-selftest ipv6`: reads the LAN router's IPv6 advertisement and says why the box has no IPv6 (for example a router that advertises no prefix), then checks the box's public IPv6 address, route and HTTPS over IPv6.
 - `docs/DEV_SETUP_WINDOWS.md` (and Hungarian): developing on Windows with WSL2, reaching the box over Tailscale, SSH keys, safe sudo, GitHub access, deploying with `setup.sh`, the guided scenarios and moving the agent's memory.
 - Settings from a USB stick: `nmb.conf` at the top level of a stick is applied once when plugged in (only its keys, secrets never wiped by empty values, backup first, `nmb-import-result.txt` written back with names only). Template `config/usb-import.example.conf`; `[usb_import] enabled = false` turns it off.
 - `nmb-selftest pppoe`: NMB's own pppd command against a throwaway PPPoE server (right password connects and carries traffic, wrong password is refused, the password is on no command line); `--pppoe-real` dials the real line on the WAN port in a separate namespace. Passed on the Pi 4 (simulated line).
