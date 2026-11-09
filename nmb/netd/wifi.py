@@ -118,6 +118,64 @@ def band_ht40(iw_phy: str) -> Optional[List[str]]:
     return out
 
 
+_HT_FLAGS = (
+    ("RX LDPC", "[LDPC]"), ("RX Greenfield", "[GF]"), ("RX HT20 SGI", "[SHORT-GI-20]"), ("RX HT40 SGI", "[SHORT-GI-40]"),
+    ("TX STBC", "[TX-STBC]"), ("RX STBC 1-stream", "[RX-STBC1]"), ("RX STBC 2-streams", "[RX-STBC12]"),
+    ("RX STBC 3-streams", "[RX-STBC123]"), ("Max AMSDU length: 7935", "[MAX-AMSDU-7935]"), ("DSSS/CCK HT40", "[DSSS_CCK-40]"),
+)
+_VHT_FLAGS = (
+    ("Max MPDU length: 7991", "[MAX-MPDU-7991]"), ("Max MPDU length: 11454", "[MAX-MPDU-11454]"),
+    ("RX LDPC", "[RXLDPC]"), ("short GI (80 MHz)", "[SHORT-GI-80]"), ("short GI (160/80+80 MHz)", "[SHORT-GI-160]"),
+    ("TX STBC", "[TX-STBC-2BY1]"), ("SU Beamformer", "[SU-BEAMFORMER]"), ("SU Beamformee", "[SU-BEAMFORMEE]"),
+    ("MU Beamformer", "[MU-BEAMFORMER]"), ("MU Beamformee", "[MU-BEAMFORMEE]"),
+)
+
+
+def band_flags(iw_phy: str) -> Dict[str, Dict[str, List[str]]]:
+    """hostapd ht_capab / vht_capab flags per band, from what the radio itself reports in `iw phy`.
+
+    hostapd refuses to start when a flag is not supported by the driver. The fixed
+    `[SHORT-GI-80][TX-STBC-2BY1][RX-STBC-1]` made every 802.11ac start fail on the Raspberry Pi 4
+    (1x1, no STBC) and the access point fell back to 802.11n at 20 MHz (2026-11-09)."""
+    names = {"1": "2.4ghz", "2": "5ghz", "4": "6ghz"}
+    out: Dict[str, Dict[str, List[str]]] = {}
+    band, section = None, None
+    for line in (iw_phy or "").splitlines():
+        m = re.match(r"\s*Band (\d+):", line)
+        if m:
+            band, section = names.get(m.group(1)), None
+            if band:
+                out.setdefault(band, {"ht": [], "vht": []})
+            continue
+        if band is None:
+            continue
+        stripped = line.strip()
+        if stripped.startswith("Capabilities:"):
+            section = "ht"
+            continue
+        if stripped.startswith("VHT Capabilities"):
+            section = "vht"
+            continue
+        if section and line.startswith("\t\t") and not line.startswith("\t\t\t"):
+            section = None   # the next item of the band block
+        if not section:
+            continue
+        table = _HT_FLAGS if section == "ht" else _VHT_FLAGS
+        for text, flag in table:
+            if stripped.startswith(text) and flag not in out[band][section]:
+                if text == "TX STBC" and section == "vht" and "TX STBC" not in stripped:
+                    continue
+                out[band][section].append(flag)
+    return out
+
+
+def ht40_direction(band: str, channel: int) -> str:
+    """[HT40+] or [HT40-]: the secondary 20 MHz channel above or below the primary one."""
+    if band == "2.4ghz":
+        return "+" if channel <= 7 else "-"
+    return "+" if (channel // 4) % 2 == 1 else "-"   # 36, 44, 52 ... pair upwards; 40, 48 ... downwards
+
+
 def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) -> Dict[str, Any]:
     """Detect comprehensive hardware capabilities of wireless interface using nl80211/iw.
 
@@ -206,7 +264,8 @@ def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) 
     if "VHT Capabilities" in out or "ac" in supported_standards or "ax" in supported_standards or "be" in supported_standards:
         if "80" not in supported_widths:
             supported_widths.append("80")
-    if "160MHz" in out or "160 MHz" in out or "80+80" in out or "VHT160" in out:
+    # Only a positive statement counts: Pi 4 says "Supported Channel Width: neither 160 nor 80+80".
+    if re.search(r"Supported Channel Width: 160", out) or "VHT160" in out or "HE160" in out:
         supported_widths.append("160")
     if "320MHz" in out or "320 MHz" in out or "be" in supported_standards:
         supported_widths.append("320")
@@ -214,6 +273,7 @@ def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) 
     # 6b. HT40 per band: a radio may do 40 MHz on 5 GHz only (Raspberry Pi 4: 2.4 GHz is HT20 only). Asking
     # for 40 MHz there made every access point start fail once before stepping down (2026-11-09).
     ht40_bands = band_ht40(out)
+    flags_by_band = band_flags(out)
 
     # 7. Detect WPA3 SAE Support
     wpa3_supported = bool(re.search(r"SAE", out, re.I)) or ("brcmfmac" in driver_name)
@@ -266,6 +326,7 @@ def detect_wifi_capabilities(iface: str = "wlan0", force_refresh: bool = False) 
         "supported_standards": supported_standards,
         "supported_widths": supported_widths,
         "ht40_bands": ht40_bands,
+        "band_flags": flags_by_band,
         "highest_standard": highest_standard,
         "standards_catalog": STANDARD_DESCRIPTIONS,
         "channels": {
@@ -540,13 +601,19 @@ def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, D
 
     lines.append(f"channel={eff_channel}")
 
-    # HT (802.11n) parameters
+    # HT (802.11n) parameters: only what this band of this radio reports (hostapd refuses the rest).
+    flags = (caps.get("band_flags") or {}).get(eff_band)
     if eff_std in ("n", "ac", "ax", "be"):
         lines.append("ieee80211n=1")
-        if eff_width >= 40:
-            lines.append("ht_capab=[HT40+][SHORT-GI-20][SHORT-GI-40][DSSS_CCK-40]")
+        if flags is None:
+            ht = ["[SHORT-GI-20]", "[SHORT-GI-40]"] if eff_width >= 40 else ["[SHORT-GI-20]"]
         else:
-            lines.append("ht_capab=[SHORT-GI-20]")
+            ht = [f for f in flags["ht"] if eff_width >= 40 or f not in ("[SHORT-GI-40]", "[DSSS_CCK-40]")]
+            if eff_band != "2.4ghz":
+                ht = [f for f in ht if f != "[DSSS_CCK-40]"]   # DSSS/CCK exists on 2.4 GHz only
+        if eff_width >= 40:
+            ht = [f"[HT40{ht40_direction(eff_band, eff_channel)}]"] + ht
+        lines.append("ht_capab=" + "".join(ht))
 
     # VHT (802.11ac) parameters
     if eff_std in ("ac", "ax", "be") and eff_band in ("5ghz", "6ghz"):
@@ -555,7 +622,10 @@ def generate_hostapd_config(cfg: Any, iface: str, run_dir: Path) -> Tuple[str, D
         lines.append(f"vht_oper_chwidth={vht_chwidth_code}")
         center_freq = calculate_vht_center_freq(eff_channel, eff_width)
         lines.append(f"vht_oper_centr_freq_seg0_idx={center_freq}")
-        lines.append("vht_capab=[SHORT-GI-80][TX-STBC-2BY1][RX-STBC-1]")
+        vht = flags["vht"] if flags is not None else ["[SHORT-GI-80]"]
+        if eff_width < 160:
+            vht = [f for f in vht if f != "[SHORT-GI-160]"]
+        lines.append("vht_capab=" + "".join(vht))
 
     # HE (802.11ax / Wi-Fi 6 & 6E) parameters
     if eff_std in ("ax", "be"):

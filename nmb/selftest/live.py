@@ -927,7 +927,12 @@ def g_ipv6(rep: Report, cfg) -> None:
     # Router mode names its WAN (ppp0 on PPPoE); the other modes the port the box measures on.
     wan = details.get("wan_interface") or details.get("interface") or getattr(cfg.network, "wan_interface", "eth0")
     ra = router_advert(wan)
-    if ra is None:
+    learned = run(["ip", "-6", "route", "show", "default", "dev", wan, "proto", "ra"]).stdout.strip()
+    if ra is None and learned:
+        # A PPPoE concentrator may advertise only when the session starts and ignore a solicitation later
+        # (DIGI, 2026-11-09): the route it advertised then is the proof.
+        rep.add("ipv6", f"IPv6 router on {wan}", PASS, "no answer to a solicitation now; the default route came from its advert")
+    elif ra is None:
         rep.add("ipv6", f"IPv6 router on {wan}", WARN, "no router advertisement: the network has no IPv6")
     else:
         usable = ra["lifetime"] > 0 and any(a for _, a in ra["prefixes"])
@@ -1071,7 +1076,10 @@ def g_wifi_ap(rep: Report, cfg) -> None:
         rep.add("wifi-ap", "channel width fits the radio", WARN,
                 f"20 MHz on {band}; this radio does 40/80 MHz on {', '.join(better)}")
     else:
-        rep.add("wifi-ap", "channel width fits the radio", PASS, f"{band}, {'40' if wide else '20'} MHz")
+        vht = {"1": "80", "2": "160", "3": "80+80"}.get(conf.get("vht_oper_chwidth", ""), "")
+        width = vht or ("40" if wide else "20")
+        std = "802.11ac" if conf.get("ieee80211ac") == "1" else ("802.11n" if conf.get("ieee80211n") == "1" else "")
+        rep.add("wifi-ap", "channel width fits the radio", PASS, f"{band}, {width} MHz{', ' + std if std else ''}")
     log = run(["journalctl", "--since", "-1h", "--no-pager", "-o", "cat", "-t", "hostapd"], timeout=20).stdout
     retries = log.count("not found from the channel list")
     rep.add("wifi-ap", "hostapd starts at the first try", PASS if not retries else WARN,
