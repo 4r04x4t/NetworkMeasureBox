@@ -11,6 +11,8 @@
 
 > 📖 **[Kattints ide a részletes magyar nyelvű leíráshoz / Read the comprehensive Hungarian Guide](README.hu.md)**
 
+> ⚖️ **NMB or the NMHH Szélessáv.net box?** See the [comparison](docs/NMHH_SZELESSAVNET_COMPARISON.md) (Hungarian: [összehasonlítás](docs/NMHH_SZELESSAVNET_OSSZEHASONLITAS.hu.md)).
+
 > ❤️ **Support the project:** NMB is free and open source. If it helps you, a donation keeps the work going — see [Support the project](#support-the-project).
 
 ---

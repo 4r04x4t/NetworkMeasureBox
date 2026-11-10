@@ -9,6 +9,8 @@
 [![Router portok: tervezett](https://img.shields.io/badge/Router%20portok-Tervezett%2C%20nincs%20k%C3%A9sz-lightgrey.svg)](#17-100-os-de-pythonizáció-és-kereskedelmi-router-portolási-terv)
 [![Languages: EN HU DE UK FR](https://img.shields.io/badge/Languages-EN%20%7C%20HU%20%7C%20DE%20%7C%20UK%20%7C%20FR-orange.svg)](#8-beépített-webes-felület-webgui-és-többnyelvűség)
 
+> ⚖️ **NMB vagy az NMHH Szélessáv.net mérődoboza?** Lásd az [összehasonlítást](docs/NMHH_SZELESSAVNET_OSSZEHASONLITAS.hu.md).
+
 > ❤️ **Támogasd a projektet:** az NMB ingyenes és nyílt forráskódú. Ha hasznos neked, egy adomány segít folytatni a munkát — lásd [A projekt támogatása](#a-projekt-támogatása).
 
 ---
