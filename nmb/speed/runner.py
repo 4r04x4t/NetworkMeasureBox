@@ -1133,7 +1133,12 @@ def _run_measurement_cycle(
     finally:
         stop_watch.set()
         used_now = (data_budget.interface_bytes(usage_iface) - usage_start) / 1_000_000.0
-        data_budget.add_usage_mb(conn, used_now)
+        # Counting the data must never fail the measurement cycle: it sat outside the guard below and, with
+        # traffic on the interface, made the cycle raise (the box's own update test run, 2026-11-10).
+        try:
+            data_budget.add_usage_mb(conn, used_now)
+        except Exception:
+            log.debug("daily usage accounting failed", exc_info=True)
         try:
             from nmb.netd.interfaces import usb_tether_kind
             if usage_iface and usb_tether_kind(usage_iface):
