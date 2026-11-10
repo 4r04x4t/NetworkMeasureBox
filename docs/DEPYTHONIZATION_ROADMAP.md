@@ -873,7 +873,7 @@ The owner downloaded the base images and router firmware for this work on 2026-1
 - **routers/**: OpenWrt images and the makers' stock firmware for the targets of the porting plan (ASUS RT-AXE7800 stock Asuswrt, RT-N12+ OpenWrt 22.03.7 and stock B1, RT-AC57U v1, TP-Link Archer C6 v2, TL-WR1043ND v1 OpenWrt 22.03.7 and TP-Link stock 140319, TL-WR740N v4 community build and stock firmware);
 - **openwrt-target-trees/**: full OpenWrt 25.12.6 target folders (SDK, ImageBuilder, toolchain, packages) for x86/generic, armsr/armv8 and armsr/armv7, for the C11/musl cross builds.
 
-They are working material for the 6A evaluation, the cross builds and the 6B.3 tests (stock firmware round trips). They are not committed; checksums stay with them in that folder.
+They are working material for the 6A evaluation, the cross builds and the 6B.3 tests (stock firmware round trips). The stock firmware is also searched for parts that OpenWrt or the other systems lack (drivers, firmware and calibration files, vendor tools), under the rules of `ROUTER_PORTING_AND_DEPYTHONIZATION_PLAN.md` section 7H: open sources first, closed parts never redistributed but taken on the device from the user's own firmware, sandboxed, and written down per target. They are not committed; checksums stay with them in that folder.
 
 ---
 
