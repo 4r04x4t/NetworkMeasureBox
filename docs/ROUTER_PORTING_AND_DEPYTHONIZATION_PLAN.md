@@ -552,7 +552,7 @@ Terminal interface and changelog in ports:
 
 - **Terminal interface:** router shells are often small, so `nmb-cli` must not depend on Python or full `curses`. If a target cannot hold the menu, it keeps the JSON commands.
 - **Clean code:** ports follow the clean code rules in `DEPYTHONIZATION_ROADMAP.md`. Hardware differences stay behind one interface per feature, in separate files per target, and not as `#ifdef` or device checks spread through shared code.
-- **Changelog:** each port records its support in `DePythonized/CHANGELOG.md`, using the rules in `DEPYTHONIZATION_ROADMAP.md`, and only after it has run on that hardware.
+- **Changelog:** each port records its support in `NetworkMeasureBox-DePyD/CHANGELOG.md`, using the rules in `DEPYTHONIZATION_ROADMAP.md`, and only after it has run on that hardware.
 
 ---
 
@@ -581,7 +581,7 @@ The native code is first written platform- and architecture-independent and prov
 
 ## 7E. Quality Bar for Every Port
 
-Every port must run at least as flawlessly as the Python version on the Raspberry Pi 4, must fix (not carry over) the bugs found on the way, must never show a behaviour that is known to be worse in the Python version (the list of known Python faults, Quality Bar point 6), must be searched for security holes in every change with none left open (Quality Bar point 7), must keep personal data and site-specific values out of the code and the image (Quality Bar point 8), must show only what applies in the box's own country with nothing tied to Hungary built in (Quality Bar point 9), keeps all its files inside `DePythonized/` (roadmap, *Where the Native Files Live*), and must be measurably better where it can (CPU, memory, start-up, logging, safe updates). The full rule and the evidence a port needs before it counts as done are in `DEPYTHONIZATION_ROADMAP.md` (*Quality Bar*).
+Every port must run at least as flawlessly as the Python version on the Raspberry Pi 4, must fix (not carry over) the bugs found on the way, must never show a behaviour that is known to be worse in the Python version (the list of known Python faults, Quality Bar point 6), must be searched for security holes in every change with none left open (Quality Bar point 7), must keep personal data and site-specific values out of the code and the image (Quality Bar point 8), must show only what applies in the box's own country with nothing tied to Hungary built in (Quality Bar point 9), keeps all its files inside `NetworkMeasureBox-DePyD/` (roadmap, *Where the Native Files Live*), and must be measurably better where it can (CPU, memory, start-up, logging, safe updates). The full rule and the evidence a port needs before it counts as done are in `DEPYTHONIZATION_ROADMAP.md` (*Quality Bar*).
 
 ## 7D. Development Access, Detailed Logging and Safe Fixes in the Field (Required for Every Target)
 

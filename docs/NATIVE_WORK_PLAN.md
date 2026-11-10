@@ -20,7 +20,7 @@ ARM) runs through by itself; and the images and firmware files are taken apart, 
   router tiers and starts with step 2.
 - **Done** when the whole native program (every component of section 5, not a subset) passes the Quality Bar,
   points 1 to 9, on these targets (roadmap, *Order of Work* step 1). Nothing router-specific is written before that.
-- **Everything native lives in `DePythonized/`**; its first commit creates `DePythonized/CHANGELOG.md` before any code.
+- **Everything native lives in `NetworkMeasureBox-DePyD/`**, the folder next to the Python version's folder (owner, 2026-11-10); its first commit creates `NetworkMeasureBox-DePyD/CHANGELOG.md` before any code. The folder is empty and not under version control yet (section 7, point 8).
 
 ## 2. How the work is organised
 
@@ -28,8 +28,8 @@ ARM) runs through by itself; and the images and firmware files are taken apart, 
 
 | Role | Does | Does not |
 | :--- | :--- | :--- |
-| **Orchestrator** | Keeps `DePythonized/WORK_STATUS.md`, picks the next ready packages, starts agents, runs the gate, merges, goes on until step 1 is done | Write component code |
-| **Analyst** | For one package: reads its documents in full, the Python reference, the upstream sources and outside documentation; writes the package brief (`DePythonized/docs/briefs/<id>.md`) | Write code |
+| **Orchestrator** | Keeps `NetworkMeasureBox-DePyD/WORK_STATUS.md`, picks the next ready packages, starts agents, runs the gate, merges, goes on until step 1 is done | Write component code |
+| **Analyst** | For one package: reads its documents in full, the Python reference, the upstream sources and outside documentation; writes the package brief (`NetworkMeasureBox-DePyD/docs/briefs/<id>.md`) | Write code |
 | **Implementer** | Writes the code and tests of one package from its brief, inside the package's own folder | Change another package's files or the contracts |
 | **Verifier** | Someone other than the author: tries to break the package (tests, security list, known faults, behaviour against the reference) | Fix what it finds (it reports; the implementer fixes) |
 | **Integrator** | Owns the shared files (`go.mod`, route table, `nmbd` wiring, changelog, manual index), merges accepted packages | Accept a package the verifier has not passed |
@@ -48,7 +48,7 @@ never accepted "for now" (Quality Bar points 2, 3 and 7).
    file it had to read, with the requirements taken from it (ids from F-02) and the lines they come from. A
    requirement id of the package without a test in the end is a failed gate.
 4. **Intended behaviour, not observed.** The Python reference says what the box does; its faults
-   (`DePythonized/KNOWN_PYTHON_FAULTS.md`) are never copied (Quality Bar point 6). Unsure cases go to the owner's
+   (`NetworkMeasureBox-DePyD/KNOWN_PYTHON_FAULTS.md`) are never copied (Quality Bar point 6). Unsure cases go to the owner's
    question list, not into code.
 5. **More than one source.** A protocol or component is understood from at least two independent sources
    (the standard or official documentation, the upstream source code, the Python reference, a capture of real
@@ -90,7 +90,7 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 
 | Id | Package | Result |
 | :--- | :--- | :--- |
-| F-00 | Skeleton | `DePythonized/` layout, `CHANGELOG.md` (first commit), `KNOWN_PYTHON_FAULTS.md`, `WORK_STATUS.md`, Go module, build and gate scripts for the matrix of 2.4, toolchain version fixed (the PC has Go 1.22; the roadmap names 1.23+) |
+| F-00 | Skeleton | `NetworkMeasureBox-DePyD/` layout, `CHANGELOG.md` (first commit), `KNOWN_PYTHON_FAULTS.md`, `WORK_STATUS.md`, Go module, build and gate scripts for the matrix of 2.4, toolchain version fixed (the PC has Go 1.22; the roadmap names 1.23+) |
 | F-01 | Owner's open decisions | The list of section 7 answered and written into the roadmap |
 | F-02 | Requirements register | Every requirement of both plans, `TESTING.md` (release checklist, *To fix*, *Known limits*), `ARCHITECTURE.md`, the READMEs and the changelog as one numbered list with its source line; each id assigned to a package; a second agent checks that no paragraph is without an id |
 | F-03 | Known Python faults | The roadmap's register plus the private audit and data-quality lists (open security faults by category only), each with the correct behaviour and the package that must prove it |
@@ -227,7 +227,7 @@ JFFS2 reader and a reader for vendor squashfs variants.
 
 ### 5.2 What is recorded for each image
 
-One record per image (`DePythonized/docs/images/<image>.md`, summary into roadmap section 6A): file name and
+One record per image (`NetworkMeasureBox-DePyD/docs/images/<image>.md`, summary into roadmap section 6A): file name and
 SHA-256 checked against the publisher; partition and file system layout, boot method, how an update is written
 (sysupgrade, A/B, ostree); kernel version and the configuration options NMB needs (bridge, bonding, VLAN,
 nftables, WireGuard, PPP and PPPoE, `mac80211`/`cfg80211`, `mac80211_hwsim`, USB network and tethering drivers,
@@ -276,7 +276,7 @@ from a maker's closed firmware (porting plan 7H point 3).
 
 ## 6. What the owner sees
 
-`DePythonized/WORK_STATUS.md` (state of every package), `DePythonized/CHANGELOG.md`, the briefs, the image
+`NetworkMeasureBox-DePyD/WORK_STATUS.md` (state of every package), `NetworkMeasureBox-DePyD/CHANGELOG.md`, the briefs, the image
 records, and for each accepted package its evidence: tests, figures, faults found and fixed, what is better
 than the Python version (Quality Bar point 5).
 
@@ -292,3 +292,4 @@ From the roadmap's own open points:
 5. The go-ahead and the time for native tests on the Raspberry Pi 4, the owner's working box.
 6. Update signing (6B.3): where the signing key is kept.
 7. The wording of the disclaimer (6B.3A).
+8. `NetworkMeasureBox-DePyD/`: its version control (an own repository; private or public, the native builds probably being for sale; where it is pushed) and its licence. The agents' separate working copies (2.2 point 1) need it to be a repository before F-00.

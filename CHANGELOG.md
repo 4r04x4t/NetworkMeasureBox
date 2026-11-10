@@ -104,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The native (de-Pythonized) build is developed in its own folder next to the Python version, `NetworkMeasureBox-DePyD/`, instead of a `DePythonized/` folder inside this tree (owner, 2026-11-10); the roadmap, the porting plan and the work plan name the new place.
 - The default contracted speed is now 0 (not set) instead of 1000/300 Mbit/s, and the settings form no longer fills in 1000: nothing is judged against a plan the owner never entered. A configuration that names its speeds (as the owner's 1000/300) is not affected.
 - The Telegram bot's `/report` caption, progress message and help no longer call the box's own evaluation "official" or "regulatory" (German, French, Ukrainian and the other languages): the result is NMB's evaluation of its own measurements.
 - The dossier and the email summary say that only scheduled tests wait for low traffic; tests started by hand (Web UI, Telegram, remote) start at once (11 languages).
