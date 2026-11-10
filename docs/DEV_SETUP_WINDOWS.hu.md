@@ -120,6 +120,25 @@ print("clock jumps in 30 s:", j)'
 
 Ugyanezt jelzi, ha a `journalctl` néhány másodpercenként „Clock change detected” sort ír.
 
+## 5A. Eszközök a natív változathoz (depythonizáció)
+
+A WSL2-es PC-re 2026-11-10-én telepítve (Ubuntu 24.04): Go- és C-fordítók, keresztfordítók a tervezett célokra, QEMU a futtatásukhoz, firmware- és képfájl-eszközök, valamint azok az elemzők, amelyeket a minőségi követelmények (a `DEPYTHONIZATION_ROADMAP.md` 7. és 8. pontja) minden buildnél előírnak.
+
+```bash
+sudo apt-get install -y --no-install-recommends \
+  nodejs golang-go clang clang-tidy clang-tools llvm lld libclang-rt-18-dev musl-tools cmake meson ninja-build pkg-config gdb-multiarch qemu-system-x86 qemu-system-arm qemu-system-mips qemu-system-misc qemu-user-static qemu-utils ovmf qemu-efi-aarch64 qemu-efi-arm ipxe-qemu gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-mips-linux-gnu gcc-mipsel-linux-gnu libc6-dev-arm64-cross libc6-dev-armhf-cross libc6-dev-mips-cross binwalk u-boot-tools device-tree-compiler mmdebstrap debootstrap zstd unzip p7zip-full e2fsprogs dosfstools mtools fdisk cppcheck shellcheck nftables iperf3 tcpdump strace valgrind gh
+go install honnef.co/go/tools/cmd/staticcheck@2024.1.1
+go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
+go install golang.org/x/vuln/cmd/govulncheck@v1.1.3
+echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.profile
+```
+
+Amit ad: Go 1.22 (`CGO_ENABLED=0` build `amd64`, `arm64`, `arm` v7, `mips` és `mipsle` soft-float célra, mindegyik `qemu-*-static` alatt futtatva); C musl-lal (`musl-gcc -static`), kereszt-GCC AArch64-re, ARMv7-re és MIPS big/little endianre, clang AddressSanitizerrel és UndefinedBehaviorSanitizerrel; QEMU rendszeremulátorok x86-64-re, ARM-ra, AArch64-re és MIPS-re UEFI-firmware-rel; `binwalk`, `unsquashfs`/`mksquashfs`, `mkimage`, `dtc`, `7z`, `zstd` a firmware-képfájlok szétbontásához; `mmdebstrap`/`debootstrap` Debian-képfájlokhoz; `cppcheck`, `clang-tidy`, `shellcheck`, `staticcheck`, `gosec`, `govulncheck`; `nft`, `iperf3`, `tcpdump`, `strace`, `valgrind`. Mindegyik ki van próbálva egy kis Go- és C-programmal minden architektúrán.
+
+Az OpenWrt SDK-k, ImageBuilderek és toolchainek, az alap-képfájlok és a router-firmware-ek nem csomagból jönnek: a letöltött készletben vannak (`%USERPROFILE%\Downloads\NMB-depythonization-firmwares`, roadmap 6B.4), és onnan bontjuk ki őket, amikor egy lépéshez kellenek.
+
+**Memória:** ebben a PC-ben 3,9 GB RAM és 4 szál van; a WSL2 alapból kb. 1,8 GB-ot kap. Ez elég a Go- és C-buildekhez és egy kisebb QEMU-vendéghez (például OpenWrt 256-512 MB-tal), de több vendéghez egyszerre nem. A WSL2 több memóriát kaphat a `%USERPROFILE%\.wslconfig` `memory=` sorával (a Windows rovására).
+
 ## 6. Egy változtatás telepítése a dobozra
 
 > **A tesztkészletet soha ne futtasd rootként (vagy `nmb`-ként) egy működő dobozon.** Néhány teszt útvonal nélkül menti a beállításokat és listákat, ami a dobozon a valódi `/etc/nmb/nmb.conf` (2026-11-10: felülírta a PPPoE-belépést, a Telegram-csevegést és mást). Úgy futtasd, ahogy a frissítő: `nobody`-ként egy másolaton: `python3 -c "from pathlib import Path; import tempfile; from nmb.common import updater; t = tempfile.mkdtemp(); print(updater.run_tests_sandboxed(Path('.'), t))"` a kicsomagolt forrásból, rootként (magától átvált nobody-ra). A kimenet a `/var/log/nmb/update.log`-ba kerül.

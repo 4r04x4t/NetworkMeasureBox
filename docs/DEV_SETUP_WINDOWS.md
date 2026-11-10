@@ -118,6 +118,25 @@ print("clock jumps in 30 s:", j)'
 
 `journalctl` showing "Clock change detected" every few seconds means the same.
 
+## 5A. Tools for the native build (de-Pythonization)
+
+Installed on the WSL2 PC on 2026-11-10 (Ubuntu 24.04): compilers for Go and C, cross compilers for the planned targets, QEMU to run them, firmware and image tools, and the analysers that the Quality Bar (points 7 and 8 of `DEPYTHONIZATION_ROADMAP.md`) asks for on every build.
+
+```bash
+sudo apt-get install -y --no-install-recommends \
+  nodejs golang-go clang clang-tidy clang-tools llvm lld libclang-rt-18-dev musl-tools cmake meson ninja-build pkg-config gdb-multiarch qemu-system-x86 qemu-system-arm qemu-system-mips qemu-system-misc qemu-user-static qemu-utils ovmf qemu-efi-aarch64 qemu-efi-arm ipxe-qemu gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-mips-linux-gnu gcc-mipsel-linux-gnu libc6-dev-arm64-cross libc6-dev-armhf-cross libc6-dev-mips-cross binwalk u-boot-tools device-tree-compiler mmdebstrap debootstrap zstd unzip p7zip-full e2fsprogs dosfstools mtools fdisk cppcheck shellcheck nftables iperf3 tcpdump strace valgrind gh
+go install honnef.co/go/tools/cmd/staticcheck@2024.1.1
+go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
+go install golang.org/x/vuln/cmd/govulncheck@v1.1.3
+echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.profile
+```
+
+What it gives: Go 1.22 (`CGO_ENABLED=0` builds for `amd64`, `arm64`, `arm` v7, `mips` and `mipsle` soft-float, each run under `qemu-*-static`); C with musl (`musl-gcc -static`), cross GCC for AArch64, ARMv7 and MIPS big/little endian, clang with AddressSanitizer and UndefinedBehaviorSanitizer; QEMU system emulators for x86-64, ARM, AArch64 and MIPS with UEFI firmware; `binwalk`, `unsquashfs`/`mksquashfs`, `mkimage`, `dtc`, `7z`, `zstd` for unpacking firmware images; `mmdebstrap`/`debootstrap` for Debian images; `cppcheck`, `clang-tidy`, `shellcheck`, `staticcheck`, `gosec`, `govulncheck`; `nft`, `iperf3`, `tcpdump`, `strace`, `valgrind`. All were checked with a small Go and C program on every architecture.
+
+The OpenWrt SDKs, ImageBuilders and toolchains, the base images and the router firmware are not installed from packages: they are in the downloaded set (`%USERPROFILE%\Downloads\NMB-depythonization-firmwares`, roadmap 6B.4) and are unpacked from there when a step needs them.
+
+**Memory:** this PC has 3.9 GB RAM and 4 threads; WSL2 gets about 1.8 GB by default. That is enough for Go and C builds and one small QEMU guest (for example OpenWrt with 256-512 MB), not for several guests at once. More memory for WSL2 can be set with `memory=` in `%USERPROFILE%\.wslconfig` (at the cost of Windows).
+
 ## 6. Installing a change on the box
 
 > **Never run the test suite as root (or as `nmb`) on a working box.** Some tests save settings and lists without a path, and on the box that is the real `/etc/nmb/nmb.conf` (2026-11-10: the PPPoE login, the Telegram chat and more were overwritten). Run it the way the updater does, as `nobody` on a copy: `python3 -c "from pathlib import Path; import tempfile; from nmb.common import updater; t = tempfile.mkdtemp(); print(updater.run_tests_sandboxed(Path('.'), t))"` from the unpacked source, as root (it drops to nobody itself). The output goes to `/var/log/nmb/update.log`.
