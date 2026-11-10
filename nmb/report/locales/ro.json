@@ -102,5 +102,8 @@
  "legal_appendix_title": "Notă oficială privind escaladarea litigiului către autoritatea de reglementare și furnizor:",
  "legal_appendix_body": "Acest document prezintă telemetrie de rețea independentă, înregistrată autonom de o sondă hardware NetworkMeasureBox instalată la abonat. Măsurătorile respectă principiile de bază ale <b>Regulamentului UE 2015/2120 (Regulamentul privind internetul deschis)</b>, ale <b>Ghidurilor BEREC privind neutralitatea rețelei și măsurarea QoS (BoR (20) 165)</b> și ale <b>IETF RFC 2681</b>. Testele de debit rulează strict în condiții verificate de trafic LAN de fond redus, pentru a elimina distorsiunile cauzate de blocaje locale. Dacă debitul măsurat nu atinge în mod repetat vitezele minime garantate din contract sau dacă frecvența întreruperilor depășește toleranțele de reglementare, abonatul are dreptul să depună o reclamație formală la furnizorul de servicii de internet, să ceară despăgubiri contractuale sau să sesizeze autoritatea națională de reglementare competentă.",
  "link_open": "Deschide",
- "unit_sec": "s"
+ "unit_sec": "s",
+ "outage_own_tag": "cauzată de cutia însăși (schimbare de mod, actualizare sau repornire); nu se ia în calcul",
+ "outage_part_own": "din care {sec}s în timpul unei acțiuni a cutiei, neluate în calcul",
+ "kpi_own_sub": "Acțiunile proprii ale cutiei ({sec}s) nu intră în disponibilitate"
 }

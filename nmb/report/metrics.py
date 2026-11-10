@@ -63,6 +63,71 @@ def merged_length(spans) -> int:
         total += cur_e - cur_s
     return total
 
+LEGACY_BEFORE_MS = 180_000     # a mode change event marks the END of the switch; it began up to 3 min earlier
+LEGACY_AFTER_MS = 30_000
+OWN_KINDS_LEGACY = ("mode_change", "mode_change_failed", "mode_setting_changed")
+MIN_ISP_OUTAGE_SEC = 30        # what is left of an outage after the box's own windows; less is the box's
+
+
+def merge_spans(spans) -> List[tuple]:
+    out: List[list] = []
+    for s_, e_ in sorted(spans):
+        if out and s_ <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], e_)
+        else:
+            out.append([s_, e_])
+    return [tuple(x) for x in out]
+
+
+def subtract_spans(span: tuple, windows: List[tuple]) -> List[tuple]:
+    """The parts of span not covered by the (merged) windows."""
+    parts = [span]
+    for ws, we in windows:
+        nxt = []
+        for s_, e_ in parts:
+            if we <= s_ or ws >= e_:
+                nxt.append((s_, e_))
+                continue
+            if s_ < ws:
+                nxt.append((s_, ws))
+            if we < e_:
+                nxt.append((we, e_))
+        parts = nxt
+    return [p for p in parts if p[1] > p[0]]
+
+
+def own_action_windows(conn, start: int, end: int) -> List[tuple]:
+    """When the box itself had its connection down, with the time the line needs to come back.
+
+    Recorded windows (table own_action, since 2026-11-10); before the first recorded window, the netd
+    mode change events stand in for them (each marks the end of a switch that began up to 3 minutes
+    earlier). An outage in these windows cannot be put on the ISP.
+    """
+    from nmb.common.own_action import GRACE_AFTER_MS, GRACE_BEFORE_MS, MAX_OPEN_MS
+    windows: List[tuple] = []
+    first_recorded = None
+    try:
+        first = conn.execute("SELECT MIN(start_ts) FROM own_action").fetchone()
+        first_recorded = first[0] if first and first[0] else None
+        for r in conn.execute(
+                "SELECT start_ts, end_ts FROM own_action WHERE start_ts <= ? AND COALESCE(end_ts, start_ts + ?) >= ?",
+                (end, MAX_OPEN_MS, start - GRACE_AFTER_MS)).fetchall():
+            ws = r[0] - GRACE_BEFORE_MS
+            we = (r[1] if r[1] else min(end, r[0] + MAX_OPEN_MS)) + GRACE_AFTER_MS
+            windows.append((ws, we))
+    except Exception:
+        pass   # no own_action table in an old database
+    try:
+        until = first_recorded if first_recorded else end + LEGACY_BEFORE_MS
+        q = ("SELECT ts FROM event WHERE kind IN (%s) AND ts >= ? AND ts <= ? AND ts < ?"
+             % ",".join("?" * len(OWN_KINDS_LEGACY)))
+        for (ts,) in conn.execute(q, (*OWN_KINDS_LEGACY, start - LEGACY_AFTER_MS, end + LEGACY_BEFORE_MS, until)).fetchall():
+            windows.append((ts - LEGACY_BEFORE_MS, ts + LEGACY_AFTER_MS))
+    except Exception:
+        pass
+    return merge_spans(windows)
+
+
 def latest_measured_test(tests: List[dict]) -> Optional[dict]:
     """Return the newest test with results; a skipped test has no speed to show."""
     return next((t for t in tests if t.get("status") == "ok"), None)
@@ -79,8 +144,10 @@ class OutageRecord:
     id: int
     start_ts: int
     end_ts: Optional[int]
-    duration_sec: int
+    duration_sec: int          # the part counted against the line (the box's own windows taken out)
     cause: str
+    cause_kind: str = "isp"    # "isp" or "own" (the box's own mode change, update, restart)
+    own_sec: int = 0           # the part that fell into the box's own windows
 
 
 @dataclass
@@ -159,7 +226,9 @@ class ReportData:
 
     uptime_pct: float = 100.0
     total_outage_sec: int = 0
-    outages: List[OutageRecord] = field(default_factory=list)
+    outages: List[OutageRecord] = field(default_factory=list)          # counted against the line
+    own_outages: List[OutageRecord] = field(default_factory=list)      # the box's own, not counted
+    own_action_sec: int = 0      # time the box itself had the connection down; left out of availability
 
     ping_summary: PingSummary = field(default_factory=PingSummary)
     target_stats: List[TargetPingStats] = field(default_factory=list)
@@ -220,23 +289,36 @@ def aggregate_report_data(
     ).fetchall()
 
     ends = effective_outage_ends(conn, outage_rows, now)
+    own_windows = [(max(start, a), min(now, b)) for a, b in own_action_windows(conn, start, now) if b > start and a < now]
     spans = []
     for r in outage_rows:
         o_start = max(start, r["start_ts"])
         eff_end = ends.get(r["id"])
-        o_end = min(now, eff_end) if eff_end else now
-        dur_sec = max(0, int((o_end - o_start) / 1000))
-        spans.append((o_start, max(o_start, o_end)))
-        report.outages.append(OutageRecord(
+        o_end = max(o_start, min(now, eff_end) if eff_end else now)
+        isp_parts = subtract_spans((o_start, o_end), own_windows)
+        isp_ms = sum(b - a for a, b in isp_parts)
+        own_ms = (o_end - o_start) - isp_ms
+        rec = OutageRecord(
             id=r["id"],
             start_ts=r["start_ts"],
             end_ts=r["end_ts"] if r["end_ts"] else (eff_end if eff_end and eff_end < now else None),
-            duration_sec=dur_sec,
+            duration_sec=max(0, int(isp_ms / 1000)),
             cause=r["cause"] or "Unreachable",
-        ))
+            own_sec=max(0, int(own_ms / 1000)),
+        )
+        if own_ms > 0 and rec.duration_sec < MIN_ISP_OUTAGE_SEC:
+            rec.cause_kind = "own"
+            rec.duration_sec, rec.own_sec = 0, max(0, int((o_end - o_start) / 1000))
+            report.own_outages.append(rec)
+            continue
+        spans.extend(isp_parts)
+        report.outages.append(rec)
     total_outage_ms = merged_length(spans)
 
-    window_duration_ms = max(1, now - start)
+    # The box's own windows are not the line's time at all: out of the counted time, not "up" or "down".
+    own_ms_total = merged_length(own_windows)
+    report.own_action_sec = int(own_ms_total / 1000)
+    window_duration_ms = max(1, now - start - own_ms_total)
     report.total_outage_sec = int(total_outage_ms / 1000)
     report.uptime_pct = max(0.0, min(100.0, (1.0 - (total_outage_ms / window_duration_ms)) * 100.0))
 
@@ -264,10 +346,15 @@ def aggregate_report_data(
     all_avg_rtts: List[float] = []
     all_jitters: List[float] = []
 
+    def _in_own_window(ts: int) -> bool:
+        return any(a < ts + 60_000 and ts < b for a, b in own_windows)
+
     for r in ping_rows:
         tid = r["target_id"]
         if tid not in target_map:
             continue
+        if own_windows and _in_own_window(r["ts"]):
+            continue     # pings lost while the box itself had the line down say nothing about the line
         sent = r["sent"]
         lost = r["lost"]
         total_sent += sent

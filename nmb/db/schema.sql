@@ -131,3 +131,15 @@ INSERT OR IGNORE INTO target(id, addr, label) VALUES
     (2, '8.8.8.8',         'Google'),
     (3, '9.9.9.9',         'Quad9'),
     (4, '185.222.222.222', 'DNS.SB');
+
+-- Windows in which the box itself disrupted its connection (mode change, update, reboot): outages in
+-- them are the box's own and are not counted against the ISP (nmb/common/own_action.py).
+CREATE TABLE IF NOT EXISTS own_action (
+    id       INTEGER PRIMARY KEY,
+    start_ts INTEGER NOT NULL,
+    end_ts   INTEGER,
+    kind     TEXT NOT NULL,
+    source   TEXT NOT NULL,
+    detail   TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_own_action_start ON own_action(start_ts);

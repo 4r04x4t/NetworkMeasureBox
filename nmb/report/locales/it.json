@@ -102,5 +102,8 @@
  "legal_appendix_title": "Avviso ufficiale di escalation della controversia verso l'autorità di regolamentazione e il provider:",
  "legal_appendix_body": "Questo documento presenta una telemetria di rete indipendente registrata autonomamente da una sonda hardware NetworkMeasureBox installata presso l'abbonato. Le misurazioni rispettano i principi fondamentali del <b>Regolamento UE 2015/2120 (Regolamento sull'Internet aperto)</b>, delle <b>Linee guida BEREC sulla neutralità della rete e sulla misurazione della QoS (BoR (20) 165)</b> e di <b>IETF RFC 2681</b>. Le verifiche di throughput si svolgono solo con traffico LAN di fondo verificato e basso, per eliminare le distorsioni dovute a colli di bottiglia locali. Se il throughput misurato non raggiunge ripetutamente le velocità minime garantite dal contratto, o se la frequenza delle interruzioni supera le tolleranze regolamentari, l'abbonato ha diritto di presentare un reclamo formale al fornitore di servizi Internet, chiedere un indennizzo contrattuale o rivolgersi all'autorità nazionale di regolamentazione competente.",
  "link_open": "Apri",
- "unit_sec": "s"
+ "unit_sec": "s",
+ "outage_own_tag": "causata dal box stesso (cambio di modalità, aggiornamento o riavvio); non conteggiata",
+ "outage_part_own": "di cui {sec}s durante un'azione del box stesso, non conteggiati",
+ "kpi_own_sub": "Le azioni del box stesso ({sec}s) sono escluse dalla disponibilità"
 }

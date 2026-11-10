@@ -102,5 +102,8 @@
  "legal_appendix_title": "Aviso oficial de escalado de la reclamación ante el regulador y el proveedor:",
  "legal_appendix_body": "Este documento presenta telemetría de red independiente registrada de forma autónoma por una sonda de hardware NetworkMeasureBox instalada en las instalaciones del abonado. Las mediciones siguen los principios básicos del <b>Reglamento (UE) 2015/2120 (Reglamento de Internet abierta)</b>, las <b>Directrices del BEREC sobre neutralidad de la red y medición de la QoS (BoR (20) 165)</b> y el <b>IETF RFC 2681</b>. Las auditorías de caudal se realizan solo con un tráfico LAN de fondo bajo y verificado, para eliminar distorsiones por cuellos de botella locales. Si el caudal medido no alcanza de forma persistente las velocidades mínimas garantizadas por contrato, o si la frecuencia de los cortes supera las tolerancias regulatorias, el abonado tiene derecho a presentar una reclamación formal ante el proveedor de servicios de Internet, solicitar una compensación contractual o elevar el caso a la autoridad nacional de regulación competente.",
  "link_open": "Abrir",
- "unit_sec": "s"
+ "unit_sec": "s",
+ "outage_own_tag": "causada por la propia caja (cambio de modo, actualización o reinicio); no se cuenta",
+ "outage_part_own": "de ellos {sec}s durante una acción de la propia caja, no contados",
+ "kpi_own_sub": "Las acciones de la propia caja ({sec}s) no cuentan en la disponibilidad"
 }

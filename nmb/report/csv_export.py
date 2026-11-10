@@ -186,9 +186,13 @@ def export_detailed_speedtests_csv(
 
 
 def export_outages_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int) -> str:
+    """Outages with the part the box caused itself taken out (counted_sec) and their kind:
+    "isp" (counted against the line) or "own" (the box's own mode change, update or restart)."""
+    from nmb.report.metrics import effective_outage_ends, own_action_windows, subtract_spans, MIN_ISP_OUTAGE_SEC
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow(["outage_id", "start_time_iso", "end_time_iso", "start_ms", "end_ms", "duration_sec", "cause"])
+    writer.writerow(["outage_id", "start_time_iso", "end_time_iso", "start_ms", "end_ms", "duration_sec", "cause",
+                     "cause_kind", "counted_sec", "own_action_sec"])
 
     rows = conn.execute(
         """SELECT id, start_ts, end_ts, cause FROM outage
@@ -196,10 +200,17 @@ def export_outages_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int) -> 
            ORDER BY start_ts DESC""",
         (start_ms, end_ms)
     ).fetchall()
+    now = db.now_ms()
+    ends = effective_outage_ends(conn, rows, now)
+    windows = own_action_windows(conn, start_ms, end_ms)
 
     for r in rows:
-        e_ts = r["end_ts"]
+        e_ts = r["end_ts"] or ends.get(r["id"])
         dur = int((e_ts - r["start_ts"]) / 1000) if e_ts else ""
+        span_end = e_ts or now
+        counted_ms = sum(b - a for a, b in subtract_spans((r["start_ts"], span_end), windows))
+        own_ms = (span_end - r["start_ts"]) - counted_ms
+        kind = "own" if (own_ms > 0 and counted_ms < MIN_ISP_OUTAGE_SEC * 1000) else "isp"
         writer.writerow([
             r["id"],
             _iso(r["start_ts"]),
@@ -208,6 +219,9 @@ def export_outages_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int) -> 
             e_ts or "",
             dur,
             r["cause"] or "",
+            kind,
+            0 if kind == "own" else int(counted_ms / 1000),
+            int(own_ms / 1000),
         ])
     return out.getvalue()
 

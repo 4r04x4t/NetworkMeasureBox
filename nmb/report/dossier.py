@@ -99,6 +99,9 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "th_outage_duration": "Kiesés Időtartama",
         "th_outage_cause": "Diagnosztikai Ok",
         "outage_ongoing": "FOLYAMATBAN",
+        "outage_own_tag": "a doboz okozta (módváltás, frissítés vagy újraindítás); nem számít bele",
+        "outage_part_own": "ebből {sec} mp a doboz saját művelete alatt, nem számít bele",
+        "kpi_own_sub": "A doboz saját műveletei ({sec} mp) nincsenek benne a rendelkezésre állásban",
         "outage_empty": "Ebben a mérési időablakban nem történt hálózati kimaradás (100% üzemidő).",
         "sec_speed_audit_title": "Részletes Sebességmérési Adatnapló",
         "sec_speed_audit_sub": "Nyilvános IP cím, észlelt ISP, letöltési/feltöltési arányok és státuszkódok",
@@ -228,6 +231,9 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "th_outage_duration": "Duration",
         "th_outage_cause": "Diagnostic Cause",
         "outage_ongoing": "ONGOING",
+        "outage_own_tag": "caused by the box itself (mode change, update or restart); not counted",
+        "outage_part_own": "of which {sec}s during the box's own action, not counted",
+        "kpi_own_sub": "The box's own actions ({sec}s) are left out of the availability",
         "outage_empty": "No network outages occurred in this observation window (100% uptime).",
         "sec_speed_audit_title": "Detailed Speedtest Audit Log",
         "sec_speed_audit_sub": "Public IP, detected ISP, download/upload throughput and diagnostic status codes",
@@ -357,6 +363,9 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "th_outage_duration": "Ausfalldauer",
         "th_outage_cause": "Diagnoseursache",
         "outage_ongoing": "LAUFEND",
+        "outage_own_tag": "von der Box selbst verursacht (Moduswechsel, Update oder Neustart); nicht gezählt",
+        "outage_part_own": "davon {sec}s während einer eigenen Aktion der Box, nicht gezählt",
+        "kpi_own_sub": "Eigene Aktionen der Box ({sec}s) sind in der Verfügbarkeit nicht enthalten",
         "outage_empty": "In diesem Zeitraum traten keine Netzwerkausfälle auf (100% Verfügbarkeit).",
         "sec_speed_audit_title": "Detailliertes Geschwindigkeits-Audit-Protokoll",
         "sec_speed_audit_sub": "Öffentliche IP, erkannter ISP, Durchsatz und Diagnosestatuscodes",
@@ -486,6 +495,9 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "th_outage_duration": "Durée",
         "th_outage_cause": "Cause du diagnostic",
         "outage_ongoing": "EN COURS",
+        "outage_own_tag": "causé par le boîtier lui-même (changement de mode, mise à jour ou redémarrage) ; non compté",
+        "outage_part_own": "dont {sec}s pendant une action du boîtier lui-même, non comptées",
+        "kpi_own_sub": "Les actions du boîtier lui-même ({sec}s) sont exclues de la disponibilité",
         "outage_empty": "Aucune coupure de réseau enregistrée pendant cette période (100% de disponibilité).",
         "sec_speed_audit_title": "Journal Détaillé d'Audit des Débits",
         "sec_speed_audit_sub": "IP publique, FAI détecté, débits et codes de diagnostic",
@@ -615,6 +627,9 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "th_outage_duration": "Тривалість",
         "th_outage_cause": "Діагностична причина",
         "outage_ongoing": "ТРИВАЄ",
+        "outage_own_tag": "спричинено самим пристроєм (зміна режиму, оновлення або перезапуск); не враховано",
+        "outage_part_own": "з них {sec}с під час дії самого пристрою, не враховано",
+        "kpi_own_sub": "Власні дії пристрою ({sec}с) не входять у доступність",
         "outage_empty": "У цей період спостереження перерв у мережі не зафіксовано (100% доступність).",
         "sec_speed_audit_title": "Детальний Аудиторський Журнал Вимірювань Швидкості",
         "sec_speed_audit_sub": "Публічна IP, виявлений ISP, швидкості та діагностичні коди стану",
@@ -756,15 +771,26 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
     )
 
     outage_rows_html = []
-    if report.outages:
-        for o in report.outages:
+    own_outages = list(getattr(report, "own_outages", []) or [])
+    if report.outages or own_outages:
+        for o in sorted(list(report.outages) + own_outages, key=lambda x: x.start_ts, reverse=True):
             start_str = _format_datetime(o.start_ts)
             end_str = _format_datetime(o.end_ts) if o.end_ts else f"<span class='text-red'>{tr['outage_ongoing']}</span>"
+            cause = _html.escape(str(o.cause))
+            if getattr(o, "cause_kind", "isp") == "own":
+                outage_rows_html.append(f"""<tr class="text-muted">
+  <td>{start_str}</td>
+  <td>{end_str}</td>
+  <td>({o.own_sec} {tr['unit_sec']})</td>
+  <td>{cause} &mdash; <em>{tr['outage_own_tag']}</em></td>
+</tr>""")
+                continue
+            part = f" <em>({tr['outage_part_own'].format(sec=o.own_sec)})</em>" if getattr(o, "own_sec", 0) else ""
             outage_rows_html.append(f"""<tr>
   <td>{start_str}</td>
   <td>{end_str}</td>
   <td><strong>{o.duration_sec} {tr['unit_sec']}</strong></td>
-  <td>{o.cause}</td>
+  <td>{cause}{part}</td>
 </tr>""")
     else:
         outage_rows_html.append(f"<tr><td colspan='4' class='text-center text-muted'>{tr['outage_empty']}</td></tr>")
@@ -1236,6 +1262,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
       <div class="kpi-label">{tr['kpi_availability']}</div>
       <div class="kpi-value { 'text-green' if report.uptime_pct >= 99.9 else 'text-red' }">{report.uptime_pct:.2f}%</div>
       <div class="kpi-sub">{tr['kpi_outage_sub'].format(outages=len(report.outages), sec=report.total_outage_sec)}</div>
+      {f"<div class='kpi-sub'>{tr['kpi_own_sub'].format(sec=report.own_action_sec)}</div>" if getattr(report, "own_action_sec", 0) else ""}
     </div>
     <div class="kpi-card">
       <div class="kpi-label">{tr['kpi_latency']}</div>

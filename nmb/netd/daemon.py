@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from nmb.common import own_action
 from nmb.config import Config, load_config
 from nmb.db import database as db
 from nmb.netd.detector import NetworkDetector
@@ -91,18 +92,19 @@ class NetworkDaemon:
             return
         log.info("network configuration changed; re-applying active mode")
         active_mode = self.current_mode_name
-        if self.current_mode_inst:
-            try:
-                self.current_mode_inst.teardown()
-            except Exception as e:
-                log.error("error during %s teardown: %s", active_mode, e)
-        self.current_mode_name = None
-        self.current_mode_inst = None
-        self._build_modes()
-        override = self._get_override_mode()
-        target_mode, reason = self.detector.evaluate_target_mode(override)
-        self._apply_auto_details(override)
-        self.switch_mode(target_mode, f"configuration reload ({reason})")
+        with own_action.window("network_reload", "netd", f"settings changed: {', '.join(sorted(changed))[:200]}"):
+            if self.current_mode_inst:
+                try:
+                    self.current_mode_inst.teardown()
+                except Exception as e:
+                    log.error("error during %s teardown: %s", active_mode, e)
+            self.current_mode_name = None
+            self.current_mode_inst = None
+            self._build_modes()
+            override = self._get_override_mode()
+            target_mode, reason = self.detector.evaluate_target_mode(override)
+            self._apply_auto_details(override)
+            self.switch_mode(target_mode, f"configuration reload ({reason})")
 
     def _adopt_network_cfg(self) -> None:
         """Hand the reloaded [network] settings to the running objects without rebuilding them."""
@@ -205,7 +207,14 @@ class NetworkDaemon:
 
         log.info("SWITCHING MODE: %s -> %s (reason: %s)", self.current_mode_name, new_mode, reason)
         old_mode = self.current_mode_name
+        # The box takes its own connection down here: outages until it is back are not the ISP's.
+        action = own_action.begin("mode_change", "netd", f"{old_mode} -> {new_mode}: {reason}"[:300])
+        try:
+            return self._switch_mode(old_mode, new_mode, reason)
+        finally:
+            own_action.end(action)
 
+    def _switch_mode(self, old_mode: Optional[str], new_mode: str, reason: str) -> bool:
         if self.current_mode_inst:
             try:
                 self.current_mode_inst.teardown()
@@ -239,8 +248,9 @@ class NetworkDaemon:
             std.auto_passthrough = want_pt
             if self.current_mode_name == "standalone" and self.current_mode_inst is std:
                 log.info("auto mode: LAN passthrough ports now %s; rebuilding standalone", want_pt or "none")
-                std.teardown()
-                std.setup()
+                with own_action.window("mode_rebuild", "netd", "standalone: LAN passthrough ports changed"):
+                    std.teardown()
+                    std.setup()
         had_ppp = getattr(ma, "auto_pppoe", False)
         if want_ppp != had_ppp:
             ma.auto_pppoe = want_ppp
@@ -250,8 +260,9 @@ class NetworkDaemon:
             dials = lambda auto: bool(self.cfg.network.pppoe_enabled or auto)
             if dials(want_ppp) != dials(had_ppp) and self.current_mode_name == "mode_a" and self.current_mode_inst is ma:
                 log.info("auto mode: PPPoE %s; rebuilding router mode", "on" if want_ppp else "off")
-                ma.teardown()
-                ma.setup()
+                with own_action.window("mode_rebuild", "netd", f"router mode: PPPoE {'on' if want_ppp else 'off'}"):
+                    ma.teardown()
+                    ma.setup()
 
     def handle_signal(self, signum: int, frame) -> None:
         if signum in (signal.SIGTERM, signal.SIGINT):
@@ -305,6 +316,9 @@ class NetworkDaemon:
         _apply_kernel_tuning()
         self._kernel_sig = _kernel_tuning_signature()
 
+        # Windows a stop, reboot or crash left open end now; the initial setup below opens its own.
+        own_action.close_stale()
+
         # Initial assessment
         override = self._get_override_mode()
         initial_mode, reason = self.detector.evaluate_target_mode(override)
@@ -333,8 +347,9 @@ class NetworkDaemon:
                     self.current_mode_inst.check_usb_wan()
                     if self.current_mode_inst.needs_resetup:
                         log.info("Mode A: WAN source changed; rebuilding the router setup")
-                        self.current_mode_inst.teardown()
-                        self.current_mode_inst.setup()
+                        with own_action.window("mode_rebuild", "netd", "router mode: WAN source changed"):
+                            self.current_mode_inst.teardown()
+                            self.current_mode_inst.setup()
                 else:
                     # A changed home IPv6 prefix: the host guard follows it (standalone, transparent mode).
                     from nmb.netd import firewall as _fw
@@ -385,8 +400,9 @@ class NetworkDaemon:
             except Exception as e:
                 log.error("unexpected error in netd loop: %s", e, exc_info=True)
 
-        # Teardown on exit
+        # Teardown on exit: an open window, closed when netd starts again (a stop, an update or a reboot)
         log.info("cleaning up network interfaces before exit")
+        own_action.begin("netd_stop", "netd", "netd stopped; the network is down until it starts again")
         if self.current_mode_inst:
             self.current_mode_inst.teardown()
         STATE_FILE.unlink(missing_ok=True)

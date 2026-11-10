@@ -3588,6 +3588,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "uptime_pct": report.uptime_pct,
             "outages_count": len(report.outages),
             "total_outage_sec": report.total_outage_sec,
+            "own_outages_count": len(getattr(report, "own_outages", [])),
+            "own_action_sec": getattr(report, "own_action_sec", 0),
             "bufferbloat": latest_bb,
             "latest_speedtest": latest_measured_test(report.speed_tests),
             "schedule_mode": getattr(self.server.cfg.speedtest, "schedule_mode", "scheduled"),

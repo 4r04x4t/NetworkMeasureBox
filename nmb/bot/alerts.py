@@ -81,6 +81,12 @@ class AlertMonitor:
         cur_state = self._get_alert_state(conn, "outage")
 
         if ongoing and cur_state != "firing":
+            # The box itself has the line down (mode change, update, restart): no "outage" alarm for that.
+            # If the line is still down once the box's own window and its grace time are over, it fires then.
+            from nmb.report.metrics import own_action_windows
+            now = db.now_ms()
+            if any(a <= now <= b for a, b in own_action_windows(conn, now - 3_600_000, now)):
+                return
             cause = ongoing["cause"] or "No probe targets reachable"
             self._broadcast("outage_start", cause=cause, box_id=self.cfg.system.box_id)
             self._set_alert_state(conn, "outage", "firing", f"Outage start: {cause}")

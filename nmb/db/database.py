@@ -45,6 +45,7 @@ RETENTION = {
     "speedtest": 730,
     "port_check": 730,
     "outage": 730,
+    "own_action": 730,
 }
 
 from nmb.common.memory import (
@@ -157,6 +158,13 @@ def ensure_schema_upgrades(conn: sqlite3.Connection) -> None:
         except Exception:
             log.debug("suppressed exception", exc_info=True)
 
+        # Windows in which the box disrupted its own connection (nmb/common/own_action.py)
+        try:
+            from nmb.common import own_action
+            cur.executescript(own_action.SCHEMA)
+        except Exception as e:
+            log.warning("own_action table not created: %s", e)
+
         # Clear values that were filled in instead of measured (once; originals kept, see corrections.py)
         try:
             from nmb.db import corrections
@@ -230,7 +238,7 @@ def rollup_minutes(conn: sqlite3.Connection, upto_ms: int | None = None) -> int:
 
 
 # --------------------------------------------------------------------------- pruning
-_TS_COL = {"outage": "start_ts"}
+_TS_COL = {"outage": "start_ts", "own_action": "start_ts"}
 
 
 def prune(conn: sqlite3.Connection) -> dict[str, int]:
