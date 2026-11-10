@@ -1457,5 +1457,9 @@
  "dc_reached": "limită atinsă: testele automate se opresc",
  "dc_current": "Testele folosesc acum {link} ({iface}). Perioadă din {start}, următoarea resetare {next}.",
  "mix_in_run": "în rularea mixtă",
- "mix_hint": "Rulare mixtă (motorul „all”): în testele programate rulează doar motoarele bifate; debifează unul ca să-l lași deoparte o vreme. Testele pornite de tine le folosesc pe toate."
+ "mix_hint": "Rulare mixtă (motorul „all”): în testele programate rulează doar motoarele bifate; debifează unul ca să-l lași deoparte o vreme. Testele pornite de tine le folosesc pe toate.",
+ "hdr_mode_router": "Router",
+ "hdr_mode_bridge": "Punte",
+ "hdr_mode_standalone": "Autonom",
+ "hdr_mode_auto": "automat"
 }

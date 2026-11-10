@@ -7090,6 +7090,17 @@ _MIX_TEXTS = {
 for _lang, _texts in _MIX_TEXTS.items():
     TRANSLATIONS.setdefault(_lang, {}).update(_texts)
 
+# Header: the network mode the box is in now (nmb/web/assets/dashboard.js)
+_HDR_MODE_TEXTS = {
+    "en": {"hdr_mode_router": "Router", "hdr_mode_bridge": "Bridge", "hdr_mode_standalone": "Standalone", "hdr_mode_auto": "auto"},
+    "hu": {"hdr_mode_router": "Router", "hdr_mode_bridge": "Híd", "hdr_mode_standalone": "Önálló", "hdr_mode_auto": "automatikus"},
+    "de": {"hdr_mode_router": "Router", "hdr_mode_bridge": "Bridge", "hdr_mode_standalone": "Eigenständig", "hdr_mode_auto": "automatisch"},
+    "fr": {"hdr_mode_router": "Routeur", "hdr_mode_bridge": "Pont", "hdr_mode_standalone": "Autonome", "hdr_mode_auto": "automatique"},
+    "uk": {"hdr_mode_router": "Маршрутизатор", "hdr_mode_bridge": "Міст", "hdr_mode_standalone": "Автономний", "hdr_mode_auto": "автоматично"},
+}
+for _lang, _texts in _HDR_MODE_TEXTS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_texts)
+
 # More languages, one JSON file each in nmb/web/locales/ (key -> text). A key missing there is shown
 # in English, never in another language.
 LOCALE_LANGUAGES = ("ro", "it", "es", "pt", "pt-br", "zh")

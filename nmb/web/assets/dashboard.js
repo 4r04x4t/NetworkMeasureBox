@@ -2260,7 +2260,13 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       if (data.system_info) {
         document.getElementById('hdr-box-id').innerText = data.system_info.box_id || 'nmb-01';
         document.getElementById('hdr-fw-ver').innerText = data.system_info.firmware_version || '2.5.0';
-        document.getElementById('hdr-mode').innerText = data.system_info.mode || 'standalone';
+        const si = data.system_info;
+        const modeKey = { mode_a: 'hdr_mode_router', mode_b: 'hdr_mode_bridge', standalone: 'hdr_mode_standalone' }[si.mode];
+        const modeEn = { mode_a: 'Router', mode_b: 'Bridge', standalone: 'Standalone' }[si.mode];
+        let modeTxt = modeKey ? t(modeKey, modeEn) : (si.mode || '--');
+        if (si.mode === 'mode_a' && /^ppp/.test(si.wan_iface || '')) modeTxt += ' · PPPoE';
+        if (si.configured_mode === 'auto') modeTxt += ' (' + t('hdr_mode_auto', 'auto') + ')';
+        document.getElementById('hdr-mode').innerText = modeTxt;
         const wanV4 = escapeHtml(data.system_info.public_ipv4 || data.system_info.wan_ip || '');
         const wanV6 = escapeHtml(data.system_info.public_ipv6 || '');
         if (wanV4 && wanV6) {

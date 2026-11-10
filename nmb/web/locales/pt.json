@@ -1457,5 +1457,9 @@
  "dc_reached": "limite atingido: os testes automáticos param",
  "dc_current": "Os testes usam agora {link} ({iface}). Período desde {start}, próxima reposição {next}.",
  "mix_in_run": "na ronda mista",
- "mix_hint": "Ronda mista (motor \"all\"): nos testes agendados só correm os motores marcados; desmarque um para o deixar de fora durante algum tempo. Os testes que inicia usam todos."
+ "mix_hint": "Ronda mista (motor \"all\"): nos testes agendados só correm os motores marcados; desmarque um para o deixar de fora durante algum tempo. Os testes que inicia usam todos.",
+ "hdr_mode_router": "Router",
+ "hdr_mode_bridge": "Ponte",
+ "hdr_mode_standalone": "Autónomo",
+ "hdr_mode_auto": "automático"
 }

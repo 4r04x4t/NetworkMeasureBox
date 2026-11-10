@@ -1457,5 +1457,9 @@
  "dc_reached": "limite raggiunto: i test automatici si fermano",
  "dc_current": "I test ora usano {link} ({iface}). Periodo dal {start}, prossimo azzeramento {next}.",
  "mix_in_run": "nel giro misto",
- "mix_hint": "Giro misto (motore \"all\"): nei test pianificati girano solo i motori spuntati; togli la spunta per escluderne uno per un po'. I test che avvii tu li usano tutti."
+ "mix_hint": "Giro misto (motore \"all\"): nei test pianificati girano solo i motori spuntati; togli la spunta per escluderne uno per un po'. I test che avvii tu li usano tutti.",
+ "hdr_mode_router": "Router",
+ "hdr_mode_bridge": "Bridge",
+ "hdr_mode_standalone": "Autonomo",
+ "hdr_mode_auto": "automatico"
 }

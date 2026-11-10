@@ -1457,5 +1457,9 @@
  "dc_reached": "已达上限：自动测试停止",
  "dc_current": "测试当前使用 {link}（{iface}）。周期自 {start}，下次重置 {next}。",
  "mix_in_run": "参与混合测试",
- "mix_hint": "混合测试（引擎 \"all\"）：计划测试只运行已勾选的引擎；取消勾选可暂时不用某个引擎。您手动启动的测试会使用全部引擎。"
+ "mix_hint": "混合测试（引擎 \"all\"）：计划测试只运行已勾选的引擎；取消勾选可暂时不用某个引擎。您手动启动的测试会使用全部引擎。",
+ "hdr_mode_router": "路由器",
+ "hdr_mode_bridge": "网桥",
+ "hdr_mode_standalone": "独立",
+ "hdr_mode_auto": "自动"
 }

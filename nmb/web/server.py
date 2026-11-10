@@ -3291,6 +3291,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         conn = db.connect(readonly=True)
         mode_row = conn.execute("SELECT v FROM kv WHERE k = 'active_mode'").fetchone()
         active_mode = mode_row["v"] if mode_row else "unknown"
+        wan_row = conn.execute("SELECT v FROM kv WHERE k = 'active_wan_iface'").fetchone()
+        active_wan_iface = wan_row["v"] if wan_row else ""
 
         report = aggregate_report_data(conn, self.server.cfg, window_hours=24.0)
         svg = render_latency_chart(report.timeseries, report.outages, width=800, height=220)
@@ -3465,6 +3467,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "public_ip": dual_v4 or dual_v6,
                 "wps_pin": "--",
                 "box_id": self.server.cfg.system.box_id,
+                # The mode netd runs now, for the header (it always read "standalone" without this).
+                "mode": active_mode,
+                "configured_mode": getattr(self.server.cfg.network, "mode", ""),
+                "wan_iface": active_wan_iface,
             },
             "public_ipv4": dual_v4,
             "public_ipv6": dual_v6,
