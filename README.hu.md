@@ -9,6 +9,8 @@
 [![Router portok: tervezett](https://img.shields.io/badge/Router%20portok-Tervezett%2C%20nincs%20k%C3%A9sz-lightgrey.svg)](#17-100-os-de-pythonizáció-és-kereskedelmi-router-portolási-terv)
 [![Languages: EN HU DE UK FR](https://img.shields.io/badge/Languages-EN%20%7C%20HU%20%7C%20DE%20%7C%20UK%20%7C%20FR-orange.svg)](#8-beépített-webes-felület-webgui-és-többnyelvűség)
 
+> ❤️ **Támogasd a projektet:** az NMB ingyenes és nyílt forráskódú. Ha hasznos neked, egy adomány segít folytatni a munkát — lásd [A projekt támogatása](#a-projekt-támogatása).
+
 ---
 
 ## Tartalomjegyzék
@@ -34,6 +36,7 @@
 18. [Parancssori Eszközök (CLI) és Szolgáltatások](#18-parancssori-eszközök-cli-és-szolgáltatások)
 19. [Interaktív Telegram Távvezérlő Parancsok](#19-interaktív-telegram-távvezérlő-parancsok)
 20. [Telepítés és Beüzemelés (Quickstart)](#20-telepítés-és-beüzemelés-quickstart)
+* [A projekt támogatása](#a-projekt-támogatása)
 
 ---
 
@@ -692,6 +695,19 @@ Az NMB személyes projekt, nem hitelesített mérőeszköz. Az eredményei alát
 * **Nincs titkosítás**: a webes felület alapból HTTP-t használ, ezért csak megbízható hálózaton vagy VPN-en keresztül használd.
 
 ---
+
+## A projekt támogatása
+
+A NetworkMeasureBox szabadidőben készül, és MIT licenc alatt ingyenesen elérhető. Ha hasznos neked, egy adomány az alábbi címek egyikére segít a folytatásban (beillesztés után ellenőrizd a címet, és csak az adott hálózat eszközét küldd rá):
+
+| Hálózat | Cím |
+|---|---|
+| Solana | `An7eoFNzfVwudvHJNte8pB2xRh85uP4CN18zERVNWAWj` |
+| Bitcoin (Native SegWit) | `bc1q6syess8m43gsw8zlykkvuvcg0qhxv8dmtvjehm` |
+| Bitcoin (Taproot) | `bc1pfwmanxzpa3d52trthxxvd70m9dmguwt09tzcwufdwptgjr23nevq6g7l9g` |
+| Ethereum, BNB, Polygon, other ERC-20 | `0x23B12da9f4a224e7Fad4CCa5B17Bb450F3d4ABC4` |
+
+Ugyanezek a címek láthatók a webes felületen (❤️ Támogatás), a Telegram-botban (`/donate`) és az `nmb-cli donate` parancsban.
 
 ## Változásnapló
 

@@ -11,6 +11,8 @@
 
 > 📖 **[Kattints ide a részletes magyar nyelvű leíráshoz / Read the comprehensive Hungarian Guide](README.hu.md)**
 
+> ❤️ **Support the project:** NMB is free and open source. If it helps you, a donation keeps the work going — see [Support the project](#support-the-project).
+
 ---
 
 ## What is NetworkMeasureBox?
@@ -459,6 +461,19 @@ sudo journalctl -u nmb-web -f
 Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ---
+
+## Support the project
+
+NetworkMeasureBox is developed in free time and given away under the MIT License. If it is useful to you, a donation to one of these addresses helps keep it going (please double-check the address after pasting; send only the asset of that network):
+
+| Network | Address |
+|---|---|
+| Solana | `An7eoFNzfVwudvHJNte8pB2xRh85uP4CN18zERVNWAWj` |
+| Bitcoin (Native SegWit) | `bc1q6syess8m43gsw8zlykkvuvcg0qhxv8dmtvjehm` |
+| Bitcoin (Taproot) | `bc1pfwmanxzpa3d52trthxxvd70m9dmguwt09tzcwufdwptgjr23nevq6g7l9g` |
+| Ethereum, BNB, Polygon, other ERC-20 | `0x23B12da9f4a224e7Fad4CCa5B17Bb450F3d4ABC4` |
+
+The same addresses are shown in the Web UI (❤️ Support), by the Telegram bot (`/donate`) and by `nmb-cli donate`.
 
 ## License
 
