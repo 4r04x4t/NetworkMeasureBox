@@ -524,6 +524,11 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
     systemctl disable --now nmb-speed.timer 2>/dev/null || true
     rm -f /etc/systemd/system/nmb-speed.timer
     cp "$SCRIPT_DIR/systemd/"* /etc/systemd/system/
+    # "Network online" = one active connection, not NetworkManager's whole startup (see the file).
+    if [ -f /usr/lib/systemd/system/NetworkManager-wait-online.service ] || [ -f /lib/systemd/system/NetworkManager-wait-online.service ]; then
+        install -d /etc/systemd/system/NetworkManager-wait-online.service.d
+        install -m 0644 "$SCRIPT_DIR/os/nmb-wait-online.conf" /etc/systemd/system/NetworkManager-wait-online.service.d/50-nmb.conf
+    fi
     # Settings from a USB stick (nmb.conf at the top level of the stick)
     if [ -d /etc/udev/rules.d ]; then
         cp "$SCRIPT_DIR/os/90-nmb-usb-import.rules" /etc/udev/rules.d/90-nmb-usb-import.rules
