@@ -44,5 +44,24 @@ class LocaleFilesTest(unittest.TestCase):
                     self.assertIsNone(HUNGARIAN_ONLY.search(text))
 
 
+class CoreUiTextsTest(unittest.TestCase):
+    """locales/ui_core.json: the Web UI texts added on 2026-11-10 for en, hu, de, fr and uk."""
+
+    def test_core_languages_complete_and_consistent(self):
+        core = json.loads((LOCALES / "ui_core.json").read_text(encoding="utf-8"))
+        en = core["en"]
+        self.assertEqual(sorted(core), ["de", "en", "fr", "hu", "uk"])
+        for code, texts in core.items():
+            with self.subTest(lang=code):
+                self.assertEqual(sorted(set(en) - set(texts)), [], f"{code}: missing keys")
+                for key, text in texts.items():
+                    self.assertTrue(text.strip(), f"{code}: {key} empty")
+                    self.assertEqual(Counter(PLACEHOLDER.findall(text)), Counter(PLACEHOLDER.findall(en[key])), f"{code}: {key}")
+                    self.assertEqual(Counter(TAG.findall(text)), Counter(TAG.findall(en[key])), f"{code}: {key}")
+                    if code != "hu":
+                        self.assertIsNone(HUNGARIAN_ONLY.search(text), f"{code}: {key}")
+                self.assertEqual(TRANSLATIONS[code][next(iter(en))], texts[next(iter(en))])   # loaded by i18n.py
+
+
 if __name__ == "__main__":
     unittest.main()

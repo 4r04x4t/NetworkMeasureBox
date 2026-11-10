@@ -229,7 +229,7 @@
     currentLang = lang;
     document.documentElement.lang = lang;
     localStorage.setItem('nmb_lang', lang);
-    showToast('Changing language to ' + lang.toUpperCase() + '...');
+    showToast(t('js_lang_changing', 'Changing language to {lang}...').replace('{lang}', lang.toUpperCase()));
     try {
       const res = await fetch('/api/i18n', {
         method: 'POST',
@@ -240,7 +240,7 @@
         const d = await res.json();
         currentTranslations = d.translations || {};
         applyTranslations();
-        showToast('Language updated: ' + lang.toUpperCase());
+        showToast(t('js_lang_updated', 'Language updated: {lang}').replace('{lang}', lang.toUpperCase()));
       }
     } catch (e) {
       await loadTranslations(lang);
@@ -298,27 +298,27 @@
         refreshStatus();
       } else {
         const err = await res.json();
-        showToast('Error: ' + (err.message || 'Failed to save profile'));
+        showToast(t('error_prefix', 'Error: ') + (err.message || t('js_mem_save_failed', 'Failed to save profile')));
       }
     } catch (e) {
-      showToast('Error saving memory profile');
+      showToast(t('js_mem_save_error', 'Error saving memory profile'));
     }
   }
 
   async function trimMemoryNow() {
     const btn = document.querySelector('button[onclick="trimMemoryNow()"]');
     if (btn) btn.disabled = true;
-    showToast('🧹 Trimming process heap...');
+    showToast('🧹 ' + t('js_mem_trimming', 'Trimming process heap...'));
     try {
       const res = await fetch('/api/system/trim_memory', { method: 'POST' });
       if (res.ok) {
         showToast(t('toast_mem_trimmed', 'Process heap trimmed and memory released to the OS!'));
         refreshStatus();
       } else {
-        showToast('Error trimming memory');
+        showToast(t('js_mem_trim_error', 'Error trimming memory'));
       }
     } catch (e) {
-      showToast('Error trimming memory');
+      showToast(t('js_mem_trim_error', 'Error trimming memory'));
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -571,7 +571,7 @@
     const tbody = document.getElementById('port-matrix-tbody');
     if (!tbody) return;
     if (!data.interfaces || data.interfaces.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">No physical network controllers detected.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">' + t('js_no_controllers', 'No physical network controllers detected.') + '</td></tr>';
       return;
     }
 
@@ -583,35 +583,35 @@
     data.interfaces.forEach((iface, idx) => {
       const isUp = iface.carrier || iface.operstate === 'up';
       const statusBadge = isUp
-        ? `<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">🟢 UP (${iface.speed_mbps ? iface.speed_mbps + ' Mbps' : 'Active'})</span>`
-        : `<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;">🔴 DOWN</span>`;
+        ? `<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">🟢 ${t('js_link_up', 'UP')} (${iface.speed_mbps ? iface.speed_mbps + ' Mbps' : t('adblock_th_active', 'Active')})</span>`
+        : `<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;">🔴 ${t('js_link_down', 'DOWN')}</span>`;
 
-      const ipList = (iface.ipv4 && iface.ipv4.length) ? escapeHtml(iface.ipv4.join(', ')) : '<span style="color: var(--text-muted);">None</span>';
+      const ipList = (iface.ipv4 && iface.ipv4.length) ? escapeHtml(iface.ipv4.join(', ')) : '<span style="color: var(--text-muted);">' + t('js_none', 'None') + '</span>';
       const macStr = iface.mac ? `<code style="font-size: 11px; color: #94a3b8;">${escapeHtml(iface.mac)}</code>` : '--';
 
-      const drvStr = iface.driver ? `<b>${escapeHtml(iface.driver)}</b>${iface.firmware_version ? ' (' + escapeHtml(iface.firmware_version) + ')' : ''}` : '<span style="color: #ef4444;">No Driver</span>';
+      const drvStr = iface.driver ? `<b>${escapeHtml(iface.driver)}</b>${iface.firmware_version ? ' (' + escapeHtml(iface.firmware_version) + ')' : ''}` : '<span style="color: #ef4444;">' + t('js_no_driver', 'No Driver') + '</span>';
 
-      const busIcon = iface.bus_type === 'pci' ? '🖥️ PCIe' : iface.bus_type === 'usb' ? '🔌 USB' : '📦 Onboard';
+      const busIcon = iface.bus_type === 'pci' ? '🖥️ PCIe' : iface.bus_type === 'usb' ? '🔌 USB' : '📦 ' + t('js_onboard', 'Onboard');
       const busStr = `${busIcon} <span style="font-size: 11px; color: #94a3b8;">${escapeHtml(iface.bus_path || '')}</span>`;
 
       rowsHtml += `<tr>
         <td style="font-weight: 700; color: #f1f5f9; font-size: 13px;">
           ${escapeHtml(iface.name)} ${iface.is_wireless ? '📶' : '🌐'}
         </td>
-        <td style="font-size: 12px; color: #cbd5e1;">${escapeHtml(iface.chipset || 'Standard Ethernet')}</td>
+        <td style="font-size: 12px; color: #cbd5e1;">${escapeHtml(iface.chipset || t('js_standard_ethernet', 'Standard Ethernet'))}</td>
         <td style="font-size: 12px;">${drvStr}</td>
         <td style="font-size: 12px;">${busStr}</td>
         <td>${statusBadge}</td>
         <td style="font-size: 12px;">${macStr}<br><span style="font-size: 11px; color: #38bdf8;">${ipList}</span></td>
         <td>
           <select id="matrix-role-${escapeHtml(iface.name)}" class="form-input port-role-select" data-iface="${escapeHtml(iface.name)}" style="padding: 5px 8px; font-size: 12px; width: 100%;">
-            <option value="wan1" ${iface.role === 'wan1' ? 'selected' : ''}>🌐 WAN 1 (Primary)</option>
-            <option value="wan2" ${iface.role === 'wan2' ? 'selected' : ''}>🌐 WAN 2 (Secondary)</option>
-            <option value="lan" ${iface.role === 'lan' ? 'selected' : ''}>🏠 LAN (br-lan Bridge)</option>
+            <option value="wan1" ${iface.role === 'wan1' ? 'selected' : ''}>🌐 WAN 1 (${t('js_role_primary', 'Primary')})</option>
+            <option value="wan2" ${iface.role === 'wan2' ? 'selected' : ''}>🌐 WAN 2 (${t('js_role_secondary', 'Secondary')})</option>
+            <option value="lan" ${iface.role === 'lan' ? 'selected' : ''}>🏠 LAN (br-lan ${t('hdr_mode_bridge', 'Bridge')})</option>
             <option value="guest" ${iface.role === 'guest' ? 'selected' : ''}>📶 ${escapeHtml(t('role_guest_wifi', 'Guest Wi-Fi client'))}</option>
             ${iface.is_wireless || /^wl/.test(iface.name || '') ? `<option value="wifi_main" ${iface.role === 'wifi_main' ? 'selected' : ''}>📡 ${escapeHtml(t('role_main_wifi', 'Main Wi-Fi client (measuring)'))}</option>` : ''}
-            <option value="dmz" ${iface.role === 'dmz' ? 'selected' : ''}>🛡️ DMZ (Isolated)</option>
-            <option value="unassigned" ${iface.role === 'unassigned' ? 'selected' : ''}>⚪ Unassigned / Disabled</option>
+            <option value="dmz" ${iface.role === 'dmz' ? 'selected' : ''}>🛡️ DMZ (${t('js_role_isolated', 'Isolated')})</option>
+            <option value="unassigned" ${iface.role === 'unassigned' ? 'selected' : ''}>⚪ ${t('js_role_unassigned', 'Unassigned / Disabled')}</option>
           </select>
         </td>
       </tr>`;
@@ -688,10 +688,10 @@
         showToast(data.message || t('settings_saved', 'Port roles saved and applied successfully!'));
         loadInterfaceMatrix();
       } else {
-        showToast('Error: ' + (data.message || 'Failed to save port assignments'));
+        showToast(t('error_prefix', 'Error: ') + (data.message || t('js_ports_save_failed', 'Failed to save port assignments')));
       }
     } catch (e) {
-      showToast('Error saving port roles: ' + e);
+      showToast(t('js_ports_save_error', 'Error saving port roles: ') + e);
     }
   }
 
@@ -721,10 +721,10 @@
         if (iconSpan) iconSpan.innerText = '✅';
       }
       if (bannerTitle) {
-        bannerTitle.innerText = 'All Network Drivers Operational';
+        bannerTitle.innerText = t('js_drv_all_ok', 'All Network Drivers Operational');
         bannerTitle.style.color = '#34d399';
       }
-      if (bannerDesc) bannerDesc.innerText = 'All physical network controllers have active kernel drivers and loaded firmware.';
+      if (bannerDesc) bannerDesc.innerText = t('js_drv_all_ok_desc', 'All physical network controllers have active kernel drivers and loaded firmware.');
       if (missingBox) missingBox.style.display = 'none';
     } else {
       if (banner) {
@@ -734,10 +734,11 @@
         if (iconSpan) iconSpan.innerText = '⚠️';
       }
       if (bannerTitle) {
-        bannerTitle.innerText = `Driver Attention Needed (${data.unsupported_controllers_count} unsupported / ${data.missing_firmware_count} missing firmware)`;
+        bannerTitle.innerText = t('js_drv_attention', 'Driver Attention Needed ({unsupported} unsupported / {missing} missing firmware)')
+          .replace('{unsupported}', data.unsupported_controllers_count).replace('{missing}', data.missing_firmware_count);
         bannerTitle.style.color = '#f87171';
       }
-      if (bannerDesc) bannerDesc.innerText = 'Some network controllers require vendor firmware or kernel driver package installation.';
+      if (bannerDesc) bannerDesc.innerText = t('js_drv_attention_desc', 'Some network controllers require vendor firmware or kernel driver package installation.');
 
       if (data.missing_firmware && data.missing_firmware.length > 0 && missingBox && missingList) {
         missingBox.style.display = 'block';
@@ -751,23 +752,23 @@
     const ctrlTbody = document.getElementById('controllers-table-tbody');
     if (ctrlTbody && data.controllers) {
       if (data.controllers.length === 0) {
-        ctrlTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">No physical controllers detected.</td></tr>';
+        ctrlTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">' + t('js_no_controllers_short', 'No physical controllers detected.') + '</td></tr>';
       } else {
         let ctrlRows = '';
         data.controllers.forEach(c => {
-          const typeIcon = c.type === 'pci' ? '🖥️ PCIe' : c.type === 'usb' ? '🔌 USB' : '📦 Onboard';
+          const typeIcon = c.type === 'pci' ? '🖥️ PCIe' : c.type === 'usb' ? '🔌 USB' : '📦 ' + t('js_onboard', 'Onboard');
           const hasDrv = c.has_driver;
           const stBadge = hasDrv
-            ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">Ready</span>'
-            : '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;">No Driver</span>';
+            ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">' + t('js_drv_ready', 'Ready') + '</span>'
+            : '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;">' + t('js_no_driver', 'No Driver') + '</span>';
 
           const hwIds = `<code style="font-size: 11px;">${escapeHtml(c.vendor_id || '')}:${escapeHtml(c.device_id || '')}</code>`;
           ctrlRows += `<tr>
             <td style="font-weight: 600;">${typeIcon}</td>
             <td style="font-size: 12px; color: #94a3b8;">${escapeHtml(c.slot || '--')}</td>
-            <td style="font-size: 12px; font-weight: 600; color: #f1f5f9;">${escapeHtml(c.chipset_name || 'Generic Network Controller')}</td>
+            <td style="font-size: 12px; font-weight: 600; color: #f1f5f9;">${escapeHtml(c.chipset_name || t('js_generic_controller', 'Generic Network Controller'))}</td>
             <td>${hwIds}</td>
-            <td style="font-size: 12px;"><b>${escapeHtml(c.driver || 'none')}</b></td>
+            <td style="font-size: 12px;"><b>${escapeHtml(c.driver || t('js_none_lc', 'none'))}</b></td>
             <td>${stBadge}</td>
           </tr>`;
         });
@@ -779,7 +780,7 @@
     const recsWrap = document.getElementById('recommended-packages-wrap');
     if (recsWrap && data.recommended_packages) {
       if (data.recommended_packages.length === 0) {
-        recsWrap.innerHTML = '<div style="color: #94a3b8; font-size: 12px;">All default Linux kernel network drivers are up to date.</div>';
+        recsWrap.innerHTML = '<div style="color: #94a3b8; font-size: 12px;">' + t('js_drv_up_to_date', 'All default Linux kernel network drivers are up to date.') + '</div>';
       } else {
         let recsHtml = '';
         data.recommended_packages.forEach(pkg => {
@@ -789,7 +790,7 @@
               <div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">${escapeHtml(pkg.description)}</div>
             </div>
             <div>
-              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="installDrivers(${jsArg(pkg.package)})">📦 Install ${escapeHtml(pkg.package)}</button>
+              <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="installDrivers(${jsArg(pkg.package)})">📦 ${escapeHtml(t('js_drv_install_pkg', 'Install {package}').replace('{package}', pkg.package))}</button>
             </div>
           </div>`;
         });
@@ -814,14 +815,13 @@
       });
       const data = await res.json();
       if (res.ok) {
-        showDriverInstallTerminal({ in_progress: true, output: `Starting driver installation [${pkgName}]...
-` });
+        showDriverInstallTerminal({ in_progress: true, output: t('js_drv_install_starting', 'Starting driver installation [{package}]...').replace('{package}', pkgName) + '\n' });
         startDriverInstallPolling();
       } else {
-        showToast('Error: ' + (data.message || 'Driver installation could not be started'));
+        showToast(t('error_prefix', 'Error: ') + (data.message || t('js_drv_install_not_started', 'Driver installation could not be started')));
       }
     } catch (e) {
-      showToast('Error triggering driver installation: ' + e);
+      showToast(t('js_drv_install_trigger_error', 'Error triggering driver installation: ') + e);
     }
   }
 
@@ -831,22 +831,22 @@
     const badge = document.getElementById('driver-install-badge');
     if (!card || !term) return;
     card.style.display = 'block';
-    term.textContent = status.output || 'Installation task running...';
+    term.textContent = status.output || t('js_drv_install_running', 'Installation task running...');
     term.scrollTop = term.scrollHeight;
 
     if (badge) {
       if (status.in_progress) {
-        badge.innerText = 'Installing...';
+        badge.innerText = t('js_installing', 'Installing...');
         badge.style.background = 'rgba(234, 179, 8, 0.2)';
         badge.style.color = '#facc15';
         badge.style.border = '1px solid #eab308';
       } else if (status.status === 'ok') {
-        badge.innerText = 'Completed Successfully';
+        badge.innerText = t('js_completed_ok', 'Completed Successfully');
         badge.style.background = 'rgba(16, 185, 129, 0.2)';
         badge.style.color = '#34d399';
         badge.style.border = '1px solid #10b981';
       } else {
-        badge.innerText = 'Failed';
+        badge.innerText = t('js_failed', 'Failed');
         badge.style.background = 'rgba(239, 68, 68, 0.2)';
         badge.style.color = '#f87171';
         badge.style.border = '1px solid #ef4444';
@@ -865,7 +865,7 @@
         if (!status.in_progress) {
           clearInterval(driverInstallPollTimer);
           driverInstallPollTimer = null;
-          showToast(status.status === 'ok' ? 'Driver installation finished successfully!' : 'Driver installation encountered an error.');
+          showToast(status.status === 'ok' ? t('js_drv_install_done', 'Driver installation finished successfully!') : t('js_drv_install_error', 'Driver installation encountered an error.'));
           loadDriverStatus();
           loadInterfaceMatrix();
         }
@@ -1151,7 +1151,7 @@
     if (!svg) return;
 
     if (!timeline || timeline.length === 0) {
-      svg.innerHTML = '<text x="400" y="100" fill="#64748b" text-anchor="middle" font-size="13">Nincsenek adatok a grafikonhoz</text>';
+      svg.innerHTML = '<text x="400" y="100" fill="#64748b" text-anchor="middle" font-size="13">' + escapeHtml(t('js_chart_no_data', 'No data for the chart')) + '</text>';
       return;
     }
 
@@ -1307,7 +1307,7 @@
     const friendlyNames = {
       'cache': t('adblock_upstream_cache', '⚡ Local Cache'),
       'blocked': t('adblock_upstream_blocked', '🛑 Sinkhole (Blocked)'),
-      'local_dns': '🏠 Helyi DNS (custom.list)',
+      'local_dns': '🏠 ' + t('js_local_dns', 'Local DNS') + ' (custom.list)',
       '1.1.1.1': '🌐 Cloudflare (1.1.1.1)',
       '1.0.0.1': '🌐 Cloudflare Sec (1.0.0.1)',
       '9.9.9.9': '🛡️ Quad9 DNS (9.9.9.9)',
@@ -1404,12 +1404,12 @@
       let stBadge = '';
       if (q.status === 'BLOCKED') {
         const reason = q.reason ? ` (${escapeHtml(q.reason)})` : '';
-        stBadge = `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🛑 BLOCKED${reason}</span>`;
+        stBadge = `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🛑 ${escapeHtml(t('js_q_blocked', 'BLOCKED'))}${reason}</span>`;
       } else if (q.status === 'CACHED') {
-        stBadge = `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">⚡ CACHED</span>`;
+        stBadge = `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">⚡ ${escapeHtml(t('js_q_cached', 'CACHED'))}</span>`;
       } else {
         const upTxt = q.upstream ? ` (${escapeHtml(q.upstream)})` : '';
-        stBadge = `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🟢 ALLOWED${upTxt}</span>`;
+        stBadge = `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">🟢 ${escapeHtml(t('js_q_allowed', 'ALLOWED'))}${upTxt}</span>`;
       }
 
       const clientDisplay = q.client_name && q.client_name !== q.client_ip
@@ -1460,14 +1460,14 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(t('adblock_toast_blacklisted', `'${domain}' added to blacklist (instantly blocked)`));
+        showToast(t('adblock_toast_blacklisted', "'{domain}' added to blacklist (instantly blocked)").replace('{domain}', domain));
         loadAdblockStatus();
         loadAdblockQueryLog();
       } else {
         showToast(t('adblock_toast_add_err', 'Error adding domain'));
       }
     } catch (e) {
-      showToast(t('common_err', 'Error: ') + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -1481,7 +1481,7 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(t('adblock_toast_whitelisted', `'${domain}' added to whitelist (always allowed)`));
+        showToast(t('adblock_toast_whitelisted', "'{domain}' added to whitelist (always allowed)").replace('{domain}', domain));
         loadAdblockStatus();
         loadAdblockQueryLog();
       } else {
@@ -1596,7 +1596,7 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(t('adblock_toast_wl_added', `'${dom}' added to whitelist`));
+        showToast(t('adblock_toast_wl_added', "'{domain}' added to whitelist").replace('{domain}', dom));
         input.value = '';
         loadAdblockDomains();
         loadAdblockStatus();
@@ -1604,7 +1604,7 @@
         showToast(t('adblock_toast_invalid_dom', 'Invalid domain name'));
       }
     } catch (e) {
-      showToast(t('common_err', 'Error: ') + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -1617,12 +1617,12 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(t('adblock_toast_wl_removed', `'${dom}' removed from whitelist`));
+        showToast(t('adblock_toast_wl_removed', "'{domain}' removed from whitelist").replace('{domain}', dom));
         loadAdblockDomains();
         loadAdblockStatus();
       }
     } catch (e) {
-      showToast(t('common_err', 'Error: ') + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -1638,7 +1638,7 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(t('adblock_toast_bl_added', `'${dom}' added to blacklist`));
+        showToast(t('adblock_toast_bl_added', "'{domain}' added to blacklist").replace('{domain}', dom));
         input.value = '';
         loadAdblockDomains();
         loadAdblockStatus();
@@ -1646,7 +1646,7 @@
         showToast(t('adblock_toast_invalid_dom', 'Invalid domain name'));
       }
     } catch (e) {
-      showToast(t('common_err', 'Error: ') + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -1659,12 +1659,12 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(t('adblock_toast_bl_removed', `'${dom}' removed from blacklist`));
+        showToast(t('adblock_toast_bl_removed', "'{domain}' removed from blacklist").replace('{domain}', dom));
         loadAdblockDomains();
         loadAdblockStatus();
       }
     } catch (e) {
-      showToast(t('common_err', 'Error: ') + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -1714,7 +1714,7 @@
             <input type="checkbox" ${item.enabled ? 'checked' : ''} onchange="toggleAdblockAdlistSource(${jsArg(item.url)}, this.checked)" style="transform: scale(1.2); cursor: pointer;">
           </td>
           <td>
-            <div style="font-weight: 700; color: #f1f5f9; font-size: 12px;">${escapeHtml(item.name || 'Blocklist')}</div>
+            <div style="font-weight: 700; color: #f1f5f9; font-size: 12px;">${escapeHtml(item.name || t('js_blocklist', 'Blocklist'))}</div>
             <div style="font-size: 11px; color: #38bdf8; word-break: break-all;">${escapeHtml(item.url)}</div>
           </td>
           <td style="text-align: right; font-weight: 700; color: #34d399; font-size: 12px; font-family: monospace;">
@@ -1789,7 +1789,7 @@
         loadAdblockAdlists();
       }
     } catch (e) {
-      showToast(t('common_err', 'Error: ') + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -1843,7 +1843,7 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(t('adblock_toast_localdns_saved', `Local record saved: ${dom} -> ${ip}`));
+        showToast(t('adblock_toast_localdns_saved', 'Local record saved: {domain} -> {ip}').replace('{domain}', dom).replace('{ip}', ip));
         domInput.value = '';
         ipInput.value = '';
         loadAdblockLocalDns();
@@ -1851,7 +1851,7 @@
         showToast(t('adblock_toast_invalid_ip_dom', 'Invalid IP address or hostname format'));
       }
     } catch (e) {
-      showToast(t('common_err', 'Error: ') + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -1864,11 +1864,11 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast(t('adblock_toast_localdns_deleted', `Local record deleted: ${domain}`));
+        showToast(t('adblock_toast_localdns_deleted', 'Local record deleted: {domain}').replace('{domain}', domain));
         loadAdblockLocalDns();
       }
     } catch (e) {
-      showToast(t('common_err', 'Error: ') + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -2098,7 +2098,7 @@
       }
 
       if (elLatency) elLatency.innerText = (latMs > 0 ? latMs.toFixed(2) : '--') + ' ms';
-      if (elBufferbloat) elBufferbloat.innerText = latest.bufferbloat_grade ? `${latest.bufferbloat_grade} (+${latest.bufferbloat_delta_ms || 0} ms)` : (latest.jitter_us ? `Jitter: ${(latest.jitter_us/1000.0).toFixed(2)} ms` : '--');
+      if (elBufferbloat) elBufferbloat.innerText = latest.bufferbloat_grade ? `${latest.bufferbloat_grade} (+${latest.bufferbloat_delta_ms || 0} ms)` : (latest.jitter_us ? `${t('js_jitter', 'Jitter')}: ${(latest.jitter_us/1000.0).toFixed(2)} ms` : '--');
 
       let srvNameSafe = escapeHtml(latest.server_name || latest.server_host || '--');
       let srvDisplay = srvNameSafe;
@@ -2366,7 +2366,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         const hdrRam = document.getElementById('hdr-ram-val');
         if (hdrRam) {
           hdrRam.innerText = `${memAvail} / ${memTot} MB`;
-          hdrRam.title = `Total: ${memTot} MB, Avail: ${memAvail} MB (${100 - memPct}% free)`;
+          hdrRam.title = t('js_ram_title', 'Total: {total} MB, Avail: {avail} MB ({free}% free)').replace('{total}', memTot).replace('{avail}', memAvail).replace('{free}', 100 - memPct);
         }
 
         const elTot = document.getElementById('mem-stat-total');
@@ -2376,32 +2376,32 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         if (elAvail) elAvail.innerText = `${memAvail} MB`;
 
         const elAvailPct = document.getElementById('mem-stat-avail-pct');
-        if (elAvailPct) elAvailPct.innerText = `${100 - memPct}% Free`;
+        if (elAvailPct) elAvailPct.innerText = t('js_pct_free', '{pct}% Free').replace('{pct}', 100 - memPct);
 
         const elTarget = document.getElementById('mem-stat-target');
-        if (elTarget) elTarget.innerText = isLow ? '≤ 768MB (Router Target)' : 'Standard / High RAM';
+        if (elTarget) elTarget.innerText = isLow ? '≤ 768MB (' + t('js_mem_router_target', 'Router Target') + ')' : t('js_mem_standard_high', 'Standard / High RAM');
 
         const elProf = document.getElementById('mem-stat-active-prof');
         if (elProf) elProf.innerText = effProf.toUpperCase();
 
         const elSqlite = document.getElementById('mem-stat-sqlite-cache');
         if (elSqlite) {
-          elSqlite.innerText = effProf === 'low' ? 'SQLite: 4MB Cache (File Temp)' : (effProf === 'performance' ? 'SQLite: 64MB Cache' : 'SQLite: 16MB Cache');
+          elSqlite.innerText = 'SQLite: ' + (effProf === 'low' ? t('js_mem_sqlite_low', '4MB Cache (File Temp)') : (effProf === 'performance' ? t('js_mem_sqlite_perf', '64MB Cache') : t('js_mem_sqlite_std', '16MB Cache')));
         }
 
         const elVm = document.getElementById('mem-stat-vm-buffers');
         if (elVm) {
-          elVm.innerText = effProf === 'low' ? 'Bounded 4MB (min_free: 8M)' : (effProf === 'performance' ? 'High 64MB (min_free: 64M)' : 'Standard 16MB');
+          elVm.innerText = effProf === 'low' ? t('js_mem_vm_low', 'Bounded 4MB') + ' (min_free: 8M)' : (effProf === 'performance' ? t('js_mem_vm_perf', 'High 64MB') + ' (min_free: 64M)' : t('js_mem_vm_std', 'Standard 16MB'));
         }
 
         const elPill = document.getElementById('mem-profile-pill');
-        if (elPill) elPill.innerText = `Profile: ${confProf.toUpperCase()} (${effProf.toUpperCase()})`;
+        if (elPill) elPill.innerText = `${t('js_profile_label', 'Profile:')} ${confProf.toUpperCase()} (${effProf.toUpperCase()})`;
 
         const elLowPill = document.getElementById('mem-low-pill');
         if (elLowPill) elLowPill.style.display = isLow ? 'inline-flex' : 'none';
 
         const elUsedLbl = document.getElementById('mem-used-pct-label');
-        if (elUsedLbl) elUsedLbl.innerText = `${memPct}% (${memUsed} MB used)`;
+        if (elUsedLbl) elUsedLbl.innerText = `${memPct}% (` + t('js_mem_mb_used', '{mb} MB used').replace('{mb}', memUsed) + ')';
 
         const elBar = document.getElementById('mem-used-bar');
         if (elBar) {
@@ -2442,7 +2442,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         const elIsp = document.getElementById('contract-isp-display');
         if (elIsp) elIsp.innerText = ispName + circuit;
         const elTech = document.getElementById('contract-tech-display');
-        if (elTech) elTech.innerText = data.contract.connection_type || 'Optical Fiber (FTTH / GPON)';
+        if (elTech) elTech.innerText = data.contract.connection_type || t('js_optical_fiber', 'Optical Fiber') + ' (FTTH / GPON)';
         const elDownOff = document.getElementById('contract-down-offered');
         if (elDownOff) elDownOff.innerText = data.contract.contract_down_mbps ? parseFloat(data.contract.contract_down_mbps).toFixed(2) + ' Mbps' : '--';
         const elDownGuar = document.getElementById('contract-down-guar');
@@ -2516,7 +2516,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           modeBadge.style.color = '#f87171';
           modeBadge.style.borderColor = '#ef4444';
         } else {
-          const cronDesc = data.schedule_cron_desc || (data.schedule_cron ? data.schedule_cron : 'Scheduled');
+          const cronDesc = data.schedule_cron_desc || (data.schedule_cron ? data.schedule_cron : t('js_scheduled', 'Scheduled'));
           const gatePct = (data.idle_threshold_percent !== undefined) ? data.idle_threshold_percent : 2.0;
           const capMbps = (data.contract && data.contract.contract_down_mbps) ? data.contract.contract_down_mbps : 1000.0;
           const limitMbps = (data.traffic_stop_enabled ? Math.max(0.2, Math.min(0.5, (capMbps * gatePct) / 100.0)) : (capMbps * gatePct) / 100.0).toFixed(1);
@@ -2538,7 +2538,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           const label = (k, fb) => String(t(k, fb)).replace(/^[^\p{L}]+/u, '').replace(/\s*:\s*$/, '');
           modeBadge.style.whiteSpace = 'normal';
           modeBadge.style.maxWidth = '100%';
-          modeBadge.innerHTML = `🟢 <b>${escapeHtml(label('mode_scheduled', 'Automated Schedule'))}:</b> ${escapeHtml(cronDesc)} &nbsp;|&nbsp; 🛡️ <b>${escapeHtml(label('accuracy_gate', 'Accuracy Gate'))}:</b> &lt; ${gatePct.toFixed(1)}% (max ${limitMbps} Mbps)${visibilityWarning}${ooklaBadge}`;
+          modeBadge.innerHTML = `🟢 <b>${escapeHtml(label('mode_scheduled', 'Automated Schedule'))}:</b> ${escapeHtml(cronDesc)} &nbsp;|&nbsp; 🛡️ <b>${escapeHtml(label('accuracy_gate', 'Accuracy Gate'))}:</b> &lt; ${gatePct.toFixed(1)}% (${escapeHtml(t('js_max_abbr', 'max'))} ${limitMbps} Mbps)${visibilityWarning}${ooklaBadge}`;
           modeBadge.style.background = 'rgba(16, 185, 129, 0.15)';
           modeBadge.style.color = '#34d399';
           modeBadge.style.borderColor = '#10b981';
@@ -2866,7 +2866,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         document.getElementById('syslog-table-body').innerHTML = lHtml;
       } else {
         const tbody = document.getElementById('syslog-table-body');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">No system events recorded.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">' + t('js_no_system_events', 'No system events recorded.') + '</td></tr>';
       }
 
       // Live Traffic gauges & clients (Tab 8 QoS)
@@ -3226,7 +3226,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         <span style="font-weight:700; color:#f8fafc; text-align:right;">${uMbps.toFixed(2)} Mbps</span>
         <span style="color:#fbbf24; font-weight:600;">🏓 Ping RTT:</span>
         <span style="font-weight:700; color:#f8fafc; text-align:right;">${lat.toFixed(2)} ms</span>
-        ${jitter ? `<span style="color:#cbd5e1;">〰️ Jitter:</span><span style="text-align:right; color:#cbd5e1;">${jitter}</span>` : ''}
+        ${jitter ? `<span style="color:#cbd5e1;">〰️ ${t('js_jitter', 'Jitter')}:</span><span style="text-align:right; color:#cbd5e1;">${jitter}</span>` : ''}
         ${bb ? `<span style="color:#cbd5e1;">📶 Bufferbloat:</span><span style="text-align:right;">${bb}</span>` : ''}
       </div>
     `;
@@ -3339,7 +3339,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       }
     }
 
-    showToast(`${t('measuring_started', 'Starting measurement')} [${selectedEngine.toUpperCase()}]${customServerId ? ' #' + customServerId : ''}...`);
+    showToast(`${t('js_measure_starting', 'Starting measurement')} [${selectedEngine.toUpperCase()}]${customServerId ? ' #' + customServerId : ''}...`);
     document.getElementById('measuring-banner').style.display = 'flex';
     document.getElementById('btn-home-measure').disabled = true;
 
@@ -3364,7 +3364,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         showToast(err.message || t('measuring_error', 'Error starting measurement.'));
       }
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
     setTimeout(refreshStatus, 1500);
   }
@@ -3377,7 +3377,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       showToast(t('measuring_stopped', 'Measurement stopped.'));
       setTimeout(refreshStatus, 1000);
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -3387,7 +3387,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       await fetch('/api/portcheck', { method: 'POST' });
       setTimeout(refreshStatus, 3000);
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -3436,7 +3436,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       serverList = data.servers || [];
       renderCatalog(serverList);
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--red);">Error loading servers: ${escapeHtml(e)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--red);">${t('js_servers_load_error', 'Error loading servers: ')}${escapeHtml(e)}</td></tr>`;
     }
   }
 
@@ -3449,7 +3449,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     let html = '';
     servers.slice(0, 80).forEach(s => {
       const sid = s.id;
-      const sName = escapeQuotes(s.name || s.sponsor || 'Unknown');
+      const sName = escapeQuotes(s.name || s.sponsor || t('js_unknown', 'Unknown'));
       const sHost = escapeQuotes(s.host || '');
       html += `<tr>
         <td><code>#${escapeHtml(sid)}</code></td>
@@ -3481,12 +3481,12 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         refreshStatus();
       }
     } catch (e) {
-      showToast('Error saving server: ' + e);
+      showToast(t('js_server_save_error', 'Error saving server: ') + e);
     }
   }
 
   async function runSingleServerTest(id) {
-    showToast(`${t('measuring_started', 'Starting test to server')} #${id}...`);
+    showToast(t('js_measure_starting_server', 'Starting test to server #{id}...').replace('{id}', id));
     triggerSpeedtest(id);
     switchTab('tab-home');
   }
@@ -3624,11 +3624,11 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
     const footer = document.getElementById('syslog-footer-info');
     if (footer) {
-      footer.innerHTML = `Host: <b style="color:#38bdf8;">${escapeHtml(data.hostname || 'speedtest')}</b> &bull; Displaying: <b>${escapeHtml(entries.length)}</b> lines &bull; Kernel: <b style="color:#38bdf8;">${stats.kernel || 0}</b> &bull; Network & PHY: <b style="color:#34d399;">${stats.network || 0}</b> &bull; Link Events: <b style="color:#f59e0b;">${stats.links || 0}</b> &bull; Errors: <b style="color:${stats.errors ? '#f87171' : '#94a3b8'};">${stats.errors || 0}</b> &bull; System Time: <code>${escapeHtml(data.system_time || '')}</code>`;
+      footer.innerHTML = `${escapeHtml(t('js_syslog_host', 'Host:'))} <b style="color:#38bdf8;">${escapeHtml(data.hostname || 'speedtest')}</b> &bull; ${escapeHtml(t('js_syslog_displaying', 'Displaying:'))} <b>${escapeHtml(entries.length)}</b> ${escapeHtml(t('js_syslog_lines', 'lines'))} &bull; ${escapeHtml(t('js_syslog_kernel', 'Kernel:'))} <b style="color:#38bdf8;">${stats.kernel || 0}</b> &bull; ${escapeHtml(t('js_syslog_network_phy', 'Network & PHY:'))} <b style="color:#34d399;">${stats.network || 0}</b> &bull; ${escapeHtml(t('js_syslog_link_events', 'Link Events:'))} <b style="color:#f59e0b;">${stats.links || 0}</b> &bull; ${escapeHtml(t('js_syslog_errors', 'Errors:'))} <b style="color:${stats.errors ? '#f87171' : '#94a3b8'};">${stats.errors || 0}</b> &bull; ${escapeHtml(t('js_syslog_system_time', 'System Time:'))} <code>${escapeHtml(data.system_time || '')}</code>`;
     }
 
     if (entries.length === 0) {
-      term.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:40px;">No system log entries matching the selected filters.</div>';
+      term.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:40px;">' + t('js_syslog_no_entries', 'No system log entries matching the selected filters.') + '</div>';
       return;
     }
 
@@ -3644,10 +3644,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       let badgeHtml = '';
       if (e.level === 'link_up') {
         msgClass += ' syslog-msg-link-up';
-        badgeHtml = '<span class="syslog-badge-tag syslog-badge-linkup">LINK UP</span>';
+        badgeHtml = '<span class="syslog-badge-tag syslog-badge-linkup">' + escapeHtml(t('js_link_up_caps', 'LINK UP')) + '</span>';
       } else if (e.level === 'link_down') {
         msgClass += ' syslog-msg-link-down';
-        badgeHtml = '<span class="syslog-badge-tag syslog-badge-linkdown">LINK DOWN</span>';
+        badgeHtml = '<span class="syslog-badge-tag syslog-badge-linkdown">' + escapeHtml(t('js_link_down_caps', 'LINK DOWN')) + '</span>';
       } else if (e.level === 'stacktrace') {
         msgClass += ' syslog-msg-stacktrace';
         badgeHtml = '<span class="syslog-badge-tag" style="background:#4a044e; color:#f0abfc; border:1px solid #d946ef;">STACK</span>';
@@ -3753,11 +3753,11 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     // Update status footer
     const footer = document.getElementById('devlog-footer-info');
     if (footer) {
-      footer.innerHTML = `Records: <b>${escapeHtml(records.length)}</b> (Buffer: ${data.total_buffered || 0} / ${data.capacity || 5000}) &bull; Active file: <code style="color:#38bdf8;">${escapeHtml(data.log_file || '/var/log/nmb/nmb_developer.log')}</code> &bull; Daemon Level: <b style="color:#f59e0b;">${escapeHtml(data.current_level || 'DEBUG')}</b>`;
+      footer.innerHTML = `${escapeHtml(t('js_devlog_records', 'Records:'))} <b>${escapeHtml(records.length)}</b> (${escapeHtml(t('js_devlog_buffer', 'Buffer:'))} ${data.total_buffered || 0} / ${data.capacity || 5000}) &bull; ${escapeHtml(t('js_devlog_active_file', 'Active file:'))} <code style="color:#38bdf8;">${escapeHtml(data.log_file || '/var/log/nmb/nmb_developer.log')}</code> &bull; ${escapeHtml(t('js_devlog_daemon_level', 'Daemon Level:'))} <b style="color:#f59e0b;">${escapeHtml(data.current_level || 'DEBUG')}</b>`;
     }
 
     if (records.length === 0) {
-      term.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:40px;">No developer log entries matching the selected filters.</div>';
+      term.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:40px;">' + t('js_devlog_no_entries', 'No developer log entries matching the selected filters.') + '</div>';
       return;
     }
 
@@ -3802,34 +3802,34 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       });
       const data = await res.json();
       if (res.ok && data.status === 'ok') {
-        showToast(`✅ Daemon log level successfully set: ${data.new_level}`);
+        showToast('✅ ' + t('js_devlog_level_set', 'Daemon log level successfully set: {level}').replace('{level}', data.new_level));
         fetchDevLogs(true);
       } else {
-        showToast(`❌ Error updating log level: ${data.message || 'Error'}`);
+        showToast('❌ ' + t('js_devlog_level_error', 'Error updating log level: ') + (data.message || t('js_error_word', 'Error')));
       }
     } catch (e) {
-      showToast('Network error: ' + e);
+      showToast(t('network_error', 'Network error: ') + e);
     }
   }
 
   async function clearDevLogBuffer() {
-    if (!confirm('Are you sure you want to clear the in-memory developer log buffer?')) return;
+    if (!confirm(t('js_devlog_clear_confirm', 'Are you sure you want to clear the in-memory developer log buffer?'))) return;
     try {
       const res = await fetch('/api/dev/logs/clear', { method: 'POST' });
       if (res.ok) {
-        showToast('🗑️ Developer log buffer cleared.');
+        showToast('🗑️ ' + t('js_devlog_cleared', 'Developer log buffer cleared.'));
         fetchDevLogs(true);
       }
     } catch (e) {
-      showToast('Error clearing log buffer: ' + e);
+      showToast(t('js_devlog_clear_error', 'Error clearing log buffer: ') + e);
     }
   }
 
   async function triggerTotalLogPurge() {
-    const confirmMsg = getTranslation('confirm_total_log_purge', localStorage.getItem('nmb_lang') || 'en', 'Are you sure you want to completely purge ALL system logs, kernel buffers, developer files, and audit records? This cannot be undone.');
+    const confirmMsg = t('confirm_total_log_purge', 'Are you sure you want to completely purge ALL system logs, kernel buffers, developer files, and audit records? This cannot be undone.');
     if (!confirm(confirmMsg)) return;
 
-    showToast('Executing total log purge (journal, files, database, memory)...');
+    showToast(t('js_log_purge_running', 'Executing total log purge (journal, files, database, memory)...'));
     try {
       const res = await fetch('/api/system/logs/purge', {
         method: 'POST',
@@ -3838,16 +3838,16 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       });
       const d = await res.json();
       if (res.ok && d.status === 'ok') {
-        const doneMsg = getTranslation('msg_total_log_purge_done', localStorage.getItem('nmb_lang') || 'en', 'Total log purge completed successfully!');
+        const doneMsg = t('msg_total_log_purge_done', 'Total log purge completed successfully!');
         showToast(doneMsg);
         if (typeof fetchSystemSyslog === 'function') fetchSystemSyslog(true);
         if (typeof fetchDevLogs === 'function') fetchDevLogs(true);
         if (typeof refreshStatus === 'function') refreshStatus();
       } else {
-        showToast('Log purge error: ' + (d.message || 'Failed'));
+        showToast(t('js_log_purge_error', 'Log purge error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('Log purge request failed: ' + e);
+      showToast(t('js_log_purge_request_failed', 'Log purge request failed: ') + e);
     }
   }
 
@@ -3874,7 +3874,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         showToast(snifferActive ? t('sniffer_started', 'Packet capture started!') : t('sniffer_stopped', 'Packet capture stopped.'));
       }
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     } finally {
       btn.disabled = false;
       pollSnifferStats();
@@ -3963,10 +3963,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         showToast(t('mac_updated', 'New WAN MAC address successfully applied: ') + d.current_mac);
         loadMacInfo();
       } else {
-        showToast('Error configuring WAN MAC address.');
+        showToast(t('js_mac_error', 'Error configuring WAN MAC address.'));
       }
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -3983,14 +3983,14 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         loadMacInfo();
       }
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
   // DNS Management
   async function testDnsResolution() {
     const host = document.getElementById('dns-test-host').value.trim() || 'google.com';
-    showToast('Testing DNS resolution: ' + host + '...');
+    showToast(t('js_dns_testing', 'Testing DNS resolution: {host}...').replace('{host}', host));
     try {
       const res = await fetch('/api/network/dns/test', {
         method: 'POST',
@@ -3999,24 +3999,24 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       });
       const d = await res.json();
       if (d.status === 'ok') {
-        showToast(`DNS Successful (${d.rtt_ms} ms): ${d.ip}`);
+        showToast(t('js_dns_ok', 'DNS Successful ({rtt} ms): {ip}').replace('{rtt}', d.rtt_ms).replace('{ip}', d.ip));
       } else {
-        showToast('DNS error: ' + (d.error || 'Timeout'));
+        showToast(t('js_dns_error', 'DNS error: ') + (d.error || t('js_timeout', 'Timeout')));
       }
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
   async function enforceDnsFallback() {
-    showToast('Enforcing configured DNS fallbacks...');
+    showToast(t('js_dns_fallback_enforcing', 'Enforcing configured DNS fallbacks...'));
     try {
       const res = await fetch('/api/network/dns/fallback', { method: 'POST' });
       const d = await res.json();
-      showToast('DNS fallback active: ' + (d.servers || []).join(', '));
+      showToast(t('js_dns_fallback_active', 'DNS fallback active: ') + (d.servers || []).join(', '));
       document.getElementById('dns-active-servers').innerText = (d.servers || []).join(', ');
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -4104,9 +4104,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     if (hwBadge) {
       const iface = caps.interface || 'wlan0';
       const phy = caps.phy_name || 'phy0';
-      const drv = caps.driver || 'unknown';
+      const drv = caps.driver || t('js_unknown_lc', 'unknown');
       const apOk = caps.ap_mode_supported !== false;
-      hwBadge.innerHTML = `<span>${t('device_interface', 'Interface')}: <b>${escapeHtml(iface)}</b> (${escapeHtml(phy)}) | Driver: <b>${escapeHtml(drv)}</b> | AP Mode: ${apOk ? '✅ ' + t('wifi_supported', 'Supported') : '⚠️ ' + t('wifi_limited', 'Limited')}</span>`;
+      hwBadge.innerHTML = `<span>${t('device_interface', 'Interface')}: <b>${escapeHtml(iface)}</b> (${escapeHtml(phy)}) | ${escapeHtml(t('js_driver', 'Driver'))}: <b>${escapeHtml(drv)}</b> | ${escapeHtml(t('js_ap_mode', 'AP Mode'))}: ${apOk ? '✅ ' + t('wifi_supported', 'Supported') : '⚠️ ' + t('wifi_limited', 'Limited')}</span>`;
       hwBadge.style.color = apOk ? '#38bdf8' : '#f59e0b';
       hwBadge.style.borderColor = apOk ? 'rgba(56, 189, 248, 0.4)' : 'rgba(245, 158, 11, 0.4)';
       hwBadge.style.background = apOk ? 'rgba(56, 189, 248, 0.1)' : 'rgba(245, 158, 11, 0.1)';
@@ -4174,9 +4174,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     // 5. Live Telemetry
     if (liveStatus) {
       const fEl = document.getElementById('wifi-live-freq');
-      if (fEl) fEl.innerText = liveStatus.frequency_mhz ? `${liveStatus.frequency_mhz} MHz` : (liveStatus.channel ? `Ch ${liveStatus.channel}` : t('inactive', 'Inactive'));
+      if (fEl) fEl.innerText = liveStatus.frequency_mhz ? `${liveStatus.frequency_mhz} MHz` : (liveStatus.channel ? `${t('js_channel_short', 'Ch')} ${liveStatus.channel}` : t('inactive', 'Inactive'));
       const cEl = document.getElementById('wifi-live-channel');
-      if (cEl) cEl.innerText = liveStatus.channel ? `${t('wifi_channel_prefix', 'Csatorna')} ${liveStatus.channel}` : '--';
+      if (cEl) cEl.innerText = liveStatus.channel ? `${t('wifi_channel_prefix', 'Channel')} ${liveStatus.channel}` : '--';
       const wEl = document.getElementById('wifi-live-width');
       if (wEl) wEl.innerText = liveStatus.channel_width_mhz ? `${liveStatus.channel_width_mhz} MHz` : '--';
       const txEl = document.getElementById('wifi-live-txpower');
@@ -4241,7 +4241,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     if (!chSel) return;
     const currentVal = (selectedChannel !== undefined && selectedChannel !== null) ? parseInt(selectedChannel) : parseInt(chSel.value || 0);
 
-    const chPrefix = t('wifi_channel_prefix', 'Csatorna');
+    const chPrefix = t('wifi_channel_prefix', 'Channel');
     const autoLabel = t('wifi_channel_auto', 'Auto (automatic channel selection / ACS)');
     const recTag = t('wifi_channel_non_overlapping', ' (Non-overlapping - Recommended)');
     const notSupSuffix = ' (' + t('not_supported', 'Not supported') + ')';
@@ -4252,7 +4252,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     if (band === '5ghz') {
       const sup5 = (caps && caps.channels && caps.channels['5ghz']) ? caps.channels['5ghz'] : null;
       const ch5 = [
-        { ch: 36, mhz: 5180, desc: 'UNII-1 (Indoor)' },
+        { ch: 36, mhz: 5180, desc: 'UNII-1 (' + t('js_wifi_indoor', 'Indoor') + ')' },
         { ch: 40, mhz: 5200, desc: 'UNII-1' },
         { ch: 44, mhz: 5220, desc: 'UNII-1' },
         { ch: 48, mhz: 5240, desc: 'UNII-1' },
@@ -4265,9 +4265,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         { ch: 108, mhz: 5540, desc: 'DFS UNII-2C' },
         { ch: 112, mhz: 5560, desc: 'DFS UNII-2C' },
         { ch: 116, mhz: 5580, desc: 'DFS UNII-2C' },
-        { ch: 120, mhz: 5600, desc: 'DFS UNII-2C (Weather Radar)' },
-        { ch: 124, mhz: 5620, desc: 'DFS UNII-2C (Weather Radar)' },
-        { ch: 128, mhz: 5640, desc: 'DFS UNII-2C (Weather Radar)' },
+        { ch: 120, mhz: 5600, desc: 'DFS UNII-2C (' + t('js_wifi_weather_radar', 'Weather Radar') + ')' },
+        { ch: 124, mhz: 5620, desc: 'DFS UNII-2C (' + t('js_wifi_weather_radar', 'Weather Radar') + ')' },
+        { ch: 128, mhz: 5640, desc: 'DFS UNII-2C (' + t('js_wifi_weather_radar', 'Weather Radar') + ')' },
         { ch: 132, mhz: 5660, desc: 'DFS UNII-2C' },
         { ch: 136, mhz: 5680, desc: 'DFS UNII-2C' },
         { ch: 140, mhz: 5700, desc: 'DFS UNII-2C' },
@@ -4356,7 +4356,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const std = stdSel.value;
     if (std === 'ac' || std === 'a') {
       if (bandSel.value === '2.4ghz') {
-        showToast('Notice: 802.11ac / 802.11a standards require the 5 GHz frequency band.');
+        showToast(t('js_wifi_ac_needs_5ghz', 'Notice: 802.11ac / 802.11a standards require the 5 GHz frequency band.'));
         bandSel.value = '5ghz';
         onWifiBandChange();
       }
@@ -4367,7 +4367,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const secSel = document.getElementById('cfg-wifi-security');
     const bandSel = document.getElementById('cfg-wifi-band');
     if (bandSel && bandSel.value === '6ghz' && secSel && secSel.value === 'wpa2') {
-      showToast('IEEE 802.11 Requirement: The 6 GHz band strictly requires WPA3-Personal (SAE) authentication!');
+      showToast(t('js_wifi_6ghz_needs_wpa3', 'IEEE 802.11 Requirement: The 6 GHz band strictly requires WPA3-Personal (SAE) authentication!'));
       secSel.value = 'wpa3';
     }
   }
@@ -4410,7 +4410,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         showToast(t('cmd_copied', 'Command copied to clipboard!'));
       });
     } else {
-      showToast('Clipboard unavailable.');
+      showToast(t('js_clipboard_unavailable', 'Clipboard unavailable.'));
     }
   }
 
@@ -4491,7 +4491,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       if (srv) {
         nameEl.innerHTML = `✅ <b>${escapeHtml(srv.sponsor || srv.name)}</b> <code style="color:#94a3b8;">(${escapeHtml(srv.location || srv.host || '')})</code>`;
       } else {
-        nameEl.innerHTML = `⚠️ Server #${val} (engine will attempt target during test)`;
+        nameEl.innerText = '⚠️ ' + t('js_server_unverified', 'Server #{id} (engine will attempt target during test)').replace('{id}', val);
       }
     } catch (e) {
       nameEl.innerText = t('server_prefix', 'Server') + ' #' + val;
@@ -4543,7 +4543,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const pct = pctInput ? parseFloat(pctInput.value) || 2.0 : 2.0;
     const capMbps = globalContractDownMbps || 1000.0;
     const limitMbps = (globalTrafficStop ? Math.max(0.2, Math.min(0.5, capMbps * (pct / 100.0))) : capMbps * (pct / 100.0)).toFixed(1);
-    badge.innerText = `Gate: max ${limitMbps} Mbps (${capMbps} Mbps link - < ${pct.toFixed(1)}%)`;
+    badge.innerText = t('js_gate_badge', 'Gate: max {limit} Mbps ({cap} Mbps link - < {pct}%)').replace('{limit}', limitMbps).replace('{cap}', capMbps).replace('{pct}', pct.toFixed(1));
   }
 
   function onSchedIntervalChange(val) {
@@ -4596,6 +4596,15 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     nmb_native: "NetworkMeasureBox/2.5 (Linux; Headless Diagnostics Client)"
   };
 
+  // The User-Agent box shows a translated placeholder until a real value arrives; whether a value is shown
+  // is kept in a data attribute, never read back from the visible text.
+  function setUaDisplay(el, ua) {
+    if (!el) return;
+    el.removeAttribute('data-i18n');
+    el.dataset.uaShown = '1';
+    el.textContent = ua;
+  }
+
   function onCfgUaModeChange(mode) {
     const uaInp = document.getElementById('cfg-user-agent');
     const hint = document.getElementById('cfg-ua-mode-hint');
@@ -4604,16 +4613,16 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
     if (mode === 'auto_fresh') {
       if (hint) hint.textContent = t('ua_hint_auto_fresh', 'Auto-Fresh mode automatically generates a realistic, modern Headless Chrome identifier on each measurement.');
-      if (activeDisp && (!activeDisp.textContent || activeDisp.textContent === 'Betöltés...' || activeDisp.textContent === 'Loading...')) {
-        activeDisp.textContent = UA_PRESETS_MAP.headless_chrome_linux;
+      if (activeDisp && !activeDisp.dataset.uaShown) {
+        setUaDisplay(activeDisp, UA_PRESETS_MAP.headless_chrome_linux);
       }
     } else if (mode === 'custom') {
       if (hint) hint.textContent = t('ua_hint_custom', 'Custom User-Agent: Exact string entered below will be sent on all outbound HTTP probes.');
-      if (uaInp.value && activeDisp) activeDisp.textContent = uaInp.value;
+      if (uaInp.value && activeDisp) setUaDisplay(activeDisp, uaInp.value);
     } else if (UA_PRESETS_MAP[mode]) {
       uaInp.value = UA_PRESETS_MAP[mode];
       if (hint) hint.textContent = t('ua_hint_preset', 'Selected standard preset profile:') + ' ' + mode;
-      if (activeDisp) activeDisp.textContent = UA_PRESETS_MAP[mode];
+      if (activeDisp) setUaDisplay(activeDisp, UA_PRESETS_MAP[mode]);
     }
   }
 
@@ -4632,7 +4641,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         if (uaInp && d.user_agent) {
           uaInp.value = d.user_agent;
           if (modeSel) modeSel.value = 'custom';
-          if (activeDisp) activeDisp.textContent = d.user_agent;
+          if (activeDisp) setUaDisplay(activeDisp, d.user_agent);
           onCfgUaModeChange('custom');
           showToast(t('ua_toast_generated', '🎲 Fresh User-Agent generated! Save settings to apply.'));
         }
@@ -4647,7 +4656,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         const modeSel = document.getElementById('cfg-ua-mode');
         if (modeSel) modeSel.value = 'custom';
         const activeDisp = document.getElementById('cfg-ua-active-display');
-        if (activeDisp) activeDisp.textContent = fallbackUa;
+        if (activeDisp) setUaDisplay(activeDisp, fallbackUa);
         showToast(t('ua_toast_set', '🎲 Fresh User-Agent applied!'));
       }
     }
@@ -4655,7 +4664,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
   function copyActiveUa() {
     const el = document.getElementById('cfg-ua-active-display');
-    if (el && el.textContent) {
+    if (el && el.dataset.uaShown && el.textContent) {
       navigator.clipboard.writeText(el.textContent.trim());
       showToast(t('ua_toast_copied', '📋 User-Agent copied to clipboard!'));
     }
@@ -4735,10 +4744,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         refreshStatus();
       } else {
         const err = await res.json();
-        showToast('Error: ' + (err.message || 'Failed to save settings'));
+        showToast(t('error_prefix', 'Error: ') + (err.message || t('js_save_settings_failed', 'Failed to save settings')));
       }
     } catch (e) {
-      showToast('Network error: ' + e);
+      showToast(t('network_error', 'Network error: ') + e);
     }
   }
 
@@ -4766,10 +4775,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         refreshStatus();
       } else {
         const err = await res.json();
-        showToast('Error: ' + (err.message || 'Failed to save settings'));
+        showToast(t('error_prefix', 'Error: ') + (err.message || t('js_save_settings_failed', 'Failed to save settings')));
       }
     } catch (e) {
-      showToast('Network error: ' + e);
+      showToast(t('network_error', 'Network error: ') + e);
     }
   }
 
@@ -4869,7 +4878,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       // User-Agent & Headless Client
       if (document.getElementById('cfg-ua-mode')) document.getElementById('cfg-ua-mode').value = d.user_agent_mode || 'auto_fresh';
       if (document.getElementById('cfg-user-agent')) document.getElementById('cfg-user-agent').value = d.user_agent || '';
-      if (document.getElementById('cfg-ua-active-display')) document.getElementById('cfg-ua-active-display').textContent = d.effective_user_agent || d.user_agent || 'HeadlessChrome/133.0.6943.126';
+      setUaDisplay(document.getElementById('cfg-ua-active-display'), d.effective_user_agent || d.user_agent || 'HeadlessChrome/133.0.6943.126');
       onCfgUaModeChange(d.user_agent_mode || 'auto_fresh');
 
       // Contract / ISP
@@ -4988,10 +4997,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         refreshStatus();
       } else {
         const err = await res.json();
-        showToast('Error saving settings: ' + (err.message || err.error || 'Unknown error'));
+        showToast(t('js_settings_save_error', 'Error saving settings: ') + (err.message || err.error || t('js_unknown_error', 'Unknown error')));
       }
     } catch (e) {
-      showToast('Network error: ' + e);
+      showToast(t('network_error', 'Network error: ') + e);
     }
   }
 
@@ -5000,9 +5009,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     try {
       const res = await fetch('/api/system/reload', { method: 'POST' });
       if (res.ok) showToast(t('services_reloaded', '✅ Network services successfully reloaded!'));
-      else showToast('Error reloading network services.');
+      else showToast(t('js_services_reload_error', 'Error reloading network services.'));
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -5023,13 +5032,13 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     try {
       const res = await fetch('/api/backup/list');
       if (!res.ok) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #f87171; padding: 16px;">Failed to load backups.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #f87171; padding: 16px;">' + t('js_backups_load_failed', 'Failed to load backups.') + '</td></tr>';
         return;
       }
       const data = await res.json();
       const list = data.backups || [];
       if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">No backup archives stored on device.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">' + t('js_backups_none', 'No backup archives stored on device.') + '</td></tr>';
         return;
       }
       let html = '';
@@ -5037,11 +5046,11 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         const isSafety = b.is_safety_snapshot || (b.comment && b.comment.toLowerCase().includes('safety'));
         let typeBadge = '';
         if (isSafety) {
-          typeBadge = '<span class="badge-pill" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #d97706; font-size: 11px;">🛡️ Safety Rollback</span>';
+          typeBadge = '<span class="badge-pill" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #d97706; font-size: 11px;">🛡️ ' + t('js_backup_type_safety', 'Safety Rollback') + '</span>';
         } else if (b.type === 'config') {
-          typeBadge = '<span class="badge-pill" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid #7e22ce; font-size: 11px;">⚙️ Config</span>';
+          typeBadge = '<span class="badge-pill" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid #7e22ce; font-size: 11px;">⚙️ ' + t('js_backup_type_config', 'Config') + '</span>';
         } else {
-          typeBadge = '<span class="badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #0284c7; font-size: 11px;">💾 Full</span>';
+          typeBadge = '<span class="badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #0284c7; font-size: 11px;">💾 ' + t('js_backup_type_full', 'Full') + '</span>';
         }
 
         const dateStr = b.created_iso ? b.created_iso.replace('T', ' ') : (b.created ? new Date(b.created * 1000).toLocaleString() : '-');
@@ -5057,7 +5066,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           <td style="font-family: monospace; font-size: 12px; color: #94a3b8;">${escapeHtml(b.size_human || '')}</td>
           <td style="font-size: 12px; color: #cbd5e1;">${commentEsc}</td>
           <td style="text-align: right; white-space: nowrap;">
-            <a href="/api/backup/download?file=${encodeURIComponent(b.filename)}" class="btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; display: inline-block; margin-right: 4px;">📥 Download</a>
+            <a href="/api/backup/download?file=${encodeURIComponent(b.filename)}" class="btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; display: inline-block; margin-right: 4px;">📥 ${t('speed_col_down', 'Download')}</a>
             <button type="button" class="btn-primary" style="font-size: 11px; padding: 4px 8px; margin-right: 4px;" onclick="restoreLocalBackup(${jsArg(b.filename)})">${t('backup_action_restore', '🔄 Restore')}</button>
             <button type="button" class="btn-danger" style="font-size: 11px; padding: 4px 8px; background: #dc2626; border-color: #ef4444; color: white;" onclick="deleteLocalBackup(${jsArg(b.filename)})">🗑️</button>
           </td>
@@ -5066,7 +5075,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       tbody.innerHTML = html;
     } catch (e) {
       console.error('Failed to load backups list:', e);
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #f87171; padding: 16px;">Error connecting to backup service.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #f87171; padding: 16px;">' + t('js_backup_service_error', 'Error connecting to backup service.') + '</td></tr>';
     }
   }
 
@@ -5082,17 +5091,17 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       });
       const data = await res.json();
       if (!res.ok || data.status !== 'ok') {
-        showToast('Error: ' + (data.message || 'Failed to create backup'));
+        showToast(t('error_prefix', 'Error: ') + (data.message || t('js_backup_create_failed', 'Failed to create backup')));
         return;
       }
-      showToast('Backup created: ' + data.filename);
+      showToast(t('js_backup_created', 'Backup created: ') + data.filename);
       if (commentInput) commentInput.value = '';
       await loadBackupsList();
       if (!saveLocal && data.download_url) {
         window.location.href = data.download_url;
       }
     } catch (e) {
-      showToast('Network error creating backup: ' + e);
+      showToast(t('js_backup_create_net_error', 'Network error creating backup: ') + e);
     }
   }
 
@@ -5100,7 +5109,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const confirmMsg = t('backup_confirm_restore', 'Are you sure you want to restore the device to this state? An automated safety backup of the current state will be created first.');
     if (!confirm(confirmMsg)) return;
 
-    showToast('Restoring system state from ' + filename + '... Please wait.');
+    showToast(t('js_backup_restoring', 'Restoring system state from {file}... Please wait.').replace('{file}', filename));
     try {
       const res = await fetch('/api/backup/restore', {
         method: 'POST',
@@ -5109,14 +5118,14 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       });
       const data = await res.json();
       if (!res.ok || data.status !== 'ok') {
-        showToast('Restore failed: ' + (data.message || 'Unknown error'));
-        alert('Restore error: ' + (data.message || 'Unknown error'));
+        showToast(t('js_restore_failed', 'Restore failed: ') + (data.message || t('js_unknown_error', 'Unknown error')));
+        alert(t('js_restore_error', 'Restore error: ') + (data.message || t('js_unknown_error', 'Unknown error')));
         return;
       }
-      showToast('✅ State restored successfully! Reloading web interface...');
+      showToast('✅ ' + t('js_restore_ok_reloading', 'State restored successfully! Reloading web interface...'));
       setTimeout(() => { window.location.reload(); }, 2500);
     } catch (e) {
-      showToast('Restore network error: ' + e);
+      showToast(t('js_restore_net_error', 'Restore network error: ') + e);
     }
   }
 
@@ -5124,7 +5133,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const fileInput = document.getElementById('backup-upload-file');
     const statusEl = document.getElementById('backup-upload-status');
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-      showToast('Please select a .tar.gz backup archive file to upload.');
+      showToast(t('js_backup_select_file', 'Please select a .tar.gz backup archive file to upload.'));
       return;
     }
     const file = fileInput.files[0];
@@ -5136,7 +5145,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       statusEl.style.background = '#1e293b';
       statusEl.style.color = '#38bdf8';
       statusEl.style.border = '1px solid #0284c7';
-      statusEl.textContent = '⏳ Uploading and verifying backup archive (' + (file.size / 1024).toFixed(1) + ' KB)...';
+      statusEl.textContent = '⏳ ' + t('js_backup_uploading', 'Uploading and verifying backup archive ({size} KB)...').replace('{size}', (file.size / 1024).toFixed(1));
     }
 
     try {
@@ -5149,14 +5158,14 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       });
       const data = await res.json();
       if (!res.ok || data.status !== 'ok') {
-        const errMsg = data.message || 'Failed to apply backup';
+        const errMsg = data.message || t('js_backup_apply_failed', 'Failed to apply backup');
         if (statusEl) {
           statusEl.style.background = 'rgba(239, 68, 68, 0.15)';
           statusEl.style.color = '#f87171';
           statusEl.style.border = '1px solid #dc2626';
-          statusEl.textContent = '❌ Restore failed: ' + errMsg;
+          statusEl.textContent = '❌ ' + t('js_restore_failed', 'Restore failed: ') + errMsg;
         }
-        showToast('Restore failed: ' + errMsg);
+        showToast(t('js_restore_failed', 'Restore failed: ') + errMsg);
         return;
       }
 
@@ -5164,24 +5173,24 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         statusEl.style.background = 'rgba(16, 185, 129, 0.15)';
         statusEl.style.color = '#34d399';
         statusEl.style.border = '1px solid #059669';
-        statusEl.textContent = '✅ ' + (data.message || 'Backup verified and successfully restored! Reloading interface in 3 seconds...');
+        statusEl.textContent = '✅ ' + (data.message || t('js_backup_restored_reload', 'Backup verified and successfully restored! Reloading interface in 3 seconds...'));
       }
-      showToast('✅ Restore completed successfully! Reloading...');
+      showToast('✅ ' + t('js_restore_done_reloading', 'Restore completed successfully! Reloading...'));
       setTimeout(() => { window.location.reload(); }, 3000);
     } catch (e) {
       if (statusEl) {
         statusEl.style.background = 'rgba(239, 68, 68, 0.15)';
         statusEl.style.color = '#f87171';
         statusEl.style.border = '1px solid #dc2626';
-        statusEl.textContent = '❌ Upload error: ' + e;
+        statusEl.textContent = '❌ ' + t('js_upload_error', 'Upload error: ') + e;
       }
-      showToast('Upload error: ' + e);
+      showToast(t('js_upload_error', 'Upload error: ') + e);
     }
   }
 
   async function deleteLocalBackup(filename) {
-    if (!confirm('Are you sure you want to permanently delete backup ' + filename + '?')) return;
-    showToast('Deleting backup: ' + filename);
+    if (!confirm(t('js_backup_delete_confirm', 'Are you sure you want to permanently delete backup {file}?').replace('{file}', filename))) return;
+    showToast(t('js_backup_deleting', 'Deleting backup: ') + filename);
     try {
       const res = await fetch('/api/backup/delete', {
         method: 'POST',
@@ -5190,13 +5199,13 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       });
       const data = await res.json();
       if (!res.ok || data.status !== 'ok') {
-        showToast('Error deleting backup: ' + (data.message || 'Failed'));
+        showToast(t('js_backup_delete_error', 'Error deleting backup: ') + (data.message || t('js_failed', 'Failed')));
         return;
       }
-      showToast('Backup deleted.');
+      showToast(t('js_backup_deleted', 'Backup deleted.'));
       await loadBackupsList();
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -5204,14 +5213,14 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const confirmMsg = t('backup_confirm_reset', 'CAUTION! Are you sure you want to execute factory reset? All custom network and VPN configurations will be reverted to defaults!');
     if (!confirm(confirmMsg)) return;
 
-    const check = prompt('Type RESET to confirm complete factory reset:');
+    const check = prompt(t('js_factory_reset_type', 'Type RESET to confirm complete factory reset:'));
     if (check !== 'RESET') {
-      showToast('Factory reset cancelled.');
+      showToast(t('factory_reset_cancelled', 'Factory reset cancelled.'));
       return;
     }
 
     const keepDb = document.getElementById('reset-keep-db') ? document.getElementById('reset-keep-db').checked : true;
-    showToast('Executing factory reset... Automated safety backup is being created.');
+    showToast(t('js_factory_reset_running', 'Executing factory reset... Automated safety backup is being created.'));
 
     try {
       const res = await fetch('/api/backup/reset', {
@@ -5221,14 +5230,14 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       });
       const data = await res.json();
       if (!res.ok || data.status !== 'ok') {
-        showToast('Factory reset failed: ' + (data.message || 'Unknown error'));
-        alert('Factory reset failed: ' + (data.message || 'Unknown error'));
+        showToast(t('js_factory_reset_failed', 'Factory reset failed: ') + (data.message || t('js_unknown_error', 'Unknown error')));
+        alert(t('js_factory_reset_failed', 'Factory reset failed: ') + (data.message || t('js_unknown_error', 'Unknown error')));
         return;
       }
-      alert('Factory reset completed successfully. The system will now reload.');
+      alert(t('js_factory_reset_done', 'Factory reset completed successfully. The system will now reload.'));
       setTimeout(() => { window.location.reload(); }, 2000);
     } catch (e) {
-      showToast('Factory reset network error: ' + e);
+      showToast(t('js_factory_reset_net_error', 'Factory reset network error: ') + e);
     }
   }
 
@@ -5253,8 +5262,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       });
       const data = await res.json();
       if (!res.ok || data.status !== 'ok') {
-        showToast(t('factory_reset_failed', 'Factory reset failed: ') + (data.message || 'Unknown error'));
-        alert(t('factory_reset_failed', 'Factory reset failed: ') + (data.message || 'Unknown error'));
+        showToast(t('factory_reset_failed', 'Factory reset failed: ') + (data.message || t('js_unknown_error', 'Unknown error')));
+        alert(t('factory_reset_failed', 'Factory reset failed: ') + (data.message || t('js_unknown_error', 'Unknown error')));
         return;
       }
       alert(t('factory_reset_success', 'Factory reset completed successfully! The page will reload in 2 seconds.'));
@@ -5291,7 +5300,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         }
       }
     } catch (e) {
-      showToast(t('error', 'Error: ') + e);
+      showToast(t('error_prefix', 'Error: ') + e);
       if (msgEl) msgEl.innerText = t('network_error', 'Network error: ') + e;
     }
   }
@@ -5316,19 +5325,19 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#34d399';
           badge.style.border = '1px solid #059669';
-          badge.textContent = '✔ HEALTHY';
+          badge.textContent = '✔ ' + t('js_heal_healthy', 'HEALTHY');
         } else if (st === 'warning') {
           badge.className = 'badge-pill';
           badge.style.background = 'rgba(245, 158, 11, 0.15)';
           badge.style.color = '#fbbf24';
           badge.style.border = '1px solid #d97706';
-          badge.textContent = '▲ WARNING (' + audit.warning_count + ')';
+          badge.textContent = '▲ ' + t('js_heal_warning', 'WARNING') + ' (' + audit.warning_count + ')';
         } else {
           badge.className = 'badge-pill';
           badge.style.background = 'rgba(239, 68, 68, 0.15)';
           badge.style.color = '#f87171';
           badge.style.border = '1px solid #dc2626';
-          badge.textContent = '✖ CRITICAL ISSUES (' + audit.critical_count + ')';
+          badge.textContent = '✖ ' + t('js_heal_critical', 'CRITICAL ISSUES') + ' (' + audit.critical_count + ')';
         }
       }
 
@@ -5346,13 +5355,13 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       if (tbody && audit.components) {
         let html = '';
         const catTitles = {
-          binaries: '⚙️ External & Compiled Binaries',
-          symlinks: '🔗 CLI Symlinks (/usr/local/bin)',
-          database: '💾 SQLite Database & Tables',
-          config: '📄 System Configuration',
-          filesystem: '📁 Filesystem Permissions',
-          services: '🐧 Systemd Units & Timers',
-          network: '🌐 Network Stack & DNS',
+          binaries: '⚙️ ' + t('js_heal_cat_binaries', 'External & Compiled Binaries'),
+          symlinks: '🔗 ' + t('js_heal_cat_symlinks', 'CLI Symlinks') + ' (/usr/local/bin)',
+          database: '💾 ' + t('js_heal_cat_database', 'SQLite Database & Tables'),
+          config: '📄 ' + t('js_heal_cat_config', 'System Configuration'),
+          filesystem: '📁 ' + t('js_heal_cat_filesystem', 'Filesystem Permissions'),
+          services: '🐧 ' + t('js_heal_cat_services', 'Systemd Units & Timers'),
+          network: '🌐 ' + t('js_heal_cat_network', 'Network Stack & DNS'),
         };
 
         for (const [catKey, catTitle] of Object.entries(catTitles)) {
@@ -5364,9 +5373,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
             if (item.status === 'ok') {
               statusPill = '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; font-size: 11px;">✔ OK</span>';
             } else if (item.status === 'warning') {
-              statusPill = '<span class="badge-pill" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #d97706; font-size: 11px;">▲ WARN</span>';
+              statusPill = '<span class="badge-pill" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #d97706; font-size: 11px;">▲ ' + t('js_heal_warn', 'WARN') + '</span>';
             } else {
-              statusPill = '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #dc2626; font-size: 11px;">✖ FAIL</span>';
+              statusPill = '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #dc2626; font-size: 11px;">✖ ' + t('js_heal_fail', 'FAIL') + '</span>';
             }
             html += `<tr>
               <td style="font-weight: 600; color: #ffffff; padding: 7px 12px;">${escapeHtml(item.label || item.id)}</td>
@@ -5384,22 +5393,22 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         const comps = state.components || {};
         const entries = Object.values(comps);
         if (entries.length === 0) {
-          escContainer.innerHTML = '<div style="font-size: 12px; color: #34d399; text-align: center; padding: 20px;">✔ No recurring component failures tracked. System baseline clean.</div>';
+          escContainer.innerHTML = '<div style="font-size: 12px; color: #34d399; text-align: center; padding: 20px;">✔ ' + t('js_heal_no_failures', 'No recurring component failures tracked. System baseline clean.') + '</div>';
         } else {
           let escHtml = '<div style="display: flex; flex-direction: column; gap: 8px;">';
           for (const c of entries) {
             const isResolved = c.resolved;
-            const tierBadge = c.last_tier_attempted ? `<span class="badge-pill" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #d97706; font-size: 11px;">Tier ${escapeHtml(c.last_tier_attempted)}</span>` : '';
+            const tierBadge = c.last_tier_attempted ? `<span class="badge-pill" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #d97706; font-size: 11px;">${escapeHtml(t('js_heal_tier', 'Tier {tier}').replace('{tier}', c.last_tier_attempted))}</span>` : '';
             const statusBadge = isResolved
-              ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; font-size: 11px;">RESOLVED</span>'
-              : '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #dc2626; font-size: 11px;">ACTIVE ISSUE</span>';
+              ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; font-size: 11px;">' + t('js_heal_resolved', 'RESOLVED') + '</span>'
+              : '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #dc2626; font-size: 11px;">' + t('js_heal_active_issue', 'ACTIVE ISSUE') + '</span>';
             escHtml += `<div style="padding: 8px 10px; background: rgba(0,0,0,0.25); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); font-size: 11.5px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <strong style="color: #ffffff;">${escapeHtml(c.label || c.id)}</strong>
                 <div style="display: flex; gap: 4px;">${tierBadge}${statusBadge}</div>
               </div>
-              <div style="color: #94a3b8; font-size: 11px;">Consecutive failures: <strong style="color: ${c.consecutive_failures > 1 ? '#f87171' : '#fbbf24'};">${c.consecutive_failures || 0}</strong> | Total: ${c.total_failures || 0}</div>
-              ${c.last_actions && c.last_actions.length ? `<div style="color: #38bdf8; font-size: 11px; margin-top: 2px;">Last action: ${escapeHtml(c.last_actions[c.last_actions.length - 1])}</div>` : ''}
+              <div style="color: #94a3b8; font-size: 11px;">${t('js_heal_consecutive', 'Consecutive failures:')} <strong style="color: ${c.consecutive_failures > 1 ? '#f87171' : '#fbbf24'};">${c.consecutive_failures || 0}</strong> | ${t('js_total_label', 'Total:')} ${c.total_failures || 0}</div>
+              ${c.last_actions && c.last_actions.length ? `<div style="color: #38bdf8; font-size: 11px; margin-top: 2px;">${t('js_heal_last_action', 'Last action:')} ${escapeHtml(c.last_actions[c.last_actions.length - 1])}</div>` : ''}
             </div>`;
           }
           escHtml += '</div>';
@@ -5412,23 +5421,23 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
   }
 
   async function triggerHealAudit() {
-    showToast('Running comprehensive component health audit...');
+    showToast(t('js_heal_audit_running', 'Running comprehensive component health audit...'));
     try {
       const res = await fetch('/api/heal/audit', { method: 'POST' });
       if (!res.ok) {
-        showToast('Health audit failed.');
+        showToast(t('js_heal_audit_failed', 'Health audit failed.'));
         return;
       }
-      showToast('Health audit complete.');
+      showToast(t('js_heal_audit_done', 'Health audit complete.'));
       await loadHealStatus();
     } catch (e) {
-      showToast('Error running audit: ' + e);
+      showToast(t('js_heal_audit_error', 'Error running audit: ') + e);
     }
   }
 
   async function triggerAutoHeal(tier) {
-    const tierMsg = tier ? (' (Forcing Escalation Tier ' + tier + ')') : ' with adaptive escalation';
-    showToast('Executing automated self-healing' + tierMsg + '...');
+    showToast(tier ? t('js_heal_running_tier', 'Executing automated self-healing (Forcing Escalation Tier {tier})...').replace('{tier}', tier)
+      : t('js_heal_running_adaptive', 'Executing automated self-healing with adaptive escalation...'));
     try {
       const res = await fetch('/api/heal/fix', {
         method: 'POST',
@@ -5438,13 +5447,13 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       const data = await res.json();
       const repairs = data.repairs_executed || [];
       if (repairs.length > 0) {
-        alert('Self-Healing Completed:\n\n' + repairs.join('\n'));
+        alert(t('js_heal_completed', 'Self-Healing Completed:') + '\n\n' + repairs.join('\n'));
       } else {
-        showToast('Self-healing check completed: All components healthy.');
+        showToast(t('js_heal_all_healthy', 'Self-healing check completed: All components healthy.'));
       }
       await loadHealStatus();
     } catch (e) {
-      showToast('Error during self-healing: ' + e);
+      showToast(t('js_heal_error', 'Error during self-healing: ') + e);
     }
   }
 
@@ -5466,20 +5475,20 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           tagEl.style.background = 'rgba(16, 185, 129, 0.15)';
           tagEl.style.color = '#34d399';
           tagEl.style.border = '1px solid #059669';
-          tagEl.textContent = '✔ STABLE RELEASE';
+          tagEl.textContent = '✔ ' + t('js_upd_stable', 'STABLE RELEASE');
         } else {
           tagEl.style.background = 'rgba(239, 68, 68, 0.15)';
           tagEl.style.color = '#f87171';
           tagEl.style.border = '1px solid #dc2626';
-          tagEl.textContent = '▲ UNSTABLE / PRE-RELEASE';
+          tagEl.textContent = '▲ ' + t('js_upd_unstable', 'UNSTABLE / PRE-RELEASE');
         }
       }
 
       const msgEl = document.getElementById('heal-update-msg');
       if (msgEl) {
-        let msg = escapeHtml(data.message || 'System software is up to date.');
+        let msg = escapeHtml(data.message || t('js_upd_up_to_date', 'System software is up to date.'));
         if (data.changelog && data.changelog.length) {
-          msg += '<br><span style="color: #38bdf8; font-weight: 600;">Recent commits:</span><br>' + data.changelog.slice(0, 3).map(c => '• ' + escapeHtml(c)).join('<br>');
+          msg += '<br><span style="color: #38bdf8; font-weight: 600;">' + escapeHtml(t('js_upd_recent_commits', 'Recent commits:')) + '</span><br>' + data.changelog.slice(0, 3).map(c => '• ' + escapeHtml(c)).join('<br>');
         }
         msgEl.innerHTML = msg;
       }
@@ -5498,7 +5507,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       }
 
       if (showToastAlert) {
-        showToast(data.update_available ? 'Stable update available!' : 'System is already up to date.');
+        showToast(data.update_available ? t('js_upd_available', 'Stable update available!') : t('js_upd_already', 'System is already up to date.'));
       }
     } catch (e) {
       console.error('Error checking stable updates:', e);
@@ -5510,7 +5519,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       return;
     }
 
-    showToast('Creating safety checkpoint and applying stable update...');
+    showToast(t('js_upd_applying', 'Creating safety checkpoint and applying stable update...'));
     try {
       const res = await fetch('/api/heal/update/apply', {
         method: 'POST',
@@ -5523,19 +5532,19 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         return;
       }
       if (data.success) {
-        alert(t('update_applied_success', 'Update Applied Successfully! Version: ') + data.new_version + ' (' + data.checkpoint + '). Reloading dashboard...');
+        alert(t('update_applied_success', 'Update Applied Successfully! Version: ') + data.new_version + ' (' + data.checkpoint + '). ' + t('js_upd_reloading', 'Reloading dashboard...'));
         setTimeout(() => { window.location.reload(); }, 2000);
       } else {
         if (data.rolled_back) {
           alert(t('update_rollback_applied', '⚠️ UPDATE VERIFICATION FAILED — AUTOMATIC ROLLBACK APPLIED! Reason: ') + data.error);
         } else {
-          alert('Update failed: ' + (data.error || 'Unknown error'));
+          alert(t('js_upd_failed', 'Update failed: ') + (data.error || t('js_unknown_error', 'Unknown error')));
         }
         await loadHealStatus();
         await checkStableUpdates(false);
       }
     } catch (e) {
-      showToast('Error applying update: ' + e);
+      showToast(t('js_upd_apply_error', 'Error applying update: ') + e);
     }
   }
 
@@ -5604,10 +5613,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     if (screen && !screen.innerText.trim()) {
       screen.innerText = 
 `================================================================================
-NetworkMeasureBox Linux Interactive Diagnostics Shell
+NetworkMeasureBox ${t('js_term_title', 'Linux Interactive Diagnostics Shell')}
 Box ID: ${boxId} | Firmware: 4047 (Universal)
-Type any Linux command below, or click any of the quick shortcuts above.
-Use UP/DOWN arrow keys for command history.
+${t('js_term_hint_type', 'Type any Linux command below, or click any of the quick shortcuts above.')}
+${t('js_term_hint_history', 'Use UP/DOWN arrow keys for command history.')}
 ================================================================================
 
 `;
@@ -5691,18 +5700,18 @@ Use UP/DOWN arrow keys for command history.
       const dur = data.duration_ms ? ` (${data.duration_ms}ms)` : '';
       const codeBadge = code === 0 ? `[Exit 0${dur}]` : `[Exit ${code}${dur}]`;
 
-      screen.innerText += `${data.output || '(No output)'}
+      screen.innerText += `${data.output || '(' + t('js_term_no_output', 'No output') + ')'}
 ${codeBadge}
 
 `;
     } catch (err) {
-      screen.innerText += `Network error executing command: ${err}
+      screen.innerText += `${t('js_term_net_error', 'Network error executing command: ')}${err}
 [Exit -1]
 
 `;
     } finally {
       if (badge) {
-        badge.innerText = 'ONLINE';
+        badge.innerText = t('live_status', 'ONLINE');
         badge.style.color = '#34d399';
         badge.style.borderColor = '#10b981';
       }
@@ -5716,7 +5725,7 @@ ${codeBadge}
   function clearTerminalScreen() {
     const screen = document.getElementById('cli-terminal-screen');
     if (screen) {
-      screen.innerText = 'Screen cleared.\n\n';
+      screen.innerText = t('terminal_cleared', 'Screen cleared.') + '\n\n';
     }
   }
 
@@ -5750,7 +5759,7 @@ ${codeBadge}
         }
       }
     } catch (e) {
-      if (previewEl) previewEl.innerText = t('error', 'Error: ') + e;
+      if (previewEl) previewEl.innerText = t('error_prefix', 'Error: ') + e;
     }
   }
 
@@ -5812,7 +5821,7 @@ ${codeBadge}
           }
         }
       } catch (e) {
-        cableTxt.innerText = 'N/A';
+        cableTxt.innerText = t('js_na', 'N/A');
       }
     }
 
@@ -5876,7 +5885,7 @@ ${codeBadge}
         }
       }
     } catch (e) {
-      crashTxt.innerText = 'N/A';
+      crashTxt.innerText = t('js_na', 'N/A');
     }
   }
 
@@ -5917,7 +5926,7 @@ ${codeBadge}
   async function runIperfTest() {
     const host = (document.getElementById('iperf-host').value || '').trim();
     if (!host) {
-      showToast('Please enter an iPerf3 target host.');
+      showToast(t('js_iperf_enter_host', 'Please enter an iPerf3 target host.'));
       return;
     }
     const port = parseInt(document.getElementById('iperf-port').value) || 5201;
@@ -5931,7 +5940,7 @@ ${codeBadge}
 
     document.getElementById('btn-iperf-run').disabled = true;
     document.getElementById('iperf-running-indicator').style.display = 'inline-block';
-    showToast('Starting iPerf3 test...');
+    showToast(t('js_iperf_starting', 'Starting iPerf3 test...'));
 
     try {
       const res = await fetch('/api/iperf/run', {
@@ -5951,11 +5960,11 @@ ${codeBadge}
       });
       if (!res.ok) {
         const err = await res.json();
-        showToast('iPerf error: ' + (err.message || 'Busy'));
+        showToast(t('js_iperf_error', 'iPerf error: ') + (err.message || t('js_busy', 'Busy')));
       }
       pollIperfStatus();
     } catch (e) {
-      showToast('iPerf run error: ' + e);
+      showToast(t('js_iperf_run_error', 'iPerf run error: ') + e);
       document.getElementById('btn-iperf-run').disabled = false;
       document.getElementById('iperf-running-indicator').style.display = 'none';
     }
@@ -5986,18 +5995,20 @@ ${codeBadge}
       const btn = document.getElementById('btn-iperf-server-toggle');
       const isRunning = Boolean(d.server.is_running || d.server.server_running);
       if (isRunning) {
-        badge.textContent = `Daemon: Active (Port ${d.server.port || 5201}${d.server.pid ? ', PID ' + d.server.pid : ''})`;
+        badge.dataset.state = 'running';
+        badge.textContent = t('js_iperf_daemon_active', 'Daemon: Active (Port {port})').replace('{port}', (d.server.port || 5201) + (d.server.pid ? ', PID ' + d.server.pid : ''));
         badge.style.background = 'rgba(16, 185, 129, 0.15)';
         badge.style.color = '#34d399';
         badge.style.borderColor = '#10b981';
-        btn.textContent = '⏹️ Stop iPerf Server';
+        btn.textContent = '⏹️ ' + t('js_iperf_server_stop', 'Stop iPerf Server');
         btn.className = 'btn-danger';
       } else {
-        badge.textContent = 'Daemon: Inactive';
+        badge.dataset.state = 'stopped';
+        badge.textContent = t('js_iperf_daemon_inactive', 'Daemon: Inactive');
         badge.style.background = 'rgba(148, 163, 184, 0.15)';
         badge.style.color = '#94a3b8';
         badge.style.borderColor = '#475569';
-        btn.textContent = '▶️ Start iPerf Server';
+        btn.textContent = '▶️ ' + t('js_iperf_server_start', 'Start iPerf Server');
         btn.className = 'btn-secondary';
       }
     }
@@ -6019,12 +6030,12 @@ ${codeBadge}
           cardUp.style.display = 'block';
           if (resDown) resDown.textContent = (l.download_mbps != null) ? `${l.download_mbps} Mbps` : '-- Mbps';
           if (resUp) resUp.textContent = (l.upload_mbps != null) ? `${l.upload_mbps} Mbps` : '-- Mbps';
-          if (resLabel) resLabel.textContent = l.direction === 'sequential' ? t('iperf_dir_both_short', 'download, then upload') : 'Combined Total';
+          if (resLabel) resLabel.textContent = l.direction === 'sequential' ? t('iperf_dir_both_short', 'download, then upload') : t('js_iperf_combined_total', 'Combined Total');
         } else {
           cardDown.style.display = 'none';
           cardUp.style.display = 'none';
           if (resLabel) {
-            resLabel.textContent = (l.direction === 'download') ? 'Download Throughput' : 'Upload Throughput';
+            resLabel.textContent = (l.direction === 'download') ? t('js_iperf_download_throughput', 'Download Throughput') : t('js_iperf_upload_throughput', 'Upload Throughput');
           }
         }
       }
@@ -6035,14 +6046,14 @@ ${codeBadge}
       if (document.getElementById('iperf-res-retransmits')) {
         let retVal = '--';
         if (isOk) {
-          retVal = isUdp ? 'N/A (UDP)' : (l.retransmits != null ? l.retransmits : 0);
+          retVal = isUdp ? t('js_na', 'N/A') + ' (UDP)' : (l.retransmits != null ? l.retransmits : 0);
         }
         document.getElementById('iperf-res-retransmits').textContent = retVal;
       }
       if (document.getElementById('iperf-res-jitter')) {
         let jitVal = '--';
         if (isOk) {
-          jitVal = isUdp ? (l.jitter_ms != null ? `${l.jitter_ms} ms` : '0.00 ms') : 'N/A (TCP)';
+          jitVal = isUdp ? (l.jitter_ms != null ? `${l.jitter_ms} ms` : '0.00 ms') : t('js_na', 'N/A') + ' (TCP)';
         }
         document.getElementById('iperf-res-jitter').textContent = jitVal;
       }
@@ -6061,10 +6072,10 @@ ${codeBadge}
         if (isOk && l.raw_output) {
           document.getElementById('iperf-raw-log').textContent = l.raw_output;
         } else if (l.error) {
-          document.getElementById('iperf-raw-log').innerHTML = `<span style="color: #f87171; font-weight: bold;">Error: ${escapeHtml(l.error)}</span>
-${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
+          document.getElementById('iperf-raw-log').innerHTML = `<span style="color: #f87171; font-weight: bold;">${escapeHtml(t('error_prefix', 'Error: '))}${escapeHtml(l.error)}</span>
+${l.cmd ? escapeHtml(t('js_command_label', 'Command: ')) + escapeHtml(l.cmd) : ''}`;
         } else {
-          document.getElementById('iperf-raw-log').textContent = l.raw_output || 'No output available';
+          document.getElementById('iperf-raw-log').textContent = l.raw_output || t('js_no_output_available', 'No output available');
         }
       }
     }
@@ -6072,10 +6083,10 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
 
   async function toggleIperfServer() {
     const badge = document.getElementById('iperf-server-badge');
-    const isRunning = badge.textContent.includes('Active');
+    const isRunning = badge.dataset.state === 'running';
     const action = isRunning ? 'stop' : 'start';
     const port = parseInt(document.getElementById('iperf-port').value) || 5201;
-    showToast(isRunning ? 'Stopping iPerf3 server...' : 'Starting iPerf3 server on port ' + port + '...');
+    showToast(isRunning ? t('js_iperf_server_stopping', 'Stopping iPerf3 server...') : t('js_iperf_server_starting', 'Starting iPerf3 server on port {port}...').replace('{port}', port));
     try {
       const res = await fetch('/api/iperf/server', {
         method: 'POST',
@@ -6084,11 +6095,11 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       });
       if (res.ok) {
         const d = await res.json();
-        showToast(d.message || 'iPerf server updated');
+        showToast(d.message || t('js_iperf_server_updated', 'iPerf server updated'));
         loadIperfStatus();
       }
     } catch (e) {
-      showToast('Error toggling server: ' + e);
+      showToast(t('js_iperf_server_toggle_error', 'Error toggling server: ') + e);
     }
   }
 
@@ -6129,8 +6140,8 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     const listEl = document.getElementById('iperf-modal-server-list');
     const badgeEl = document.getElementById('iperf-modal-count-badge');
     const srcEl = document.getElementById('iperf-modal-source-label');
-    if (listEl) listEl.innerHTML = '<div style="text-align: center; color: #38bdf8; padding: 30px 0;">🌐 Fetching live iPerf3 servers online... please wait.</div>';
-    if (badgeEl) badgeEl.innerText = 'Loading...';
+    if (listEl) listEl.innerHTML = '<div style="text-align: center; color: #38bdf8; padding: 30px 0;">🌐 ' + t('js_iperf_fetching_servers', 'Fetching live iPerf3 servers online... please wait.') + '</div>';
+    if (badgeEl) badgeEl.innerText = t('loading', 'Loading...');
 
     try {
       const url = '/api/iperf/servers' + (forceRefresh ? '?refresh=1' : '');
@@ -6138,12 +6149,12 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       cachedPublicServers = data.servers || [];
-      if (badgeEl) badgeEl.innerText = `${cachedPublicServers.length} servers`;
-      if (srcEl) srcEl.innerText = `Source: ${data.source || 'online'} (${data.cached ? 'cached' : 'live'})`;
+      if (badgeEl) badgeEl.innerText = t('js_n_servers', '{n} servers').replace('{n}', cachedPublicServers.length);
+      if (srcEl) srcEl.innerText = `${t('js_source_label', 'Source:')} ${data.source || 'online'} (${data.cached ? t('js_cached', 'cached') : t('js_live', 'live')})`;
       renderPublicServers(cachedPublicServers);
     } catch (e) {
-      if (listEl) listEl.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 30px 0;">Failed to load servers: ${escapeHtml(e.message)}</div>`;
-      if (badgeEl) badgeEl.innerText = 'Error';
+      if (listEl) listEl.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 30px 0;">${escapeHtml(t('js_servers_load_failed', 'Failed to load servers: '))}${escapeHtml(e.message)}</div>`;
+      if (badgeEl) badgeEl.innerText = t('js_error_word', 'Error');
     }
   }
 
@@ -6179,7 +6190,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     });
 
     if (filtered.length === 0) {
-      listEl.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 30px 0;">No matching servers found for your filter.</div>';
+      listEl.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 30px 0;">' + t('js_no_servers_filter', 'No matching servers found for your filter.') + '</div>';
       return;
     }
 
@@ -6187,7 +6198,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const flag = getFlagEmoji(s.country);
       const speedBadge = s.speed ? `<span style="font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 2px 7px; border-radius: 4px; margin-left: 6px;">${escapeHtml(s.speed)}</span>` : '';
       const safeHost = escapeHtml(s.host);
-      const safeSite = escapeHtml(s.site || s.country || 'Global');
+      const safeSite = escapeHtml(s.site || s.country || t('js_global', 'Global'));
       const safeProvider = escapeHtml(s.provider || '');
       const safePortRange = escapeHtml(s.port_range || String(s.port));
       return `
@@ -6207,7 +6218,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
           <div style="display: flex; align-items: center; gap: 8px;">
             <span id="probe-badge-${idx}" style="font-size: 11.5px; color: #94a3b8; min-width: 70px; text-align: right;"></span>
             <button type="button" class="btn-secondary" style="font-size: 11.5px; padding: 5px 11px;" onclick="probeServerModal(${jsArg(s.host)}, ${jsArg(s.port)}, 'probe-badge-${idx}', this)">⚡ Ping</button>
-            <button type="button" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="selectPublicServer(${jsArg(s.host)}, ${jsArg(s.port)}, ${jsArg(s.provider || '')}, ${jsArg(s.site || s.country || 'Global')}, ${jsArg(s.speed || '')})">🎯 Select Server</button>
+            <button type="button" class="btn-primary" style="font-size: 11.5px; padding: 5px 12px;" onclick="selectPublicServer(${jsArg(s.host)}, ${jsArg(s.port)}, ${jsArg(s.provider || '')}, ${jsArg(s.site || s.country || t('js_global', 'Global'))}, ${jsArg(s.speed || '')})">🎯 ${t('js_select_server', 'Select Server')}</button>
           </div>
         </div>
       `;
@@ -6239,11 +6250,11 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         if (d.reachable) {
           if (badge) badge.innerHTML = `<span style="color:#34d399; font-weight:600;">✅ ${escapeHtml(d.rtt_ms)}ms</span>`;
         } else {
-          if (badge) badge.innerHTML = `<span style="color:#f87171;" title="${escapeHtml(d.error || 'Timeout')}">❌ Offline</span>`;
+          if (badge) badge.innerHTML = `<span style="color:#f87171;" title="${escapeHtml(d.error || t('js_timeout', 'Timeout'))}">❌ ${escapeHtml(t('vpn_status_offline', 'Offline'))}</span>`;
         }
       }
     } catch (e) {
-      if (badge) badge.innerHTML = '<span style="color:#f87171;">❌ Error</span>';
+      if (badge) badge.innerHTML = '<span style="color:#f87171;">❌ ' + escapeHtml(t('js_error_word', 'Error')) + '</span>';
     } finally {
       if (btnEl) btnEl.disabled = false;
     }
@@ -6258,7 +6269,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       if (p) p.value = port;
       if (info) info.innerHTML = `🎯 <b>${escapeHtml(site || provider || host)}</b> <code style="color:#94a3b8;">(${escapeHtml(host)}:${escapeHtml(port)})</code> ${speed ? '[' + escapeHtml(speed) + ']' : ''}`;
       markSchedDirty();
-      showToast(`Selected scheduled iPerf3 server: ${host}:${port}`);
+      showToast(t('js_iperf_sched_selected', 'Selected scheduled iPerf3 server: {server}').replace('{server}', host + ':' + port));
     } else {
       const h = document.getElementById('iperf-host');
       const p = document.getElementById('iperf-port');
@@ -6267,9 +6278,9 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       if (p) p.value = port;
       if (badge) {
         badge.style.display = 'block';
-        badge.innerHTML = `🎯 <b>Selected Server:</b> ${escapeHtml(site)} • ${escapeHtml(provider)} (<code>${escapeHtml(host)}:${escapeHtml(port)}</code>) ${speed ? `[<b>${escapeHtml(speed)}</b>]` : ''}`;
+        badge.innerHTML = `🎯 <b>${escapeHtml(t('js_selected_server', 'Selected Server:'))}</b> ${escapeHtml(site)} • ${escapeHtml(provider)} (<code>${escapeHtml(host)}:${escapeHtml(port)}</code>) ${speed ? `[<b>${escapeHtml(speed)}</b>]` : ''}`;
       }
-      showToast(`Selected iPerf3 target: ${host}:${port}`);
+      showToast(t('js_iperf_target_selected', 'Selected iPerf3 target: {server}').replace('{server}', host + ':' + port));
     }
     closePublicServersModal();
   }
@@ -6307,7 +6318,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         ? t('iperf_saved_ok', '✅ Saved: automatic iPerf3 tests use {host}:{port}.').replace('{host}', host).replace('{port}', port)
         : t('iperf_saved_unreachable', '⚠️ Saved {host}:{port}, but it does not answer now; automatic iPerf3 tests wait until it does.').replace('{host}', host).replace('{port}', port));
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -6378,22 +6389,22 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     const host = (document.getElementById('iperf-host').value || '').trim();
     const port = parseInt(document.getElementById('iperf-port').value) || 5201;
     if (!host) {
-      showToast('Please enter an iPerf3 target host first.');
+      showToast(t('js_iperf_enter_host_first', 'Please enter an iPerf3 target host first.'));
       return;
     }
-    showToast(`Pinging ${host}:${port}...`);
+    showToast(t('js_pinging', 'Pinging {server}...').replace('{server}', host + ':' + port));
     try {
       const res = await fetch(`/api/iperf/probe?host=${encodeURIComponent(host)}&port=${port}`);
       if (res.ok) {
         const d = await res.json();
         if (d.reachable) {
-          showToast(`✅ ${host}:${port} is reachable! Ping (RTT): ${d.rtt_ms} ms`);
+          showToast('✅ ' + t('js_iperf_reachable', '{server} is reachable! Ping (RTT): {rtt} ms').replace('{server}', host + ':' + port).replace('{rtt}', d.rtt_ms));
         } else {
-          showToast(`❌ Cannot connect to ${host}:${port}: ${d.error || 'Timed out'}`);
+          showToast('❌ ' + t('js_iperf_cannot_connect', 'Cannot connect to {server}: {reason}').replace('{server}', host + ':' + port).replace('{reason}', d.error || t('js_timed_out', 'Timed out')));
         }
       }
     } catch (e) {
-      showToast('Error testing connection: ' + e);
+      showToast(t('js_conn_test_error', 'Error testing connection: ') + e);
     }
   }
 
@@ -6439,11 +6450,11 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       });
       if (!res.ok) {
         const err = await res.json();
-        showToast('Traceroute error: ' + (err.message || 'Busy'));
+        showToast(t('js_traceroute_error', 'Traceroute error: ') + (err.message || t('js_busy', 'Busy')));
       }
       pollTracerouteStatus();
     } catch (e) {
-      showToast('Traceroute failed: ' + e);
+      showToast(t('js_traceroute_failed', 'Traceroute failed: ') + e);
       if (btnRun) btnRun.disabled = false;
       if (btnStop) btnStop.style.display = 'none';
       if (indicator) indicator.style.display = 'none';
@@ -6455,7 +6466,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       await fetch('/api/traceroute/stop', { method: 'POST' });
       showToast(t('traceroute_toast_stopped', 'Traceroute stopped.'));
     } catch (e) {
-      showToast('Error stopping traceroute: ' + e);
+      showToast(t('js_traceroute_stop_error', 'Error stopping traceroute: ') + e);
     }
   }
 
@@ -6538,22 +6549,22 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const rtt3 = rtts[2] !== undefined ? `${rtts[2]} ms` : '*';
       const isLoss = h.ip === '*' || (rtts.length === 0 && h.rtt_ms === null);
       const statusPill = isLoss
-        ? '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; font-size: 11px;">Packet Loss (*)</span>'
+        ? '<span class="badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; font-size: 11px;">' + t('hop_loss', 'Packet Loss') + ' (*)</span>'
         : '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">OK</span>';
 
       // Hop Type Pill
       let typePill = '';
       const hType = h.hop_type || (h.ip === '*' ? 'timeout' : 'public');
       if (hType === 'target') {
-        typePill = '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; font-size: 11px; padding: 2px 6px;">🎯 Target</span>';
+        typePill = '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; font-size: 11px; padding: 2px 6px;">🎯 ' + t('js_hop_target', 'Target') + '</span>';
       } else if (hType === 'lan') {
         typePill = '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; font-size: 11px; padding: 2px 6px;">🏠 LAN</span>';
       } else if (hType === 'cgnat') {
         typePill = '<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; font-size: 11px; padding: 2px 6px;">📡 CGNAT</span>';
       } else if (hType === 'timeout') {
-        typePill = '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; font-size: 11px; padding: 2px 6px;">⚠️ Timeout</span>';
+        typePill = '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; font-size: 11px; padding: 2px 6px;">⚠️ ' + t('js_timeout', 'Timeout') + '</span>';
       } else {
-        typePill = '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px; padding: 2px 6px;">🌐 Public</span>';
+        typePill = '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px; padding: 2px 6px;">🌐 ' + t('js_hop_public', 'Public') + '</span>';
       }
 
       // Country with flag emoji and badge
@@ -6574,7 +6585,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         const asInfo = h.as ? `<span style="color: #94a3b8; font-size: 11px; margin-left: 4px; font-family: monospace;">(${escapeHtml(h.as)})</span>` : '';
         ispHtml = `<span style="font-weight: 600; color: #38bdf8;">${ispName}</span> ${asInfo}`;
       } else if (h.ip === '*') {
-        ispHtml = '<span style="color: #64748b;">-- (Silent Hop / Timeout)</span>';
+        ispHtml = '<span style="color: #64748b;">-- (' + t('js_hop_silent', 'Silent Hop / Timeout') + ')</span>';
       }
 
       // Latency Bar Graph
@@ -6711,7 +6722,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
           instBadge.style.color = '#38bdf8';
           instBadge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
         } else {
-          instBadge.textContent = 'OONI Probe Not Installed';
+          instBadge.textContent = 'OONI Probe: ' + t('js_not_installed', 'Not Installed');
           instBadge.style.color = '#ef4444';
           instBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
         }
@@ -6720,12 +6731,12 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const verdBadge = document.getElementById('ooni-verdict-badge');
       if (verdBadge) {
         if (d.freedom_verdict === 'clean') {
-          verdBadge.innerHTML = '🟢 Clean / No Censorship Detected';
+          verdBadge.textContent = '🟢 ' + t('js_ooni_clean_verdict', 'Clean / No Censorship Detected');
           verdBadge.style.color = '#10b981';
           verdBadge.style.background = 'rgba(16, 185, 129, 0.15)';
           verdBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
         } else {
-          verdBadge.innerHTML = '🔴 ' + d.total_anomalies_historical + ' Anomalies / Blocks Detected';
+          verdBadge.textContent = '🔴 ' + t('js_ooni_anomalies_verdict', '{n} Anomalies / Blocks Detected').replace('{n}', d.total_anomalies_historical);
           verdBadge.style.color = '#ef4444';
           verdBadge.style.background = 'rgba(239, 68, 68, 0.15)';
           verdBadge.style.borderColor = 'rgba(239, 68, 68, 0.3)';
@@ -6740,7 +6751,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
 
       if (d.running) {
         if (ind) ind.style.display = 'block';
-        if (msg) msg.textContent = 'Running OONI Probe test [' + (d.current_test || 'test') + ']...';
+        if (msg) msg.textContent = t('js_ooni_running', 'Running OONI Probe test [{test}]...').replace('{test}', d.current_test || 'test');
         const p = d.progress_percent || 10;
         if (bar) bar.style.width = p + '%';
         if (pct) pct.textContent = p + '%';
@@ -6793,8 +6804,8 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     const ind = document.getElementById('ooni-running-indicator');
     const msg = document.getElementById('ooni-running-msg');
     if (ind) ind.style.display = 'block';
-    if (msg) msg.textContent = 'Initiating OONI Probe [' + testType + '] test...';
-    showToast('Starting OONI Probe ' + testType + ' test...');
+    if (msg) msg.textContent = t('js_ooni_initiating', 'Initiating OONI Probe [{test}] test...').replace('{test}', testType);
+    showToast(t('js_ooni_starting', 'Starting OONI Probe {test} test...').replace('{test}', testType));
 
     try {
       const res = await fetch('/api/ooni/run', {
@@ -6804,11 +6815,11 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       });
       const d = await res.json();
       if (!res.ok) {
-        showToast('OONI error: ' + (d.message || 'Busy'));
+        showToast(t('js_ooni_error', 'OONI error: ') + (d.message || t('js_busy', 'Busy')));
       }
       setTimeout(loadOoniStatus, 1500);
     } catch (e) {
-      showToast('OONI request failed: ' + e);
+      showToast(t('js_ooni_request_failed', 'OONI request failed: ') + e);
       setOoniButtonsDisabled(false);
       if (ind) ind.style.display = 'none';
     }
@@ -6820,12 +6831,12 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     if (!tbody) return;
 
     if (!history || history.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No OONI tests recorded yet. Click one of the test buttons above to run your first censorship check.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">' + t('js_ooni_no_tests', 'No OONI tests recorded yet. Click one of the test buttons above to run your first censorship check.') + '</td></tr>';
       return;
     }
 
     if (netLbl && history[0]) {
-      netLbl.textContent = 'Monitored ASN: AS' + history[0].asn + ' (' + history[0].network_name + ', ' + history[0].country_code + ')';
+      netLbl.textContent = t('js_ooni_monitored_asn', 'Monitored ASN:') + ' AS' + history[0].asn + ' (' + history[0].network_name + ', ' + history[0].country_code + ')';
     }
 
     let html = '';
@@ -6833,8 +6844,8 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const anom = item.anomaly_count || 0;
       const isClean = anom === 0;
       const verdBadge = isClean
-        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🟢 Clean</span>'
-        : `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🔴 ${anom} Anomalies</span>`;
+        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🟢 ' + t('js_ooni_clean', 'Clean') + '</span>'
+        : `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🔴 ${escapeHtml(t('js_ooni_n_anomalies', '{n} Anomalies').replace('{n}', anom))}</span>`;
 
       let icon = '🌐';
       if (item.name === 'middlebox') icon = '📦';
@@ -6853,7 +6864,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         <td>${verdBadge}</td>
         <td>
           <button type="button" class="btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="openOoniRunDetails(${jsArg(item.id)})">
-            🔍 Details
+            🔍 ${t('syslog_col_detail', 'Details')}
           </button>
         </td>
       </tr>`;
@@ -6897,11 +6908,11 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
 
       if (title) {
         let icon = '🌐';
-        const testName = run.name || measurements[0]?.test_group || measurements[0]?.test_name || 'Test';
+        const testName = run.name || measurements[0]?.test_group || measurements[0]?.test_name || '';
         if (testName.includes('middlebox')) icon = '📦';
         else if (testName.includes('im')) icon = '💬';
         else if (testName.includes('circumvention')) icon = '🧅';
-        title.innerHTML = `${icon} OONI Run #${run.run_id || run.id || runId} (${escapeHtml(testName)})`;
+        title.innerHTML = `${icon} OONI Run #${escapeHtml(run.run_id || run.id || runId)} (${escapeHtml(testName || t('js_test', 'Test'))})`;
       }
 
       const anomCount = data.anomalies !== undefined ? data.anomalies : (run.anomaly_count !== undefined ? run.anomaly_count : measurements.filter(m => m.is_anomaly).length);
@@ -6913,19 +6924,20 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
           badge.style.background = 'rgba(239, 68, 68, 0.2)';
           badge.style.color = '#ef4444';
           badge.style.border = '1px solid rgba(239, 68, 68, 0.4)';
-          badge.textContent = `🔴 ${anomCount} Anomalies`;
+          badge.textContent = '🔴 ' + t('js_ooni_n_anomalies', '{n} Anomalies').replace('{n}', anomCount);
         } else {
           badge.className = 'badge';
           badge.style.background = 'rgba(16, 185, 129, 0.2)';
           badge.style.color = '#10b981';
           badge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
-          badge.textContent = '🟢 All Clean';
+          badge.textContent = '🟢 ' + t('js_ooni_all_clean', 'All Clean');
         }
       }
 
       if (subtitle) {
         const timeStr = run.start_time ? run.start_time.substring(0, 19).replace('T', ' ') + ' UTC' : '--';
-        subtitle.textContent = `Network: AS${run.asn || '--'} (${run.network_name || 'ISP'}) • Time: ${timeStr} • Total Targets: ${measurements.length}`;
+        subtitle.textContent = t('js_ooni_run_subtitle', 'Network: {network} • Time: {time} • Total Targets: {n}')
+          .replace('{network}', `AS${run.asn || '--'} (${run.network_name || 'ISP'})`).replace('{time}', timeStr).replace('{n}', measurements.length);
       }
 
       const cntAll = document.getElementById('ooni-cnt-all');
@@ -6941,7 +6953,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       applyOoniFilter();
     } catch (e) {
       console.error('Failed to load OONI run details:', e);
-      if (spinner) spinner.innerHTML = `<span style="color: #ef4444;">Failed to load run details: ${escapeHtml(e.message)}</span>`;
+      if (spinner) spinner.innerHTML = `<span style="color: #ef4444;">${escapeHtml(t('js_ooni_run_load_failed', 'Failed to load run details: '))}${escapeHtml(e.message)}</span>`;
     }
   }
 
@@ -6986,7 +6998,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No measurements match the current filter.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">' + t('js_ooni_no_match', 'No measurements match the current filter.') + '</td></tr>';
       return;
     }
 
@@ -6995,18 +7007,18 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const isAnom = !!m.is_anomaly;
       let badge = '';
       if (isAnom) {
-        let reason = 'Blocked';
+        let reason = t('adblock_legend_blocked', 'Blocked');
         if (m.test_keys && m.test_keys.blocking) {
-          reason = `Blocked (${m.test_keys.blocking})`;
+          reason = `${t('adblock_legend_blocked', 'Blocked')} (${m.test_keys.blocking})`;
         } else if (m.failure) {
-          reason = `Fail (${m.failure})`;
+          reason = `${t('js_fail', 'Fail')} (${m.failure})`;
         }
         badge = `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🔴 ${escapeHtml(reason)}</span>`;
       } else {
-        badge = `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🟢 Accessible</span>`;
+        badge = `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">🟢 ${escapeHtml(t('js_accessible', 'Accessible'))}</span>`;
       }
 
-      let urlDisplay = m.url ? `<a href="${escapeHtml(sanitizeUrl(m.url))}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${escapeHtml(m.url)}</a>` : `<span style="color: var(--text-muted);">${escapeHtml(m.test_name || 'Standard Test')}</span>`;
+      let urlDisplay = m.url ? `<a href="${escapeHtml(sanitizeUrl(m.url))}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${escapeHtml(m.url)}</a>` : `<span style="color: var(--text-muted);">${escapeHtml(m.test_name || t('js_standard_test', 'Standard Test'))}</span>`;
 
       const runtimeStr = m.runtime ? `${Number(m.runtime).toFixed(2)}s` : '--';
 
@@ -7018,7 +7030,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         <td style="color: var(--text-muted); font-size: 12px;">${runtimeStr}</td>
         <td>
           <button type="button" class="btn-secondary" style="font-size: 11px; padding: 3px 8px;" onclick="inspectOoniMeasurement(${jsArg(m.id)})">
-            🔬 Inspect
+            🔬 ${t('js_inspect', 'Inspect')}
           </button>
         </td>
       </tr>`;
@@ -7034,7 +7046,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
 
     if (!deepBox || !deepContent) return;
     deepBox.style.display = 'block';
-    deepContent.innerHTML = '<div style="color: #38bdf8; padding: 10px 0;">Loading deep measurement diagnostics...</div>';
+    deepContent.innerHTML = '<div style="color: #38bdf8; padding: 10px 0;">' + t('js_ooni_deep_loading', 'Loading deep measurement diagnostics...') + '</div>';
     if (rawPre) rawPre.style.display = 'none';
 
     try {
@@ -7052,17 +7064,17 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const v = data.verdict || {};
       const pr = data.probe || {};
       const resv = data.resolver || {};
-      const url = data.url || m.input || tk.input || m.url || `Measurement #${msmtId}`;
+      const url = data.url || m.input || tk.input || m.url || t('js_measurement_n', 'Measurement #{id}').replace('{id}', msmtId);
 
       if (deepTitle) {
-        deepTitle.innerHTML = `🔬 Diagnostics for: <span style="color: #ffffff;">${escapeHtml(url)}</span>`;
+        deepTitle.innerHTML = `🔬 ${escapeHtml(t('js_ooni_diag_for', 'Diagnostics for:'))} <span style="color: #ffffff;">${escapeHtml(url)}</span>`;
       }
 
       let cardsHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 8px;">';
 
       // 1. Summary & Anomaly Card
       const isAnomaly = !!m.is_anomaly || !!tk.blocking || !!v.blocking || (v.accessible === false);
-      const blockingType = v.blocking || tk.blocking || (isAnomaly ? 'Anomalous behavior detected' : 'None (Accessible)');
+      const blockingType = v.blocking || tk.blocking || (isAnomaly ? t('js_ooni_anomalous', 'Anomalous behavior detected') : t('js_ooni_none_accessible', 'None (Accessible)'));
       const probeAsn = pr.asn || (m.probe_asn ? `AS${m.probe_asn}` : '--');
       const probeNet = pr.network || m.probe_network_name || '';
       const resvAsn = resv.asn || (m.resolver_asn ? `AS${m.resolver_asn}` : (tk.resolver_asn ? `AS${tk.resolver_asn}` : '--'));
@@ -7070,84 +7082,84 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
 
       cardsHtml += `
         <div style="background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 6px; padding: 10px;">
-          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">📋 Censorship Verdict</div>
-          <div><b>Status:</b> ${isAnomaly ? '<span style="color: #ef4444; font-weight: 700;">🔴 ANOMALY / BLOCKED</span>' : '<span style="color: #10b981; font-weight: 700;">🟢 ACCESSIBLE / OK</span>'}</div>
-          <div><b>Blocking Type:</b> <span style="color: #f1f5f9;">${escapeHtml(String(blockingType))}</span></div>
-          <div><b>Resolver:</b> <span style="color: #cbd5e1;">${escapeHtml(String(resvAsn))} ${resvIp ? '(' + escapeHtml(resvIp) + ')' : ''}</span></div>
-          <div><b>Probe Network:</b> <span style="color: #cbd5e1;">${escapeHtml(String(probeAsn))} ${probeNet ? '(' + escapeHtml(probeNet) + ')' : ''}</span></div>
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">📋 ${escapeHtml(t('js_ooni_verdict', 'Censorship Verdict'))}</div>
+          <div><b>${escapeHtml(t('js_status_label', 'Status:'))}</b> ${isAnomaly ? '<span style="color: #ef4444; font-weight: 700;">🔴 ' + escapeHtml(t('js_ooni_anomaly_blocked', 'ANOMALY / BLOCKED')) + '</span>' : '<span style="color: #10b981; font-weight: 700;">🟢 ' + escapeHtml(t('js_ooni_accessible_ok', 'ACCESSIBLE / OK')) + '</span>'}</div>
+          <div><b>${escapeHtml(t('js_ooni_blocking_type', 'Blocking Type:'))}</b> <span style="color: #f1f5f9;">${escapeHtml(String(blockingType))}</span></div>
+          <div><b>${escapeHtml(t('js_ooni_resolver', 'Resolver:'))}</b> <span style="color: #cbd5e1;">${escapeHtml(String(resvAsn))} ${resvIp ? '(' + escapeHtml(resvIp) + ')' : ''}</span></div>
+          <div><b>${escapeHtml(t('js_ooni_probe_network', 'Probe Network:'))}</b> <span style="color: #cbd5e1;">${escapeHtml(String(probeAsn))} ${probeNet ? '(' + escapeHtml(probeNet) + ')' : ''}</span></div>
         </div>
       `;
 
       // 2. DNS Consistency Card
-      let dnsDetails = 'No DNS queries recorded';
+      let dnsDetails = escapeHtml(t('js_ooni_no_dns', 'No DNS queries recorded'));
       if (data.dns_queries && data.dns_queries.length > 0) {
         dnsDetails = data.dns_queries.map(q => {
           const qname = (q.query_type || 'A') + ' ' + (q.hostname || '');
-          const answers = (q.answers || []).join(', ') || 'No answers';
-          const fail = q.failure ? `<span style="color: #ef4444;"> [Failed: ${escapeHtml(q.failure)}]</span>` : '';
-          return `<div style="margin-bottom: 4px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px;">• <b>${escapeHtml(qname)}</b>${fail}<br>&nbsp;&nbsp;Answers: <span style="color: #94a3b8;">${escapeHtml(answers)}</span></div>`;
+          const answers = (q.answers || []).join(', ') || t('js_no_answers', 'No answers');
+          const fail = q.failure ? `<span style="color: #ef4444;"> [${escapeHtml(t('js_failed', 'Failed'))}: ${escapeHtml(q.failure)}]</span>` : '';
+          return `<div style="margin-bottom: 4px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px;">• <b>${escapeHtml(qname)}</b>${fail}<br>&nbsp;&nbsp;${escapeHtml(t('js_answers_label', 'Answers:'))} <span style="color: #94a3b8;">${escapeHtml(answers)}</span></div>`;
         }).join('');
       } else if (tk.queries && tk.queries.length > 0) {
         dnsDetails = tk.queries.map(q => {
           const qname = (q.query_type || 'A') + ' ' + (q.hostname || '');
-          const answers = (q.answers || []).map(a => `${a.answer_type || 'A'}: ${a.ipv4 || a.ipv6 || a.hostname || a.ttl || ''}`).join(', ') || 'No answers';
-          const fail = q.failure ? `<span style="color: #ef4444;"> [Failed: ${escapeHtml(q.failure)}]</span>` : '';
-          return `<div style="margin-bottom: 4px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px;">• <b>${escapeHtml(qname)}</b>${fail}<br>&nbsp;&nbsp;Answers: <span style="color: #94a3b8;">${escapeHtml(answers)}</span></div>`;
+          const answers = (q.answers || []).map(a => `${a.answer_type || 'A'}: ${a.ipv4 || a.ipv6 || a.hostname || a.ttl || ''}`).join(', ') || t('js_no_answers', 'No answers');
+          const fail = q.failure ? `<span style="color: #ef4444;"> [${escapeHtml(t('js_failed', 'Failed'))}: ${escapeHtml(q.failure)}]</span>` : '';
+          return `<div style="margin-bottom: 4px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px;">• <b>${escapeHtml(qname)}</b>${fail}<br>&nbsp;&nbsp;${escapeHtml(t('js_answers_label', 'Answers:'))} <span style="color: #94a3b8;">${escapeHtml(answers)}</span></div>`;
         }).join('');
       } else if (tk.dns_experiment_failure) {
-        dnsDetails = `<span style="color: #ef4444;">DNS Failure: ${escapeHtml(tk.dns_experiment_failure)}</span>`;
+        dnsDetails = `<span style="color: #ef4444;">${escapeHtml(t('js_dns_failure', 'DNS Failure:'))} ${escapeHtml(tk.dns_experiment_failure)}</span>`;
       }
       cardsHtml += `
         <div style="background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 6px; padding: 10px;">
-          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">🌐 DNS Resolution & Tampering</div>
-          <div><b>DNS Consistency:</b> ${v.dns_consistency ? `<span style="color: #10b981;">${escapeHtml(v.dns_consistency)}</span>` : (tk.dns_consistency ? `<span style="color: #10b981;">${escapeHtml(tk.dns_consistency)}</span>` : '<span style="color: #94a3b8;">N/A</span>')}</div>
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">🌐 ${escapeHtml(t('js_ooni_dns_card', 'DNS Resolution & Tampering'))}</div>
+          <div><b>${escapeHtml(t('js_ooni_dns_consistency', 'DNS Consistency:'))}</b> ${v.dns_consistency ? `<span style="color: #10b981;">${escapeHtml(v.dns_consistency)}</span>` : (tk.dns_consistency ? `<span style="color: #10b981;">${escapeHtml(tk.dns_consistency)}</span>` : '<span style="color: #94a3b8;">' + escapeHtml(t('js_na', 'N/A')) + '</span>')}</div>
           <div style="margin-top: 6px; max-height: 120px; overflow-y: auto;">${dnsDetails}</div>
         </div>
       `;
 
       // 3. TCP Connect Card
-      let tcpDetails = 'No TCP connect events';
+      let tcpDetails = escapeHtml(t('js_ooni_no_tcp', 'No TCP connect events'));
       if (data.tcp_connects && data.tcp_connects.length > 0) {
-        tcpDetails = data.tcp_connects.map(t => {
-          const ep = `${t.ip}:${t.port}`;
-          const ok = t.success;
-          const statusTxt = ok ? '<span style="color: #10b981;">Connected</span>' : `<span style="color: #ef4444;">Failed (${escapeHtml(t.failure || 'Blocked')})</span>`;
+        tcpDetails = data.tcp_connects.map(tc => {
+          const ep = `${tc.ip}:${tc.port}`;
+          const ok = tc.success;
+          const statusTxt = ok ? '<span style="color: #10b981;">' + escapeHtml(t('status_connected', 'Connected')) + '</span>' : `<span style="color: #ef4444;">${escapeHtml(t('js_failed', 'Failed'))} (${escapeHtml(tc.failure || t('adblock_legend_blocked', 'Blocked'))})</span>`;
           return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(ep)}</b>: ${statusTxt}</div>`;
         }).join('');
       } else if (tk.tcp_connect && tk.tcp_connect.length > 0) {
-        tcpDetails = tk.tcp_connect.map(t => {
-          const ep = `${t.ip}:${t.port}`;
-          const ok = t.status && t.status.success;
-          const statusTxt = ok ? '<span style="color: #10b981;">Connected</span>' : `<span style="color: #ef4444;">Failed (${escapeHtml(t.status?.failure || 'Blocked')})</span>`;
+        tcpDetails = tk.tcp_connect.map(tc => {
+          const ep = `${tc.ip}:${tc.port}`;
+          const ok = tc.status && tc.status.success;
+          const statusTxt = ok ? '<span style="color: #10b981;">' + escapeHtml(t('status_connected', 'Connected')) + '</span>' : `<span style="color: #ef4444;">${escapeHtml(t('js_failed', 'Failed'))} (${escapeHtml(tc.status?.failure || t('adblock_legend_blocked', 'Blocked'))})</span>`;
           return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(ep)}</b>: ${statusTxt}</div>`;
         }).join('');
       }
       cardsHtml += `
         <div style="background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 6px; padding: 10px;">
-          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">🔌 TCP Connect & Handshake</div>
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">🔌 ${escapeHtml(t('js_ooni_tcp_card', 'TCP Connect & Handshake'))}</div>
           <div style="max-height: 120px; overflow-y: auto;">${tcpDetails}</div>
         </div>
       `;
 
       // 4. HTTP Response / Middlebox Card
-      let httpDetails = 'No HTTP requests recorded';
+      let httpDetails = escapeHtml(t('js_ooni_no_http', 'No HTTP requests recorded'));
       if (data.http_requests && data.http_requests.length > 0) {
         httpDetails = data.http_requests.map(r => {
-          const code = r.status_code || r.failure || 'No response';
-          return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(r.method || 'GET')} ${escapeHtml(r.url || '')}</b><br>&nbsp;&nbsp;Status: <span style="color: #38bdf8;">${escapeHtml(String(code))}</span></div>`;
+          const code = r.status_code || r.failure || t('js_no_response', 'No response');
+          return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(r.method || 'GET')} ${escapeHtml(r.url || '')}</b><br>&nbsp;&nbsp;${escapeHtml(t('js_status_label', 'Status:'))} <span style="color: #38bdf8;">${escapeHtml(String(code))}</span></div>`;
         }).join('');
       } else if (tk.requests && tk.requests.length > 0) {
         httpDetails = tk.requests.map(r => {
-          const code = r.response ? r.response.code : (r.failure || 'No response');
-          const bodyLen = (r.response && r.response.body) ? (typeof r.response.body === 'string' ? r.response.body.length : (r.response.body.value ? r.response.body.value.length : 'N/A')) : '0';
-          return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(r.request?.method || 'GET')} ${escapeHtml(r.request?.url || '')}</b><br>&nbsp;&nbsp;Code: <span style="color: #38bdf8;">${escapeHtml(String(code))}</span> • Body: ${bodyLen} bytes</div>`;
+          const code = r.response ? r.response.code : (r.failure || t('js_no_response', 'No response'));
+          const bodyLen = (r.response && r.response.body) ? (typeof r.response.body === 'string' ? r.response.body.length : (r.response.body.value ? r.response.body.value.length : t('js_na', 'N/A'))) : '0';
+          return `<div style="margin-bottom: 2px;">• <b>${escapeHtml(r.request?.method || 'GET')} ${escapeHtml(r.request?.url || '')}</b><br>&nbsp;&nbsp;${escapeHtml(t('js_code_label', 'Code:'))} <span style="color: #38bdf8;">${escapeHtml(String(code))}</span> • ${escapeHtml(t('js_body_bytes', 'Body: {n} bytes').replace('{n}', bodyLen))}</div>`;
         }).join('');
       } else if (tk.received) {
-        httpDetails = `Received: <pre style="font-size: 11px; margin: 2px 0;">${escapeHtml(JSON.stringify(tk.received))}</pre>`;
+        httpDetails = `${escapeHtml(t('js_received_label', 'Received:'))} <pre style="font-size: 11px; margin: 2px 0;">${escapeHtml(JSON.stringify(tk.received))}</pre>`;
       }
       cardsHtml += `
         <div style="background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 6px; padding: 10px;">
-          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">📦 HTTP Traffic & Middlebox</div>
+          <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px;">📦 ${escapeHtml(t('js_ooni_http_card', 'HTTP Traffic & Middlebox'))}</div>
           <div style="max-height: 120px; overflow-y: auto;">${httpDetails}</div>
         </div>
       `;
@@ -7157,7 +7169,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       deepBox.scrollIntoView({ behavior: 'smooth' });
     } catch (e) {
       console.error('Failed to inspect measurement:', e);
-      deepContent.innerHTML = `<span style="color: #ef4444;">Failed to retrieve measurement details: ${escapeHtml(e.message)}</span>`;
+      deepContent.innerHTML = `<span style="color: #ef4444;">${escapeHtml(t('js_ooni_details_failed', 'Failed to retrieve measurement details: '))}${escapeHtml(e.message)}</span>`;
     }
   }
 
@@ -7169,14 +7181,14 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
 
   function copyOoniRawJson() {
     if (!currentOoniRawJson) {
-      showToast('No measurement data to copy');
+      showToast(t('js_ooni_nothing_to_copy', 'No measurement data to copy'));
       return;
     }
     const text = JSON.stringify(currentOoniRawJson, null, 2);
     navigator.clipboard.writeText(text).then(() => {
-      showToast('Measurement JSON copied to clipboard!');
+      showToast(t('js_ooni_json_copied', 'Measurement JSON copied to clipboard!'));
     }).catch(e => {
-      showToast('Failed to copy: ' + e);
+      showToast(t('js_copy_failed', 'Failed to copy: ') + e);
     });
   }
 
@@ -7206,7 +7218,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
   async function triggerNetworkSweep() {
     const sel = document.getElementById('explorer-iface-select');
     const iface = sel ? sel.value : 'any';
-    showToast('Scanning subnets & discovering connected LAN/Guest devices...');
+    showToast(t('js_explorer_scanning', 'Scanning subnets & discovering connected LAN/Guest devices...'));
     const btn = document.getElementById('btn-explorer-scan');
     if (btn) btn.disabled = true;
 
@@ -7220,7 +7232,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         await loadNetworkDevices();
         await loadGuestWifiStatus();
         if (btn) btn.disabled = false;
-        showToast('Device discovery completed.');
+        showToast(t('js_explorer_done', 'Device discovery completed.'));
       }, 4000);
     } catch (e) {
       showToast(t('guest_toast_scan_err', 'Scan error: ') + e);
@@ -7251,10 +7263,10 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     const lanCount = summary ? summary.lan_count : devices.filter(d => !d.is_guest).length;
     const guestCount = summary ? summary.guest_count : devices.filter(d => d.is_guest).length;
     if (badge) {
-      badge.innerHTML = `<b>${totalCount} Devices Discovered</b> <span style="opacity: 0.85; font-size: 11px;">(Wired LAN: ${lanCount} | Guest Wi-Fi: ${guestCount})</span>`;
+      badge.innerHTML = `<b>${escapeHtml(t('js_explorer_n_devices', '{n} Devices Discovered').replace('{n}', totalCount))}</b> <span style="opacity: 0.85; font-size: 11px;">(${escapeHtml(t('js_explorer_wired_lan', 'Wired LAN'))}: ${lanCount} | ${escapeHtml(t('js_explorer_guest_wifi', 'Guest Wi-Fi'))}: ${guestCount})</span>`;
     }
     if (!devices || devices.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">No devices detected on this interface. Click "Scan Subnets Now" to sweep connected networks.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">' + escapeHtml(t('js_explorer_no_devices', 'No devices detected on this interface. Click "Scan Subnets Now" to sweep connected networks.')) + '</td></tr>';
       return;
     }
     let html = '';
@@ -7268,15 +7280,15 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const isGuest = Boolean(d.is_guest || rawIface.startsWith('wlan'));
 
       const ifaceBadge = isGuest
-        ? `<span class="badge-pill" style="background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-size: 11px;">📶 Guest (${safeIface})</span>`
-        : `<span class="badge-pill" style="background: rgba(56, 189, 248, 0.12); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 11px;">🏠 Wired (${safeIface})</span>`;
+        ? `<span class="badge-pill" style="background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-size: 11px;">📶 ${escapeHtml(t('js_guest', 'Guest'))} (${safeIface})</span>`
+        : `<span class="badge-pill" style="background: rgba(56, 189, 248, 0.12); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 11px;">🏠 ${escapeHtml(t('js_wired', 'Wired'))} (${safeIface})</span>`;
 
       const vendorBadge = d.vendor && d.vendor !== 'Unknown' && d.vendor !== 'Unknown Vendor'
         ? `<span class="badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #0284c7; font-size: 11px;">${safeVendor}</span>`
-        : `<span style="color: var(--text-muted); font-size: 12px;">Generic / Unknown</span>`;
+        : `<span style="color: var(--text-muted); font-size: 12px;">${escapeHtml(t('js_generic_unknown', 'Generic / Unknown'))}</span>`;
       const stateBadge = (d.status === 'active' || d.state === 'REACHABLE' || d.state === 'PERMANENT')
-        ? `<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">Active</span>`
-        : `<span class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px;">Seen</span>`;
+        ? `<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">${escapeHtml(t('lanpt_state_active', 'Active'))}</span>`
+        : `<span class="badge-pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; font-size: 11px;">${escapeHtml(t('js_seen', 'Seen'))}</span>`;
 
       html += `<tr>
         <td style="font-family: monospace; font-weight: 700; color: #f1f5f9; white-space: nowrap;">${safeIp}</td>
@@ -7426,7 +7438,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
           const safeBssid = escapeHtml(n.bssid);
           const safeSec = escapeHtml(n.security);
           const inUseBadge = n.in_use
-            ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">Active</span>'
+            ? '<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; font-size: 11px;">' + t('lanpt_state_active', 'Active') + '</span>'
             : '<span style="color: var(--text-muted); font-size: 11px;">' + t('guest_state_available', 'Available') + '</span>';
 
           html += `<tr>
@@ -7455,7 +7467,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       }
     } catch (e) {
       showToast(t('guest_toast_scan_err', 'Scan error: ') + e);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #f87171;">Error: ${escapeHtml(String(e))}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #f87171;">${escapeHtml(t('error_prefix', 'Error: '))}${escapeHtml(String(e))}</td></tr>`;
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -7493,7 +7505,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     if (passInput && (!sec || !sec.toUpperCase().includes('OPEN'))) {
       passInput.focus();
     }
-    showToast(t('guest_toast_selected', 'Selected: ') + `"${ssid || 'Hidden Wi-Fi'}".`);
+    showToast(t('guest_toast_selected', 'Selected: ') + `"${ssid || t('js_hidden_wifi', 'Hidden Wi-Fi')}".`);
   }
 
   function onGuestWifiSecChange() {
@@ -7634,7 +7646,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
   async function disconnectGuestWifi() {
     if (!confirm(t('guest_confirm_disconnect', 'Disconnect wireless interface from Guest Wi-Fi?'))) return;
     const iface = (document.getElementById('cfg-guest-wifi-iface').value || 'wlan0').trim();
-    showToast(`Disconnecting ${iface}...`);
+    showToast(t('js_disconnecting', 'Disconnecting {iface}...').replace('{iface}', iface));
     try {
       const res = await fetch('/api/wifi/guest/disconnect', {
         method: 'POST',
@@ -7642,11 +7654,11 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         body: JSON.stringify({ interface: iface, disable: true })
       });
       const d = await res.json();
-      showToast(d.message || 'Disconnected.');
+      showToast(d.message || t('js_disconnected', 'Disconnected.'));
       await loadGuestWifiStatus();
       await loadNetworkDevices();
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -7657,7 +7669,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
 
   async function loadLlmBundle() {
     const preview = document.getElementById('llm-bundle-preview');
-    if (preview) preview.textContent = 'Generating comprehensive diagnostic bundle for LLMs...';
+    if (preview) preview.textContent = t('js_llm_generating', 'Generating comprehensive diagnostic bundle for LLMs...');
     try {
       const res = await fetch('/api/diagnostics/llm');
       if (res.ok) {
@@ -7666,17 +7678,17 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         if (preview) preview.textContent = cachedLlmMarkdown;
       }
     } catch (e) {
-      if (preview) preview.textContent = 'Failed to load diagnostics: ' + e;
+      if (preview) preview.textContent = t('js_llm_load_failed', 'Failed to load diagnostics: ') + e;
     }
   }
 
   function copyLlmBundle() {
     if (!cachedLlmMarkdown) {
-      showToast('Diagnostic bundle not ready yet.');
+      showToast(t('js_llm_not_ready', 'Diagnostic bundle not ready yet.'));
       return;
     }
     navigator.clipboard.writeText(cachedLlmMarkdown).then(() => {
-      showToast('✅ Diagnostic bundle copied to clipboard! Paste directly into ChatGPT, Claude or Gemini.');
+      showToast('✅ ' + t('js_llm_copied_paste', 'Diagnostic bundle copied to clipboard! Paste directly into ChatGPT, Claude or Gemini.'));
     }).catch(err => {
       const ta = document.createElement('textarea');
       ta.value = cachedLlmMarkdown;
@@ -7684,7 +7696,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      showToast('✅ Diagnostic bundle copied to clipboard!');
+      showToast('✅ ' + t('js_llm_copied', 'Diagnostic bundle copied to clipboard!'));
     });
   }
 
@@ -7699,10 +7711,10 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     const username = (document.getElementById('cfg-admin-user').value || '').trim();
     const password = (document.getElementById('cfg-admin-pass').value || '').trim();
     if (!username) {
-      showToast('Username cannot be empty.');
+      showToast(t('js_username_empty', 'Username cannot be empty.'));
       return;
     }
-    showToast('Updating admin credentials...');
+    showToast(t('js_creds_updating', 'Updating admin credentials...'));
     try {
       const res = await fetch('/api/system/credentials', {
         method: 'POST',
@@ -7710,14 +7722,14 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         body: JSON.stringify({ username: username, password: password })
       });
       if (res.ok) {
-        showToast('✅ Admin credentials updated! Please keep your new login safe.');
+        showToast('✅ ' + t('js_creds_updated', 'Admin credentials updated! Please keep your new login safe.'));
         document.getElementById('cfg-admin-pass').value = '';
       } else {
         const err = await res.json();
-        showToast('Error: ' + (err.message || 'Failed'));
+        showToast(t('error_prefix', 'Error: ') + (err.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('Error updating credentials: ' + e);
+      showToast(t('js_creds_error', 'Error updating credentials: ') + e);
     }
   }
 
@@ -7729,9 +7741,9 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ public_results: !!enabled })
       });
-      showToast(res.ok ? (enabled ? '✅ /results is open on the local network.' : '🔒 /results needs the password again.') : 'Error saving the setting.');
+      showToast(res.ok ? (enabled ? '✅ ' + t('js_results_public_on', '/results is open on the local network.') : '🔒 ' + t('js_results_public_off', '/results needs the password again.')) : t('js_setting_save_error', 'Error saving the setting.'));
     } catch (e) {
-      showToast('Error saving the setting: ' + e);
+      showToast(t('js_setting_save_error_x', 'Error saving the setting: ') + e);
     }
   }
 
@@ -7742,7 +7754,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     const sel = document.getElementById('wu-iface');
     if (sel && document.activeElement !== sel) {
       const keep = sel.value;
-      sel.innerHTML = '<option value="auto">auto</option>' + (d.interfaces || []).map(i => `<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
+      sel.innerHTML = '<option value="auto">' + escapeHtml(t('hdr_mode_auto', 'auto')) + '</option>' + (d.interfaces || []).map(i => `<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
       sel.value = keep && Array.from(sel.options).some(o => o.value === keep) ? keep : 'auto';
     }
     const ssid = document.getElementById('wu-ssid');
@@ -7838,7 +7850,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const d = await r.json();
       if (r.ok) renderWifiShare(d);
       showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
-    } catch (e) { showToast('Error: ' + e); }
+    } catch (e) { showToast(t('error_prefix', 'Error: ') + e); }
   }
   window.saveWifiShare = saveWifiShare;
 
@@ -7847,7 +7859,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     if (sel && document.activeElement !== sel) {
       const opts = ['auto'].concat(d.interfaces || []);
       if (d.interface_setting && !opts.includes(d.interface_setting)) opts.push(d.interface_setting);
-      sel.innerHTML = opts.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+      sel.innerHTML = opts.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o === 'auto' ? t('hdr_mode_auto', 'auto') : o)}</option>`).join('');
       sel.value = d.interface_setting || 'auto';
     }
     const en = document.getElementById('uu-enabled');
@@ -7885,7 +7897,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const d = await r.json();
       renderUsbUplink(d);
       showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
-    } catch (e) { showToast('Error: ' + e); }
+    } catch (e) { showToast(t('error_prefix', 'Error: ') + e); }
   }
   window.saveUsbUplink = saveUsbUplink;
 
@@ -7897,7 +7909,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const ml = document.getElementById('meas-link');
       if (ml && ml.value === 'usb') ml.value = 'auto';
       showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
-    } catch (e) { showToast('Error: ' + e); }
+    } catch (e) { showToast(t('error_prefix', 'Error: ') + e); }
   }
   window.usbUplinkOff = usbUplinkOff;
 
@@ -7938,7 +7950,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const d = await r.json();
       showToast((r.ok ? '✔ ' : '✖ ') + (d.message || t('saved', 'Saved')));
       loadStorage();
-    } catch (e) { showToast('Error: ' + e); }
+    } catch (e) { showToast(t('error_prefix', 'Error: ') + e); }
   }
   window.saveStorage = saveStorage;
 
@@ -7947,7 +7959,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const r = await fetch('/api/storage/cleanup', { method: 'POST' });
       await r.json();
       loadStorage();
-    } catch (e) { showToast('Error: ' + e); }
+    } catch (e) { showToast(t('error_prefix', 'Error: ') + e); }
   }
   window.cleanupStorageNow = cleanupStorageNow;
 
@@ -7968,7 +7980,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       document.getElementById('wu-pass').value = '';
       renderWifiUplink(d);
       showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
-    } catch (e) { showToast('Error: ' + e); }
+    } catch (e) { showToast(t('error_prefix', 'Error: ') + e); }
   }
 
   async function wifiUplinkAction(action) {
@@ -7977,7 +7989,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const d = await r.json();
       renderWifiUplink(d);
       showToast((r.ok ? '✔ ' : '✖ ') + (d.message || ''));
-    } catch (e) { showToast('Error: ' + e); }
+    } catch (e) { showToast(t('error_prefix', 'Error: ') + e); }
   }
 
   // Central collector (opt-in)
@@ -8024,13 +8036,13 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     try {
       const res = await fetch('/api/collector/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json();
-      if (!res.ok) { showToast(d.message || 'Error'); return; }
+      if (!res.ok) { showToast(d.message || t('js_error_word', 'Error')); return; }
       document.getElementById('col-token').value = '';
       renderCollectorStatus(d);
       if (body.enabled && !d.enabled) showToast(t('col_need_url', 'Set the collector address and token to turn sending on.'));
       else showToast(t('col_saved', 'Collector settings saved.'));
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
   }
 
@@ -8042,7 +8054,7 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
       const d = await res.json();
       showToast((d.ok ? '✔ ' : '✖ ') + (d.message || ''));
     } catch (e) {
-      showToast('Error: ' + e);
+      showToast(t('error_prefix', 'Error: ') + e);
     }
     loadCollector();
   loadWifiUplink();
@@ -8104,45 +8116,45 @@ ${l.cmd ? 'Command: ' + escapeHtml(l.cmd) : ''}`;
     const badge = document.getElementById('os-distro-badge');
     const btn = document.getElementById('btn-check-updates');
     if (btn) btn.disabled = true;
-    if (statusText) statusText.textContent = 'Checking package repositories...';
-    if (term) term.textContent = 'Querying package manager repositories...';
+    if (statusText) statusText.textContent = t('js_pkg_checking', 'Checking package repositories...');
+    if (term) term.textContent = t('js_pkg_querying', 'Querying package manager repositories...');
     try {
       const res = await fetch('/api/system/updates/check');
       if (res.ok) {
         const d = await res.json();
-        const pkgList = (d.packages && d.packages.length) ? d.packages.join('\n') : 'All system packages are up to date.';
+        const pkgList = (d.packages && d.packages.length) ? d.packages.join('\n') : t('js_pkg_all_up_to_date', 'All system packages are up to date.');
         const pm = (d.package_manager || d.pkg_manager || 'apt').toUpperCase();
         if (term) {
-          term.textContent = `Distro: ${d.distro || 'Linux'}
-Package Manager: ${pm}
-Upgradable Packages: ${d.upgradable_count || 0}
+          term.textContent = `${t('js_pkg_distro', 'Distro:')} ${d.distro || 'Linux'}
+${t('js_pkg_manager', 'Package Manager:')} ${pm}
+${t('js_pkg_upgradable', 'Upgradable Packages:')} ${d.upgradable_count || 0}
 
 ${pkgList}`;
         }
         if (badge && d.distro) {
           badge.textContent = `OS: ${d.distro} (${pm})`;
         }
-        if (statusText) statusText.textContent = d.message || `${d.upgradable_count || 0} upgradable package(s) found.`;
+        if (statusText) statusText.textContent = d.message || t('js_pkg_n_upgradable', '{n} upgradable package(s) found.').replace('{n}', d.upgradable_count || 0);
       } else {
-        if (statusText) statusText.textContent = 'Failed to check updates.';
+        if (statusText) statusText.textContent = t('js_pkg_check_failed', 'Failed to check updates.');
       }
     } catch (e) {
-      if (statusText) statusText.textContent = 'Error: ' + e;
+      if (statusText) statusText.textContent = t('error_prefix', 'Error: ') + e;
     } finally {
       if (btn) btn.disabled = false;
     }
   }
 
   async function runSystemUpgrade() {
-    if (!confirm('Start asynchronous system package upgrade in the background?')) return;
+    if (!confirm(t('js_pkg_upgrade_confirm', 'Start asynchronous system package upgrade in the background?'))) return;
     const btn = document.getElementById('btn-run-upgrade');
     btn.disabled = true;
-    showToast('System upgrade initiated in background...');
+    showToast(t('js_pkg_upgrade_started', 'System upgrade initiated in background...'));
     try {
       await fetch('/api/system/updates/upgrade', { method: 'POST' });
       pollUpgradeStatus();
     } catch (e) {
-      showToast('Error initiating upgrade: ' + e);
+      showToast(t('js_pkg_upgrade_error', 'Error initiating upgrade: ') + e);
       btn.disabled = false;
     }
   }
@@ -8154,7 +8166,7 @@ ${pkgList}`;
       if (res.ok) {
         const d = await res.json();
         const term = document.getElementById('upgrade-terminal-box');
-        if (term) term.textContent = d.log || 'Upgrade in progress...';
+        if (term) term.textContent = d.log || t('js_pkg_upgrade_running', 'Upgrade in progress...');
         if (d.in_progress) {
           document.getElementById('btn-run-upgrade').disabled = true;
           upgradePollTimer = setTimeout(pollUpgradeStatus, 2000);
@@ -8162,7 +8174,7 @@ ${pkgList}`;
         } else {
           document.getElementById('btn-run-upgrade').disabled = false;
           if (d.last_status === 'success') {
-            showToast('✅ System upgrade completed successfully!');
+            showToast('✅ ' + t('js_pkg_upgrade_done', 'System upgrade completed successfully!'));
           }
         }
       }
@@ -8178,11 +8190,11 @@ ${pkgList}`;
       if (!res.ok) return;
       const d = await res.json();
       if (document.getElementById('kernel-tcp-cc')) {
-        document.getElementById('kernel-tcp-cc').textContent = (d.tcp_congestion_control || 'bbr').toUpperCase() + (d.is_fq_active ? ' (FQ Paced)' : '');
+        document.getElementById('kernel-tcp-cc').textContent = (d.tcp_congestion_control || 'bbr').toUpperCase() + (d.is_fq_active ? ' (' + t('js_kernel_fq_paced', 'FQ Paced') + ')' : '');
       }
       if (document.getElementById('kernel-rps-status')) {
         const cpus = d.cpu_count || 1;
-        document.getElementById('kernel-rps-status').textContent = `${cpus} CPU Cores Active`;
+        document.getElementById('kernel-rps-status').textContent = t('js_kernel_cpus_active', '{n} CPU Cores Active').replace('{n}', cpus);
       }
       if (document.getElementById('kernel-mem-status')) {
         document.getElementById('kernel-mem-status').textContent = `${d.rmem_max_mb || 64.0} MB`;
@@ -8199,9 +8211,9 @@ ${pkgList}`;
         let html = '';
         d.interfaces.forEach(it => {
           const speedStr = (it.speed_mbps && it.speed_mbps > 0) ? `${it.speed_mbps} Mbps` : '--';
-          const rpsBadge = it.rps_enabled ? `<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">Mask 0x${escapeHtml(it.rps_cpus)} (Active)</span>` : '<span class="badge-pill" style="color: #94a3b8;">Disabled</span>';
-          const rfsStr = (it.rfs_flow_cnt > 0) ? `<span style="color: #38bdf8; font-weight: 600;">${escapeHtml(it.rfs_flow_cnt)} flows</span>` : '--';
-          const xpsStr = (it.xps_cpus && it.xps_cpus !== '0') ? `<span style="color: #a855f7;">Mask 0x${escapeHtml(it.xps_cpus)}</span>` : '--';
+          const rpsBadge = it.rps_enabled ? `<span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;">${escapeHtml(t('js_kernel_mask', 'Mask'))} 0x${escapeHtml(it.rps_cpus)} (${escapeHtml(t('lanpt_state_active', 'Active'))})</span>` : '<span class="badge-pill" style="color: #94a3b8;">' + escapeHtml(t('status_disabled', 'Disabled')) + '</span>';
+          const rfsStr = (it.rfs_flow_cnt > 0) ? `<span style="color: #38bdf8; font-weight: 600;">${escapeHtml(t('js_kernel_n_flows', '{n} flows').replace('{n}', it.rfs_flow_cnt))}</span>` : '--';
+          const xpsStr = (it.xps_cpus && it.xps_cpus !== '0') ? `<span style="color: #a855f7;">${escapeHtml(t('js_kernel_mask', 'Mask'))} 0x${escapeHtml(it.xps_cpus)}</span>` : '--';
           html += `<tr>
             <td style="font-weight: 700; color: #ffffff;">${escapeHtml(it.name)}</td>
             <td>${escapeHtml(speedStr)}</td>
@@ -8222,18 +8234,18 @@ ${pkgList}`;
   async function applyKernelTuning() {
     const btn = document.getElementById('btn-apply-kernel-tuning');
     if (btn) btn.disabled = true;
-    showToast('Optimizing Linux kernel network stack and multi-core RPS queues...');
+    showToast(t('js_kernel_optimizing', 'Optimizing Linux kernel network stack and multi-core RPS queues...'));
     try {
       const res = await fetch('/api/system/kernel-tuning/apply', { method: 'POST' });
       if (res.ok) {
         const d = await res.json();
-        showToast('Kernel network stack successfully optimized for maximum performance!');
+        showToast(t('js_kernel_optimized', 'Kernel network stack successfully optimized for maximum performance!'));
         loadKernelStatus();
       } else {
-        showToast('Kernel optimization returned error');
+        showToast(t('js_kernel_opt_error', 'Kernel optimization returned error'));
       }
     } catch (e) {
-      showToast('Error applying kernel tuning: ' + e);
+      showToast(t('js_kernel_apply_error', 'Error applying kernel tuning: ') + e);
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -8698,7 +8710,7 @@ ${pkgList}`;
 
       const svCust = document.getElementById('duckdns-saved-custom-ip');
       if (svCust) {
-        svCust.textContent = d.custom_ip ? d.custom_ip : 'Automatikus WAN IPv4';
+        svCust.textContent = d.custom_ip ? d.custom_ip : t('js_ddns_auto_wan_ipv4', 'Automatic WAN IPv4');
       }
 
       // Update Live Status Card
@@ -8741,7 +8753,7 @@ ${pkgList}`;
       if (ipV6El) ipV6El.textContent = d.detected_ipv6 || d.last_ipv6 || d.custom_ipv6 || t('ddns_no_ipv6', '(No global IPv6)');
 
       const timeEl = document.getElementById('duckdns-last-time');
-      if (timeEl) timeEl.textContent = d.last_update ? d.last_update.substring(0, 19).replace('T', ' ') : 'Soha';
+      if (timeEl) timeEl.textContent = d.last_update ? d.last_update.substring(0, 19).replace('T', ' ') : t('js_never', 'Never');
 
       const nextEl = document.getElementById('duckdns-next-time');
       if (nextEl) nextEl.textContent = d.next_update ? d.next_update.substring(0, 19).replace('T', ' ') : '--';
@@ -8794,7 +8806,8 @@ ${pkgList}`;
       if (res.ok) {
         const tokInput = document.getElementById('duckdns-token');
         if (tokInput && token) tokInput.value = '';
-        showToast(t('dyndns_saved_success', `✅ ${provider === 'dynv6' ? 'dynv6.com' : 'DuckDNS'} settings saved successfully! Interval: ${interval_min} min`));
+        showToast(t('dyndns_saved_success', '✅ {provider} settings saved successfully! Interval: {interval} min')
+          .replace('{provider}', provider === 'dynv6' ? 'dynv6.com' : 'DuckDNS').replace('{interval}', interval_min));
         await loadDuckdnsStatus();
         // The update itself runs a moment later in the background: show its result too.
         setTimeout(() => loadDuckdnsStatus(), 6000);
@@ -8812,7 +8825,7 @@ ${pkgList}`;
           }, 1500);
         }
       } else {
-        showToast(t('dyndns_save_err', '❌ DynDNS save error: ') + (d.message || 'Failed'));
+        showToast(t('dyndns_save_err', '❌ DynDNS save error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
       showToast(t('dyndns_save_err', '❌ DynDNS save error: ') + e);
@@ -8832,14 +8845,14 @@ ${pkgList}`;
       btn.textContent = '🔄 ' + t('updating', 'Updating...');
     }
     const prov = document.getElementById('duckdns-provider')?.value || 'duckdns';
-    showToast(t('dyndns_syncing', `Starting Dynamic DNS synchronization (${prov === 'dynv6' ? 'dynv6.com' : 'DuckDNS'})...`));
+    showToast(t('dyndns_syncing', 'Starting Dynamic DNS synchronization ({provider})...').replace('{provider}', prov === 'dynv6' ? 'dynv6.com' : 'DuckDNS'));
     try {
       const res = await fetch('/api/duckdns/update', { method: 'POST' });
       const d = await res.json();
       if (res.ok && (d.success || d.status === 'ok')) {
-        showToast(t('dyndns_synced_success', `✅ DynDNS updated! IP: ${d.ip || 'OK'} ${d.ipv6 ? 'IPv6: ' + d.ipv6 : ''}`));
+        showToast(t('dyndns_synced_success', '✅ DynDNS updated! IP: {ip}').replace('{ip}', (d.ip || 'OK') + (d.ipv6 ? ' IPv6: ' + d.ipv6 : '')));
       } else {
-        showToast(t('dyndns_resp_msg', 'DynDNS response: ') + (d.status || d.message || 'Failed'));
+        showToast(t('dyndns_resp_msg', 'DynDNS response: ') + (d.status || d.message || t('js_failed', 'Failed')));
       }
       setTimeout(loadDuckdnsStatus, 800);
     } catch (e) {
@@ -8883,13 +8896,13 @@ ${pkgList}`;
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#10b981';
           badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-          badge.textContent = `🟢 Running (Port ${d.port || 51820})`;
+          badge.textContent = '🟢 ' + t('js_running_port', 'Running (Port {port})').replace('{port}', d.port || 51820);
         } else {
           badge.className = 'badge';
           badge.style.background = 'rgba(148, 163, 184, 0.15)';
           badge.style.color = '#94a3b8';
           badge.style.border = '1px solid #475569';
-          badge.textContent = '⚫ Stopped';
+          badge.textContent = '⚫ ' + t('js_stopped', 'Stopped');
         }
       }
 
@@ -8897,10 +8910,10 @@ ${pkgList}`;
       if (toggleBtn) {
         if (d.active || d.running) {
           toggleBtn.className = 'btn-danger';
-          toggleBtn.textContent = '⏹️ Stop WireGuard';
+          toggleBtn.textContent = '⏹️ ' + t('js_stop_wireguard', 'Stop WireGuard');
         } else {
           toggleBtn.className = 'btn-primary';
-          toggleBtn.textContent = '▶️ Start WireGuard';
+          toggleBtn.textContent = '▶️ ' + t('js_start_wireguard', 'Start WireGuard');
         }
       }
 
@@ -8915,7 +8928,7 @@ ${pkgList}`;
     if (!tbody) return;
 
     if (!peers || peers.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 16px;">No WireGuard peers configured yet. Use the form above to add a client peer.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 16px;">' + t('js_wg_no_peers', 'No WireGuard peers configured yet. Use the form above to add a client peer.') + '</td></tr>';
       return;
     }
 
@@ -8927,15 +8940,15 @@ ${pkgList}`;
       if (hsSec > 0) {
         if (hsSec < 180) {
           isConnected = true;
-          hsDisplay = `<span style="color: #10b981; font-weight: 600;">Active (${escapeHtml(p.latest_handshake_ago || hsSec + 's ago')})</span>`;
+          hsDisplay = `<span style="color: #10b981; font-weight: 600;">${escapeHtml(t('lanpt_state_active', 'Active'))} (${escapeHtml(p.latest_handshake_ago || t('js_secs_ago', '{n}s ago').replace('{n}', hsSec))})</span>`;
         } else {
-          hsDisplay = `<span style="color: var(--text-muted);">${escapeHtml(p.latest_handshake_ago || Math.floor(hsSec / 60) + 'm ago')}</span>`;
+          hsDisplay = `<span style="color: var(--text-muted);">${escapeHtml(p.latest_handshake_ago || t('js_mins_ago', '{n}m ago').replace('{n}', Math.floor(hsSec / 60)))}</span>`;
         }
       }
 
       const statusBadge = isConnected
-        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 Connected</span>'
-        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Offline</span>';
+        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 ' + t('status_connected', 'Connected') + '</span>'
+        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">' + t('vpn_status_offline', 'Offline') + '</span>';
 
       const rxFormatted = formatBytes(p.transfer_rx || 0);
       const txFormatted = formatBytes(p.transfer_tx || 0);
@@ -8992,19 +9005,19 @@ ${pkgList}`;
       });
       const d = await res.json();
       if (res.ok) {
-        showToast('WireGuard server settings saved');
+        showToast(t('js_wg_saved', 'WireGuard server settings saved'));
         loadWireguardStatus();
       } else {
-        showToast('WireGuard save error: ' + (d.message || 'Failed'));
+        showToast(t('js_wg_save_error', 'WireGuard save error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('WireGuard save error: ' + e);
+      showToast(t('js_wg_save_error', 'WireGuard save error: ') + e);
     }
   }
 
   async function toggleWireguardServer() {
     const nextState = !wireguardIsActive;
-    showToast(nextState ? 'Starting WireGuard VPN server...' : 'Stopping WireGuard VPN server...');
+    showToast(nextState ? t('js_wg_starting', 'Starting WireGuard VPN server...') : t('js_wg_stopping', 'Stopping WireGuard VPN server...'));
     try {
       const res = await fetch('/api/wireguard/toggle', {
         method: 'POST',
@@ -9013,13 +9026,13 @@ ${pkgList}`;
       });
       const d = await res.json();
       if (res.ok) {
-        showToast(`WireGuard server ${nextState ? 'started' : 'stopped'}`);
+        showToast(nextState ? t('js_wg_started', 'WireGuard server started') : t('js_wg_stopped', 'WireGuard server stopped'));
         setTimeout(loadWireguardStatus, 800);
       } else {
-        showToast('WireGuard toggle error: ' + (d.message || 'Failed'));
+        showToast(t('js_wg_toggle_error', 'WireGuard toggle error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('WireGuard toggle error: ' + e);
+      showToast(t('js_wg_toggle_error', 'WireGuard toggle error: ') + e);
     }
   }
 
@@ -9032,12 +9045,12 @@ ${pkgList}`;
     const client_ipv6 = (ip6Input?.value || '').trim();
 
     if (!name) {
-      showToast('Please provide a client peer name (e.g. phone-pixel)');
+      showToast(t('js_wg_need_name', 'Please provide a client peer name (e.g. phone-pixel)'));
       if (nameInput) nameInput.focus();
       return;
     }
 
-    showToast('Generating Elliptic Curve keys & WireGuard peer configuration...');
+    showToast(t('js_wg_generating', 'Generating Elliptic Curve keys & WireGuard peer configuration...'));
     try {
       const res = await fetch('/api/wireguard/peer/add', {
         method: 'POST',
@@ -9046,22 +9059,22 @@ ${pkgList}`;
       });
       const d = await res.json();
       if (res.ok && d.peer) {
-        showToast(`Peer "${name}" generated successfully!`);
+        showToast(t('js_wg_peer_generated', 'Peer "{name}" generated successfully!').replace('{name}', name));
         if (nameInput) nameInput.value = '';
         if (ipInput) ipInput.value = '';
         if (ip6Input) ip6Input.value = '';
         loadWireguardStatus();
         showWireguardQr(d.peer.id, d.peer.name);
       } else {
-        showToast('Add peer error: ' + (d.message || 'Failed'));
+        showToast(t('js_wg_add_error', 'Add peer error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('Add peer request error: ' + e);
+      showToast(t('js_wg_add_request_error', 'Add peer request error: ') + e);
     }
   }
 
   async function deleteWireguardPeer(id, name) {
-    if (!confirm(`Are you sure you want to delete WireGuard client peer "${name}"?`)) return;
+    if (!confirm(t('js_wg_delete_confirm', 'Are you sure you want to delete WireGuard client peer "{name}"?').replace('{name}', name))) return;
     try {
       const res = await fetch('/api/wireguard/peer/delete', {
         method: 'POST',
@@ -9069,14 +9082,14 @@ ${pkgList}`;
         body: JSON.stringify({ id }),
       });
       if (res.ok) {
-        showToast(`Peer "${name}" removed`);
+        showToast(t('js_wg_peer_removed', 'Peer "{name}" removed').replace('{name}', name));
         loadWireguardStatus();
       } else {
         const d = await res.json();
-        showToast('Delete peer error: ' + (d.message || 'Failed'));
+        showToast(t('js_wg_delete_error', 'Delete peer error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('Delete peer error: ' + e);
+      showToast(t('js_wg_delete_error', 'Delete peer error: ') + e);
     }
   }
 
@@ -9251,13 +9264,13 @@ ${pkgList}`;
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#10b981';
           badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-          badge.textContent = `🟢 Running (${(d.proto || 'udp').toUpperCase()} ${d.port || 1194})`;
+          badge.textContent = '🟢 ' + t('js_running_detail', 'Running ({detail})').replace('{detail}', (d.proto || 'udp').toUpperCase() + ' ' + (d.port || 1194));
         } else {
           badge.className = 'badge';
           badge.style.background = 'rgba(148, 163, 184, 0.15)';
           badge.style.color = '#94a3b8';
           badge.style.border = '1px solid #475569';
-          badge.textContent = '⚫ Stopped';
+          badge.textContent = '⚫ ' + t('js_stopped', 'Stopped');
         }
       }
 
@@ -9265,10 +9278,10 @@ ${pkgList}`;
       if (toggleBtn) {
         if (d.active || d.running) {
           toggleBtn.className = 'btn-danger';
-          toggleBtn.textContent = '⏹️ Stop OpenVPN';
+          toggleBtn.textContent = '⏹️ ' + t('js_stop_openvpn', 'Stop OpenVPN');
         } else {
           toggleBtn.className = 'btn-primary';
-          toggleBtn.textContent = '▶️ Start OpenVPN';
+          toggleBtn.textContent = '▶️ ' + t('js_start_openvpn', 'Start OpenVPN');
         }
       }
 
@@ -9283,7 +9296,7 @@ ${pkgList}`;
     if (!tbody) return;
 
     if (!clients || clients.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">No OpenVPN client certificates generated yet. Use the form above to add a client.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">' + t('js_ovpn_no_clients', 'No OpenVPN client certificates generated yet. Use the form above to add a client.') + '</td></tr>';
       return;
     }
 
@@ -9291,8 +9304,8 @@ ${pkgList}`;
     clients.forEach(c => {
       const isConnected = !!c.connected;
       const statusBadge = isConnected
-        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 Connected</span>'
-        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Offline</span>';
+        ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 11px;">🟢 ' + t('status_connected', 'Connected') + '</span>'
+        : '<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">' + t('vpn_status_offline', 'Offline') + '</span>';
 
       const rxFormatted = formatBytes(c.bytes_received || 0);
       const txFormatted = formatBytes(c.bytes_sent || 0);
@@ -9332,19 +9345,19 @@ ${pkgList}`;
       });
       const d = await res.json();
       if (res.ok) {
-        showToast('OpenVPN server settings saved');
+        showToast(t('js_ovpn_saved', 'OpenVPN server settings saved'));
         loadOpenvpnStatus();
       } else {
-        showToast('OpenVPN save error: ' + (d.message || 'Failed'));
+        showToast(t('js_ovpn_save_error', 'OpenVPN save error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('OpenVPN save error: ' + e);
+      showToast(t('js_ovpn_save_error', 'OpenVPN save error: ') + e);
     }
   }
 
   async function toggleOpenvpnServer() {
     const nextState = !openvpnIsActive;
-    showToast(nextState ? 'Starting OpenVPN server...' : 'Stopping OpenVPN server...');
+    showToast(nextState ? t('js_ovpn_starting', 'Starting OpenVPN server...') : t('js_ovpn_stopping', 'Stopping OpenVPN server...'));
     try {
       const res = await fetch('/api/openvpn/toggle', {
         method: 'POST',
@@ -9353,13 +9366,13 @@ ${pkgList}`;
       });
       const d = await res.json();
       if (res.ok) {
-        showToast(`OpenVPN server ${nextState ? 'started' : 'stopped'}`);
+        showToast(nextState ? t('js_ovpn_started', 'OpenVPN server started') : t('js_ovpn_stopped', 'OpenVPN server stopped'));
         setTimeout(loadOpenvpnStatus, 800);
       } else {
-        showToast('OpenVPN toggle error: ' + (d.message || 'Failed'));
+        showToast(t('js_ovpn_toggle_error', 'OpenVPN toggle error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('OpenVPN toggle error: ' + e);
+      showToast(t('js_ovpn_toggle_error', 'OpenVPN toggle error: ') + e);
     }
   }
 
@@ -9368,12 +9381,12 @@ ${pkgList}`;
     const name = (nameInput?.value || '').trim();
 
     if (!name) {
-      showToast('Please provide a client name (e.g. tablet-client)');
+      showToast(t('js_ovpn_need_name', 'Please provide a client name (e.g. tablet-client)'));
       if (nameInput) nameInput.focus();
       return;
     }
 
-    showToast('Generating Elliptic Curve client certificate & unified .ovpn profile...');
+    showToast(t('js_ovpn_generating', 'Generating Elliptic Curve client certificate & unified .ovpn profile...'));
     try {
       const res = await fetch('/api/openvpn/client/add', {
         method: 'POST',
@@ -9382,7 +9395,7 @@ ${pkgList}`;
       });
       const d = await res.json();
       if (res.ok) {
-        showToast(`Client "${name}" generated successfully!`);
+        showToast(t('js_ovpn_client_generated', 'Client "{name}" generated successfully!').replace('{name}', name));
         if (nameInput) nameInput.value = '';
         loadOpenvpnStatus();
         const a = document.createElement('a');
@@ -9392,15 +9405,15 @@ ${pkgList}`;
         a.click();
         document.body.removeChild(a);
       } else {
-        showToast('Add client error: ' + (d.message || 'Failed'));
+        showToast(t('js_ovpn_add_error', 'Add client error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('Add client request error: ' + e);
+      showToast(t('js_ovpn_add_request_error', 'Add client request error: ') + e);
     }
   }
 
   async function deleteOpenvpnClient(name) {
-    if (!confirm(`Are you sure you want to revoke & delete OpenVPN client "${name}"?`)) return;
+    if (!confirm(t('js_ovpn_delete_confirm', 'Are you sure you want to revoke & delete OpenVPN client "{name}"?').replace('{name}', name))) return;
     try {
       const res = await fetch('/api/openvpn/client/delete', {
         method: 'POST',
@@ -9408,14 +9421,14 @@ ${pkgList}`;
         body: JSON.stringify({ name }),
       });
       if (res.ok) {
-        showToast(`Client "${name}" deleted`);
+        showToast(t('js_ovpn_client_deleted', 'Client "{name}" deleted').replace('{name}', name));
         loadOpenvpnStatus();
       } else {
         const d = await res.json();
-        showToast('Delete client error: ' + (d.message || 'Failed'));
+        showToast(t('js_ovpn_delete_error', 'Delete client error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('Delete client error: ' + e);
+      showToast(t('js_ovpn_delete_error', 'Delete client error: ') + e);
     }
   }
 
@@ -9462,13 +9475,13 @@ ${pkgList}`;
           badge.style.background = 'rgba(16, 185, 129, 0.15)';
           badge.style.color = '#10b981';
           badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-          badge.textContent = `🟢 Running (Port ${d.port || 8443})`;
+          badge.textContent = '🟢 ' + t('js_running_port', 'Running (Port {port})').replace('{port}', d.port || 8443);
         } else {
           badge.className = 'badge';
           badge.style.background = 'rgba(148, 163, 184, 0.15)';
           badge.style.color = '#94a3b8';
           badge.style.border = '1px solid #475569';
-          badge.textContent = '⚫ Stopped';
+          badge.textContent = '⚫ ' + t('js_stopped', 'Stopped');
         }
       }
 
@@ -9476,10 +9489,10 @@ ${pkgList}`;
       if (toggleBtn) {
         if (d.running || d.active) {
           toggleBtn.className = 'btn-danger';
-          toggleBtn.textContent = '⏹️ Stop Proxy';
+          toggleBtn.textContent = '⏹️ ' + t('js_stop_proxy', 'Stop Proxy');
         } else {
           toggleBtn.className = 'btn-primary';
-          toggleBtn.textContent = '▶️ Start Proxy';
+          toggleBtn.textContent = '▶️ ' + t('js_start_proxy', 'Start Proxy');
         }
       }
 
@@ -9508,7 +9521,7 @@ ${pkgList}`;
           const s = uptimeSec % 60;
           uptEl.textContent = `${m}m ${s}s`;
         } else {
-          uptEl.textContent = (d.running || d.active) ? 'Just started' : 'Offline';
+          uptEl.textContent = (d.running || d.active) ? t('js_just_started', 'Just started') : t('vpn_status_offline', 'Offline');
         }
       }
     } catch (e) {
@@ -9533,31 +9546,31 @@ ${pkgList}`;
       });
       const d = await res.json();
       if (res.ok) {
-        showToast('HTTPS Proxy settings saved');
+        showToast(t('js_proxy_saved', 'HTTPS Proxy settings saved'));
         loadProxyStatus();
       } else {
-        showToast('Proxy save error: ' + (d.message || 'Failed'));
+        showToast(t('js_proxy_save_error', 'Proxy save error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('Proxy save error: ' + e);
+      showToast(t('js_proxy_save_error', 'Proxy save error: ') + e);
     }
   }
 
   async function toggleProxyServer() {
     const nextState = !proxyIsActive;
     const endpoint = nextState ? '/api/proxy/start' : '/api/proxy/stop';
-    showToast(nextState ? 'Starting HTTPS CONNECT proxy server...' : 'Stopping HTTPS proxy server...');
+    showToast(nextState ? t('js_proxy_starting', 'Starting HTTPS CONNECT proxy server...') : t('js_proxy_stopping', 'Stopping HTTPS proxy server...'));
     try {
       const res = await fetch(endpoint, { method: 'POST' });
       const d = await res.json();
       if (res.ok) {
-        showToast(`HTTPS Proxy ${nextState ? 'started' : 'stopped'}`);
+        showToast(nextState ? t('js_proxy_started', 'HTTPS Proxy started') : t('js_proxy_stopped', 'HTTPS Proxy stopped'));
         setTimeout(loadProxyStatus, 800);
       } else {
-        showToast('Proxy toggle error: ' + (d.message || 'Failed'));
+        showToast(t('js_proxy_toggle_error', 'Proxy toggle error: ') + (d.message || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast('Proxy toggle error: ' + e);
+      showToast(t('js_proxy_toggle_error', 'Proxy toggle error: ') + e);
     }
   }
 
@@ -9580,26 +9593,26 @@ ${pkgList}`;
       const pIp = document.getElementById('pivpn-ts-ip');
       const pDns = document.getElementById('pivpn-ts-dns');
 
-      let stateText = d.backend_state || 'Stopped';
+      let stateText = d.backend_state || t('js_stopped', 'Stopped');
       let badgeBg = 'rgba(100, 116, 139, 0.2)';
       let badgeColor = '#94a3b8';
       let isRunning = false;
 
       if (!d.installed) {
-        stateText = 'Not Installed';
+        stateText = t('js_not_installed', 'Not Installed');
         badgeBg = 'rgba(239, 68, 68, 0.2)';
         badgeColor = '#ef4444';
       } else if (d.backend_state === 'Running') {
-        stateText = 'Connected';
+        stateText = t('status_connected', 'Connected');
         badgeBg = 'rgba(16, 185, 129, 0.2)';
         badgeColor = '#10b981';
         isRunning = true;
       } else if (d.backend_state === 'NeedsLogin') {
-        stateText = 'Needs Login';
+        stateText = t('js_needs_login', 'Needs Login');
         badgeBg = 'rgba(245, 158, 11, 0.2)';
         badgeColor = '#f59e0b';
       } else if (d.backend_state === 'Starting') {
-        stateText = 'Starting...';
+        stateText = t('js_starting', 'Starting...');
         badgeBg = 'rgba(56, 189, 248, 0.2)';
         badgeColor = '#38bdf8';
       }
@@ -9613,7 +9626,7 @@ ${pkgList}`;
       });
 
       if (pToggle) {
-        pToggle.textContent = isRunning ? 'Disconnect' : 'Connect';
+        pToggle.textContent = isRunning ? t('wu_disconnect', 'Disconnect') : t('js_connect', 'Connect');
       }
 
       // IPs and DNS
@@ -9691,8 +9704,8 @@ ${pkgList}`;
             const pIp = (p.TailscaleIPs && p.TailscaleIPs.length > 0) ? p.TailscaleIPs[0] : '--';
             const isOnline = p.Online;
             const statusBadge = isOnline ? 
-              '<span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3);">Online</span>' : 
-              '<span class="badge" style="background:rgba(100,116,139,0.15); color:#94a3b8; border:1px solid rgba(100,116,139,0.3);">Offline</span>';
+              '<span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3);">' + t('js_online', 'Online') + '</span>' : 
+              '<span class="badge" style="background:rgba(100,116,139,0.15); color:#94a3b8; border:1px solid rgba(100,116,139,0.3);">' + t('vpn_status_offline', 'Offline') + '</span>';
             const name = p.HostName || p.DNSName || '--';
             const os = p.OS || '--';
             return `<tr>
@@ -9717,7 +9730,7 @@ ${pkgList}`;
       const acceptDns = document.getElementById('tailscale-cfg-accept-dns')?.checked ?? false;
       const exitNode = document.getElementById('tailscale-cfg-exit-node')?.checked ?? false;
 
-      showToast('Connecting to Tailscale...');
+      showToast(t('js_ts_connecting', 'Connecting to Tailscale...'));
       const res = await fetch('/api/tailscale/up', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -9731,49 +9744,49 @@ ${pkgList}`;
       });
       const data = await res.json();
       if (data.ok) {
-        showToast('Tailscale command executed successfully!');
+        showToast(t('js_ts_cmd_ok', 'Tailscale command executed successfully!'));
         if (data.auth_url) {
           window.open(data.auth_url, '_blank');
         }
       } else {
-        showToast('Tailscale: ' + (data.error || 'Failed to start'));
+        showToast('Tailscale: ' + (data.error || t('js_failed_to_start', 'Failed to start')));
       }
       setTimeout(loadTailscaleStatus, 1500);
     } catch (e) {
-      showToast('Tailscale error: ' + e);
+      showToast(t('js_ts_error', 'Tailscale error: ') + e);
     }
   }
 
   async function disconnectTailscale() {
     try {
-      showToast('Disconnecting Tailscale...');
+      showToast(t('js_ts_disconnecting', 'Disconnecting Tailscale...'));
       const res = await fetch('/api/tailscale/down', { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        showToast('Tailscale disconnected.');
+        showToast(t('js_ts_disconnected', 'Tailscale disconnected.'));
       } else {
-        showToast('Tailscale: ' + (data.error || 'Failed'));
+        showToast('Tailscale: ' + (data.error || t('js_failed', 'Failed')));
       }
       setTimeout(loadTailscaleStatus, 1000);
     } catch (e) {
-      showToast('Tailscale error: ' + e);
+      showToast(t('js_ts_error', 'Tailscale error: ') + e);
     }
   }
 
   async function logoutTailscale() {
     if (!confirm(t('tailscale_logout_confirm', 'Log out of the Tailscale account on this device?'))) return;
     try {
-      showToast('Logging out from Tailscale...');
+      showToast(t('js_ts_logging_out', 'Logging out from Tailscale...'));
       const res = await fetch('/api/tailscale/logout', { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        showToast('Tailscale logged out.');
+        showToast(t('js_ts_logged_out', 'Tailscale logged out.'));
       } else {
-        showToast('Tailscale: ' + (data.error || 'Failed'));
+        showToast('Tailscale: ' + (data.error || t('js_failed', 'Failed')));
       }
       setTimeout(loadTailscaleStatus, 1000);
     } catch (e) {
-      showToast('Tailscale error: ' + e);
+      showToast(t('js_ts_error', 'Tailscale error: ') + e);
     }
   }
 
@@ -9808,10 +9821,10 @@ ${pkgList}`;
       if (data.ok) {
         showToast(t('tailscale_saved_ok', 'Tailscale settings saved successfully!'));
       } else {
-        showToast(t('save_err', 'Error saving settings: ') + (data.error || 'Failed'));
+        showToast(t('save_err', 'Error saving settings: ') + (data.error || t('js_failed', 'Failed')));
       }
     } catch (e) {
-      showToast(t('net_err', 'Network error: ') + e);
+      showToast(t('network_error', 'Network error: ') + e);
     }
   }
 
@@ -9901,20 +9914,20 @@ ${pkgList}`;
       const rsubBadge = document.getElementById('rsub-telegram-badge');
       const svcBadge = document.getElementById('telegram-stat-service');
 
-      let stateText = 'Inactive';
+      let stateText = t('inactive', 'Inactive');
       let badgeBg = 'rgba(100, 116, 139, 0.2)';
       let badgeColor = '#94a3b8';
 
       if (d.service_active) {
-        stateText = 'Running & Active';
+        stateText = t('js_tg_running_active', 'Running & Active');
         badgeBg = 'rgba(16, 185, 129, 0.2)';
         badgeColor = '#10b981';
       } else if (d.enabled) {
-        stateText = 'Stopped / Offline';
+        stateText = t('js_tg_stopped_offline', 'Stopped / Offline');
         badgeBg = 'rgba(245, 158, 11, 0.2)';
         badgeColor = '#f59e0b';
       } else {
-        stateText = 'Disabled';
+        stateText = t('status_disabled', 'Disabled');
         badgeBg = 'rgba(100, 116, 139, 0.2)';
         badgeColor = '#94a3b8';
       }
@@ -9928,7 +9941,7 @@ ${pkgList}`;
       });
 
       if (svcBadge) {
-        svcBadge.textContent = d.service_active ? 'Active (Running)' : 'Inactive (Dead)';
+        svcBadge.textContent = d.service_active ? t('js_svc_active_running', 'Active (Running)') : t('js_svc_inactive_dead', 'Inactive (Dead)');
         svcBadge.style.background = d.service_active ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
         svcBadge.style.color = d.service_active ? '#10b981' : '#f87171';
       }
@@ -9944,13 +9957,13 @@ ${pkgList}`;
       if (nameEl) nameEl.textContent = d.bot_first_name || '--';
       if (apiEl) {
         if (d.can_connect) {
-          apiEl.textContent = '✅ Connected (Token Valid)';
+          apiEl.textContent = '✅ ' + t('js_tg_token_valid', 'Connected (Token Valid)');
           apiEl.style.color = '#10b981';
         } else if (d.bot_token || d.token || d.token_set) {
-          apiEl.textContent = '❌ Invalid Token / No Connection';
+          apiEl.textContent = '❌ ' + t('js_tg_token_invalid', 'Invalid Token / No Connection');
           apiEl.style.color = '#ef4444';
         } else {
-          apiEl.textContent = '⚪ Token nincs megadva';
+          apiEl.textContent = '⚪ ' + t('js_tg_token_missing', 'No token set');
           apiEl.style.color = '#94a3b8';
         }
       }
@@ -10002,10 +10015,10 @@ ${pkgList}`;
         clearTelegramDirty();
         setTimeout(() => loadTelegramStatus(true), 1000);
       } else {
-        showToast(t('save_err', 'Error: ') + (data.error || data.message || 'Failed to save'));
+        showToast(t('error_prefix', 'Error: ') + (data.error || data.message || t('js_save_failed', 'Failed to save')));
       }
     } catch (e) {
-      showToast(t('net_err', 'Network error: ') + e);
+      showToast(t('network_error', 'Network error: ') + e);
     }
   }
 
@@ -10037,7 +10050,7 @@ ${pkgList}`;
         if (resBox) {
           resBox.style.background = 'rgba(239, 68, 68, 0.15)';
           resBox.style.color = '#f87171';
-          resBox.textContent = t('telegram_test_fail', '❌ Sending failed: ') + (data.error || data.message || 'Unknown error');
+          resBox.textContent = t('telegram_test_fail', '❌ Sending failed: ') + (data.error || data.message || t('js_unknown_error', 'Unknown error'));
         }
         showToast(t('telegram_test_toast_fail', 'Test message failed!'));
       }
@@ -10047,13 +10060,13 @@ ${pkgList}`;
         resBox.style.color = '#f87171';
         resBox.textContent = t('telegram_test_network_err', '❌ Network error: ') + e;
       }
-      showToast(t('net_err', 'Network error: ') + e);
+      showToast(t('network_error', 'Network error: ') + e);
     }
   }
 
   async function controlTelegramService(action) {
     try {
-      showToast(t('telegram_service_action', `Telegram daemon: ${action}...`));
+      showToast(t('telegram_service_action', 'Telegram daemon: {action}...').replace('{action}', action));
       const res = await fetch('/api/telegram/service', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -10061,9 +10074,9 @@ ${pkgList}`;
       });
       const data = await res.json();
       if (data.ok || data.status === 'ok') {
-        showToast(t('telegram_daemon_action_ok', `Telegram daemon successfully updated: ${action}`));
+        showToast(t('telegram_daemon_action_ok', 'Telegram daemon successfully updated: {action}').replace('{action}', action));
       } else {
-        showToast(t('common_err', 'Error: ') + (data.error || data.message || 'Failed'));
+        showToast(t('error_prefix', 'Error: ') + (data.error || data.message || t('js_failed', 'Failed')));
       }
       setTimeout(loadTelegramStatus, 1500);
     } catch (e) {
@@ -10185,7 +10198,7 @@ ${pkgList}`;
       const cpu = data.cpu || {};
       const totalCpu = typeof cpu.total_percent === 'number' ? cpu.total_percent.toFixed(1) : (typeof cpu.total_usage_pct === 'number' ? cpu.total_usage_pct.toFixed(1) : '0.0');
       const totalBadge = document.getElementById('tasks-cpu-total-badge');
-      if (totalBadge) totalBadge.textContent = totalCpu + '% Total';
+      if (totalBadge) totalBadge.textContent = t('js_pct_total', '{pct}% Total').replace('{pct}', totalCpu);
 
       const coresList = document.getElementById('tasks-cpu-cores-list');
       if (coresList && Array.isArray(cpu.cores)) {
@@ -10199,7 +10212,7 @@ ${pkgList}`;
           return `
             <div>
               <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
-                <span>Core ${i}</span>
+                <span>${escapeHtml(t('js_cpu_core_n', 'Core {n}').replace('{n}', i))}</span>
                 <span style="color: ${barColor}; font-weight: bold;">${pct}%</span>
               </div>
               <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
@@ -10211,15 +10224,15 @@ ${pkgList}`;
       }
 
       const freqEl = document.getElementById('tasks-cpu-freq');
-      if (freqEl) freqEl.textContent = cpu.cpu_freq_mhz ? `${cpu.cpu_freq_mhz} MHz` : 'N/A';
+      if (freqEl) freqEl.textContent = cpu.cpu_freq_mhz ? `${cpu.cpu_freq_mhz} MHz` : t('js_na', 'N/A');
       const tempEl = document.getElementById('tasks-cpu-temp');
-      if (tempEl) tempEl.textContent = (cpu.temp_c || cpu.cpu_temp_c) ? `${cpu.temp_c || cpu.cpu_temp_c} °C` : 'N/A';
+      if (tempEl) tempEl.textContent = (cpu.temp_c || cpu.cpu_temp_c) ? `${cpu.temp_c || cpu.cpu_temp_c} °C` : t('js_na', 'N/A');
 
       // Update Memory & Swap
       const mem = data.memory || {};
       const memPct = (typeof mem.used_percent === 'number') ? mem.used_percent.toFixed(1) : (mem.used_pct ? mem.used_pct.toFixed(1) : '0.0');
       const memBadge = document.getElementById('tasks-mem-total-badge');
-      if (memBadge) memBadge.textContent = `${memPct}% Used`;
+      if (memBadge) memBadge.textContent = t('js_pct_used', '{pct}% Used').replace('{pct}', memPct);
 
       const ramText = document.getElementById('tasks-ram-text');
       if (ramText) ramText.textContent = `${mem.used_human || ((mem.used_mb || 0) + ' MB')} / ${mem.total_human || ((mem.total_mb || 0) + ' MB')}`;
@@ -10250,7 +10263,7 @@ ${pkgList}`;
       // Update Summary
       const summary = data.summary || {};
       const uptimeBadge = document.getElementById('tasks-uptime-badge');
-      if (uptimeBadge) uptimeBadge.textContent = `Up: ${summary.uptime_formatted || (data.system && data.system.uptime_human) || '--'}`;
+      if (uptimeBadge) uptimeBadge.textContent = `${t('js_uptime_up', 'Up:')} ${summary.uptime_formatted || (data.system && data.system.uptime_human) || '--'}`;
 
       const loadavgEl = document.getElementById('tasks-loadavg-text');
       if (loadavgEl) {
@@ -10315,7 +10328,7 @@ ${pkgList}`;
     });
 
     const countEl = document.getElementById('tasks-table-footer-count');
-    if (countEl) countEl.textContent = `Showing ${procs.length} of ${tasksState.processes.length} processes`;
+    if (countEl) countEl.textContent = t('js_tasks_showing', 'Showing {shown} of {total} processes').replace('{shown}', procs.length).replace('{total}', tasksState.processes.length);
 
     if (procs.length === 0) {
       tbody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 20px; color: var(--text-muted);">${t('tasks_no_match', 'No processes matching filter')}</td></tr>`;
@@ -10350,10 +10363,10 @@ ${pkgList}`;
           </td>
           <td style="padding: 6px 10px; text-align: center; white-space: nowrap;">
             ${isProtected ?
-              '<span style="font-size: 11px; color: #64748b; white-space: nowrap;">(Protected)</span>' :
+              '<span style="font-size: 11px; color: #64748b; white-space: nowrap;">(' + t('js_protected', 'Protected') + ')</span>' :
               `<div style="display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap;">
-                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3); white-space: nowrap;" onclick="promptKillProcess(${jsArg(p.pid)}, ${jsArg(p.command)}, 15)" title="Graceful SIGTERM">${t('tasks_btn_term', 'Term')}</button>
-                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5); white-space: nowrap;" onclick="promptKillProcess(${jsArg(p.pid)}, ${jsArg(p.command)}, 9)" title="Force SIGKILL">${t('tasks_btn_kill', 'Kill')}</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239,68,68,0.3); white-space: nowrap;" onclick="promptKillProcess(${jsArg(p.pid)}, ${jsArg(p.command)}, 15)" title="${escapeHtml(t('js_graceful', 'Graceful'))} SIGTERM">${t('tasks_btn_term', 'Term')}</button>
+                <button type="button" class="btn-secondary" style="font-size: 11px; padding: 2px 6px; background: rgba(239, 68, 68, 0.3); color: #fca5a5; border-color: rgba(239,68,68,0.5); white-space: nowrap;" onclick="promptKillProcess(${jsArg(p.pid)}, ${jsArg(p.command)}, 9)" title="${escapeHtml(t('js_force', 'Force'))} SIGKILL">${t('tasks_btn_kill', 'Kill')}</button>
               </div>`
             }
           </td>
@@ -10414,8 +10427,8 @@ ${pkgList}`;
     const sigName = signal === 9 ? 'SIGKILL' : 'SIGTERM';
     const confirmPrompt = t('tasks_confirm_kill', 'Are you sure you want to terminate this process?') + `
 PID: ${pid}
-Command: ${comm}
-Signal: ${sigName}`;
+${t('js_command_label', 'Command: ')}${comm}
+${t('js_signal_label', 'Signal: ')}${sigName}`;
     if (!confirm(confirmPrompt)) {
       return;
     }
@@ -10430,10 +10443,10 @@ Signal: ${sigName}`;
         showToast(data.message || t('tasks_process_killed', 'Process terminated.'));
         loadTasksOverview();
       } else {
-        showToast(t('tasks_err_kill', 'Error terminating process: ') + (data.message || data.error || 'Unknown error'));
+        showToast(t('tasks_err_kill', 'Error terminating process: ') + (data.message || data.error || t('js_unknown_error', 'Unknown error')));
       }
     } catch (e) {
-      showToast('Network error: ' + e);
+      showToast(t('network_error', 'Network error: ') + e);
     }
   }
 
@@ -10499,10 +10512,10 @@ Signal: ${sigName}`;
       const r = await fetch('/api/port-forward/save', {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({enabled: document.getElementById('pf-enabled').checked, upnp: document.getElementById('pf-upnp').checked, rules})});
       const d = await r.json();
-      if (msg) { msg.textContent = r.ok ? t('pf_saved', 'Saved. Router mode applies it within a few seconds.') : (d.message || 'Error'); msg.style.color = r.ok ? '#34d399' : '#f87171'; }
+      if (msg) { msg.textContent = r.ok ? t('pf_saved', 'Saved. Router mode applies it within a few seconds.') : (d.message || t('js_error_word', 'Error')); msg.style.color = r.ok ? '#34d399' : '#f87171'; }
       if (r.ok) { renderPortForward(d); setTimeout(loadPortForward, 6000); }
     } catch (e) {
-      if (msg) { msg.textContent = 'Network error: ' + e; msg.style.color = '#f87171'; }
+      if (msg) { msg.textContent = t('network_error', 'Network error: ') + e; msg.style.color = '#f87171'; }
     }
   }
   window.pfAddRow = pfAddRow;
@@ -10559,10 +10572,10 @@ Signal: ${sigName}`;
     try {
       const r = await fetch('/api/data-cap/save', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       const d = await r.json();
-      if (msg) { msg.textContent = r.ok ? t('dc_saved', 'Saved.') : (d.message || 'Error'); msg.style.color = r.ok ? '#34d399' : '#f87171'; }
+      if (msg) { msg.textContent = r.ok ? t('dc_saved', 'Saved.') : (d.message || t('js_error_word', 'Error')); msg.style.color = r.ok ? '#34d399' : '#f87171'; }
       if (r.ok) renderDataCap(d);
     } catch (e) {
-      if (msg) { msg.textContent = 'Network error: ' + e; msg.style.color = '#f87171'; }
+      if (msg) { msg.textContent = t('network_error', 'Network error: ') + e; msg.style.color = '#f87171'; }
     }
   }
   window.loadDataCap = loadDataCap;

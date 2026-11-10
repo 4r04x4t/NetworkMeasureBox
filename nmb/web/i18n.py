@@ -7111,6 +7111,17 @@ _HDR_MODE_TEXTS = {
 for _lang, _texts in _HDR_MODE_TEXTS.items():
     TRANSLATIONS.setdefault(_lang, {}).update(_texts)
 
+# Texts of the Web UI that had no translation in any language until 2026-11-10 (tagged in dashboard.html and
+# dashboard.js then): English, Hungarian, German, French and Ukrainian are in locales/ui_core.json; the other
+# languages have them in their own file below.
+try:
+    _core = __import__("json").loads(__import__("pathlib").Path(__file__).with_name("locales").joinpath("ui_core.json").read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    _core = {}
+for _lang, _texts in _core.items():
+    if isinstance(_texts, dict):
+        TRANSLATIONS.setdefault(_lang, {}).update({k: v for k, v in _texts.items() if isinstance(v, str)})
+
 # More languages, one JSON file each in nmb/web/locales/ (key -> text). A key missing there is shown
 # in English, never in another language.
 LOCALE_LANGUAGES = ("ro", "it", "es", "pt", "pt-br", "zh")
