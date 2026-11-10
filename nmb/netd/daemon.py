@@ -97,7 +97,9 @@ class NetworkDaemon:
         self.current_mode_name = None
         self.current_mode_inst = None
         self._build_modes()
-        target_mode, reason = self.detector.evaluate_target_mode(self._get_override_mode())
+        override = self._get_override_mode()
+        target_mode, reason = self.detector.evaluate_target_mode(override)
+        self._apply_auto_details(override)
         self.switch_mode(target_mode, f"configuration reload ({reason})")
 
     def _reapply_wifi_only(self, changed: set) -> bool:
@@ -210,9 +212,14 @@ class NetworkDaemon:
                 log.info("auto mode: LAN passthrough ports now %s; rebuilding standalone", want_pt or "none")
                 std.teardown()
                 std.setup()
-        if want_ppp != getattr(ma, "auto_pppoe", False):
+        had_ppp = getattr(ma, "auto_pppoe", False)
+        if want_ppp != had_ppp:
             ma.auto_pppoe = want_ppp
-            if self.current_mode_name == "mode_a" and self.current_mode_inst is ma:
+            # Rebuild only when the dialling itself changes: with `pppoe_enabled = true` router mode dials
+            # anyway, and a rebuild here hung up the session that setup had just dialled (2026-11-10: every
+            # netd start dialled twice, about 20 s more without internet).
+            dials = lambda auto: bool(self.cfg.network.pppoe_enabled or auto)
+            if dials(want_ppp) != dials(had_ppp) and self.current_mode_name == "mode_a" and self.current_mode_inst is ma:
                 log.info("auto mode: PPPoE %s; rebuilding router mode", "on" if want_ppp else "off")
                 ma.teardown()
                 ma.setup()
@@ -272,6 +279,7 @@ class NetworkDaemon:
         # Initial assessment
         override = self._get_override_mode()
         initial_mode, reason = self.detector.evaluate_target_mode(override)
+        self._apply_auto_details(override)      # before the first setup, so it is built once
         self.switch_mode(initial_mode, f"initial startup ({reason})")
 
         while self.running:

@@ -105,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Automatic mode dialled PPPoE twice at every netd start and settings reload (with `pppoe_enabled = true`): router mode came up with PPPoE, then the auto decision "PPPoE on" rebuilt it and hung up the new session, about 20 s more without internet. The decision is now applied before the first setup, and router mode is rebuilt only when the dialling really changes. Tested live: one dial after `systemctl restart nmb-netd`.
 - Changing only the access point's settings (band, standard, channel, width, name, password, country, security) in router mode rebuilt the whole router: the PPPoE session dialled again and the LAN had no internet for about 40 s. Now only hostapd restarts (about 3 s for Wi-Fi clients); the WAN, DHCP, IPv6 and the firewall stay up. Tested live: 5 GHz back to 2.4 GHz with the same pppd process and no ping lost.
 - Availability and outage totals: outages left open by a probe that stopped (restart, update) counted until now and overlapping ones added up (the night's eight open rows showed 0 % availability in `/status`). Reports and the bot now end such an outage at the next one or at the first answered ping and count overlaps once; the stored rows are not changed. The bot's outage alert no longer stays "firing" on such a row, so a real outage alerts again.
 - The "iPerf3 server left out for up to 6 h" warning still came about 17 times an hour: a check without the test history cleared its once-per-rest mark.
