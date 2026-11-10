@@ -112,6 +112,7 @@ Reached only over Tailscale (the developer PC was on another network, the Nighth
 | Storage guard on the /var/log RAM disk | ✅ after a fix | A 45 MB test file left 3 MB of the 48 MB free: the guard deleted it (oldest rotated log first) and stopped at 47 MB free; the real developer log untouched. Before, only the data disk was checked |
 | Bot start after a reboot in router mode | ✅ after a fix | Before: 2 minutes after the other services (it waited for NetworkManager-wait-online, which fails on the ONT). After (04:02 reboot): together with netd, web and probe; one failed poll before PPPoE was up, then working |
 | `setup.sh` on a nearly full /var/log | ✅ | /var/log at 91 %: the installer removed the old rotated log first, finished, and moved the old default developer log (6 x 10 MB) to 3 x 5 MB; the factory Web UI login warned about |
+| From the ONT to the home router (automatic mode) | ✅ after fixes | 2026-11-10 04:09: cable moved by the owner; standalone at 04:11:32 ("a router gives addresses on eth0"), internet back 04:12:12 (outage 04:09:31-04:12:12 = the move), dnsmasq, pppd and hostapd stopped, no `proto boot` route, Local Gateway target back on, ISP First Hop stays off, DynDNS updated at once (04:12:36). Wired metric 50 in the NetworkManager profile only after a fix (it stayed 100); a stale DNS fallback marker fixed too. `/wifi connect` with the saved home profile in standalone works |
 | Wired WAN cable out for 3 s | ✅ | 02:28, by accident: the PPPoE session stayed up (no redial, no outage, no ping lost) |
 | False outage rows of 2026-11-09 removed | ✅ | Owner's decision: database backed up first (box and PC), then outages 18-25 deleted, outage 17 (18:56, the cable move) ended at 19:00:49 when the box was online again over USB, the lost samples and fully lost minutes between 19:00:49 and 01:20:58 deleted, two edge minutes corrected. Availability in the last 24 h: 99.55 % (was 73.22 %) |
 
@@ -330,7 +331,7 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | Wi-Fi sharing on the LAN port with USB as the upstream | Box on Wi-Fi, cable from the router to a laptop, then the box leaves its Wi-Fi: the laptop must keep browsing over USB (scenario steps `wifi-share`, `usb-fallback`; the client's packets out of `eth1` are counted) |
 | Router mode drops the LAN ports' link after setup | Laptop on the cable with an address from before (for example 192.168.77.x): without replugging it must get 192.168.100.x and browse within a minute |
 | Dead default routes are removed | Cable from the router to a laptop: within one netd loop no default route may stay on `eth0`; Wi-Fi or USB carries the box's traffic and Tailscale stays up (`nmb-selftest internet`: "no dead default route") |
-| Wired route priority through NetworkManager | Back behind the home router: the eth0 profile gets `ipv4.route-metric 50`, no `proto boot` default route stays; the cable moved to a laptop must leave no default route on eth0 |
+| Wired route priority through NetworkManager | Behind the home router: done 2026-11-10 (see Results). Left: the cable moved to a laptop must leave no default route on eth0 |
 | Unplugging the USB device in router mode and in standalone | Scenario step `unplug`: no USB route or rule left, the mode rebuilds with `eth0` |
 | Secrets restore | Clear the Telegram token by hand in `nmb.conf`: `nmb-selftest config` must fail with its name, `sudo nmb-selftest secrets-restore` must bring it back and the bot must answer |
 | iPerf3 server resting | A server that fails five tests in a row must be left out for 6 hours (log line "left out for up to 6 h"), then tried again |
@@ -350,7 +351,7 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | Upgrade and backup from an older release | Install 2.4.0, update to the current one with its config; restore a 2.4.0 backup |
 | WAN failover, load balancing, VLAN, link aggregation | Two WAN NICs, pull one; a Linux bridge with VLAN filtering |
 | Hostile networks | IPv6-only WAN, CGNAT, broken DNS, captive portal, flapping link, clock jump |
-| Telegram commands that change the box, what is left | Done on 2026-11-10 (see Results). Left: `/heal apply` with a real update on GitHub (only the "nothing newer" path ran), `/purge` on the real data (run on copies and in a namespace), `/wifi connect` in standalone mode (the box on the ONT has no internet in standalone) |
+| Telegram commands that change the box, what is left | Done on 2026-11-10 (see Results). Left: `/heal apply` with a real update on GitHub (only the "nothing newer" path ran), `/purge` on the real data (run on copies and in a namespace), `/wifi connect` to a new network with a password (the saved profile worked on 2026-11-10) |
 | Telegram backup over 50 MB | Telegram refuses bigger files; the bot must say so instead of failing quietly |
 | Lost settings across real processes | Web UI, `nmb-cli`, bot and `nmb-netd` saving in turns for an hour; every value set stays (the unit test covers two copies in one process) |
 | SMTP | Against a local mock server, then a real mailbox |

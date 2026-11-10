@@ -338,6 +338,15 @@ class NetworkDaemon:
                 # A default route through a port with no cable or no address leads nowhere but still wins.
                 from nmb.netd import interfaces as _ifs
                 self._timed("dead route reaper", _ifs.reap_dead_default_routes)
+                # Wired route first (metric 50 in the NetworkManager profile) outside router mode: once at a mode
+                # change and then every 5 minutes. It ran only when the web server started, as the nmb user that
+                # may not change NetworkManager profiles, so the switch to standalone kept metric 100 (2026-11-10).
+                if not isinstance(self.current_mode_inst, ModeA) and (
+                        time.monotonic() - getattr(self, "_wired_prio_ts", -1e9) > 300
+                        or getattr(self, "_wired_prio_mode", None) != self.current_mode_name):
+                    self._wired_prio_ts = time.monotonic()
+                    self._wired_prio_mode = self.current_mode_name
+                    self._timed("wired route priority", _ifs.enforce_wired_default_route_priority)
                 # IPv4 DNS before IPv6 DNS (checked every 10 minutes; a no-op once set).
                 if time.monotonic() - getattr(self, "_dns_prio_ts", -1e9) > 600:
                     self._dns_prio_ts = time.monotonic()

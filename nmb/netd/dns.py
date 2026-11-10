@@ -76,6 +76,13 @@ def _ip_connectivity(timeout: float = 2.0) -> bool:
     return False
 
 
+def _fallback_in_resolv_conf() -> bool:
+    try:
+        return "Fallback DNS Active" in RESOLV_CONF.read_text(encoding="utf-8", errors="replace")[:300]
+    except OSError:
+        return False
+
+
 def is_fallback_active() -> bool:
     """Check if fallback DNS is currently injected."""
     if FALLBACK_MARKER.exists():
@@ -244,6 +251,12 @@ def ensure_dns_fallback(
 
     # Check if current DNS works
     curr_ns = get_current_nameservers()
+    if not force and FALLBACK_MARKER.exists() and not _fallback_in_resolv_conf():
+        # NetworkManager (a mode change, a new lease) wrote resolv.conf again: the fallback is gone already, and
+        # putting the old backup back would replace the new DNS with the old network's (2026-11-10: router mode's
+        # empty resolv.conf over the home router's DNS after the switch to standalone).
+        FALLBACK_MARKER.unlink(missing_ok=True)
+        log.info("resolv.conf was rewritten by the system; fallback DNS no longer in use")
     if not force and is_fallback_active():
         # Put the normal DNS back after a while; it stays only if it works (2026-11-09: a brief failure during
         # an update left the fallback marker for hours, and nothing ever undid it).

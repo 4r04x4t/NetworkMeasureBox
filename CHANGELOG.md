@@ -105,6 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The wired route priority (metric 50 in the NetworkManager profile) was set only when the web server started, as the `nmb` user that may not change NetworkManager profiles: after a switch from router mode to standalone the cable kept metric 100. `nmb-netd` now sets it at each mode change and every 5 minutes outside router mode. Tested live: the box moved from the ONT to the home router, metric 50 in the profile `netplan-eth0`.
+- DNS fallback: when the system wrote `resolv.conf` again (a mode change, a new lease) while the fallback was on, the fallback marker stayed, and 15 minutes later its "restore" would have put back the old network's file (router mode's empty one over the home router's DNS). The marker is now dropped when the fallback is no longer in `resolv.conf`.
 - `setup.sh`: makes room on a nearly full `/var/log` (rotated NMB logs, oldest first) before it writes anything, since a full one stopped an install halfway; moves the old default developer log (6 x 10 MB, more than the 48 MB `/var/log` RAM disk) to 3 x 5 MB, and to 3 x 2 MB on 512 MB boards (16 MB `/var/log`); no longer prints or stores in `credentials.txt` a Web UI password the owner set, and warns on every run while the factory login `admin` / `admin` is still set.
 - Developer log default: 5 MB with 2 copies (was 10 MB with 5).
 - Docs: the full Telegram command list (it showed 5 languages and old `/mode` values), the storage guard and update check behaviour, the 5 GHz result; the deploy steps in DEV_SETUP_WINDOWS used a short commit id that `setup.sh` drops (the update check then did not know the installed version), and now run the install detached with its log on the SD card.
