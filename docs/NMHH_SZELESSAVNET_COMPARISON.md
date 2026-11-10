@@ -6,6 +6,7 @@ This page compares the official measuring box of the Hungarian regulator NMHH (S
 
 - **[Contract]** – NMHH's sample administrative contract for taking part in the Szélessáv Program (2018, with annex 1), published on the application page;
 - **[Application page]** – <https://szelessav.net/merodoboz-igenylese> (read on 10 November 2026);
+- **[How it measures]** – <https://szelessav.net/hogyan-mer-az-nmhh-rendszere>, **[Own development]** – <https://szelessav.net/miert-sajat-fejlesztes-a-szelessav-net>, **[BME]** – <https://www.tmit.bme.hu/smartcomlab-merorendszer> (all read on 10 November 2026);
 - **[Experience]** – the project owner's own experience with the box; not confirmed by an official source;
 - **[NMB]** – NetworkMeasureBox's own documentation and tests (`README.md`, `docs/TESTING.md`).
 
@@ -44,7 +45,7 @@ This is neither legal advice nor an official position. NMHH's current contract a
 ### Other limits
 - **Provider name mismatch:** if NMHH's records show another provider than the one actually serving the line, a warning may follow. Example: "Digi Hungary" recorded while One provides the service on the 2Connect network. **[Experience]** A change of provider or package must be reported within 8 days. **[Contract]**
 - **Basic web interface** on the box. **[Experience]**
-- **At most about 1 Gbit/s, no link aggregation.** **[Experience]** The application page focuses on lines below 1000 Mb/s. **[Application page]**
+- **The box handles at most about 1 Gbit/s, no link aggregation.** **[Experience]** The application page focuses on lines below 1000 Mb/s. **[Application page]** (The ">1 Gbit/s" range given by BME is for the measuring system as a whole. **[BME]**)
 
 ## 2. Advantages of the NMHH box
 
@@ -54,7 +55,10 @@ This is neither legal advice nor an official position. NMHH's current contract a
 - Clear graphs on the szelessav.net site and CSV export. **[Experience]** Results are available in printable form. **[Contract]**
 - Measures only when the line is idle, independent of the user's computer. **[Contract; Application page]**
 - LAN passthrough: placed between the access point and the user's devices. **[Application page]** Passes the traffic through. **[Experience]**
-- Measuring engine developed at BME (Budapest University of Technology and Economics). **[Experience]** The contract speaks of a "domestically developed" system. **[Contract]**
+- Developed at BME: the SmartCom Lab of the Department of Telecommunications and Artificial Intelligence (TMIT, Budapest University of Technology and Economics) built it "as NMHH's official measurement service"; it measures fixed and mobile connections "with high precision" over "a wide speed range (1 Mbit/s – >1 Gbit/s)", and the aggregated data feed a regularly updated national map. **[BME]** The primary browser-based measuring software is from BME SmartCom Lab too. **[How it measures]** The contract speaks of a "domestically developed" system. **[Contract]**
+- Measured: download and upload rate, round-trip latency, jitter, packet loss and loaded latency, with random-content data blocks. **[How it measures]**
+- Public national statistics: aggregated, anonymised data are open to everyone ("Országos eredmények"); registered users see the details of their own measuring places. NMHH also supports the EU-wide statistics project run with the European Commission. **[Own development]**
+- Mobile: the software test works on mobile connections **[BME]**, and NMHH's measuring cars survey mobile coverage and speed across the country. **[How it measures]** The box itself is for wired lines. **[Contract, annex 1, point 5]**
 
 ### Not tried, may not exist
 - PPPoE and router functions on the box. **[Experience: not tried]**

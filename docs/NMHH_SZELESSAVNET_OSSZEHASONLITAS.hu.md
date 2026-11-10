@@ -6,6 +6,7 @@ Ez a leírás az NMHH Szélessáv Programjának (SZÉP) hatósági mérődobozá
 
 - **[Szerződés]** – az NMHH közigazgatási szerződésmintája a Szélessáv Programban való részvételről (2018, 1. számú melléklettel), amelyet a szelessav.net igénylési oldala tesz közzé;
 - **[Igénylési oldal]** – <https://szelessav.net/merodoboz-igenylese> (letöltve: 2026. november 10.);
+- **[Hogyan mér]** – <https://szelessav.net/hogyan-mer-az-nmhh-rendszere>, **[Saját fejlesztés]** – <https://szelessav.net/miert-sajat-fejlesztes-a-szelessav-net>, **[BME]** – <https://www.tmit.bme.hu/smartcomlab-merorendszer> (mind letöltve: 2026. november 10.);
 - **[Tapasztalat]** – a projekt tulajdonosának saját tapasztalata a mérődobozzal; ezt hivatalos forrás nem erősíti meg;
 - **[NMB]** – a NetworkMeasureBox saját dokumentációja és tesztjei (`README.hu.md`, `docs/TESTING.hu.md`).
 
@@ -50,7 +51,7 @@ Ez a leírás nem jogi tanácsadás és nem hatósági álláspont. A pontos fel
 
 - **Szolgáltatónév eltérése:** ha az NMHH nyilvántartásában más szolgáltató szerepel, mint aki valójában nyújtja a szolgáltatást, abból is lehet figyelmeztetés. Ez különösen igaz, ha az előfizetés egy másik cég hálózatán fut. Példa: a nyilvántartásban „Digi Hungary” áll, miközben a szolgáltatást a One nyújtja a 2Connect hálózatán. **[Tapasztalat]** A szerződés szerint a szolgáltató- vagy csomagváltást 8 napon belül be kell jelenteni. **[Szerződés]**
 - **Fapados webes kezelőfelület** a dobozon. **[Tapasztalat]**
-- **Legfeljebb kb. 1 Gbit/s**, és nincs linkaggregáció (LAN aggregation). **[Tapasztalat]** Az igénylési oldal is 1000 Mb/s alatti előfizetésekre fókuszál. **[Igénylési oldal]**
+- **A doboz legfeljebb kb. 1 Gbit/s-ot kezel**, és nincs linkaggregáció (LAN aggregation). **[Tapasztalat]** Az igénylési oldal is 1000 Mb/s alatti előfizetésekre fókuszál. **[Igénylési oldal]** (A BME által megadott „>1 Gbit/s” tartomány a mérőrendszer egészére vonatkozik. **[BME]**)
 
 ## 2. Az NMHH mérődoboz előnyei
 
@@ -60,7 +61,10 @@ Ez a leírás nem jogi tanácsadás és nem hatósági álláspont. A pontos fel
 - **Áttekinthető online felület:** a szelessav.net saját felületén grafikonok vannak, és az eredmények CSV-fájlba menthetők. **[Tapasztalat]** A szerződés szerint az eredmények nyomtatható formában is elérhetők. **[Szerződés]**
 - **A felhasználó gépétől független mérés:** mérés előtt ellenőrzi a forgalmat, és akkor mér, amikor éppen nem használod az internetet. **[Szerződés; Igénylési oldal]**
 - **LAN passthrough:** a doboz a kiépítési végpont és a felhasználói eszközök közé kerül. **[Igénylési oldal]** A forgalmat átengedi. **[Tapasztalat]**
-- **A BME-n fejlesztett mérőmotor.** **[Tapasztalat]** A szerződés „hazai fejlesztésű mérőrendszert” említ. **[Szerződés]**
+- **A BME-n fejlesztett mérőrendszer:** a BME VIK Távközlési és Mesterséges Intelligencia Tanszékének (TMIT) SmartCom Labja fejlesztette, „az NMHH hivatalos mérőszolgáltatásaként”. A vezetékes és a mobil kapcsolatok minőségi jellemzőit „nagy pontosságú” méréssel, „széles sebességtartományban (1 Mbit/s - >1 Gbit/s)” vizsgálja; az összesített adatokból rendszeresen frissülő országos térkép készül. **[BME]** Az elsődleges, böngészőben futó mérőszoftvert is a BME SmartCom Lab fejlesztette. **[Hogyan mér]** A szerződés „hazai fejlesztésű mérőrendszert” említ. **[Szerződés]**
+- **Részletes mért jellemzők:** le- és feltöltési sebesség, kétirányú késleltetés, a késleltetés ingadozása (jitter), csomagvesztési arány és terhelés alatti késleltetés; a mérés véletlenszerű tartalmú adatblokkokkal fut. **[Hogyan mér]**
+- **Nyilvános országos statisztika:** az összesített, anonimizált adatok nem csak a programba jelentkezőknek, hanem bárkinek elérhetők („Országos eredmények”); a regisztráltak a saját mérési helyeik részletes eredményeit is látják. Az NMHH emellett támogatja az Európai Bizottsággal közös, uniós statisztikát gyűjtő projektet. **[Saját fejlesztés]**
+- **Mobilmérés:** a szoftveres mérés mobilkapcsolaton is használható **[BME]**, a mobilhálózat lefedettségét és sebességét pedig az NMHH mérőautói mérik az országot járva. **[Hogyan mér]** Maga a mérődoboz vezetékes mérésre szolgál. **[Szerződés, 1. sz. melléklet, 5. pont]**
 
 ### Nincs kipróbálva, nem biztos, hogy létezik
 
