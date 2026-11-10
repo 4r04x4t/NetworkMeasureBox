@@ -662,14 +662,25 @@ def _get_loss_pattern_telemetry(conn: Any, day_ago_ms: int, probes: List[Any]) -
 
 
 def _sanitize_config_text(conf_path: Path) -> str:
+    """nmb.conf for the bundle, with every secret and personal value masked.
+
+    Uses the shared matcher (nmb/common/redact.py): until 2026-11-10 this had its own list and passed the
+    Tailscale auth key, the PPPoE user name and other user names through. Continuation lines of a masked
+    multi-line value are dropped with it.
+    """
+    from nmb.common import redact
     if not conf_path.exists():
         return "N/A"
     try:
         raw_lines = conf_path.read_text().splitlines()
         sanitized = []
         cur_section = ""
+        masking = False
         for line in raw_lines:
             stripped = line.strip()
+            if masking and line[:1] in (" ", "\t") and stripped:
+                continue
+            masking = False
             if not stripped or stripped.startswith("#") or stripped.startswith(";"):
                 sanitized.append(line)
                 continue
@@ -682,7 +693,11 @@ def _sanitize_config_text(conf_path: Path) -> str:
                 k_clean = k.strip().lower()
                 if k_clean == "sqm_algorithm":
                     continue
-                if any(sec in k_clean for sec in ("password", "token", "psk", "secret", "private_key", "preshared_key")):
+                if not v.strip():
+                    sanitized.append(line)
+                    continue
+                masking = True
+                if redact.is_secret_key(k_clean):
                     sanitized.append(f"{k}= [REDACTED_SECRET]")
                 elif "allowed_chat_ids" in k_clean or "chat_id" in k_clean:
                     sanitized.append(f"{k}= [REDACTED_CHAT_ID]")
@@ -690,10 +705,13 @@ def _sanitize_config_text(conf_path: Path) -> str:
                     sanitized.append(f"{k}= [REDACTED_IDENTIFIER]")
                 elif "domain" in k_clean and (cur_section in ("duckdns", "dyndns", "dynv6") or any(prov in k_clean for prov in ("duckdns", "dyndns", "dynv6"))):
                     sanitized.append(f"{k}= [REDACTED_DOMAIN]")
+                elif redact.is_personal_key(k_clean):
+                    sanitized.append(f"{k}= [REDACTED_PERSONAL]")
                 else:
-                    sanitized.append(line)
+                    masking = False
+                    sanitized.append(redact.scrub_text(line))
             else:
-                sanitized.append(line)
+                sanitized.append(redact.scrub_text(line))
         return "\n".join(sanitized)
     except Exception as e:
         return f"Error reading config: {e}"

@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 log = logging.getLogger("nmb.report.crash")
 
 CRASH_DIR = Path(os.environ.get("NMB_CRASH_DIR", "/var/log/nmb/crashes"))
-_SECRET_KEY = re.compile(r"(password|psk|token|auth_key|secret|pppoe_user)", re.I)
+from nmb.common.redact import SECRET_KEY_RE as _SECRET_KEY, is_personal_key as _is_personal_key  # noqa: E402
 FALLBACK_CRASH_DIR = Path.home() / ".local/share/nmb/crashes"
 MAX_CRASH_REPORTS = 15
 # The diagnostic snapshots a bundle carries (written by nmb.report.invasive_logger).
@@ -76,9 +76,10 @@ def _sanitize_repr(val: Any, max_len: int = 180) -> str:
 
 
 def _is_sensitive_key(k: str) -> bool:
-    """Detect passwords, keys, and tokens to prevent leaking secrets in crash dumps."""
-    norm = k.lower()
-    return any(s in norm for s in ("password", "passwd", "secret", "token", "auth_key", "credential"))
+    """Secret or personal names (shared list, nmb/common/redact.py): their values never reach a crash dump."""
+    from nmb.common import redact
+    norm = (k or "").lower()
+    return redact.is_secret_key(norm) or redact.is_personal_key(norm) or norm in ("psk", "key", "cfg", "config", "parser")
 
 
 def _extract_frame_locals(tb) -> List[Dict[str, Any]]:
@@ -93,7 +94,8 @@ def _extract_frame_locals(tb) -> List[Dict[str, Any]]:
             if _is_sensitive_key(k):
                 locs[k] = "****** [REDACTED SECRET]"
             else:
-                locs[k] = _sanitize_repr(v)
+                from nmb.common import redact
+                locs[k] = redact.scrub_text(_sanitize_repr(v))     # credentials in URLs, e-mail addresses
 
         frames_data.append({
             "filename": code.co_filename,
@@ -393,7 +395,7 @@ def create_diagnostic_bundle() -> Path:
             lines = []
             for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
                 key, sep, val = line.partition("=")
-                if sep and _SECRET_KEY.search(key) and val.strip():
+                if sep and (_SECRET_KEY.search(key) or _is_personal_key(key.strip())) and val.strip():
                     line = f"{key}= <redacted, {len(val.strip())} chars>"
                 lines.append(line)
             data = ("\n".join(lines) + "\n").encode("utf-8")

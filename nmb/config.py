@@ -79,17 +79,28 @@ def get_writable_drive_config_target() -> Optional[Path]:
 
 
 SECRET_MARK = "__KEEP_CURRENT__"
-_SECRET_KEY = re.compile(r"(password|psk|token|auth_key|secret)", re.I)
+# Secret keys come from the one shared list (nmb/common/redact.py); this name stays for older callers.
+from nmb.common.redact import SECRET_KEY_RE as _SECRET_KEY, is_personal_key as _is_personal_key  # noqa: E402
 _CONFIG_LINE = re.compile(r"^(\s*)([A-Za-z0-9_.-]+)(\s*=\s*)(.*)$")
 
 
 def mask_secrets(text: str) -> str:
-    """Replace secret values, because anyone holding the SD card can read the boot partition."""
+    """Replace secret and personal values, because anyone holding the SD card can read the boot partition.
+
+    Personal values (PPPoE user name, chat ids, account ids, domains, e-mail addresses) are masked too since
+    2026-11-10; the mark keeps the current value when the drive copy is read back, like for passwords. The
+    continuation lines of a masked multi-line value are left out (they used to land on the card in clear).
+    """
     out = []
+    masking = False
     for line in text.splitlines():
+        if masking and line[:1] in (" ", "\t") and line.strip():
+            continue
+        masking = False
         match = _CONFIG_LINE.match(line)
-        if match and match.group(4).strip() and _SECRET_KEY.search(match.group(2)):
+        if match and match.group(4).strip() and (_SECRET_KEY.search(match.group(2)) or _is_personal_key(match.group(2))):
             line = f"{match.group(1)}{match.group(2)}{match.group(3)}{SECRET_MARK}"
+            masking = True
         out.append(line)
     return "\n".join(out) + "\n"
 
@@ -123,12 +134,13 @@ def merge_drive_config(drive_text: str, current_text: str) -> str:
             key = match.group(2)
             if not current.has_option(section, key):
                 continue
-            line = f"{match.group(1)}{key}{match.group(3)}{current.get(section, key)}"
+            # a multi-line value keeps its continuation lines indented, or the file no longer parses
+            line = f"{match.group(1)}{key}{match.group(3)}{current.get(section, key)}".replace("\n", "\n    ")
         elif match and not match.group(4).strip() and _SECRET_KEY.search(match.group(2)) \
                 and current.has_option(section, match.group(2)) and current.get(section, match.group(2)).strip():
             # An empty secret on the drive never wipes a set one (2026-11-08: a stale drive copy with an
             # empty Telegram token replaced the real token during an update). Clearing one is done in the Web UI.
-            line = f"{match.group(1)}{match.group(2)} = {current.get(section, match.group(2))}"
+            line = f"{match.group(1)}{match.group(2)} = {current.get(section, match.group(2))}".replace("\n", "\n    ")
         out.append(line)
     # With no current file the marked secrets are gone, so at least avoid the shared default.
     return unique_wifi_password("\n".join(out) + "\n")
@@ -155,7 +167,7 @@ def sync_drive_config(source_path: Path = DEFAULT_CONFIG_PATH) -> Optional[Path]
             "# NetworkMeasureBox - Drive-Editable Configuration (Boot/Storage Partition)\n"
             "# Edit this file directly in Windows, macOS, or Linux when the SD card\n"
             "# or USB drive is plugged into your PC.\n"
-            f"# Passwords and tokens show {SECRET_MARK}: leave it to keep the value, or type a new one.\n"
+            f"# Passwords, tokens and personal details show {SECRET_MARK}: leave it to keep the value, or type a new one.\n"
             "# ==============================================================================\n\n"
         )
         if not content.startswith("# ==="):
@@ -1581,15 +1593,9 @@ def _save_config_locked(cfg: Config, path: Path) -> bool:
                 return True
         except Exception:
             pass
-        # As last fallback, write directly to drive config if writable
-        try:
-            d_target = get_writable_drive_config_target()
-            if d_target and d_target.exists():
-                with open(d_target, "w", encoding="utf-8") as f:
-                    parser.write(f)
-                return True
-        except Exception:
-            pass
+        # No last fallback onto the boot partition: that would put every secret on the FAT card in clear
+        # (it did until 2026-11-10 when the root file system was read-only). A failed save is reported.
+        log.error("settings could not be saved to %s", path)
         return False
     except Exception:
         tmp_path.unlink(missing_ok=True)

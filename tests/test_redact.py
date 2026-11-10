@@ -39,3 +39,39 @@ class RedactTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExportsUseTheSharedMatcherTest(unittest.TestCase):
+    """Every place that copies the settings off the box masks the same keys (2026-11-10)."""
+    SAMPLE = ("[tailscale]\nauth_key = tskey-auth-EXAMPLE\n[network]\npppoe_user = someone@example.net\n"
+              "pppoe_password = hunter2-example\nwifi_psk = first-line\n  continued-secret-line\nmode = auto\n"
+              "[telegram]\nallowed_chat_ids = 123456789\n[proxy]\nusername = proxyuser-example\n")
+    LEAKS = ("tskey-auth-EXAMPLE", "someone@example.net", "hunter2-example", "first-line", "continued-secret-line",
+             "123456789", "proxyuser-example")
+
+    def test_ai_bundle_config(self):
+        import tempfile
+        from pathlib import Path
+        from nmb.report import llm_bundle
+        p = Path(tempfile.mkdtemp(prefix="nmb-test-redact-")) / "nmb.conf"
+        p.write_text(self.SAMPLE)
+        out = llm_bundle._sanitize_config_text(p)
+        for leaked in self.LEAKS:
+            self.assertNotIn(leaked, out)
+        self.assertIn("mode = auto", out)
+
+    def test_boot_partition_copy(self):
+        from nmb import config
+        out = config.mask_secrets(self.SAMPLE)
+        for leaked in self.LEAKS:
+            self.assertNotIn(leaked, out)
+        self.assertIn("mode = auto", out)
+        self.assertIn(config.SECRET_MARK, out)
+        # reading the masked copy back keeps every current value
+        merged = config.merge_drive_config(out, self.SAMPLE)
+        for value in ("tskey-auth-EXAMPLE", "someone@example.net", "123456789", "proxyuser-example"):
+            self.assertIn(value, merged)
+        import configparser
+        parsed = configparser.ConfigParser(interpolation=None)
+        parsed.read_string(merged)                       # still a valid file with the multi-line value
+        self.assertEqual(parsed.get("network", "wifi_psk"), "first-line\ncontinued-secret-line")
