@@ -14,6 +14,7 @@ Comprehensive command suite covering:
 from __future__ import annotations
 
 import html
+import json
 import logging
 import os
 import shutil
@@ -1230,8 +1231,10 @@ class CommandHandler:
         try:
             res = heal.check_stable_updates()
             cur_ver = res.get("current_version", "unknown")
+            if res.get("current_commit"):
+                cur_ver = f"{cur_ver} ({res['current_commit']})"
             avail = res.get("update_available", False)
-            latest = res.get("latest_stable_version", cur_ver)
+            latest = res.get("upstream_commit") or res.get("available_version") or cur_ver
 
             if avail:
                 msg = t("upd_available", lang, cur=html.escape(cur_ver), latest=html.escape(latest))
@@ -1248,6 +1251,9 @@ class CommandHandler:
         self._say(chat_id, "upd_applying")
         try:
             res = heal.apply_stable_update()
+            if res.get("up_to_date"):
+                self.client.send_message(chat_id, t("upd_latest", lang, cur=html.escape(str(res.get("version", "")))))
+                return
             if res.get("success"):
                 msg = t("upd_done", lang, ver=html.escape(res.get("new_version", "")), cp=html.escape(res.get("checkpoint", "")))
             else:
@@ -1409,6 +1415,9 @@ class CommandHandler:
             self._say_error(chat_id, "Wi-Fi", e)
 
     def _wifi_connect(self, chat_id: int, ssid: str, pw: str) -> None:
+        if self._radio_is_access_point():
+            self._say(chat_id, "wifi_ap_busy")
+            return
         self._say(chat_id, "wifi_connecting", ssid=html.escape(ssid))
         try:
             ok, message = gw.connect_guest_wifi(ssid=ssid, password=pw or None, iface="wlan0", metric=600)
@@ -1418,6 +1427,15 @@ class CommandHandler:
                 self._say(chat_id, "wifi_conn_failed", ssid=html.escape(ssid), error=html.escape(message or self._tr(chat_id, "unknown_error")))
         except Exception as e:
             self._say_error(chat_id, "Wi-Fi", e)
+
+    def _radio_is_access_point(self) -> bool:
+        """Router mode runs the access point on wlan0 (nmb/netd/modes.py), and NetworkManager does not manage
+        the radio then: a client connection could only fail, with an nmcli error (2026-11-10)."""
+        try:
+            st = json.loads((self.cfg.system.run_dir / "netd_state.json").read_text())
+        except (OSError, ValueError):
+            return False
+        return st.get("active_mode") == "mode_a" and bool((st.get("details") or {}).get("hostapd_running"))
 
     def _wifi_saved(self, chat_id: int) -> None:
         try:

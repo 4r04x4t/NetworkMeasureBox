@@ -71,18 +71,27 @@ def upstream_commit() -> Dict[str, str]:
     return {"sha": sha, "title": msg[0] if msg else ""}
 
 
-def _changelog(old: str, new: str) -> List[str]:
+def _compare(old: str, new: str) -> Dict[str, Any]:
+    """GitHub's view of the installed commit against the newest one: status ("ahead" = GitHub is newer,
+    "behind" = the box is newer, "identical", "diverged", "unknown" = GitHub does not have the installed
+    commit, "error") and the new commits' titles."""
     if not old:
-        return []
+        return {"status": "unknown", "changelog": []}
     try:
         data = json.loads(_get(f"https://api.github.com/repos/{REPO}/compare/{old}...{new}"))
+    except urllib.error.HTTPError as e:
+        return {"status": "unknown" if e.code in (404, 422) else "error", "changelog": []}
     except (urllib.error.URLError, ValueError, OSError):
-        return []
+        return {"status": "error", "changelog": []}
     lines = []
     for c in reversed(data.get("commits") or []):
         title = str((c.get("commit") or {}).get("message", "")).splitlines()
         lines.append(f"{str(c.get('sha', ''))[:8]} {title[0] if title else ''}".strip())
-    return lines[:10]
+    return {"status": str(data.get("status") or "error"), "changelog": lines[:10]}
+
+
+def _changelog(old: str, new: str) -> List[str]:
+    return _compare(old, new)["changelog"]
 
 
 def check() -> Dict[str, Any]:
@@ -107,14 +116,31 @@ def check() -> Dict[str, Any]:
         result["error"] = "unreachable"
         return result
     result["upstream_commit"] = up["sha"][:8]
-    if up["sha"] != current:
-        result["update_available"] = True
-        result["target_ref"] = up["sha"]
-        result["changelog"] = _changelog(current, up["sha"]) or ([f"{up['sha'][:8]} {up['title']}"] if up["title"] else [])
-        result["message"] = (
-            f"A newer version is on GitHub ({up['sha'][:8]})." if current
-            else f"The installed version is not known; the newest version on GitHub is {up['sha'][:8]}."
-        )
+    if up["sha"] == current:
+        return result
+    if not current:
+        result.update(update_available=True, target_ref=up["sha"],
+                      changelog=[f"{up['sha'][:8]} {up['title']}"] if up["title"] else [],
+                      message=f"The installed version is not known; the newest version on GitHub is {up['sha'][:8]}.")
+        return result
+    # A different commit is not always a newer one: a box running code that is not on GitHub yet would be
+    # "updated" back to older code (2026-11-10: /heal updates offered 2.5.0 -> 2.5.0 on a box ahead of GitHub).
+    cmp = _compare(current, up["sha"])
+    result["compare"] = cmp["status"]
+    if cmp["status"] == "ahead":
+        result.update(update_available=True, target_ref=up["sha"],
+                      changelog=cmp["changelog"] or ([f"{up['sha'][:8]} {up['title']}"] if up["title"] else []),
+                      message=f"A newer version is on GitHub ({up['sha'][:8]}).")
+    elif cmp["status"] == "behind":
+        result["message"] = f"The installed version ({current[:8]}) is newer than GitHub ({up['sha'][:8]})."
+    elif cmp["status"] == "diverged":
+        result["message"] = (f"The installed version ({current[:8]}) and GitHub ({up['sha'][:8]}) both have changes "
+                             "the other lacks; updating would drop the installed ones, so it is not offered.")
+    elif cmp["status"] == "unknown":
+        result["message"] = f"The installed version ({current[:8]}) is not on GitHub (not pushed yet); no update offered."
+    else:
+        result["message"] = "Could not compare the installed version with GitHub; no update offered."
+        result["error"] = "compare"
     return result
 
 

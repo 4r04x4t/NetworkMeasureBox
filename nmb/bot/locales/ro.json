@@ -232,7 +232,8 @@
   "drivers_fw_missing": "Firmware lipsă detectat",
   "drivers_recommended": "Pachete recomandate",
   "speed_already_running": "Un test de viteză rulează deja; rezultatul va fi trimis când se termină.",
-  "data_used_tests": "Date folosite de teste din {since}"
+  "data_used_tests": "Date folosite de teste din {since}",
+  "wifi_ap_busy": "📶 În modul router, radioul Wi-Fi este punctul de acces al cutiei, deci acum nu se poate conecta la altă rețea. Treceți mai întâi în modul autonom (/mode standalone) sau opriți punctul de acces din interfața web."
  },
  "keyboard": [
   [

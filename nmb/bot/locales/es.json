@@ -232,7 +232,8 @@
   "drivers_fw_missing": "Falta firmware",
   "drivers_recommended": "Paquetes recomendados",
   "speed_already_running": "Ya hay una prueba de velocidad en curso; el resultado se enviará cuando termine.",
-  "data_used_tests": "Datos usados por las pruebas desde {since}"
+  "data_used_tests": "Datos usados por las pruebas desde {since}",
+  "wifi_ap_busy": "📶 En modo router, la radio Wi-Fi es el punto de acceso de la caja, así que ahora no puede unirse a otra red. Cambia primero al modo independiente (/mode standalone) o apaga el punto de acceso en la interfaz web."
  },
  "keyboard": [
   [

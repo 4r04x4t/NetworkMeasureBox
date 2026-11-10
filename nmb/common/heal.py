@@ -1156,6 +1156,15 @@ def apply_stable_update(target_ref: Optional[str] = None, background: bool = Tru
     ts_now = int(time.time())
     repo_dir = _find_repo_dir()
     if not repo_dir:
+        if not target_ref:
+            # Only when GitHub really is newer: a box ahead of GitHub must not be "updated" back (2026-11-10).
+            from nmb.common import updater
+            chk = updater.check()
+            if not chk.get("update_available"):
+                return {"success": False, "up_to_date": True, "rolled_back": False,
+                        "message": chk.get("message", "System software is up to date."),
+                        "version": backup.APP_VERSION}
+            target_ref = chk.get("target_ref") or None
         return start_github_update(target_ref, background=background)
 
     # 1. Update verification

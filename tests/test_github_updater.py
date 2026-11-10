@@ -50,9 +50,14 @@ class UnpackTest(unittest.TestCase):
 
 
 class CheckTest(unittest.TestCase):
+    status = "ahead"
+
     def _get(self, url, timeout=20.0):
         if "/compare/" in url:
-            return json.dumps({"commits": [{"sha": NEW, "commit": {"message": "fix: thing\n\nbody"}}]}).encode()
+            if self.status == "404":
+                raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            return json.dumps({"status": self.status,
+                               "commits": [{"sha": NEW, "commit": {"message": "fix: thing\n\nbody"}}]}).encode()
         return json.dumps({"sha": NEW, "commit": {"message": "fix: thing"}}).encode()
 
     def test_newer_commit_is_offered(self):
@@ -67,6 +72,17 @@ class CheckTest(unittest.TestCase):
         with mock.patch.object(updater, "installed_commit", return_value=NEW), \
              mock.patch.object(updater, "_get", side_effect=self._get):
             self.assertFalse(updater.check()["update_available"])
+
+    def test_box_ahead_of_github_is_not_offered_older_code(self):
+        # 2026-11-10: the box ran commits not on GitHub yet and /heal updates offered an "update" back.
+        for status, word in (("behind", "newer than GitHub"), ("diverged", "not offered"), ("404", "not on GitHub"),
+                             ("identical", "")):
+            self.status = status
+            with mock.patch.object(updater, "installed_commit", return_value=OLD), \
+                 mock.patch.object(updater, "_get", side_effect=self._get):
+                res = updater.check()
+            self.assertFalse(res["update_available"], status)
+            self.assertIn(word, res["message"])
 
     def test_unreachable_github_is_not_an_update(self):
         with mock.patch.object(updater, "_get", side_effect=urllib.error.URLError("offline")):
@@ -94,11 +110,24 @@ class StatusAndGuardTest(unittest.TestCase):
 
     def test_heal_starts_the_github_update_without_git(self):
         from nmb.common import heal
+        from nmb.common import updater
         with mock.patch.object(heal, "_find_repo_dir", return_value=None), \
+             mock.patch.object(updater, "check", return_value={"update_available": True, "target_ref": NEW}), \
              mock.patch.object(heal, "_run_helper_or_sudo", return_value=(0, '{"state": "started"}')) as helper:
             res = heal.apply_stable_update()
         self.assertTrue(res["started"])
-        helper.assert_called_once_with("self-update", ["start"], timeout=120)
+        helper.assert_called_once_with("self-update", ["start", NEW], timeout=120)
+
+    def test_heal_apply_does_nothing_when_the_box_is_not_behind(self):
+        from nmb.common import heal, updater
+        with mock.patch.object(heal, "_find_repo_dir", return_value=None), \
+             mock.patch.object(updater, "check", return_value={"update_available": False,
+                                                               "message": "The installed version is newer than GitHub"}), \
+             mock.patch.object(heal, "_run_helper_or_sudo") as helper:
+            res = heal.apply_stable_update()
+        self.assertTrue(res["up_to_date"])
+        self.assertIn("newer than GitHub", res["message"])
+        helper.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -105,6 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The update check offered an "update" whenever the installed commit differed from GitHub, also when the box ran newer code (Telegram `/heal updates`: "new stable update 2.5.0 -> 2.5.0"); `/heal apply` would have put older code back. It now asks GitHub which one is newer and offers an update only when GitHub is ahead; `/heal apply` without an update available changes nothing. The bot shows the commits instead of the same version twice.
+- Telegram `/wifi connect` in router mode tried to join a network with the radio that is the access point; it now says so (switch to standalone first or turn the access point off), in all 11 languages.
 - Changing the mode setting (for example router to automatic) rebuilt the router and dialled PPPoE again even when the box ended up in the same mode, about 20 s without internet. The running mode is now kept when the new setting leads to it. Tested live: router to automatic and back, the same pppd process, no ping lost.
 - DNS on the box went to the public fallback resolvers and back about every 16 minutes in router mode on PPPoE: `/etc/resolv.conf` has no nameserver line there (the C library then asks the box's own resolver on 127.0.0.1, which works), and an empty list was taken as broken without a test. It is now tested like any other.
 - Outages that a stopped probe left open are ended once after the probe starts, where the data shows (the next outage or the first answered ping, as reports already read them); the newest carries on if the line is still down, so a restart no longer opens a second row for the same outage. Live: the four rows open since 2026-11-08 ended at the times the reports used, no open row left.
