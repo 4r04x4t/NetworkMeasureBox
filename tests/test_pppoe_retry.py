@@ -210,7 +210,10 @@ class WanFirewallTest(unittest.TestCase):
         mode.full_cfg = cfg
         self.assertEqual(mode._wan_open_ports(), [("udp", 41641), ("udp", 51820), ("tcp", 443)])
         cfg.wireguard.enabled = cfg.openvpn.enabled = False
-        self.assertEqual(mode._wan_open_ports(), [("udp", 41641)])
+        # No tunnel interface either (on the box wg0 and tun0 really exist; a running server keeps its port).
+        from nmb.netd import port_forward
+        with patch.object(port_forward.Path, "exists", return_value=False):
+            self.assertEqual(mode._wan_open_ports(), [("udp", 41641)])
 
     def test_rules_load_in_nft(self):
         import shutil, subprocess
