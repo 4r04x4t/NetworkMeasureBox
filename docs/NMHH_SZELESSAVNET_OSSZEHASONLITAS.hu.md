@@ -8,6 +8,7 @@ Ez a leírás az NMHH Szélessáv Programjának (SZÉP) hatósági mérődobozá
 - **[Igénylési oldal]** – <https://szelessav.net/merodoboz-igenylese> (letöltve: 2026. november 10.);
 - **[Hogyan mér]** – <https://szelessav.net/hogyan-mer-az-nmhh-rendszere>, **[Saját fejlesztés]** – <https://szelessav.net/miert-sajat-fejlesztes-a-szelessav-net>, **[BME]** – <https://www.tmit.bme.hu/smartcomlab-merorendszer> (mind letöltve: 2026. november 10.);
 - **[Tapasztalat]** – a projekt tulajdonosának saját tapasztalata a mérődobozzal; ezt hivatalos forrás nem erősíti meg;
+- **[Képernyőkép]** – a mérődoboz saját webes felületének képernyőképe a tulajdonostól (Sebességmérő script fül, a legutóbbi futás 2023.06.08. 07:19:15; a MAC-cím és a WPS PIN kitakarva);
 - **[NMB]** – a NetworkMeasureBox saját dokumentációja és tesztjei (`README.hu.md`, `docs/TESTING.hu.md`).
 
 Ez a leírás nem jogi tanácsadás és nem hatósági álláspont. A pontos feltételeket mindig az NMHH aktuális szerződése és honlapja adja meg. Az NMHH mérőrendszere hatósági célú: a hatósági eljárásokhoz és a hazai statisztikához ad adatot, és ezt a szerepet az NMB nem váltja ki.
@@ -40,6 +41,7 @@ Ez a leírás nem jogi tanácsadás és nem hatósági álláspont. A pontos fel
 
 - A mérés „egy külföldön is elfogadott és alkalmazott ú.n. Ookla mérő rendszerrel egyenértékű, hazai fejlesztésű mérőrendszerrel” történik. A mérőszerver a BIX-ben (Budapest Internet Exchange) van. **[Szerződés, 1. sz. melléklet, 2. pont]** Más mérőmotor (például Ookla Speedtest, RTR-NetTest, Cloudflare, iPerf3) és más szerver a dobozon nem választható. **[Szerződés; Tapasztalat]**
 - A mérési eredmények a szelessav.net portálon érhetők el. Az egyedi eredményeket **90 napig** tárolják, utána csak átlagolva, összesített statisztikaként maradnak meg. A közreműködő saját, a dobozon indított méréseinek eredménye **csak a doboz webes felületén** látható, a rendszer ezeket nem tárolja. **[Szerződés, 1. sz. melléklet, 4. pont]**
+- A doboz mérő szkriptje egyetlen szerver ellen fut, sima HTTP-n: késleltetésmérés (`latency.txt`), letöltés egy `random_1gb` fájlból és feltöltés (`upload.php`) ugyanarra a szerverre (`185.72.16.2`). Egy példa eredmény: letöltés 393,7 Mbit/s, feltöltés 296,1 Mbit/s, késleltetés 6,09 ms. **[Képernyőkép]**
 - A közreműködő saját mérése a szerződés szerint pontatlanabb: egyetlen átlagos méretű adatcsomaggal fut, szemben a központi, több adatcsomagos méréssel. **[Szerződés, 1. sz. melléklet, 5. pont]**
 
 ### A szoftverhez nem lehet hozzányúlni, a forráskód és az API nem ismert
@@ -55,7 +57,8 @@ Ez a leírás nem jogi tanácsadás és nem hatósági álláspont. A pontos fel
 
 ## 2. Az NMHH mérődoboz előnyei
 
-- **Hardver:** egy újraprogramozható Linksys WRT3200ACM router, egyedi, saját fejlesztésű firmware-rel. A firmware-hez nem szabad hozzányúlni, mert az szerződésszegés. **[Tapasztalat; a módosítás tilalma: Szerződés]**
+- **Hardver:** egy újraprogramozható Linksys WRT3200ACM router, egyedi, saját fejlesztésű firmware-rel. A doboz felülete szerint: „Eszköz típus: Linksys WRT3200ACM”, firmware-verzió 4047, kernelverzió 4.14.275. **[Képernyőkép]** A firmware-hez nem szabad hozzányúlni, mert az szerződésszegés. **[Szerződés]**
+- **Helyi webes felület** ezekkel a fülekkel: Kezdőlap, Ping eredmények, Sebesség eredmények, Portscan eredmények, Rendszer napló, Sebességmérő script, Általános információk. **[Képernyőkép]**
 - **Stabil szoftver.** **[Tapasztalat]**
 - **Hatósági mérés:** az eredmények az NMHH eljárásainak alapjául is szolgálhatnak. **[Szerződés]** Az NMB ezt nem nyújtja: az NMB SLA-eredménye a saját értékelése, nem hatósági döntés. **[NMB]**
 - **Áttekinthető online felület:** a szelessav.net saját felületén grafikonok vannak, és az eredmények CSV-fájlba menthetők. **[Tapasztalat]** A szerződés szerint az eredmények nyomtatható formában is elérhetők. **[Szerződés]**

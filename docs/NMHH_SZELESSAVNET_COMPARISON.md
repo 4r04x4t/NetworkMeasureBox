@@ -8,6 +8,7 @@ This page compares the official measuring box of the Hungarian regulator NMHH (S
 - **[Application page]** – <https://szelessav.net/merodoboz-igenylese> (read on 10 November 2026);
 - **[How it measures]** – <https://szelessav.net/hogyan-mer-az-nmhh-rendszere>, **[Own development]** – <https://szelessav.net/miert-sajat-fejlesztes-a-szelessav-net>, **[BME]** – <https://www.tmit.bme.hu/smartcomlab-merorendszer> (all read on 10 November 2026);
 - **[Experience]** – the project owner's own experience with the box; not confirmed by an official source;
+- **[Screenshot]** – the owner's screenshot of the box's own web page (speed test script tab, last run 2023-06-08 07:19:15; MAC address and WPS PIN hidden);
 - **[NMB]** – NetworkMeasureBox's own documentation and tests (`README.md`, `docs/TESTING.md`).
 
 This is neither legal advice nor an official position. NMHH's current contract and website always decide. NMHH's system is an official one (its data can be used in regulatory procedures and for the national statistics); NMB does not replace that role.
@@ -36,6 +37,7 @@ This is neither legal advice nor an official position. NMHH's current contract a
 ### Results go to NMHH only, and only NMHH's servers are used
 - Measurements use "a domestically developed system equivalent to the internationally accepted Ookla system", with the central server at BIX (Budapest Internet Exchange). **[Contract, annex 1, point 2]** No other engine (Ookla Speedtest, RTR-NetTest, Cloudflare, iPerf3) and no other server can be chosen. **[Contract; Experience]**
 - Results are on the szelessav.net portal, kept individually for **90 days**, then only averaged and aggregated. The participant's own tests started on the box are shown **only on the box's web page** and are not stored by the system. **[Contract, annex 1, point 4]**
+- The box's test script measures against one server over plain HTTP: latency (`latency.txt`), download of a `random_1gb` file and upload (`upload.php`), all to the same server (`185.72.16.2`). An example result: 393.7 Mbit/s down, 296.1 Mbit/s up, 6.09 ms. **[Screenshot]**
 - Own tests are less precise (one average-size transfer). **[Contract, annex 1, point 5]**
 
 ### The software is closed and must not be touched
@@ -49,7 +51,8 @@ This is neither legal advice nor an official position. NMHH's current contract a
 
 ## 2. Advantages of the NMHH box
 
-- Hardware: a re-programmable Linksys WRT3200ACM router with its own custom firmware; changing it breaks the contract. **[Experience; the ban on changes: Contract]**
+- Hardware: a re-programmable Linksys WRT3200ACM router with its own custom firmware; the box's page shows "Eszköz típus: Linksys WRT3200ACM", firmware version 4047, kernel 4.14.275. **[Screenshot]** Changing it breaks the contract. **[Contract]**
+- A local web page with these tabs: home, ping results, speed results, port scan results, system log, speed test script, general information. **[Screenshot]**
 - Stable software. **[Experience]**
 - Official measurements that can be used in NMHH's procedures. **[Contract]** NMB's SLA result is its own evaluation, not an official decision. **[NMB]**
 - Clear graphs on the szelessav.net site and CSV export. **[Experience]** Results are available in printable form. **[Contract]**
