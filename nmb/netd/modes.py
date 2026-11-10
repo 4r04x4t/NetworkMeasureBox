@@ -506,6 +506,26 @@ class ModeA(NetworkMode):
 
         return True
 
+    def reapply_wifi(self) -> bool:
+        """Only the access point's own settings changed (name, password, band, standard, channel, width,
+        country, security): restart hostapd on the LAN bridge and leave the WAN, DHCP, IPv6 and the firewall
+        as they are. A band change in the Web UI used to rebuild the whole router, so the PPPoE session
+        dialled again and every client lost the internet for about 40 s (2026-11-10)."""
+        wlan = self.cfg.wlan_interface
+        if not (self.cfg.wifi_enabled and interfaces.interface_exists(wlan)):
+            return False
+        proc = self.svc_mgr.processes.pop("hostapd", None)
+        if proc is not None:
+            proc.stop()        # not stop_hostapd(): that gives the radio back to NetworkManager
+        from nmb.netd.wifi import unblock_wifi
+        unblock_wifi()
+        interfaces.set_link_up(wlan)
+        if not self.svc_mgr.start_hostapd(wlan, bridge="br-lan"):
+            log.error("Wi-Fi access point failed to start on %s with the new settings; wired LAN stays available", wlan)
+            return False
+        log.info("Wi-Fi access point restarted with the new settings; WAN and LAN untouched")
+        return True
+
     def teardown(self) -> bool:
         if getattr(self, "dmz_iface", ""):
             interfaces.flush_ip_addresses(self.dmz_iface)

@@ -6,6 +6,7 @@ and Mode B (Passive Inline Bridge), with auto-failover and SQLite logging.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
 import os
@@ -20,6 +21,15 @@ from nmb.db import database as db
 from nmb.netd.detector import NetworkDetector
 from nmb.netd.modes import ModeA, ModeB, ModeStandalone, NetworkMode
 from nmb.netd.services import ServiceManager
+
+# Settings of the access point alone: a change to only these restarts hostapd, not the whole mode.
+# wifi_enabled and wlan_interface are not here: they change the LAN bridge.
+WIFI_AP_FIELDS = frozenset({"wifi_ssid", "wifi_psk", "wifi_band", "wifi_standard", "wifi_channel",
+                            "wifi_channel_width", "wifi_country_code", "wifi_security"})
+
+
+def changed_fields(old, new) -> set:
+    return {f.name for f in dataclasses.fields(old) if getattr(old, f.name) != getattr(new, f.name)}
 
 log = logging.getLogger("nmb.netd")
 
@@ -69,6 +79,14 @@ class NetworkDaemon:
                 except Exception as e:
                     log.error("port forwarding not applied: %s", e)
             return
+        changed = changed_fields(old_network, self.cfg.network)
+        if changed <= WIFI_AP_FIELDS and self._reapply_wifi_only(changed):
+            if self.cfg.port_forward != old_pf and isinstance(self.current_mode_inst, ModeA):
+                try:
+                    self.current_mode_inst.apply_firewall()
+                except Exception as e:
+                    log.error("port forwarding not applied: %s", e)
+            return
         log.info("network configuration changed; re-applying active mode")
         active_mode = self.current_mode_name
         if self.current_mode_inst:
@@ -81,6 +99,23 @@ class NetworkDaemon:
         self._build_modes()
         target_mode, reason = self.detector.evaluate_target_mode(self._get_override_mode())
         self.switch_mode(target_mode, f"configuration reload ({reason})")
+
+    def _reapply_wifi_only(self, changed: set) -> bool:
+        """Access point settings only: hand the new settings to the running mode and restart the access
+        point where one runs. False when the mode must be rebuilt instead (a bridge with its own AP)."""
+        inst = self.current_mode_inst
+        if not isinstance(inst, (ModeA, ModeStandalone)) or getattr(inst, "wlan_active", False):
+            return False
+        network = self.cfg.network
+        for mode in self.modes.values():
+            mode.cfg = network
+        self.svc_mgr.cfg = network
+        self.detector.cfg = network
+        self.modes["mode_a"].full_cfg = self.cfg
+        log.info("Wi-Fi settings changed (%s); the WAN and LAN stay up", ", ".join(sorted(changed)))
+        if isinstance(inst, ModeA):
+            inst.reapply_wifi()
+        return True
 
     def _get_override_mode(self) -> Optional[str]:
         """Fetch manual override if set in DB kv table."""
