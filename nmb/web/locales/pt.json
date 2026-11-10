@@ -2423,5 +2423,13 @@
  "donate_copy": "Copiar",
  "donate_copied": "Endereço copiado",
  "donate_footer": "Apoiar o NMB",
- "donate_close": "Fechar"
+ "donate_close": "Fechar",
+ "ookla_terms_text": "O Speedtest CLI da Ookla não é de código aberto. O NMB só o executa depois de ter lido e aceitado as condições de licença e de privacidade da Ookla. Até lá, a Ookla é ignorada e os outros motores medem.",
+ "ookla_terms_eula": "Licença (EULA)",
+ "ookla_terms_privacy": "Política de privacidade",
+ "ookla_terms_terms": "Termos de utilização",
+ "ookla_terms_accept": "Li e aceito os termos da Ookla",
+ "ookla_terms_accepted": "Termos da Ookla aceites",
+ "ookla_terms_withdraw": "Retirar",
+ "ookla_terms_withdrawn": "Termos da Ookla retirados: a Ookla não será executada"
 }

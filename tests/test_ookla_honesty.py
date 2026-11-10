@@ -84,7 +84,8 @@ class NoDisguisedFallbackTest(unittest.TestCase):
         try:
             conn = sqlite3.connect(":memory:")
             conn.executescript((Path(runner.__file__).resolve().parent.parent / "db" / "schema.sql").read_text())
-            cfg = SimpleNamespace(isp=SimpleNamespace(connection_type="fiber"))
+            cfg = SimpleNamespace(isp=SimpleNamespace(connection_type="fiber"),
+                                  speedtest=SimpleNamespace(ookla_terms_accepted=True, ookla_interval_min=60))
             with mock.patch.object(runner, "execute_rtr_speedtest") as rtr, \
                  mock.patch.object(runner, "execute_cloudflare_speedtest") as cf, \
                  mock.patch.object(runner, "execute_speedtest") as ook, \
@@ -134,6 +135,52 @@ class ErrorRowReportTest(unittest.TestCase):
         self.assertIsNotNone(data)
 
 
+class OoklaTermsTest(unittest.TestCase):
+    """Ookla's licence and privacy terms are accepted by the owner, never silently by NMB (2026-11-10)."""
+
+    def _run(self, accepted):
+        import sqlite3
+        from pathlib import Path
+        from types import SimpleNamespace
+        from nmb.speed import runner
+        anti_ban.clear_quarantine()
+        conn = sqlite3.connect(":memory:")
+        conn.executescript((Path(runner.__file__).resolve().parent.parent / "db" / "schema.sql").read_text())
+        cfg = SimpleNamespace(isp=SimpleNamespace(connection_type="fiber"),
+                              speedtest=SimpleNamespace(ookla_terms_accepted=accepted, ookla_interval_min=60))
+        ok = SpeedtestResult(status="ok")
+        with mock.patch.object(runner, "execute_speedtest", return_value=ok) as ook, \
+             mock.patch.object(runner, "execute_rtr_speedtest") as rtr, \
+             mock.patch.object(runner, "execute_cloudflare_speedtest") as cf, \
+             mock.patch("nmb.netd.interfaces.find_preferred_measurement_interface", return_value=("eth0", "192.0.2.2", True)):
+            res = runner._run_single_engine("ookla", cfg, "manual", None, conn, 1, target_iface=None)
+        anti_ban.clear_quarantine()
+        return res, ook.call_count, rtr.call_count + cf.call_count, conn.execute("SELECT COUNT(*) FROM speedtest").fetchone()[0]
+
+    def test_not_accepted_means_not_run_and_no_stand_in(self):
+        res, ookla_runs, others, rows = self._run(False)
+        self.assertEqual((ookla_runs, others, rows), (0, 0, 0))
+        self.assertEqual(res.status, "skipped_busy")
+        self.assertIn("terms", res.error)
+
+    def test_accepted_runs(self):
+        self.assertEqual(self._run(True)[1], 1)
+
+    def test_default_is_not_accepted_and_setting_round_trips(self):
+        import tempfile
+        from pathlib import Path
+        from nmb.config import Config, load_config, save_config
+        self.assertFalse(Config().speedtest.ookla_terms_accepted)
+        path = Path(tempfile.mkdtemp()) / "nmb.conf"
+        cfg = load_config(path)
+        cfg.speedtest.ookla_terms_accepted = True
+        cfg.speedtest.ookla_terms_accepted_at = "2026-11-10T10:00:00"
+        save_config(cfg, target_path=path)
+        again = load_config(path)
+        self.assertTrue(again.speedtest.ookla_terms_accepted)
+        self.assertEqual(again.speedtest.ookla_terms_accepted_at, "2026-11-10T10:00:00")
+
+
 class HourlyOoklaTest(unittest.TestCase):
     def setUp(self):
         anti_ban.clear_quarantine()
@@ -148,7 +195,8 @@ class HourlyOoklaTest(unittest.TestCase):
         from nmb.speed import runner
         conn = sqlite3.connect(":memory:")
         conn.executescript((Path(runner.__file__).resolve().parent.parent / "db" / "schema.sql").read_text())
-        cfg = SimpleNamespace(isp=SimpleNamespace(connection_type="fiber"))
+        cfg = SimpleNamespace(isp=SimpleNamespace(connection_type="fiber"),
+                              speedtest=SimpleNamespace(ookla_terms_accepted=True, ookla_interval_min=60))
         failed = SpeedtestResult(status="error", error="connection refused")
         with mock.patch.object(runner, "execute_speedtest", return_value=failed) as ook, \
              mock.patch("nmb.netd.interfaces.find_preferred_measurement_interface", return_value=("eth0", "192.0.2.2", True)):

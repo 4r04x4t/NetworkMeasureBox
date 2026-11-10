@@ -2423,5 +2423,13 @@
  "donate_copy": "复制",
  "donate_copied": "地址已复制",
  "donate_footer": "支持 NMB",
- "donate_close": "关闭"
+ "donate_close": "关闭",
+ "ookla_terms_text": "Ookla 的 Speedtest CLI 不是开源软件。只有在您阅读并接受 Ookla 的许可和隐私条款后，NMB 才会运行它。在此之前将跳过 Ookla，由其他引擎进行测量。",
+ "ookla_terms_eula": "许可协议（EULA）",
+ "ookla_terms_privacy": "隐私政策",
+ "ookla_terms_terms": "使用条款",
+ "ookla_terms_accept": "我已阅读并接受 Ookla 的条款",
+ "ookla_terms_accepted": "已接受 Ookla 的条款",
+ "ookla_terms_withdraw": "撤回",
+ "ookla_terms_withdrawn": "已撤回 Ookla 的条款：Ookla 将不会运行"
 }

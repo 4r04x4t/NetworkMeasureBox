@@ -2423,5 +2423,13 @@
  "donate_copy": "Copiază",
  "donate_copied": "Adresă copiată",
  "donate_footer": "Susține NMB",
- "donate_close": "Închide"
+ "donate_close": "Închide",
+ "ookla_terms_text": "Speedtest CLI de la Ookla nu este open source. NMB îl rulează doar după ce ai citit și acceptat condițiile de licență și de confidențialitate ale Ookla. Până atunci, Ookla este omis și măsoară celelalte motoare.",
+ "ookla_terms_eula": "Licență (EULA)",
+ "ookla_terms_privacy": "Politica de confidențialitate",
+ "ookla_terms_terms": "Condiții de utilizare",
+ "ookla_terms_accept": "Am citit și accept condițiile Ookla",
+ "ookla_terms_accepted": "Condițiile Ookla au fost acceptate",
+ "ookla_terms_withdraw": "Retrage",
+ "ookla_terms_withdrawn": "Condițiile Ookla au fost retrase: Ookla nu va rula"
 }

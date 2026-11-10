@@ -2512,6 +2512,19 @@
               <option value="all" data-i18n="ui_all_engines_in_turn_iperf3">🏆 All engines in turn (iPerf3 too, if its server answers)</option>
             </select>
             <div id="sched-ookla-warning" role="alert" style="display: none; margin-top: 8px; padding: 10px 12px; border-radius: 6px; border: 1px solid #f59e0b; background: rgba(245, 158, 11, 0.12); color: #fbbf24; font-size: 12.5px; line-height: 1.45;"></div>
+            <div id="ookla-terms-box" class="ookla-terms" hidden>
+              <div class="ookla-terms-text" data-i18n="ookla_terms_text">Ookla's Speedtest CLI is not open source. NMB runs it only after you have read and accepted Ookla's licence and privacy terms. Until then Ookla is skipped and the other engines measure.</div>
+              <div class="ookla-terms-links">
+                <a href="https://www.speedtest.net/about/eula" target="_blank" rel="noopener noreferrer" data-i18n="ookla_terms_eula">Licence (EULA)</a>
+                · <a href="https://www.speedtest.net/about/privacy" target="_blank" rel="noopener noreferrer" data-i18n="ookla_terms_privacy">Privacy policy</a>
+                · <a href="https://www.speedtest.net/about/terms" target="_blank" rel="noopener noreferrer" data-i18n="ookla_terms_terms">Terms of use</a>
+              </div>
+              <button type="button" class="btn-secondary" onclick="setOoklaTerms(true)" data-i18n="ookla_terms_accept">I have read and accept Ookla's terms</button>
+            </div>
+            <div id="ookla-terms-accepted" class="ookla-terms-ok" hidden>
+              ✅ <span data-i18n="ookla_terms_accepted">Ookla's terms accepted</span> <span id="ookla-terms-when"></span>
+              <button type="button" class="ookla-terms-withdraw" onclick="setOoklaTerms(false)" data-i18n="ookla_terms_withdraw">Withdraw</button>
+            </div>
           </div>
 
           <!-- Ookla server from Ookla's live list, and the measurement interface (moved from the home page) -->

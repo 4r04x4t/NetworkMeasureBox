@@ -959,7 +959,15 @@
   "donate_copy": "Copy",
   "donate_copied": "Address copied",
   "donate_footer": "Support NMB",
-  "donate_close": "Close"
+  "donate_close": "Close",
+  "ookla_terms_text": "Ookla's Speedtest CLI is not open source. NMB runs it only after you have read and accepted Ookla's licence and privacy terms. Until then Ookla is skipped and the other engines measure.",
+  "ookla_terms_eula": "Licence (EULA)",
+  "ookla_terms_privacy": "Privacy policy",
+  "ookla_terms_terms": "Terms of use",
+  "ookla_terms_accept": "I have read and accept Ookla's terms",
+  "ookla_terms_accepted": "Ookla's terms accepted",
+  "ookla_terms_withdraw": "Withdraw",
+  "ookla_terms_withdrawn": "Ookla's terms withdrawn: Ookla will not run"
  },
  "hu": {
   "ui_ookla": "Ookla",
@@ -1921,7 +1929,15 @@
   "donate_copy": "Másolás",
   "donate_copied": "Cím kimásolva",
   "donate_footer": "Támogasd az NMB-t",
-  "donate_close": "Bezárás"
+  "donate_close": "Bezárás",
+  "ookla_terms_text": "Az Ookla Speedtest CLI nem nyílt forráskódú. Az NMB csak akkor futtatja, ha elolvastad és elfogadtad az Ookla licenc- és adatvédelmi feltételeit. Addig az Ookla kimarad, és a többi motor mér.",
+  "ookla_terms_eula": "Licenc (EULA)",
+  "ookla_terms_privacy": "Adatvédelmi szabályzat",
+  "ookla_terms_terms": "Felhasználási feltételek",
+  "ookla_terms_accept": "Elolvastam és elfogadom az Ookla feltételeit",
+  "ookla_terms_accepted": "Az Ookla feltételei elfogadva",
+  "ookla_terms_withdraw": "Visszavonás",
+  "ookla_terms_withdrawn": "Az Ookla feltételei visszavonva: az Ookla nem fut"
  },
  "de": {
   "ui_ookla": "Ookla",
@@ -2883,7 +2899,15 @@
   "donate_copy": "Kopieren",
   "donate_copied": "Adresse kopiert",
   "donate_footer": "NMB unterstützen",
-  "donate_close": "Schließen"
+  "donate_close": "Schließen",
+  "ookla_terms_text": "Die Speedtest CLI von Ookla ist nicht quelloffen. NMB führt sie erst aus, nachdem Sie die Lizenz- und Datenschutzbedingungen von Ookla gelesen und akzeptiert haben. Bis dahin wird Ookla übersprungen und die anderen Engines messen.",
+  "ookla_terms_eula": "Lizenz (EULA)",
+  "ookla_terms_privacy": "Datenschutzerklärung",
+  "ookla_terms_terms": "Nutzungsbedingungen",
+  "ookla_terms_accept": "Ich habe die Bedingungen von Ookla gelesen und akzeptiere sie",
+  "ookla_terms_accepted": "Bedingungen von Ookla akzeptiert",
+  "ookla_terms_withdraw": "Widerrufen",
+  "ookla_terms_withdrawn": "Bedingungen von Ookla widerrufen: Ookla läuft nicht"
  },
  "fr": {
   "ui_ookla": "Ookla",
@@ -3845,7 +3869,15 @@
   "donate_copy": "Copier",
   "donate_copied": "Adresse copiée",
   "donate_footer": "Soutenir NMB",
-  "donate_close": "Fermer"
+  "donate_close": "Fermer",
+  "ookla_terms_text": "Le Speedtest CLI d'Ookla n'est pas open source. NMB ne l'exécute qu'après que vous avez lu et accepté les conditions de licence et de confidentialité d'Ookla. D'ici là, Ookla est ignoré et les autres moteurs mesurent.",
+  "ookla_terms_eula": "Licence (CLUF)",
+  "ookla_terms_privacy": "Politique de confidentialité",
+  "ookla_terms_terms": "Conditions d'utilisation",
+  "ookla_terms_accept": "J'ai lu et j'accepte les conditions d'Ookla",
+  "ookla_terms_accepted": "Conditions d'Ookla acceptées",
+  "ookla_terms_withdraw": "Retirer",
+  "ookla_terms_withdrawn": "Conditions d'Ookla retirées : Ookla ne s'exécutera pas"
  },
  "uk": {
   "ui_ookla": "Ookla",
@@ -4807,6 +4839,14 @@
   "donate_copy": "Копіювати",
   "donate_copied": "Адресу скопійовано",
   "donate_footer": "Підтримати NMB",
-  "donate_close": "Закрити"
+  "donate_close": "Закрити",
+  "ookla_terms_text": "Speedtest CLI від Ookla не є програмою з відкритим кодом. NMB запускає її лише після того, як ви прочитаєте та приймете умови ліцензії та конфіденційності Ookla. До того Ookla пропускається, а вимірюють інші рушії.",
+  "ookla_terms_eula": "Ліцензія (EULA)",
+  "ookla_terms_privacy": "Політика конфіденційності",
+  "ookla_terms_terms": "Умови використання",
+  "ookla_terms_accept": "Я прочитав і приймаю умови Ookla",
+  "ookla_terms_accepted": "Умови Ookla прийнято",
+  "ookla_terms_withdraw": "Відкликати",
+  "ookla_terms_withdrawn": "Умови Ookla відкликано: Ookla не запускатиметься"
  }
 }

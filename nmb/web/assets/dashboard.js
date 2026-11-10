@@ -173,6 +173,41 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDonate(); });
   document.addEventListener('DOMContentLoaded', renderDonate);
 
+  // Ookla's terms: shown until the owner accepts them; Ookla does not run before that.
+  async function loadOoklaTerms() {
+    try {
+      const res = await fetch('/api/speedtest/ookla/terms');
+      if (!res.ok) return;
+      showOoklaTerms(await res.json());
+    } catch (e) { /* the box is unreachable; the next load shows it */ }
+  }
+  function showOoklaTerms(d) {
+    const box = document.getElementById('ookla-terms-box');
+    const ok = document.getElementById('ookla-terms-accepted');
+    if (!box || !ok) return;
+    box.hidden = !!d.accepted;
+    ok.hidden = !d.accepted;
+    const when = document.getElementById('ookla-terms-when');
+    if (when) when.textContent = d.accepted_at ? '(' + String(d.accepted_at).replace('T', ' ') + ')' : '';
+  }
+  async function setOoklaTerms(accept) {
+    try {
+      const res = await fetch('/api/speedtest/ookla/terms', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accept: accept === true })
+      });
+      const d = await res.json();
+      if (res.ok && d.status === 'ok') {
+        showOoklaTerms(d);
+        showToast(accept ? t('ookla_terms_accepted', "Ookla's terms accepted") : t('ookla_terms_withdrawn', "Ookla's terms withdrawn: Ookla will not run"));
+      } else {
+        showToast(t('error_prefix', 'Error: ') + (d.message || res.status));
+      }
+    } catch (e) {
+      showToast(t('network_error', 'Network error'));
+    }
+  }
+  document.addEventListener('DOMContentLoaded', loadOoklaTerms);
+
   function applyTranslations() {
     renderDonate();
     if (wifiCountryList.length) fillWifiCountries();

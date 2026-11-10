@@ -371,6 +371,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 3. Config API
+        if path == "/api/speedtest/ookla/terms":
+            self._send_json(self._ookla_terms_state())
+            return
         if path == "/api/config":
             self._handle_api_get_config()
             return
@@ -1440,6 +1443,17 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 1a. Fast endpoint to instantly switch and persist active/automated measurement engine
+        if path == "/api/speedtest/ookla/terms":
+            # Only an explicit true accepts; anything else withdraws. Ookla runs only while accepted.
+            accept = body_json.get("accept") is True
+            self.server.cfg.speedtest.ookla_terms_accepted = accept
+            self.server.cfg.speedtest.ookla_terms_accepted_at = (
+                __import__("datetime").datetime.now().isoformat(timespec="seconds") if accept else "")
+            if not save_config(self.server.cfg):
+                self._send_json({"status": "error", "message": "The setting could not be saved."}, status=500)
+                return
+            self._send_json({"status": "ok", **self._ookla_terms_state()})
+            return
         if path == "/api/speedtest/engine":
             engine = str(body_json.get("engine", "")).strip().lower()
             if engine in ("ookla", "cloudflare", "fastcom", "rtr", "iperf3", "all"):
@@ -3620,6 +3634,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "is_low_memory": is_low_memory_system(),
         }
         self._send_json(status_dict)
+
+    def _ookla_terms_state(self) -> dict:
+        st = self.server.cfg.speedtest
+        return {
+            "accepted": bool(getattr(st, "ookla_terms_accepted", False)),
+            "accepted_at": getattr(st, "ookla_terms_accepted_at", "") or "",
+            "links": {
+                "eula": "https://www.speedtest.net/about/eula",
+                "privacy": "https://www.speedtest.net/about/privacy",
+                "terms": "https://www.speedtest.net/about/terms",
+            },
+        }
 
     def _handle_api_get_config(self) -> None:
         cfg = self.server.cfg

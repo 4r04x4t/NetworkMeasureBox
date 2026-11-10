@@ -626,6 +626,10 @@ class SpeedtestConfig:
     # Per-engine minimum minutes between scheduled tests (0 = every scheduled run).
     # Ookla never runs more often than hourly, since it blocks boxes that test more often.
     ookla_interval_min: int = 60
+    # Ookla's CLI is proprietary: it runs only after the owner accepted Ookla's licence and privacy terms in
+    # the Web UI (2026-11-10: NMB used to accept them silently with --accept-license --accept-gdpr).
+    ookla_terms_accepted: bool = False
+    ookla_terms_accepted_at: str = ""
     rtr_interval_min: int = 0
     cloudflare_interval_min: int = 0
     fastcom_interval_min: int = 0
@@ -1020,6 +1024,8 @@ def load_config(path: Path | None = None) -> Config:
         if st.get("mixed_engines") is not None:
             cfg.speedtest.mixed_engines = parse_mixed_engines(st.get("mixed_engines"))
         cfg.speedtest.ookla_interval_min = max(60, min(10080, st.getint("ookla_interval_min", fallback=60)))
+        cfg.speedtest.ookla_terms_accepted = st.getboolean("ookla_terms_accepted", fallback=False)
+        cfg.speedtest.ookla_terms_accepted_at = st.get("ookla_terms_accepted_at", "").strip()[:40]
         cfg.speedtest.rtr_interval_min = max(0, min(10080, st.getint("rtr_interval_min", fallback=0)))
         cfg.speedtest.cloudflare_interval_min = max(0, min(10080, st.getint("cloudflare_interval_min", fallback=0)))
         cfg.speedtest.fastcom_interval_min = max(0, min(10080, st.getint("fastcom_interval_min", fallback=0)))
@@ -1398,6 +1404,8 @@ def _fill_parser(cfg: "Config", parser) -> None:
     parser["speedtest"]["automated_engine"] = str(getattr(cfg.speedtest, "automated_engine", "ookla")).lower()
     parser["speedtest"]["mixed_engines"] = ",".join(getattr(cfg.speedtest, "mixed_engines", MIXED_ENGINES))
     parser["speedtest"]["ookla_interval_min"] = str(max(60, int(cfg.speedtest.ookla_interval_min)))
+    parser["speedtest"]["ookla_terms_accepted"] = "true" if getattr(cfg.speedtest, "ookla_terms_accepted", False) else "false"
+    parser["speedtest"]["ookla_terms_accepted_at"] = str(getattr(cfg.speedtest, "ookla_terms_accepted_at", "") or "")
     parser["speedtest"]["rtr_interval_min"] = str(int(cfg.speedtest.rtr_interval_min))
     parser["speedtest"]["cloudflare_interval_min"] = str(int(cfg.speedtest.cloudflare_interval_min))
     parser["speedtest"]["fastcom_interval_min"] = str(int(cfg.speedtest.fastcom_interval_min))

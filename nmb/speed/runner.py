@@ -262,7 +262,15 @@ def _run_single_engine(
             wait_sec = client_cooldown_remaining()
             hourly_wait = (scheduled_wait_remaining(60 * getattr(getattr(cfg, "speedtest", None), "ookla_interval_min", 60))
                            if trigger == "schedule" else 0.0)
-            if wait_sec <= 0 and hourly_wait > 0:
+            if not getattr(getattr(cfg, "speedtest", None), "ookla_terms_accepted", False):
+                # Ookla's CLI is proprietary: its licence and privacy terms are the owner's to accept (Web UI,
+                # speed test engines). Until then Ookla is not run and nothing stands in for it.
+                log.info("Ookla skipped: its licence and privacy terms are not accepted yet")
+                res = SpeedtestResult(status="skipped_busy",
+                                      error="Ookla not run: accept Ookla's licence and privacy terms in the Web UI first",
+                                      bound_iface=bound_iface, bound_ip=bound_ip)
+                ookla_paused = True
+            elif wait_sec <= 0 and hourly_wait > 0:
                 # Scheduled Ookla runs at most hourly, however often the schedule runs.
                 log.info("Ookla skipped: its own interval is not over yet (next in %d min)", int(hourly_wait // 60) + 1)
                 res = SpeedtestResult(status="skipped_busy", error="Ookla interval not over yet",
