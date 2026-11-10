@@ -90,3 +90,29 @@ class RestoreConfigTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SshKeysOnlyTest(unittest.TestCase):
+    """Optional keys-only SSH (owner's choice, 2026-11-10) can never lock the owner out."""
+
+    def setUp(self):
+        text = HELPER.read_text()
+        self.block = text.split("    ssh-keys-only)")[1].split("\n        ;;\n    openvpn-ccd-sync)")[0]
+
+    def test_keys_checked_before_writing_and_setting_verified(self):
+        on = self.block.split("            on)")[1].split("            off)")[0]
+        self.assertLess(on.index("authorized_keys"), on.index('> "$DROPIN"'))
+        self.assertIn("sshd -t", on)
+        self.assertIn("passwordauthentication no", on)
+        self.assertIn('rm -f "$DROPIN"', on)                     # an unaccepted setting is removed again
+
+    def test_drop_in_is_read_first(self):
+        # sshd takes the first value it reads; the Pi image ships 50-cloud-init.conf allowing passwords
+        self.assertIn("/etc/ssh/sshd_config.d/01-nmb-keys-only.conf", self.block)
+        from nmb.web import server
+        self.assertEqual(server.SSH_KEYS_ONLY_DROPIN, "/etc/ssh/sshd_config.d/01-nmb-keys-only.conf")
+
+    def test_unknown_argument_refused(self):
+        res = _run("ssh-keys-only", "maybe")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("Usage", res.stderr)

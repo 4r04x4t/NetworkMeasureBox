@@ -208,6 +208,32 @@
   }
   document.addEventListener('DOMContentLoaded', loadOoklaTerms);
 
+  // Optional SSH keys-only login (off by default; the box refuses it while no account has a key).
+  async function loadSshKeysOnly() {
+    const box = document.getElementById('cfg-ssh-keys-only');
+    if (!box) return;
+    try {
+      const res = await fetch('/api/system/ssh');
+      if (res.ok) box.checked = !!(await res.json()).keys_only;
+    } catch (e) { /* unreachable; shown on the next load */ }
+  }
+  async function setSshKeysOnly(on) {
+    const box = document.getElementById('cfg-ssh-keys-only');
+    try {
+      const res = await fetch('/api/system/ssh', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keys_only: on === true })
+      });
+      const d = await res.json();
+      if (box) box.checked = !!d.keys_only;
+      showToast(res.ok ? (d.keys_only ? t('ssh_keys_only_on', 'SSH now accepts keys only') : t('ssh_keys_only_off', 'SSH accepts passwords again'))
+                       : t('error_prefix', 'Error: ') + (d.message || res.status));
+    } catch (e) {
+      if (box) box.checked = !on;
+      showToast(t('network_error', 'Network error'));
+    }
+  }
+  document.addEventListener('DOMContentLoaded', loadSshKeysOnly);
+
   function applyTranslations() {
     renderDonate();
     if (wifiCountryList.length) fillWifiCountries();

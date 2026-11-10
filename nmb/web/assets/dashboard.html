@@ -4034,6 +4034,16 @@
           </div>
         </div>
 
+        <!-- SSH: keys only (optional) -->
+        <div class="router-section-card">
+          <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 10px;" data-i18n="ssh_card_title">SSH access</div>
+          <label class="form-label" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="cfg-ssh-keys-only" onchange="setSshKeysOnly(this.checked)">
+            <span data-i18n="ssh_keys_only">SSH with keys only (no password login)</span>
+          </label>
+          <div class="form-hint" data-i18n="ssh_keys_only_hint">Safer: SSH then accepts only SSH keys. It can be switched on only when an account already has a key, so you cannot lock yourself out. Tailscale SSH keeps working. Off by default.</div>
+        </div>
+
         <!-- Custom Admin Credentials Card -->
         <div class="router-section-card">
           <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 14px;" data-i18n="sys_creds_title">Web Management Administrative Credentials</div>

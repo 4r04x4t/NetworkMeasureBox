@@ -2431,5 +2431,10 @@
  "ookla_terms_accept": "Am citit și accept condițiile Ookla",
  "ookla_terms_accepted": "Condițiile Ookla au fost acceptate",
  "ookla_terms_withdraw": "Retrage",
- "ookla_terms_withdrawn": "Condițiile Ookla au fost retrase: Ookla nu va rula"
+ "ookla_terms_withdrawn": "Condițiile Ookla au fost retrase: Ookla nu va rula",
+ "ssh_card_title": "Acces SSH",
+ "ssh_keys_only": "SSH doar cu chei (fără autentificare cu parolă)",
+ "ssh_keys_only_hint": "Mai sigur: SSH acceptă atunci doar chei SSH. Se poate activa doar dacă un cont are deja o cheie, ca să nu te blochezi. Tailscale SSH funcționează în continuare. Dezactivat implicit.",
+ "ssh_keys_only_on": "SSH acceptă acum doar chei",
+ "ssh_keys_only_off": "SSH acceptă din nou parole"
 }

@@ -172,6 +172,43 @@ case "${1:-}" in
         systemctl stop openvpn@server 2>/dev/null || true
         systemctl restart openvpn-server@server 2>/dev/null || systemctl restart openvpn@server
         ;;
+    ssh-keys-only)
+        # Optional (owner's choice): SSH accepts keys only, no passwords. Never locks the owner out: it is
+        # refused while no account has a key, and a config sshd does not accept is removed again at once.
+        DROPIN=/etc/ssh/sshd_config.d/01-nmb-keys-only.conf   # first: sshd takes the first value it reads
+        case "${2:-}" in
+            on)
+                has_key=0
+                for f in /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys; do
+                    [ -f "$f" ] && grep -Eq '^(ssh-|ecdsa-|sk-)' "$f" && has_key=1
+                done
+                if [ "$has_key" != 1 ]; then
+                    echo "Refusing: no account has an SSH key yet; add one first, or you would be locked out." >&2
+                    exit 1
+                fi
+                install -d -m 0755 /etc/ssh/sshd_config.d
+                printf '# NetworkMeasureBox: SSH with keys only (Web UI > System > SSH)\nPasswordAuthentication no\nKbdInteractiveAuthentication no\n' > "$DROPIN"
+                chmod 0644 "$DROPIN"
+                if ! sshd -t 2>/dev/null || ! sshd -T 2>/dev/null | grep -qx 'passwordauthentication no'; then
+                    rm -f "$DROPIN"
+                    echo "sshd did not take the setting (check that sshd_config includes sshd_config.d); nothing changed." >&2
+                    exit 1
+                fi
+                ;;
+            off)
+                rm -f "$DROPIN"
+                ;;
+            status)
+                [ -f "$DROPIN" ] && echo on || echo off
+                exit 0
+                ;;
+            *)
+                echo "Usage: nmb-helper ssh-keys-only on|off|status" >&2
+                exit 1
+                ;;
+        esac
+        systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
+        ;;
     openvpn-ccd-sync)
         # A new client may connect; the running server keeps its other sessions (ccd is read per connection).
         openvpn_ccd_sync
@@ -505,7 +542,7 @@ case "${1:-}" in
         esac
         ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-ccd-sync|openvpn-ccd-revoke|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|usb-import <dev>|invasive-log|diagnostic-bundle|crashes-list|crashes-clear|heal-symlink|heal-permissions|heal-restore-config|heal-install-file|heal-dpkg-repair|heal-pkg-install|heal-audit|heal-fix|self-update}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|ssh-keys-only on|off|status|openvpn-ccd-sync|openvpn-ccd-revoke|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|usb-import <dev>|invasive-log|diagnostic-bundle|crashes-list|crashes-clear|heal-symlink|heal-permissions|heal-restore-config|heal-install-file|heal-dpkg-repair|heal-pkg-install|heal-audit|heal-fix|self-update}" >&2
         exit 1
         ;;
 esac

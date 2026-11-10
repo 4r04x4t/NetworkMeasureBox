@@ -167,6 +167,9 @@ def _fastcom_detail(conn, ts: int) -> Optional[Dict[str, Any]]:
     }
 
 
+
+SSH_KEYS_ONLY_DROPIN = "/etc/ssh/sshd_config.d/01-nmb-keys-only.conf"   # written by nmb-helper ssh-keys-only
+
 class WebRequestHandler(BaseHTTPRequestHandler):
     server: NMBServer  # type hint
 
@@ -373,6 +376,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # 3. Config API
         if path == "/api/speedtest/ookla/terms":
             self._send_json(self._ookla_terms_state())
+            return
+        if path == "/api/system/ssh":
+            self._send_json({"keys_only": Path(SSH_KEYS_ONLY_DROPIN).exists()})
             return
         if path == "/api/config":
             self._handle_api_get_config()
@@ -1443,6 +1449,24 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 1a. Fast endpoint to instantly switch and persist active/automated measurement engine
+        if path == "/api/system/ssh":
+            # Optional: SSH with keys only (the owner's choice; off by default). The helper refuses while no
+            # account has a key and checks that sshd takes the setting, so this cannot lock the owner out.
+            want = body_json.get("keys_only") is True
+            helper = "/usr/local/bin/nmb-helper" if os.path.exists("/usr/local/bin/nmb-helper") else "nmb-helper"
+            try:
+                res = subprocess.run(["sudo", "-n", helper, "ssh-keys-only", "on" if want else "off"],
+                                     capture_output=True, text=True, timeout=30, check=False)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                self._send_json({"status": "error", "message": str(e)[:200]}, status=500)
+                return
+            state = Path(SSH_KEYS_ONLY_DROPIN).exists()
+            if res.returncode != 0 or state != want:
+                msg = (res.stderr or res.stdout or "").strip()[:300] or "SSH setting not changed."
+                self._send_json({"status": "error", "message": msg, "keys_only": state}, status=400)
+                return
+            self._send_json({"status": "ok", "keys_only": state})
+            return
         if path == "/api/speedtest/ookla/terms":
             # Only an explicit true accepts; anything else withdraws. Ookla runs only while accepted.
             accept = body_json.get("accept") is True

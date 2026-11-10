@@ -190,6 +190,8 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
           "period:choice(day|month) reset_day:int wired_mb:int wifi_mb:int usb_mb:int lag_mb:int by_type:json"),
         A("storage.save", "Automatic disk cleanup settings", "/api/storage/save", "auto_cleanup:bool min_free_mb:int keep_days:int"),
         A("storage.cleanup", "Check the disk and clean up now", "/api/storage/cleanup"),
+        A("ssh.keys_only", "SSH with keys only (true) or passwords allowed again (false); refused while no account has a key",
+          "/api/system/ssh", "keys_only:bool", confirm="YES"),
         A("server.default", "Set scheduled server", "/api/speedtest/scheduled-server", "server_id:int server_name server_host"),
         A("schedule.set", "Change schedule", "/api/speedtest/schedule", SCHEDULE),
         A("engine.set", "Set engine", "/api/speedtest/engine", "engine:choice(ookla|cloudflare|fastcom|rtr|iperf3|all)"),

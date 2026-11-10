@@ -2431,5 +2431,10 @@
  "ookla_terms_accept": "Li e aceito os termos da Ookla",
  "ookla_terms_accepted": "Termos da Ookla aceites",
  "ookla_terms_withdraw": "Retirar",
- "ookla_terms_withdrawn": "Termos da Ookla retirados: a Ookla não será executada"
+ "ookla_terms_withdrawn": "Termos da Ookla retirados: a Ookla não será executada",
+ "ssh_card_title": "Acesso SSH",
+ "ssh_keys_only": "SSH só com chaves (sem início de sessão com palavra-passe)",
+ "ssh_keys_only_hint": "Mais seguro: o SSH passa a aceitar apenas chaves SSH. Só pode ser ativado quando uma conta já tem uma chave, para não ficar sem acesso. O Tailscale SSH continua a funcionar. Desativado por predefinição.",
+ "ssh_keys_only_on": "O SSH aceita agora apenas chaves",
+ "ssh_keys_only_off": "O SSH volta a aceitar palavras-passe"
 }
