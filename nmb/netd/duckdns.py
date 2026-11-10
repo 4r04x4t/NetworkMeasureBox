@@ -68,6 +68,15 @@ def _save_state() -> None:
             data = {k: _duckdns_state.get(k) for k in _SHARED_KEYS}
         data["pid"] = os.getpid()
         data["running"] = bool(_duckdns_thread and _duckdns_thread.is_alive())
+        if not data["running"]:
+            # An update by hand from the bot or the CLI: keep the running updater's own fields.
+            try:
+                old = json.loads(STATE_FILE.read_text())
+            except (OSError, ValueError):
+                old = {}
+            pid = old.get("pid")
+            if old.get("running") and isinstance(pid, int) and pid != os.getpid() and Path(f"/proc/{pid}").exists():
+                data.update(pid=pid, running=True, next_update_ts=old.get("next_update_ts", 0.0))
         STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         tmp = STATE_FILE.with_name(f".{STATE_FILE.name}.{os.getpid()}")
         tmp.write_text(json.dumps(data))
@@ -560,6 +569,7 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
                         # without a token was never updated and nothing told the owner).
                         _duckdns_state["last_status"] = "KO"
                         _duckdns_state["last_message"] = "DynDNS is on, but the " + " and ".join(missing) + " is missing; nothing is updated."
+                _save_state()
                 if on and not getattr(run_duckdns_daemon, "_warned", False):
                     log.warning("DynDNS is on, but the %s is missing; nothing is updated", " and ".join(missing))
                     run_duckdns_daemon._warned = True

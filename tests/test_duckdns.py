@@ -280,3 +280,22 @@ class TestDynDnsAcrossProcesses(unittest.TestCase):
              patch("nmb.netd.wireguard.get_device_addresses", return_value=([], [])):
             handler.handle_command(1, "/dyndns update")
         self.assertEqual(upd.call_args.kwargs["provider"], "dynv6")
+
+    def test_update_by_hand_keeps_the_running_updaters_fields(self):
+        import json, subprocess, sys
+        # another live process (a child sleeping) stands for the web server's updater
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        try:
+            dd.STATE_FILE.write_text(json.dumps({"pid": child.pid, "running": True, "next_update_ts": 123.0,
+                                                 "last_update_ts": 1.0, "last_status": "OK"}))
+            with dd._duckdns_lock:
+                dd._duckdns_state["last_update_ts"] = 50.0
+                dd._duckdns_state["last_status"] = "OK"
+            dd._save_state()
+            data = json.loads(dd.STATE_FILE.read_text())
+            self.assertEqual((data["pid"], data["running"], data["next_update_ts"], data["last_update_ts"]),
+                             (child.pid, True, 123.0, 50.0))
+        finally:
+            child.kill()
+            child.wait()
+
