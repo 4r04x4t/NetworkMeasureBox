@@ -315,8 +315,9 @@ Still open:
 8. **The native folder: answered (owner, 2026-11-10).** `NetworkMeasureBox-DePyD/` is its own repository and holds
    every native file, without exception. It is **open, like the Python version** (public; "for everyone" means a
    build whose look pleases and gives a good first impression, not a closed product). Package F-00 makes the
-   repository in that folder with its first commit. Publishing it (the address it is pushed to) is done once,
-   with the owner, since making a public repository cannot be taken back.
+   repository in that folder with its first commit. It is published on GitHub under the same account as the
+   Python version, as `NetworkMeasureBox-DePyD` (owner, 2026-11-10). The empty repository has to exist there before
+   the first push; before that push the first commit is checked for personal data and secrets (Quality Bar point 8).
 9. **Licence of the native build: follows from the development.** It is fixed when the components are known:
    F-00 starts a list of every dependency with its licence (6B.3A), each analyst adds to it, and the licence of
    the whole is proposed from what those licences require and allow (for example a copyleft part that is built
