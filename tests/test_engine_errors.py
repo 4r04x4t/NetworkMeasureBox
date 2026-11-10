@@ -62,8 +62,16 @@ class RouterWanDownTest(unittest.TestCase):
         from nmb.config import Config
         cfg = Config()
         outcome = {}
+        # The traffic gate is not what these tests are about: on a working box it would measure the box's
+        # real interfaces and traffic (it deferred the run on the box, 2026-11-10), so it is always idle here.
+        idle = mock.MagicMock()
+        idle.return_value.get_interface_capacity_mbps.return_value = 1000.0
+        idle.return_value.wait_for_idle.return_value = mock.MagicMock(cleared=True, rate_kbps=0.0, load_percent=0.0,
+                                                                      threshold_kbps=20000.0)
         with mock.patch("nmb.netd.interfaces.router_wan_interface", return_value="ppp0"), \
              mock.patch("nmb.netd.interfaces._usable_address", return_value=addr), \
+             mock.patch.object(runner, "TrafficGate", idle), \
+             mock.patch("nmb.probe.cross_traffic.ForeignTrafficMonitor.for_config", return_value=None), \
              mock.patch.object(runner, "_run_single_engine", side_effect=AssertionError("no test may run")) as eng:
             try:
                 ok = runner._run_measurement_cycle(cfg, trigger="schedule", engine="cloudflare",
