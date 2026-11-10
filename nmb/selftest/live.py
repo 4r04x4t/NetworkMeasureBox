@@ -1266,8 +1266,10 @@ def g_wifi_ap(rep: Report, cfg) -> None:
         rep.add("wifi-ap", "channel width fits the radio", FAIL, f"40 MHz asked on {band}, the radio only does 20 MHz there")
     elif not wide and any(v["ht40"] for v in bands.values()):
         better = [b for b, v in bands.items() if v["ht40"]]
-        rep.add("wifi-ap", "channel width fits the radio", WARN,
-                f"20 MHz on {band}; this radio does 40/80 MHz on {', '.join(better)}")
+        chosen = str(getattr(cfg.network, "wifi_band", "auto")).lower() == band
+        # The owner's own choice of band is not a fault; only an automatic pick that misses a wider band is.
+        rep.add("wifi-ap", "channel width fits the radio", PASS if chosen else WARN,
+                f"20 MHz on {band}{' (the band set in Settings)' if chosen else ''}; this radio does 40/80 MHz on {', '.join(better)}")
     else:
         vht = {"1": "80", "2": "160", "3": "80+80"}.get(conf.get("vht_oper_chwidth", ""), "")
         width = vht or ("40" if wide else "20")
