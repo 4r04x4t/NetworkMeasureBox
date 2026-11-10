@@ -564,7 +564,7 @@ The native code is first written platform- and architecture-independent and prov
 
 ## 7E. Quality Bar for Every Port
 
-Every port must run at least as flawlessly as the Python version on the Raspberry Pi 4, must fix (not carry over) the bugs found on the way, and must be measurably better where it can (CPU, memory, start-up, logging, safe updates). The full rule and the evidence a port needs before it counts as done are in `DEPYTHONIZATION_ROADMAP.md` (*Quality Bar*).
+Every port must run at least as flawlessly as the Python version on the Raspberry Pi 4, must fix (not carry over) the bugs found on the way, must never show a behaviour that is known to be worse in the Python version (the list of known Python faults, Quality Bar point 6), and must be measurably better where it can (CPU, memory, start-up, logging, safe updates). The full rule and the evidence a port needs before it counts as done are in `DEPYTHONIZATION_ROADMAP.md` (*Quality Bar*).
 
 ## 7D. Development Access, Detailed Logging and Safe Fixes in the Field (Required for Every Target)
 
