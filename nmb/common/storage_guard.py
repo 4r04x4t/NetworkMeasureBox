@@ -6,6 +6,8 @@ than 2 GB (``min_free_mb`` overrides it). Below that, it deletes, oldest first, 
 than that is free again:
 
 1. rotated logs, old diagnostic bundles and crash reports (``/var/log/nmb``);
+   when ``/var/log`` is a file system of its own (a 48 MB RAM disk on the box), it keeps 20 % of it free
+   by itself (``guard_log_fs``);
 2. update backups except the newest one, old reports and saved log copies (``/var/lib/nmb``);
 3. the system journal, down to 32 MB;
 4. active NMB logs larger than 1 MB (emptied, not deleted);
@@ -135,6 +137,54 @@ def _shrink_persist(conn) -> None:
         log.warning("snapshot after pruning failed (the old copy stays): %s", e)
 
 
+LOG_FS_KEEP_FREE = 0.20     # on its own file system (a RAM disk on the box) the log directory keeps 20 % free
+
+
+def _same_fs(a: Path, b: Path) -> bool:
+    return os.stat(a).st_dev == os.stat(b).st_dev
+
+
+def _usage(path: Path):
+    return shutil.disk_usage(str(path))
+
+
+def guard_log_fs(data_path: Path) -> List[str]:
+    """/var/log on the box is a 48 MB RAM disk of its own, which the check below (the data disk) never saw:
+    it filled up on 2026-11-10, every service lost its log and an installer run stopped halfway. Rotated
+    logs go first, oldest first, then active NMB logs over 1 MB are emptied."""
+    done: List[str] = []
+    try:
+        if not LOG_DIR.is_dir() or _same_fs(LOG_DIR, data_path):
+            return done
+        usage = _usage(LOG_DIR)
+    except OSError:
+        return done
+    target = int(usage.total * LOG_FS_KEEP_FREE)
+    if usage.free >= target:
+        return done
+    goal = int(target * 1.25)
+    log.warning("log disk almost full: %d MB free of %d MB; cleaning up", usage.free // MB, usage.total // MB)
+    for f in _files_oldest_first([(LOG_DIR, "*.log.[0-9]*"), (LOG_DIR, "*.gz"), (LOG_DIR, "*.old"),
+                                  (LOG_DIR / "bundles", "*"), (LOG_DIR / "crashes", "*")]):
+        if _usage(LOG_DIR).free >= goal:
+            return done
+        size = _rm(f)
+        if size:
+            done.append(f"{f} ({size // 1024} kB)")
+    for f in sorted(LOG_DIR.glob("*.log"), key=lambda p: -p.stat().st_size):
+        if _usage(LOG_DIR).free >= goal:
+            break
+        if f.stat().st_size > MB:
+            try:
+                with open(f, "r+") as fh:
+                    fh.truncate(0)
+                done.append(f"{f} emptied")
+            except OSError:
+                pass
+    log.warning("log disk cleanup: now %d MB free; %s", _usage(LOG_DIR).free // MB, "; ".join(done[:8]) or "nothing to delete")
+    return done
+
+
 def run(cfg: Any = None, force: bool = False) -> Dict[str, Any]:
     """Check the disk and clean up when it is too full; returns what it did."""
     global _last_check
@@ -146,12 +196,14 @@ def run(cfg: Any = None, force: bool = False) -> Dict[str, Any]:
         return {"status": "skipped"}
     _last_check = now
     path = DATA_DIR if DATA_DIR.exists() else Path("/")
+    log_cleaned = guard_log_fs(path)
     usage = shutil.disk_usage(str(path))
     target = free_target_bytes(usage.total, int(getattr(st, "min_free_mb", 0) or 0))
     goal = int(target * 1.25)
     keep_days = max(1, int(getattr(st, "keep_days", 7) or 7))
     res: Dict[str, Any] = {"status": "ok", "total_mb": usage.total // MB, "free_mb": usage.free // MB,
-                           "target_free_mb": target // MB, "deleted": [], "measurement_rows": 0}
+                           "target_free_mb": target // MB, "deleted": [], "measurement_rows": 0,
+                           "log_disk_cleaned": log_cleaned}
     if usage.free >= target:
         _write(res)
         return res

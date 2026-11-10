@@ -457,7 +457,10 @@ def kill_process(pid: int, sig_num: int = 15) -> Dict[str, Any]:
         2: signal.SIGINT,
     }
 
-    target_sig = allowed_signals.get(sig_num, signal.SIGTERM)
+    if sig_num not in allowed_signals:
+        # It used to send SIGTERM while the reply named the signal asked for (2026-11-10).
+        return {"status": "error", "message": f"Signal {sig_num} is not allowed; use 15 (TERM), 9 (KILL), 1 (HUP) or 2 (INT)."}
+    target_sig = allowed_signals[sig_num]
 
     # Try direct kill
     try:

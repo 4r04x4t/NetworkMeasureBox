@@ -100,3 +100,34 @@ class PruneTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LogDiskTest(unittest.TestCase):
+    """/var/log as its own 48 MB RAM disk (2026-11-10: 100 % full, nothing cleaned it)."""
+
+    def test_rotated_logs_go_first_then_big_active_logs_are_emptied(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            logs = Path(tmp)
+            old, new = logs / "nmb_developer.log.2", logs / "nmb_developer.log.1"
+            for f in (old, new):
+                f.write_bytes(b"x" * (10 * MB))
+            os.utime(old, (time.time() - 3600, time.time() - 3600))
+            active = logs / "nmb_developer.log"
+            active.write_bytes(b"x" * (7 * MB))
+            total = 48 * MB
+
+            def usage(path):
+                used = sum(f.stat().st_size for f in logs.rglob("*") if f.is_file()) + 20 * MB   # other files
+                return Usage(total, used, total - used)
+
+            with mock.patch.object(sg, "LOG_DIR", logs), mock.patch.object(sg, "_usage", side_effect=usage), \
+                 mock.patch.object(sg, "_same_fs", return_value=False):
+                done = sg.guard_log_fs(Path("/var/lib/nmb"))
+            self.assertFalse(old.exists())                 # oldest rotated copy first
+            self.assertTrue(done)
+            self.assertGreaterEqual(usage(logs).free, int(total * sg.LOG_FS_KEEP_FREE))
+
+    def test_same_disk_as_the_data_is_left_to_the_main_check(self):
+        with mock.patch.object(sg, "_same_fs", return_value=True), mock.patch.object(sg, "_usage") as u:
+            self.assertEqual(sg.guard_log_fs(Path("/var/lib/nmb")), [])
+        u.assert_not_called()

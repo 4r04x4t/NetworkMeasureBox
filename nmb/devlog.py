@@ -739,6 +739,9 @@ def get_raw_system_syslog(
     return "\n".join(e["raw"] for e in entries)
 
 
+LOG_DIRS = (Path("/var/log/nmb"), Path("/var/lib/nmb"), Path("/tmp"))
+
+
 def purge_all_logs(
     include_database_events: bool = True,
     include_system_journal: bool = True,
@@ -763,7 +766,24 @@ def purge_all_logs(
         res["buffer_error"] = str(e)
 
     # 2. Truncate active log files and delete rotated archives
-    log_dirs = [Path("/var/log/nmb"), Path("/var/lib/nmb"), Path("/tmp")]
+    log_dirs = list(LOG_DIRS)
+    # The warnings kept on the SD card for the next boot (and the installer's log) are logs too: "Logs deleted"
+    # left them in place before (2026-11-10).
+    persist_dir = Path(os.environ.get("NMB_PERSIST_LOG_DIR", "/var/lib/nmb/persist/logs"))
+    if persist_dir.is_dir():
+        for item in persist_dir.iterdir():
+            if not item.is_file():
+                continue
+            try:
+                if item.name.endswith(".log"):
+                    with open(item, "w", encoding="utf-8") as fp:
+                        fp.truncate(0)
+                    res["files_truncated"].append(str(item))
+                elif re.search(r"\.log\.\d+(\.gz)?$", item.name):
+                    item.unlink()
+                    res["rotated_deleted"].append(str(item))
+            except OSError:
+                pass
     for ldir in log_dirs:
         if not ldir.exists() or not ldir.is_dir():
             continue

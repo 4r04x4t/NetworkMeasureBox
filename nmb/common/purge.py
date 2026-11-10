@@ -48,6 +48,8 @@ def get_purge_summary(cfg) -> Dict[str, Dict[str, int]]:
     log_file = getattr(cfg.logging, "file_path", None)
     if log_file:
         summary["logs"] = _dir_stats(Path(log_file).parent)
+    persist_logs = _dir_stats(Path(os.environ.get("NMB_PERSIST_LOG_DIR", "/var/lib/nmb/persist/logs")))
+    summary["logs"] = {k: summary["logs"][k] + persist_logs[k] for k in ("items", "bytes")}
     return summary
 
 

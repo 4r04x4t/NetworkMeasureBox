@@ -1,7 +1,10 @@
 [Unit]
 Description=NetworkMeasureBox: Management Telegram Bot Daemon
-After=nmb-db.service network-online.target
-Wants=nmb-db.service network-online.target
+# Not network-online.target: in router mode NetworkManager tries DHCP on the WAN port at boot (an ONT has
+# none) until netd takes the port, so NetworkManager-wait-online fails only after about 100 s and the bot
+# started 2 minutes after boot (2026-11-10). The bot retries Telegram by itself with a growing pause.
+After=nmb-db.service network.target
+Wants=nmb-db.service
 
 [Service]
 Type=simple
