@@ -275,7 +275,7 @@ def generate_server_config(
         f"status {STATUS_LOG} 5",
         "verb 3",
     ])
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n"
 
 
 def apply_configuration(

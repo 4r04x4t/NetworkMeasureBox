@@ -63,10 +63,17 @@ openvpn_ccd_sync() {
     nmb_root_python "from nmb.netd.openvpn import write_ccd_allowlist; write_ccd_allowlist()" || return 1
     chown -R root:root /etc/openvpn/nmb-ccd
     for f in /etc/openvpn/server.conf /etc/openvpn/server/server.conf; do
-        [ -f "$f" ] || continue
-        grep -Eq '^[[:space:]]*client-config-dir[[:space:]]' "$f" || printf 'client-config-dir /etc/openvpn/nmb-ccd\n' >> "$f"
-        grep -Eq '^[[:space:]]*ccd-exclusive([[:space:]]|$)' "$f" || printf 'ccd-exclusive\n' >> "$f"
+        [ -f "$f" ] && append_ccd_directives "$f"
     done
+}
+
+# Add the allow-list lines to an older server config; a file without a final newline gets one first
+# (2026-11-10: the first line was glued to "verb 3" and OpenVPN refused to start).
+append_ccd_directives() {
+    [ -s "$1" ] && [ -n "$(tail -c 1 "$1")" ] && printf '\n' >> "$1"
+    grep -Eq '^[[:space:]]*client-config-dir[[:space:]]' "$1" || printf 'client-config-dir /etc/openvpn/nmb-ccd\n' >> "$1"
+    grep -Eq '^[[:space:]]*ccd-exclusive([[:space:]]|$)' "$1" || printf 'ccd-exclusive\n' >> "$1"
+    return 0
 }
 
 case "${1:-}" in

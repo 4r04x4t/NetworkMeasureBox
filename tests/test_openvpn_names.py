@@ -85,6 +85,18 @@ class RevocationTest(unittest.TestCase):
         openvpn.write_ccd_allowlist()
         self.assertEqual(sorted(p.name for p in self.ccd.iterdir()), ["laptop"])
 
+    def test_old_config_without_final_newline_gets_separate_lines(self):
+        import subprocess
+        helper = Path(__file__).resolve().parent.parent / "bin" / "nmb-helper"
+        funcs = helper.read_text().split('case "${1:-}" in')[0].split("cd / || exit 1", 1)[1]
+        conf = self.tmp / "server.conf"
+        conf.write_text("port 1194\nverb 3")                       # no newline at the end, like older files
+        for _ in range(2):                                          # running twice adds nothing more
+            subprocess.run(["sh", "-c", funcs + f'append_ccd_directives "{conf}"'], check=True)
+        self.assertEqual(conf.read_text().splitlines(),
+                         ["port 1194", "verb 3", "client-config-dir /etc/openvpn/nmb-ccd", "ccd-exclusive"])
+        self.assertTrue(openvpn.generate_server_config().endswith("\n"))
+
     def test_helper_script_keeps_the_allow_list(self):
         helper = (Path(__file__).resolve().parent.parent / "bin" / "nmb-helper").read_text()
         self.assertIn("openvpn-ccd-revoke)", helper)
