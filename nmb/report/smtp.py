@@ -23,6 +23,10 @@ from nmb.report.metrics import ReportData
 log = logging.getLogger("nmb.report.smtp")
 
 
+def _mbps_or_unset(v) -> str:
+    return f"{v:.0f} Mbps" if v else "not set"
+
+
 def _gate_text(cfg) -> str:
     """What the traffic gate really does with these settings (the text claimed "<500 kbps" for every box)."""
     sp = getattr(cfg, "speedtest", None) if cfg is not None else None
@@ -34,7 +38,9 @@ def _gate_text(cfg) -> str:
         limit = f"below {getattr(sp, 'idle_threshold_percent', 2.0):g} % of the line's speed in other traffic"
     stop = (" and stop when other traffic appears" if getattr(sp, "traffic_stop_enabled", False)
             else "; traffic that starts during a test is not stopped")
-    return f"Bandwidth tests start only when the traffic the box can see is {limit}{stop}."
+    return (f"Scheduled bandwidth tests start only when the traffic the box can see is {limit}{stop}; "
+            "tests started by hand (Web UI, Telegram, remote) start at once. Traffic the box cannot see, "
+            "such as devices behind another router, is not excluded.")
 
 
 def format_plain_text_summary(report: ReportData, cfg=None) -> str:
@@ -49,7 +55,7 @@ def format_plain_text_summary(report: ReportData, cfg=None) -> str:
 Customer Account ID : {report.account_id}
 Circuit Reference   : {report.circuit_id}
 Service Provider    : {report.isp_name}
-Subscribed SLA Plan : {report.contract_down_mbps:.0f} Mbps Down / {report.contract_up_mbps:.0f} Mbps Up
+Subscribed SLA Plan : {_mbps_or_unset(report.contract_down_mbps)} Down / {_mbps_or_unset(report.contract_up_mbps)} Up
 Measurement Window  : Past {(report.end_ms - report.start_ms) // 3600000} Hours
 Telemetry Timestamp : {now_str}
 Hardware Unit ID    : {report.box_id}
@@ -59,7 +65,7 @@ EXECUTIVE TELEMETRY VERDICT: {report.sla_verdict}
 ================================================================================
 
 1. AVAILABILITY & OUTAGES:
-   - Measured Uptime         : {report.uptime_pct:.2f}%
+   - Measured Uptime         : {f"{report.uptime_pct:.2f}%" if report.uptime_known else "N/A (no ping measured)"}
    - Total Down Time         : {report.total_outage_sec} seconds
    - Total Outage Incidents  : {len(report.outages)}
 
@@ -71,8 +77,8 @@ EXECUTIVE TELEMETRY VERDICT: {report.sla_verdict}
    - Mean Jitter             : {report.ping_summary.jitter_avg_ms or 'N/A'} ms
 
 3. MEASURED BANDWIDTH & SLA COMPLIANCE:
-   - Average Downlink        : {report.speed_summary.avg_down_mbps or 'N/A'} Mbps (Offered: {report.contract_down_mbps:.0f} Mbps{down_pct_str})
-   - Average Uplink          : {report.speed_summary.avg_up_mbps or 'N/A'} Mbps (Offered: {report.contract_up_mbps:.0f} Mbps{up_pct_str})
+   - Average Downlink        : {f"{report.speed_summary.avg_down_mbps} Mbps" if report.speed_summary.avg_down_mbps is not None else "N/A"} (Offered: {_mbps_or_unset(report.contract_down_mbps)}{down_pct_str})
+   - Average Uplink          : {f"{report.speed_summary.avg_up_mbps} Mbps" if report.speed_summary.avg_up_mbps is not None else "N/A"} (Offered: {_mbps_or_unset(report.contract_up_mbps)}{up_pct_str})
    - SLA Speed Compliance    : {f"{report.speed_summary.sla_compliance_pct:.0f}%" if report.speed_summary.judged_tests else "N/A"} of tests reached the required speed ({"the guaranteed speed" if (report.guaranteed_down_mbps or report.guaranteed_up_mbps) else "80 % of the offered speed, NMB's rule"})
 
 4. NET-NEUTRALITY & TRAFFIC SHAPING:

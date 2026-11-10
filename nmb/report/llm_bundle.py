@@ -786,16 +786,22 @@ def _percentile(values: List[float], pct: float) -> float:
 
 
 def _speed_statistics(conn: Any, since_ms: int) -> List[str]:
-    """Per-engine speed distribution, including runs that failed or were deferred."""
+    """Per-engine speed distribution of the line, including runs that failed or were deferred. Tests
+    against a server on the local network are counted apart (they measured the home network)."""
+    from nmb.report.status_codes import speed_scope
     rows = conn.execute(
-        "SELECT engine, status, down_bps, up_bps FROM speedtest WHERE ts >= ?", (since_ms,)
+        "SELECT engine, status, down_bps, up_bps, client_ip_source, server_host FROM speedtest WHERE ts >= ?", (since_ms,)
     ).fetchall()
     engines: Dict[str, Dict[str, Any]] = {}
     for row in rows:
-        item = engines.setdefault(row["engine"] or "unknown", {"down": [], "up": [], "ok": 0, "other": 0})
-        if row["status"] == "ok" and row["down_bps"]:
+        name = row["engine"] or "unknown"
+        if speed_scope(dict(row)) == "lan":
+            name += " (LAN)"
+        item = engines.setdefault(name, {"down": [], "up": [], "ok": 0, "other": 0})
+        if row["status"] == "ok" and (row["down_bps"] or row["up_bps"]):
             item["ok"] += 1
-            item["down"].append(row["down_bps"] / 1e6)
+            if row["down_bps"]:
+                item["down"].append(row["down_bps"] / 1e6)
             if row["up_bps"]:
                 item["up"].append(row["up_bps"] / 1e6)
         else:
@@ -807,14 +813,14 @@ def _speed_statistics(conn: Any, since_ms: int) -> List[str]:
         "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
     ]
     for name, item in sorted(engines.items()):
+        up = f"{_percentile(item['up'], 50):.0f}" if item["up"] else "--"
         if item["down"]:
-            up = f"{_percentile(item['up'], 50):.0f}" if item["up"] else "--"
             out.append(
                 f"| `{name}` | {item['ok']} | {item['other']} | {_percentile(item['down'], 5):.0f} "
                 f"| {_percentile(item['down'], 50):.0f} | {_percentile(item['down'], 95):.0f} | {up} |"
             )
         else:
-            out.append(f"| `{name}` | 0 | {item['other']} | -- | -- | -- | -- |")
+            out.append(f"| `{name}` | {item['ok']} | {item['other']} | -- | -- | -- | {up} |")
     return out
 
 
@@ -1672,8 +1678,8 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
             lines.append(f"- **Measurement CPU Peak**: ~{hw_telemetry.get('load_avg', 'N/A')} (Single-core max: nominal, all cores throttled: {'None' if not hw_telemetry.get('throttled_flags') else 'YES'})")
 
         lines.extend([
-            f"- **ISP Contracted (Offered) Plan**: {contract_down:.0f} Mbps Down / {contract_up:.0f} Mbps Up",
-            f"- **ISP Guaranteed Minimum Plan**: {guar_down:.0f} Mbps Down / {guar_up:.0f} Mbps Up",
+            f"- **ISP Contracted (Offered) Plan**: " + (f"{contract_down:.0f} Mbps Down / {contract_up:.0f} Mbps Up" if (contract_down or contract_up) else "not set"),
+            f"- **ISP Guaranteed Minimum Plan**: " + (f"{guar_down:.0f} Mbps Down / {guar_up:.0f} Mbps Up" if (guar_down or guar_up) else "not set"),
             f"- **Base Latency (RTT)**: **{lat_txt}** (Jitter: {jitter_txt})",
             f"- **Client Public IP**: `{pub_ip_hdr}` (Country: `{geoip_data.get('country_code', '--')} / {geoip_data.get('country', 'Unknown')}`, City: `{geoip_data.get('city', 'Unknown')}`, ASN: `{geoip_data.get('asn', 'N/A')}`)",
             f"- **Client Public IPv4 (this test)**: `{last_speed_dict.get('client_ip') or 'not recorded'}`",
@@ -1743,7 +1749,7 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
     for p in probes:
         sent = p["sent"] or 0
         lost = p["lost"] or 0
-        loss_pct = (lost / sent * 100.0) if sent > 0 else 0.0
+        loss_pct = (lost / sent * 100.0) if sent > 0 else None      # no samples: no loss figure
         role = p["target_role"] or "Public DNS"
         avg_rtt_str = f"{p['avg_rtt'] / 1000.0:.2f} ms" if p["avg_rtt"] else "--"
         min_max_str = f"{p['min_rtt'] / 1000.0:.1f} / {p['max_rtt'] / 1000.0:.1f} ms" if p["min_rtt"] and p["max_rtt"] else "--"
@@ -1753,9 +1759,10 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
         pattern_str = pat_info.get("pattern", "Continuous pristine delivery")
         if pat_info.get("max_consecutive"):
             pattern_str = f"Max streak: {pat_info['max_consecutive']} ({pattern_str})"
-        residual = pat_info.get("residual_loss_pct", loss_pct if lost else 0.0)
+        residual = pat_info.get("residual_loss_pct", loss_pct if lost else (0.0 if sent else None))
+        loss_str = f"{loss_pct:.2f}%" if loss_pct is not None else "--"
 
-        lines.append(f"| `{p['target_addr']}` | **{_hop_role_label(role, p['target_addr'], ppp_peers)}** | {p['target_label']} | {sent_str} | {lost:,} | **{loss_pct:.2f}%** | {avg_rtt_str} | {min_max_str} | {pattern_str} |")
+        lines.append(f"| `{p['target_addr']}` | **{_hop_role_label(role, p['target_addr'], ppp_peers)}** | {p['target_label']} | {sent_str} | {lost:,} | **{loss_str}** | {avg_rtt_str} | {min_max_str} | {pattern_str} |")
 
         # The verdict below uses the loss left after the box's own actions and the recorded outages.
         if role == "Local Gateway":
@@ -1773,9 +1780,15 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
     explained_runs = sum(v.get("runs_explained", 0) for v in loss_patterns.values())
     if explained_windows:
         lines.append(f"> Loss during the box's own actions (mode change, update, restart) and during recorded outages is left out of the verdict below ({explained_runs} loss burst(s) fell into those times); the table above shows all of it.")
-    gw_silent = local_gw_loss is not None and local_gw_loss > 90.0 and (
-        not public_losses or sum(public_losses) / len(public_losses) < 5.0)
-    if gw_silent:
+    # "forwarding works" needs internet targets that answered; without them it cannot be checked
+    gw_silent = local_gw_loss is not None and local_gw_loss > 90.0 and bool(public_losses) and \
+        sum(public_losses) / len(public_losses) < 5.0
+    fmt = lambda v: f"{v:.2f}%" if v is not None else "not measured"
+    if local_gw_loss is None and isp_hop_loss is None and not public_losses:
+        lines.append("> **LAN vs. WAN Loss Isolation Verdict**: ⚪ **NO PING DATA** in the past 24 hours (the probe was not running or no target is enabled), so no loss verdict.")
+    elif local_gw_loss is not None and local_gw_loss > 90.0 and not public_losses:
+        lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: ⚪ **THE LOCAL GATEWAY DOES NOT ANSWER PINGS** ({local_gw_loss:.2f}% to `{local_gw_ip}`) and no internet target has data, so whether forwarding works cannot be checked from the pings.")
+    elif gw_silent:
         lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🟡 **THE LOCAL GATEWAY DOES NOT ANSWER PINGS** ({local_gw_loss:.2f}% to `{local_gw_ip}`) while the internet targets answer, so forwarding works; the gateway filters ping or answers it with low priority. This is not packet loss in the local network.")
     elif local_gw_loss is not None and local_gw_loss >= 0.5:
         lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🔴 **LOSS INSIDE THE LOCAL NETWORK** ({local_gw_loss:.2f}% scattered loss to the local gateway `{local_gw_ip}`, outside own actions and outages). Possible causes: cabling, a switch port, Wi-Fi, or the router being too busy to answer pings (some routers answer pings with low priority); check the cable and compare with a wired device.")
@@ -1783,9 +1796,9 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
         avg_pub = sum(public_losses) / len(public_losses) if public_losses else 0.0
         if avg_pub < 5.0 and isp_hop_loss > 90.0:
             hop_name = "upstream private router/ONT" if _is_private_ip(isp_hop_ip) else "ISP hop"
-            lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🟡 **{hop_name.upper()} DOES NOT ANSWER PINGS** ({isp_hop_loss:.2f}% loss to `{isp_hop_ip}`). This alone is not a fault: forwarding works, because public targets average {avg_pub:.2f}% loss and the local gateway {local_gw_loss if local_gw_loss is not None else 0:.2f}%. A firewall or ICMP filter is the likely reason; this data cannot say which device applies it.")
+            lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🟡 **{hop_name.upper()} DOES NOT ANSWER PINGS** ({isp_hop_loss:.2f}% loss to `{isp_hop_ip}`). This alone is not a fault" + (f": forwarding works, because public targets average {avg_pub:.2f}% loss and the local gateway {fmt(local_gw_loss)}" if public_losses else ", but no internet target has data, so forwarding cannot be checked") + ". A firewall or ICMP filter is the likely reason; this data cannot say which device applies it.")
         else:
-            lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🔴 **LOSS ON THE ACCESS LINE** ({isp_hop_loss:.2f}% loss to the first ISP hop `{isp_hop_ip}`, outside own actions and outages) while the local gateway shows {local_gw_loss or 0.0:.2f}%. This points to the part between the router and the ISP's first node (ONT/modem, fiber, or the ISP's access equipment); an ICMP rate limit on that hop would look the same, so compare with the public targets.")
+            lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🔴 **LOSS ON THE ACCESS LINE** ({isp_hop_loss:.2f}% loss to the first ISP hop `{isp_hop_ip}`, outside own actions and outages) while the local gateway shows {fmt(local_gw_loss)}. This points to the part between the router and the ISP's first node (ONT/modem, fiber, or the ISP's access equipment); an ICMP rate limit on that hop would look the same, so compare with the public targets.")
     elif public_losses and (sum(public_losses) / len(public_losses)) >= 0.5:
         avg_pub = sum(public_losses) / len(public_losses)
         lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🟡 **LOSS BEYOND THE FIRST HOPS** ({avg_pub:.2f}% average scattered loss to the public targets, outside own actions and outages) while the nearer hops show little; the drops happen further out (the ISP's core, transit or the targets themselves).")

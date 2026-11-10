@@ -298,6 +298,7 @@ def get_measurement_status(code, lang: str = DEFAULT_LANGUAGE) -> Tuple[str, str
 
     badges = {
         "hu": {
+            "0m": ("⚪ NINCS ÉRTÉKELVE", "Ez a teszt nem mérte azt az irányt, amelyre garantált sebesség van megadva, ezért nincs értékelve"),
             0: ("⚪ NINCS ÉRTÉKELVE", "Nincs beállítva garantált sebesség, ezért ez az eredmény nincs összevetve vele"),
             1: ("🟢 MEGFELELŐ", "1: Sikeres mérés (Megfelel a garantált értékeknek)"),
             6: ("🔴 NEM MEGFELELŐ", "6: Letöltés és feltöltés elmaradás a garantált értéktől"),
@@ -305,6 +306,7 @@ def get_measurement_status(code, lang: str = DEFAULT_LANGUAGE) -> Tuple[str, str
             "6u": ("🟡 FELTÖLTÉS HIBA", "6: Feltöltés elmaradás a garantált értéktől")
         },
         "en": {
+            "0m": ("⚪ NOT JUDGED", "The direction with a guaranteed speed was not measured in this test, so it is not judged"),
             0: ("⚪ NOT JUDGED", "No guaranteed speed is set, so this result is not compared with one"),
             1: ("🟢 COMPLIANT", "1: Compliant measurement (Meets guaranteed speeds)"),
             6: ("🔴 NON-COMPLIANT", "6: Download and upload speeds below guaranteed thresholds"),
@@ -312,6 +314,7 @@ def get_measurement_status(code, lang: str = DEFAULT_LANGUAGE) -> Tuple[str, str
             "6u": ("🟡 UPLOAD DEFICIT", "6: Upload speed below guaranteed threshold")
         },
         "de": {
+            "0m": ("⚪ NICHT BEWERTET", "Diese Messung hat die Richtung mit garantierter Geschwindigkeit nicht gemessen und wird daher nicht bewertet"),
             0: ("⚪ NICHT BEWERTET", "Keine garantierte Geschwindigkeit eingestellt, daher wird dieses Ergebnis nicht damit verglichen"),
             1: ("🟢 KONFORM", "1: Konforme Messung (Garantiertes SLA erfüllt)"),
             6: ("🔴 NICHT KONFORM", "6: Download- und Upload-Rate unterhalb der Garantie"),
@@ -319,6 +322,7 @@ def get_measurement_status(code, lang: str = DEFAULT_LANGUAGE) -> Tuple[str, str
             "6u": ("🟡 UPLOAD-DEFIZIT", "6: Upload-Rate unterhalb der Garantie")
         },
         "fr": {
+            "0m": ("⚪ NON ÉVALUÉ", "Ce test n'a pas mesuré le sens pour lequel un débit garanti est défini, il n'est donc pas évalué"),
             0: ("⚪ NON ÉVALUÉ", "Aucun débit garanti n'est défini, ce résultat n'est donc comparé à aucun seuil"),
             1: ("🟢 CONFORME", "1: Mesure conforme (Respecte les débits garantis)"),
             6: ("🔴 NON CONFORME", "6: Débits de téléchargement et téléversement non conformes"),
@@ -326,6 +330,7 @@ def get_measurement_status(code, lang: str = DEFAULT_LANGUAGE) -> Tuple[str, str
             "6u": ("🟡 DÉFICIT TÉLÉVERSEMENT", "6: Débit de téléversement inférieur au seuil garanti")
         },
         "uk": {
+            "0m": ("⚪ НЕ ОЦІНЕНО", "Цей тест не вимірював напрямок із гарантованою швидкістю, тому його не оцінено"),
             0: ("⚪ НЕ ОЦІНЕНО", "Гарантовану швидкість не задано, тому результат ні з чим не порівнюється"),
             1: ("🟢 ВІДПОВІДАЄ", "1: Відповідає нормам (Досягнуто гарантованих швидкостей)"),
             6: ("🔴 НЕ ВІДПОВІДАЄ", "6: Швидкість завантаження та вивантаження нижче гарантованої"),
@@ -438,7 +443,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "ping_no_resp": "Nincs válasz",
         "ping_loss_label": "vesztés",
         "report_generating": "<i>📊 24 órás hálózati minőségi és SLA vizsgálati dosszié generálása...</i>",
-        "report_caption": "<b>📋 Hálózati SLA Vizsgálati Dosszié (24h)</b>\nEszköz: <code>{box_id}</code> | Szolgáltató: <b>{isp}</b>\nMinősítés: <b>{verdict}</b>\nSLA Teljesülés: <b>{sla:.0f}%</b> | Elérhetőség: <b>{uptime:.2f}%</b>",
+        "report_caption": "<b>📋 Hálózati SLA Vizsgálati Dosszié (24h)</b>\nEszköz: <code>{box_id}</code> | Szolgáltató: <b>{isp}</b>\nMinősítés: <b>{verdict}</b>\nSLA Teljesülés: <b>{sla}</b> | Elérhetőség: <b>{uptime}</b>",
         "report_fail": "A jegyzőkönyv elkészült, de a fájlküldés nem sikerült.",
         "tailscale_title": "<b>🦎 Tailscale Mesh VPN Állapot</b>",
         "tailscale_active": "🟢 AKTÍV ÉS CSATLAKOZVA",
@@ -575,8 +580,8 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "ping_header": "<b>📡 Real-Time Probe Latency & Packet Loss (Past 60s):</b>\n",
         "ping_no_resp": "No response",
         "ping_loss_label": "loss",
-        "report_generating": "<i>📊 Generating 24-hour official SLA compliance dossier...</i>",
-        "report_caption": "<b>📋 SLA Network Dossier (24h)</b>\nDevice: <code>{box_id}</code> | ISP: <b>{isp}</b>\nSLA result: <b>{verdict}</b>\nSLA Compliance: <b>{sla:.0f}%</b> | Uptime: <b>{uptime:.2f}%</b>",
+        "report_generating": "<i>📊 Generating the 24-hour SLA dossier...</i>",
+        "report_caption": "<b>📋 SLA Network Dossier (24h)</b>\nDevice: <code>{box_id}</code> | ISP: <b>{isp}</b>\nSLA result: <b>{verdict}</b>\nSLA Compliance: <b>{sla}</b> | Uptime: <b>{uptime}</b>",
         "report_fail": "Dossier was generated, but document upload failed.",
         "tailscale_title": "<b>🦎 Tailscale Mesh VPN Status</b>",
         "tailscale_active": "🟢 ACTIVE & CONNECTED",
@@ -623,7 +628,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /status - System status, Uptime, CPU and SLA compliance
 • /ping - Real-time latency and packet loss to reference endpoints
 • /test (or /speed) <code>[ookla|cloudflare|fastcom|rtr]</code> - Run speed test
-• /report - Download 24-hour official SLA compliance dossier (.html file)
+• /report - Download the 24-hour SLA compliance dossier (.html file)
 • /ai - Download AI diagnostic snapshot bundle for LLMs (.md file)
 • /mode <code>[auto|standalone|mode_a|mode_b]</code> - Switch operating mode
 
@@ -714,7 +719,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "ping_no_resp": "Keine Antwort",
         "ping_loss_label": "Verlust",
         "report_generating": "<i>📊 Generiere 24-Stunden-SLA-Prüfbericht...</i>",
-        "report_caption": "<b>📋 Offizieller SLA-Netzwerkbericht (24h)</b>\nGerät: <code>{box_id}</code> | ISP: <b>{isp}</b>\nBehördliche Bewertung: <b>{verdict}</b>\nSLA-Konformität: <b>{sla:.0f}%</b> | Verfügbarkeit: <b>{uptime:.2f}%</b>",
+        "report_caption": "<b>📋 SLA-Netzwerkbericht (24h)</b>\nGerät: <code>{box_id}</code> | ISP: <b>{isp}</b>\nSLA-Ergebnis (NMB): <b>{verdict}</b>\nSLA-Konformität: <b>{sla}</b> | Verfügbarkeit: <b>{uptime}</b>",
         "report_fail": "Der Bericht wurde erstellt, der Dokumentenversand ist jedoch fehlgeschlagen.",
         "tailscale_title": "<b>🦎 Tailscale Mesh-VPN Status</b>",
         "tailscale_active": "🟢 AKTIV & VERBUNDEN",
@@ -851,8 +856,8 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "ping_header": "<b>📡 Latence en temps réel & Perte de paquets (Dernières 60s):</b>\n",
         "ping_no_resp": "Aucune réponse",
         "ping_loss_label": "perte",
-        "report_generating": "<i>📊 Génération du dossier d'audit officiel SLA 24h...</i>",
-        "report_caption": "<b>📋 Dossier d'audit réseau officiel (24h)</b>\nAppareil: <code>{box_id}</code> | FAI: <b>{isp}</b>\nVerdict réglementaire: <b>{verdict}</b>\nConformité SLA: <b>{sla:.0f}%</b> | Disponibilité: <b>{uptime:.2f}%</b>",
+        "report_generating": "<i>📊 Génération du dossier SLA 24h...</i>",
+        "report_caption": "<b>📋 Dossier SLA du réseau (24h)</b>\nAppareil: <code>{box_id}</code> | FAI: <b>{isp}</b>\nRésultat SLA (NMB) : <b>{verdict}</b>\nConformité SLA: <b>{sla}</b> | Disponibilité: <b>{uptime}</b>",
         "report_fail": "Le dossier a été généré, mais l'envoi du document a échoué.",
         "tailscale_title": "<b>🦎 État du VPN Mesh Tailscale</b>",
         "tailscale_active": "🟢 ACTIF & CONNECTÉ",
@@ -989,8 +994,8 @@ STRINGS: Dict[str, Dict[str, str]] = {
         "ping_header": "<b>📡 Затримка в реальному часі та втрата пакетів (Останні 60с):</b>\n",
         "ping_no_resp": "Немає відповіді",
         "ping_loss_label": "втрата",
-        "report_generating": "<i>📊 Створення 24-годинного офіційного протоколу перевірки SLA...</i>",
-        "report_caption": "<b>📋 Офіційний звіт аудиту мережі SLA (24г)</b>\nПристрій: <code>{box_id}</code> | Провайдер: <b>{isp}</b>\nНормативний вердикт: <b>{verdict}</b>\nВідповідність SLA: <b>{sla:.0f}%</b> | Доступність: <b>{uptime:.2f}%</b>",
+        "report_generating": "<i>📊 Створення 24-годинного звіту SLA...</i>",
+        "report_caption": "<b>📋 Звіт SLA мережі (24г)</b>\nПристрій: <code>{box_id}</code> | Провайдер: <b>{isp}</b>\nРезультат SLA (NMB): <b>{verdict}</b>\nВідповідність SLA: <b>{sla}</b> | Доступність: <b>{uptime}</b>",
         "report_fail": "Звіт створено, але не вдалося надіслати файл.",
         "tailscale_title": "<b>🦎 Стан Mesh VPN Tailscale</b>",
         "tailscale_active": "🟢 АКТИВНО ТА ПІДКЛЮЧЕНО",
@@ -1037,7 +1042,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
 • /status - Стан системи, Uptime, CPU та відповідність SLA
 • /ping - Затримка в реальному часі та втрата пакетів до вузлів
 • /test (або /speed) <code>[ookla|cloudflare|fastcom|rtr]</code> - Запустити тест швидкості
-• /report - Завантажити 24-годинний офіційний звіт SLA (.html)
+• /report - Завантажити 24-годинний звіт SLA (.html)
 • /ai - Завантажити пакет діагностики для LLM (.md)
 • /mode <code>[auto|standalone|mode_a|mode_b]</code> - Змінити режим роботи
 

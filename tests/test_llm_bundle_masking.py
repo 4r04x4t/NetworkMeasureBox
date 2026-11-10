@@ -20,10 +20,15 @@ class BundleHelpersTests(unittest.TestCase):
     def test_speed_statistics(self):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
-        conn.execute("CREATE TABLE speedtest (ts INT, engine TEXT, status TEXT, down_bps INT, up_bps INT)")
-        conn.executemany("INSERT INTO speedtest VALUES (5, 'rtr', ?, ?, ?)", [("ok", 900e6, 300e6), ("ok", 700e6, 300e6), ("skipped_busy", None, None)])
+        conn.execute("CREATE TABLE speedtest (ts INT, engine TEXT, status TEXT, down_bps INT, up_bps INT, "
+                     "client_ip_source TEXT, server_host TEXT)")
+        conn.executemany("INSERT INTO speedtest VALUES (5, 'rtr', ?, ?, ?, NULL, NULL)", [("ok", 900e6, 300e6), ("ok", 700e6, 300e6), ("skipped_busy", None, None)])
+        conn.execute("INSERT INTO speedtest VALUES (5, 'iperf3', 'ok', 940e6, NULL, 'local', '192.168.8.20')")
+        conn.execute("INSERT INTO speedtest VALUES (5, 'cloudflare', 'ok', NULL, 300e6, 'engine', NULL)")
         table = "\n".join(lb._speed_statistics(conn, 0))
         self.assertIn("`rtr` | 2 | 1", table)
+        self.assertIn("`iperf3 (LAN)` | 1 | 0", table)          # apart from the line's figures
+        self.assertIn("`cloudflare` | 1 | 0 | -- | -- | -- | 300 |", table)   # an upload-only ok test is ok
 
 
 if __name__ == "__main__":

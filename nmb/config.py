@@ -312,9 +312,9 @@ server_host =
 name = 
 account_id = 
 circuit_id = 
-contract_down_mbps = 1000.0
+contract_down_mbps = 0
 guaranteed_down_mbps = 0.0
-contract_up_mbps = 300.0
+contract_up_mbps = 0
 guaranteed_up_mbps = 0.0
 connection_type = fiber
 
@@ -540,9 +540,9 @@ class ISPConfig:
     name: str = ""
     account_id: str = ""
     circuit_id: str = ""
-    contract_down_mbps: float = 1000.0
+    contract_down_mbps: float = 0.0     # 0 = not set: nothing is judged against an assumed plan
     guaranteed_down_mbps: float = 0.0
-    contract_up_mbps: float = 300.0
+    contract_up_mbps: float = 0.0
     guaranteed_up_mbps: float = 0.0
     connection_type: str = "fiber"  # fiber, docsis, xdsl, fwa, dialup, satellite, ethernet, other
 

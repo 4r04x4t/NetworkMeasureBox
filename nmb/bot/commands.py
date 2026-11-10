@@ -338,7 +338,7 @@ class CommandHandler:
 🏢 <b>{t('isp', lang)}:</b> <b>{html.escape(isp_name)}</b>
 ⚙️ <b>{t('mode', lang)}:</b> <code>{active_mode}</code> (WAN: <b>{wan_carrier}</b> | LAN: <b>{lan_carrier}</b>)
 
-📈 <b>{t('uptime_24h', lang)}:</b> <b>{rep.uptime_pct:.2f}%</b> ({outages_cnt} {outages_label})
+📈 <b>{t('uptime_24h', lang)}:</b> <b>{f"{rep.uptime_pct:.2f}%" if rep.uptime_known else "--"}</b> ({outages_cnt} {outages_label})
 ⏱️ <b>{t('latency_rtt', lang)}:</b> {rtt_avg} ms (Jitter: {jitter_avg} ms)
 📉 <b>{t('packet_loss', lang)}:</b> <b>{loss_txt}</b>
 ⚖️ <b>{t('sla_verdict', lang)}:</b> <b>{html.escape(sla_verdict_str)}</b> ({t('compliance', lang)}: {compliance_txt}){sla_reason_line}
@@ -392,11 +392,14 @@ class CommandHandler:
             conn = db.connect(readonly=True)
             now = db.now_ms()
             rows = conn.execute(
+                # COUNT(p.ts): a target without samples (probe stopped, switched off) has 0, not the one
+                # NULL row of the LEFT JOIN that read as "100 % lost"; switched-off targets are not listed.
                 """SELECT t.addr, t.label, AVG(p.rtt_us) as avg_us,
-                          COUNT(*) as count,
-                          SUM(CASE WHEN p.rtt_us IS NULL THEN 1 ELSE 0 END) as lost
+                          COUNT(p.ts) as count,
+                          SUM(CASE WHEN p.ts IS NOT NULL AND p.rtt_us IS NULL THEN 1 ELSE 0 END) as lost
                    FROM target t
                    LEFT JOIN ping_sample p ON t.id = p.target_id AND p.ts >= ?
+                   WHERE t.enabled = 1
                    GROUP BY t.id""",
                 (now - 60_000,)
             ).fetchall()
@@ -406,9 +409,8 @@ class CommandHandler:
             for r in rows:
                 cnt = r["count"]
                 lost = r["lost"]
-                loss_pct = (lost / cnt * 100.0) if cnt > 0 else 0.0
-                avg_ms = f"{(r['avg_us'] / 1000.0):.1f} ms" if r["avg_us"] else t("ping_no_resp", lang)
-                loss_str = f"{t('ping_loss_label', lang)}: {loss_pct:.0f}%"
+                avg_ms = f"{(r['avg_us'] / 1000.0):.1f} ms" if r["avg_us"] is not None else (t("ping_no_resp", lang) if cnt else "--")
+                loss_str = f"{t('ping_loss_label', lang)}: " + (f"{(lost or 0) / cnt * 100.0:.0f}%" if cnt else "--")
                 lines.append(f"• <b>{html.escape(r['label'])}</b> (<code>{html.escape(r['addr'])}</code>): <b>{avg_ms}</b> ({loss_str})")
 
             inline_ping = {
@@ -493,8 +495,10 @@ class CommandHandler:
             down_low = g_down > 0 and down_mbps is not None and down_mbps < g_down
             up_low = g_up > 0 and up_mbps is not None and up_mbps < g_up
             judged = (g_down > 0 and down_mbps is not None) or (g_up > 0 and up_mbps is not None)
-            if lan or not judged:
+            if lan or (g_down <= 0 and g_up <= 0):
                 status_code = 0
+            elif not judged:
+                status_code = "0m"     # a guaranteed speed is set, but this test did not measure that direction
             elif down_low and up_low:
                 status_code = 6
             elif down_low:
@@ -559,8 +563,9 @@ class CommandHandler:
                 box_id=html.escape(self.cfg.system.box_id),
                 isp=html.escape(report.isp_name),
                 verdict=html.escape(get_sla_verdict(str(report.sla_verdict), lang)),
-                sla=report.speed_summary.sla_compliance_pct,
-                uptime=report.uptime_pct
+                # unknown is "--", never 100 % (nothing judged / no ping measured)
+                sla=f"{report.speed_summary.sla_compliance_pct:.0f}%" if report.speed_summary.judged_tests else "--",
+                uptime=f"{report.uptime_pct:.2f}%" if report.uptime_known else "--",
             )
 
             ok = self.client.send_document(chat_id, filename, html_doc.encode("utf-8"), caption=caption)

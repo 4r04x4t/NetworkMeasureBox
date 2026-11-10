@@ -229,6 +229,7 @@ class ReportData:
     isp_connection_type: str = "fiber"
 
     uptime_pct: float = 100.0
+    uptime_known: bool = False   # False when no ping was measured in the window: availability unknown
     total_outage_sec: int = 0
     outages: List[OutageRecord] = field(default_factory=list)          # counted against the line
     own_outages: List[OutageRecord] = field(default_factory=list)      # the box's own, not counted
@@ -293,7 +294,8 @@ def aggregate_report_data(
     ).fetchall()
 
     ends = effective_outage_ends(conn, outage_rows, now)
-    own_windows = [(max(start, a), min(now, b)) for a, b in own_action_windows(conn, start, now) if b > start and a < now]
+    own_windows_raw = own_action_windows(conn, start - 86_400_000, now)
+    own_windows = [(max(start, a), min(now, b)) for a, b in own_windows_raw if b > start and a < now]
     spans = []
     for r in outage_rows:
         o_start = max(start, r["start_ts"])
@@ -312,7 +314,8 @@ def aggregate_report_data(
         )
         # The box's own only when it began while the box had its line down; one that began before (the
         # line failed first, the box reacted) stays the line's, for the part outside the windows.
-        began_in_window = any(a <= o_start <= b for a, b in own_windows)
+        # the outage's real start (it may lie before the report window), against the unclamped windows
+        began_in_window = any(a <= r["start_ts"] <= b for a, b in own_windows_raw)
         if own_ms > 0 and began_in_window and rec.duration_sec < MIN_ISP_OUTAGE_SEC:
             rec.cause_kind = "own"
             rec.duration_sec, rec.own_sec = 0, max(0, int((o_end - o_start) / 1000))
@@ -344,6 +347,10 @@ def aggregate_report_data(
         r["id"]: (r["addr"], r["label"])
         for r in conn.execute("SELECT id, addr, label FROM target WHERE enabled = 1").fetchall()
     }
+    # The line's loss, latency and timeline come from the internet targets only: the local gateway is a
+    # device in the home network (it stays in the per-target table).
+    gateway_ids = {r[0] for r in conn.execute(
+        "SELECT id FROM target WHERE COALESCE(role, 'Public DNS') = 'Local Gateway'").fetchall()}
 
     per_target_accum: Dict[int, dict] = {}
     minute_buckets: Dict[int, List[dict]] = {}
@@ -364,14 +371,16 @@ def aggregate_report_data(
             continue     # pings lost while the box itself had the line down say nothing about the line
         sent = r["sent"]
         lost = r["lost"]
-        total_sent += sent
-        total_lost += lost
+        is_gateway = tid in gateway_ids
+        if not is_gateway:
+            total_sent += sent
+            total_lost += lost
 
-        if r["rtt_avg"] is not None:
-            rtt_ms = r["rtt_avg"] / 1000.0
-            all_avg_rtts.append(rtt_ms)
-        if r["jitter_us"] is not None:
-            all_jitters.append(r["jitter_us"] / 1000.0)
+            if r["rtt_avg"] is not None:
+                rtt_ms = r["rtt_avg"] / 1000.0
+                all_avg_rtts.append(rtt_ms)
+            if r["jitter_us"] is not None:
+                all_jitters.append(r["jitter_us"] / 1000.0)
 
         if tid not in per_target_accum:
             per_target_accum[tid] = {"sent": 0, "lost": 0, "rtts": []}
@@ -380,7 +389,9 @@ def aggregate_report_data(
         if r["rtt_avg"] is not None:
             per_target_accum[tid]["rtts"].append(r["rtt_avg"] / 1000.0)
 
-        # 15-minute bucketing for timeline chart
+        # 15-minute bucketing for timeline chart (the line: internet targets only)
+        if is_gateway:
+            continue
         bucket_ts = (r["ts"] // (15 * 60 * 1000)) * (15 * 60 * 1000)
         if bucket_ts not in minute_buckets:
             minute_buckets[bucket_ts] = []
@@ -391,6 +402,8 @@ def aggregate_report_data(
         report.ping_summary.total_sent = total_sent
         report.ping_summary.total_lost = total_lost
         report.ping_summary.loss_pct = round((total_lost / total_sent) * 100.0, 2)
+    # Availability is measured by the pings: without any, it is unknown, not 100 %.
+    report.uptime_known = total_sent > 0
 
     if all_avg_rtts:
         all_avg_rtts.sort()
@@ -623,7 +636,8 @@ def aggregate_report_data(
     speed_known = report.speed_summary.judged_tests > 0
     loss = report.ping_summary.loss_pct if loss_known else 0.0
     compliance = report.speed_summary.sla_compliance_pct if speed_known else 100.0
-    if report.uptime_pct < 99.8:
+    uptime = report.uptime_pct if report.uptime_known else 100.0
+    if uptime < 99.8:
         report.sla_reasons.append("uptime")
     if loss > 0.5:
         report.sla_reasons.append("loss")
@@ -634,9 +648,9 @@ def aggregate_report_data(
 
     if not loss_known and not speed_known:
         report.sla_verdict = "UNKNOWN"
-    elif report.uptime_pct < 99.0 or loss > 2.5 or compliance < 60.0:
+    elif uptime < 99.0 or loss > 2.5 or compliance < 60.0:
         report.sla_verdict = "BREACHED"
-    elif report.uptime_pct < 99.8 or loss > 0.5 or report.throttled_ports_count > 0:
+    elif uptime < 99.8 or loss > 0.5 or report.throttled_ports_count > 0:
         report.sla_verdict = "DEGRADED"
     else:
         report.sla_verdict = "COMPLIANT"

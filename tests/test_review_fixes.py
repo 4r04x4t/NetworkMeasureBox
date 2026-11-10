@@ -94,10 +94,10 @@ class DossierTest(unittest.TestCase):
         from nmb.report.svg_charts import render_compliance_chart, render_speedtest_chart
         tests = [{"status": "ok", "scope": "lan", "down_mbps": 940.0, "up_mbps": 940.0, "ts": T0},
                  {"status": "ok", "scope": "internet", "down_mbps": 500.0, "up_mbps": None, "ts": T0 + 1}]
-        bars = render_speedtest_chart(tests, 1000, 300, 0, 0)
+        bars = render_speedtest_chart(tests, 1000, 300, 0, 0, lang="en")    # the English labels below
         self.assertNotIn("940.0 Mbps", bars)
         self.assertNotIn("Upload: 0.0", bars)
-        comp = render_compliance_chart(tests, 1000, 300)
+        comp = render_compliance_chart(tests, 1000, 300, lang="en")
         self.assertNotIn("stroke-dasharray=\"3,3\" stroke-linecap", comp.split("<g")[0].replace('d=""', ""))
 
 
@@ -136,9 +136,11 @@ class OwnWindowTest(unittest.TestCase):
 
     def test_an_outage_that_began_before_an_own_window_stays_the_line_s(self):
         conn = _db()
+        # the line failed 10 min before the report window began; the box changed mode right at its start.
+        # Clamped to the report's start the outage would seem to begin inside the box's window.
         conn.execute("INSERT INTO own_action (start_ts, end_ts, kind, source) VALUES (?, ?, 'mode_change', 'netd')",
-                     (T0 + H + 60_000, T0 + H + 61_000))
-        conn.execute("INSERT INTO outage (start_ts, end_ts, cause) VALUES (?, ?, 'x')", (T0 + H, T0 + H + 150_000))
+                     (T0 - 60_000, T0 + 60_000))
+        conn.execute("INSERT INTO outage (start_ts, end_ts, cause) VALUES (?, ?, 'x')", (T0 - 600_000, T0 + 200_000))
         r = _report(conn)
         self.assertEqual(len(r.outages), 1)
         self.assertEqual(r.own_outages, [])
@@ -205,6 +207,7 @@ class CollectorPollTest(unittest.TestCase):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
         conn.executescript(server.SCHEMA)
+        server.add_functions(conn)
         uid = "nmb-abcd-efgh-jkmn"
         import time
         now = int(time.time() * 1000)
@@ -247,10 +250,6 @@ class BotTestCommandTest(unittest.TestCase):
         self.assertIn("900.0 Mbps", text)
         self.assertNotIn("0.0 Mbps", text.replace("900.0 Mbps", ""))
         self.assertNotIn("UPLOAD DEFICIT", text)
-
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class ServerFactsTest(unittest.TestCase):
@@ -319,3 +318,82 @@ class DossierEscapeTest(unittest.TestCase):
         self.assertNotIn("&amp;amp;", html)
         self.assertIn("cut &amp; &lt;y&gt;", html)
         self.assertIn("<code>203.0.113.9</code>", html)
+
+
+class FourthReviewTest(unittest.TestCase):
+    """What the second independent review confirmed (2026-11-10 evening)."""
+
+    def test_no_ping_means_unknown_uptime(self):
+        r = _report(_db())
+        self.assertFalse(r.uptime_known)
+        from nmb.report.smtp import format_plain_text_summary
+        self.assertIn("N/A (no ping measured)", format_plain_text_summary(r, Config()))
+
+    def test_the_gateway_is_not_the_line(self):
+        conn = _db()
+        conn.execute("INSERT INTO target (id, addr, label, role) VALUES (101, '192.168.8.1', 'GW', 'Local Gateway')")
+        conn.execute("INSERT INTO target (id, addr, label, role) VALUES (102, '192.0.2.53', 'CF', 'Public DNS')")
+        conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (101, ?, 120, 120)", (T0 + H,))
+        conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (102, ?, 120, 0)", (T0 + H,))
+        r = _report(conn)
+        self.assertTrue(r.uptime_known)
+        self.assertEqual(r.ping_summary.total_sent, 120)
+        self.assertEqual(r.ping_summary.loss_pct, 0.0)
+
+    def test_bot_caption_has_no_invented_figures(self):
+        from nmb.bot.i18n import SUPPORTED_LANGUAGES, t
+        for lang in SUPPORTED_LANGUAGES:
+            text = t("report_caption", lang).format(sla="--", uptime="--", verdict="v", isp="x", box_id="y")
+            self.assertIn("--", text)
+            for word in ("Offizieller", "Behördliche", "officiel", "réglementaire", "Офіційний", "Нормативний"):
+                self.assertNotIn(word, text, lang)        # the box's own evaluation, not an official one
+
+    def test_rtr_direction_without_bytes_is_not_measured(self):
+        from nmb.speed import rtr
+        src = Path(rtr.__file__).read_text()
+        self.assertIn("if dl_bytes > 0 else None", src)
+        self.assertIn("if ul_bytes > 0 else None", src)
+
+    def test_correction_pass_c(self):
+        conn = _db()
+        conn.execute("INSERT INTO speedtest (ts, trigger, status, engine, ping_us, down_loaded_lat_ms, up_loaded_lat_ms, "
+                     "bufferbloat_grade, bufferbloat_delta_ms, down_bps, up_bps) VALUES "
+                     "(?, 'schedule', 'ok', 'cloudflare', 12345, 12.346, 30.0, 'A', 0.0, 500000000, 0)", (T0,))
+        conn.commit()
+        corrections.apply(conn)
+        row = conn.execute("SELECT down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, up_bps FROM speedtest").fetchone()
+        self.assertEqual(tuple(row), (None, 30.0, None, None))
+        self.assertEqual(corrections.apply(conn), 0)
+
+    def test_speed_csv_lan_row_has_no_share_of_the_isp(self):
+        from nmb.report.csv_export import export_speedtests_csv
+        import csv, io
+        conn = _db()
+        conn.execute("INSERT INTO speedtest (ts, trigger, status, engine, down_bps, client_ip_source) "
+                     "VALUES (1, 'manual', 'ok', 'iperf3', 940000000, 'local')")
+        rows = list(csv.reader(io.StringIO(export_speedtests_csv(conn, 0, 10, 1000, 300, "MyISP").lstrip("\ufeff"))))
+        row = dict(zip(rows[0], rows[1]))
+        self.assertEqual((row["down_pct_of_offered"], row["isp_name"]), ("", "LAN"))
+
+    def test_unset_contract_is_not_set(self):
+        cfg = Config()
+        self.assertEqual((cfg.isp.contract_down_mbps, cfg.isp.contract_up_mbps), (0.0, 0.0))
+        from nmb.report.smtp import format_plain_text_summary
+        self.assertIn("not set", format_plain_text_summary(_report(_db(), cfg), cfg))
+
+    def test_ping_stream_pages_by_key(self):
+        from nmb.report.csv_export import export_ping_summary_csv
+        conn = _db()
+        conn.execute("INSERT INTO target (id, addr, label, role) VALUES (101, '192.0.2.1', 'A', 'Public DNS')")
+        conn.execute("INSERT INTO target (id, addr, label, role) VALUES (102, '192.0.2.2', 'B', 'Public DNS')")
+        for ts in range(0, 50):
+            for tid in (101, 102):
+                conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (?, ?, 1, 0)", (tid, ts * 60_000))
+        from nmb.report import csv_export
+        text = "".join(csv_export.iter_ping_summary_csv(conn, 0, 10 ** 9, batch=7))
+        self.assertEqual(len(text.strip().splitlines()), 101)               # header + every row once
+        self.assertEqual(text, export_ping_summary_csv(conn, 0, 10 ** 9))
+
+
+if __name__ == "__main__":
+    unittest.main()

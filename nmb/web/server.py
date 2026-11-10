@@ -202,7 +202,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         client_ip = self.client_address[0] if hasattr(self, "client_address") else self.address_string()
         if allows_without_password(getattr(self.server.cfg.web, "public_results", False), self.command, req_path, client_ip):
-            self._no_password = True     # a read without login (public results): kept to small ranges
+            # a read without login (public results) is kept to small ranges; a logged-in admin's browser
+            # sends its credentials here too and gets the admin's range. A wrong password is not counted
+            # as a failure on a public path (no lockout from a stale browser login).
+            self._no_password = self._credentials_ok(client_ip, record=False) is not True
             return True
         if _is_ip_rate_limited(client_ip):
             log.warning("[AUTH] Rate limited IP %s due to too many failed attempts", client_ip)
@@ -213,11 +216,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"429 Too Many Requests - IP temporarily blocked due to repeated failed login attempts. Retry in 60s.\n")
             return False
 
+        if self._credentials_ok(client_ip) is True:
+            return True
+        self._send_auth_required()
+        return False
+
+    def _credentials_ok(self, client_ip: str, record: bool = True):
+        """True: valid Basic credentials; False: wrong ones; None: none sent."""
         auth_header = self.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Basic "):
-            self._send_auth_required()
-            return False
-
+            return None
         try:
             import base64
             decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
@@ -226,16 +234,17 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 configured_user = getattr(self.server.cfg.web, "admin_username", "admin")
                 configured_pass = getattr(self.server.cfg.web, "admin_password", "admin")
                 if secrets.compare_digest(user.encode(), str(configured_user).encode()) and secrets.compare_digest(password.encode(), str(configured_pass).encode()):
-                    _record_auth_success(client_ip)
+                    if record:
+                        _record_auth_success(client_ip)
                     return True
-                else:
+                if record:
                     _record_auth_failure(client_ip)
                     log.warning("[AUTH] Failed login attempt from %s for user '%s'", client_ip, user[:32])
+                return False
         except Exception as e:
-            _record_auth_failure(client_ip)
-            log.warning("[AUTH] Failed to decode authorization header from %s: %s", client_ip, e)
-
-        self._send_auth_required()
+            if record:
+                _record_auth_failure(client_ip)
+                log.warning("[AUTH] Failed to decode authorization header from %s: %s", client_ip, e)
         return False
 
     def _send_auth_required(self) -> None:
@@ -485,9 +494,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     self.send_header("Connection", "close")
                     self.end_headers()
                     self.close_connection = True
+                    try:
+                        self.connection.settimeout(60)    # a client that stops reading cannot hold the handler
+                    except (AttributeError, OSError):
+                        pass
                     for piece in iter_ping_summary_csv(conn, start_ms, end_ms):
                         self.wfile.write(piece.encode("utf-8"))
-                except (BrokenPipeError, ConnectionResetError):
+                except (BrokenPipeError, ConnectionResetError, TimeoutError):
                     log.debug("ping CSV download ended by the client")
                 finally:
                     conn.close()
@@ -3420,7 +3433,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 """SELECT ts, trigger, status, server_id, server_name, server_host, server_location, client_ip, client_ipv6,
                           down_bps, up_bps, ping_us, jitter_us, loss_pct, result_url, error,
                           down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms, connection_type,
-                          engine, colo
+                          engine, colo, client_ip_source, server_ip
                    FROM speedtest
                    WHERE LOWER(engine) = ? AND status = 'ok'
                    ORDER BY ts DESC LIMIT 1""",
@@ -3428,6 +3441,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             ).fetchone()
             if row:
                 d = dict(row)
+                from nmb.report.status_codes import speed_scope
+                d["scope"] = speed_scope(d)      # a LAN server's test: no share of the ISP's speed on the card
                 if eng == "iperf3":
                     from nmb.speed.iperf_directory import label_iperf_row
                     label_iperf_row(d)
@@ -3609,7 +3624,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "capabilities": detect_wifi_capabilities(self.server.cfg.network.wlan_interface),
                 "live_status": get_wifi_status(self.server.cfg.network.wlan_interface),
             },
-            "uptime_pct": report.uptime_pct,
+            "uptime_pct": report.uptime_pct if report.uptime_known else None,
             "outages_count": len(report.outages),
             "total_outage_sec": report.total_outage_sec,
             "own_outages_count": len(getattr(report, "own_outages", [])),
@@ -3657,7 +3672,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             },
             "network_devices": get_cached_devices(),
             "ping": {
-                "loss_pct": report.ping_summary.loss_pct,
+                "loss_pct": report.ping_summary.loss_pct if report.ping_summary.total_sent else None,
                 "avg_rtt_ms": report.ping_summary.rtt_avg_ms,
                 "p95_rtt_ms": report.ping_summary.rtt_p95_ms,
                 "jitter_ms": report.ping_summary.jitter_avg_ms,
@@ -3665,7 +3680,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "speed": {
                 "avg_down_mbps": report.speed_summary.avg_down_mbps,
                 "avg_up_mbps": report.speed_summary.avg_up_mbps,
-                "sla_compliance_pct": report.speed_summary.sla_compliance_pct,
+                "sla_compliance_pct": report.speed_summary.sla_compliance_pct if report.speed_summary.judged_tests else None,
                 "avg_down_pct_of_offered": getattr(report.speed_summary, "avg_down_pct_of_offered", 0.0),
                 "avg_up_pct_of_offered": getattr(report.speed_summary, "avg_up_pct_of_offered", 0.0),
                 "min_down_pct_of_offered": getattr(report.speed_summary, "min_down_pct_of_offered", 0.0),

@@ -2192,8 +2192,10 @@
       const upMbps = (latest.up_bps !== null && latest.up_bps !== undefined) ? (latest.up_bps / 1000000.0) : null;
       const latMs = (latest.ping_us !== null && latest.ping_us !== undefined) ? latest.ping_us / 1000.0 : null;
 
-      let downPct = (latest.down_pct_of_offered !== undefined && latest.down_pct_of_offered !== null) ? latest.down_pct_of_offered : ((contractDown > 0 && downMbps !== null) ? (downMbps / contractDown) * 100.0 : null);
-      let upPct = (latest.up_pct_of_offered !== undefined && latest.up_pct_of_offered !== null) ? latest.up_pct_of_offered : ((contractUp > 0 && upMbps !== null) ? (upMbps / contractUp) * 100.0 : null);
+      // A test against a server on the local network (LAN) is no share of the ISP's offered speed.
+      const latestLan = latest.scope === 'lan';
+      let downPct = latestLan ? null : ((latest.down_pct_of_offered !== undefined && latest.down_pct_of_offered !== null) ? latest.down_pct_of_offered : ((contractDown > 0 && downMbps !== null) ? (downMbps / contractDown) * 100.0 : null));
+      let upPct = latestLan ? null : ((latest.up_pct_of_offered !== undefined && latest.up_pct_of_offered !== null) ? latest.up_pct_of_offered : ((contractUp > 0 && upMbps !== null) ? (upMbps / contractUp) * 100.0 : null));
 
       if (elDownload) {
         if (downMbps !== null) {
@@ -2598,20 +2600,24 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           document.getElementById('sla-last-up-pct').style.color = lUpPct === null ? '' : (lUpPct >= 80 ? '#34d399' : (lUpPct >= 60 ? '#fbbf24' : '#f87171'));
           document.getElementById('sla-last-up-detail').innerText = lUpMbps !== null ? `${lUpMbps.toFixed(2)} Mbps ${t('of_offered', 'of offered')} ${contractUpVal} Mbps` : '--';
         }
-        if (data.speed && contractDownVal > 0) {
-          const avgD = data.speed.avg_down_mbps || 0;
-          const avgDPct = (data.speed.avg_down_pct_of_offered !== undefined && data.speed.avg_down_pct_of_offered !== null) ? data.speed.avg_down_pct_of_offered : ((avgD / contractDownVal) * 100.0);
-          document.getElementById('sla-avg-down-pct').innerText = avgDPct.toFixed(1) + ' %';
-          document.getElementById('sla-avg-down-pct').style.color = avgDPct >= 80 ? '#34d399' : (avgDPct >= 60 ? '#fbbf24' : '#f87171');
-          document.getElementById('sla-avg-down-detail').innerText = `${t('speed_avg_24h', '24h Rolling Average:')} ${avgD.toFixed(2)} Mbps (${contractDownVal} Mbps ${t('of_offered', 'offered')})`;
-        }
-        if (data.speed && contractUpVal > 0) {
-          const avgU = data.speed.avg_up_mbps || 0;
-          const avgUPct = (data.speed.avg_up_pct_of_offered !== undefined && data.speed.avg_up_pct_of_offered !== null) ? data.speed.avg_up_pct_of_offered : ((avgU / contractUpVal) * 100.0);
-          document.getElementById('sla-avg-up-pct').innerText = avgUPct.toFixed(1) + ' %';
-          document.getElementById('sla-avg-up-pct').style.color = avgUPct >= 80 ? '#34d399' : (avgUPct >= 60 ? '#fbbf24' : '#f87171');
-          document.getElementById('sla-avg-up-detail').innerText = `${t('speed_avg_24h', '24h Rolling Average:')} ${avgU.toFixed(2)} Mbps (${contractUpVal} Mbps ${t('of_offered', 'offered')})`;
-        }
+        // 24 h averages of the line; no measured test in a direction: "--", never a red 0.0 %
+        const slaAvg = (dir, mbps, pct, contract) => {
+          const pctEl = document.getElementById(`sla-avg-${dir}-pct`);
+          const detEl = document.getElementById(`sla-avg-${dir}-detail`);
+          if (!pctEl || !detEl) return;
+          if (mbps === null || mbps === undefined) {
+            pctEl.innerText = '--';
+            pctEl.style.color = '';
+            detEl.innerText = '--';
+            return;
+          }
+          const p = (pct !== undefined && pct !== null) ? pct : (mbps / contract) * 100.0;
+          pctEl.innerText = p.toFixed(1) + ' %';
+          pctEl.style.color = p >= 80 ? '#34d399' : (p >= 60 ? '#fbbf24' : '#f87171');
+          detEl.innerText = `${t('speed_avg_24h', '24h Rolling Average:')} ${mbps.toFixed(2)} Mbps (${contract} Mbps ${t('of_offered', 'offered')})`;
+        };
+        if (data.speed && contractDownVal > 0) slaAvg('down', data.speed.avg_down_mbps, data.speed.avg_down_pct_of_offered, contractDownVal);
+        if (data.speed && contractUpVal > 0) slaAvg('up', data.speed.avg_up_mbps, data.speed.avg_up_pct_of_offered, contractUpVal);
       }
 
       // Scheduled server & automated mode synchronization
@@ -3090,8 +3096,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     // Sort chronologically (oldest to newest)
     // On mobile screens, show the latest 14 data points for finger-friendly spacing (22-28px between points)
     // On desktop screens, show up to 30 points
+    // The line's tests only: a test against a server on the local network (LAN) measured the home network.
     const sorted = [...tests]
-      .filter(t => t && (t.status === 'ok' || t.down_bps || t.up_bps))
+      .filter(t => t && t.scope !== 'lan' && (t.status === 'ok' || t.down_bps || t.up_bps))
       .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
     const list = isMobile ? sorted.slice(-14) : sorted.slice(-30);
 
@@ -3194,11 +3201,12 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
     list.forEach((item, idx) => {
       const x = getX(idx);
-      const dM = (item.down_bps || 0) / 1000000.0;
-      const uM = (item.up_bps || 0) / 1000000.0;
+      // A direction the test did not measure is a gap in its line, never a point at 0 Mbps.
+      const dM = (item.down_bps != null) ? item.down_bps / 1000000.0 : null;
+      const uM = (item.up_bps != null) ? item.up_bps / 1000000.0 : null;
       const lat = (item.ping_us !== null && item.ping_us !== undefined) ? item.ping_us / 1000.0 : null;
-      ptsDown.push({ x, y: getYDown(dM), val: dM });
-      ptsUp.push({ x, y: getYUp(uM), val: uM });
+      ptsDown.push({ x, y: dM !== null ? getYDown(dM) : null, val: dM });
+      ptsUp.push({ x, y: uM !== null ? getYUp(uM) : null, val: uM });
       // No ping measured: a gap in the latency line, never a point at 0 ms.
       ptsLat.push({ x, y: lat !== null ? getYLat(lat) : null, val: lat });
     });
@@ -3206,26 +3214,28 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const lineStroke = isMobile ? "3" : "2.5";
     const latStroke = isMobile ? "2.5" : "2";
 
-    if (mode !== 'latency' && ptsDown.length > 0) {
-      let areaD = `M ${ptsDown[0].x},${padT + chartH} L ${ptsDown[0].x},${ptsDown[0].y}`;
-      let lineD = `M ${ptsDown[0].x},${ptsDown[0].y}`;
-      for (let i = 1; i < ptsDown.length; i++) {
-        areaD += ` L ${ptsDown[i].x},${ptsDown[i].y}`;
-        lineD += ` L ${ptsDown[i].x},${ptsDown[i].y}`;
+    const ptsDownV = ptsDown.filter(p => p.y !== null);
+    const ptsUpV = ptsUp.filter(p => p.y !== null);
+    if (mode !== 'latency' && ptsDownV.length > 0) {
+      let areaD = `M ${ptsDownV[0].x},${padT + chartH} L ${ptsDownV[0].x},${ptsDownV[0].y}`;
+      let lineD = `M ${ptsDownV[0].x},${ptsDownV[0].y}`;
+      for (let i = 1; i < ptsDownV.length; i++) {
+        areaD += ` L ${ptsDownV[i].x},${ptsDownV[i].y}`;
+        lineD += ` L ${ptsDownV[i].x},${ptsDownV[i].y}`;
       }
-      areaD += ` L ${ptsDown[ptsDown.length - 1].x},${padT + chartH} Z`;
+      areaD += ` L ${ptsDownV[ptsDownV.length - 1].x},${padT + chartH} Z`;
       svg += `<path d="${areaD}" fill="url(#speedDownGrad)" />`;
       svg += `<path d="${lineD}" fill="none" stroke="#38bdf8" stroke-width="${lineStroke}" stroke-linejoin="round" stroke-linecap="round" />`;
     }
 
-    if (mode !== 'latency' && ptsUp.length > 0) {
-      let areaU = `M ${ptsUp[0].x},${padT + chartH} L ${ptsUp[0].x},${ptsUp[0].y}`;
-      let lineU = `M ${ptsUp[0].x},${ptsUp[0].y}`;
-      for (let i = 1; i < ptsUp.length; i++) {
-        areaU += ` L ${ptsUp[i].x},${ptsUp[i].y}`;
-        lineU += ` L ${ptsUp[i].x},${ptsUp[i].y}`;
+    if (mode !== 'latency' && ptsUpV.length > 0) {
+      let areaU = `M ${ptsUpV[0].x},${padT + chartH} L ${ptsUpV[0].x},${ptsUpV[0].y}`;
+      let lineU = `M ${ptsUpV[0].x},${ptsUpV[0].y}`;
+      for (let i = 1; i < ptsUpV.length; i++) {
+        areaU += ` L ${ptsUpV[i].x},${ptsUpV[i].y}`;
+        lineU += ` L ${ptsUpV[i].x},${ptsUpV[i].y}`;
       }
-      areaU += ` L ${ptsUp[ptsUp.length - 1].x},${padT + chartH} Z`;
+      areaU += ` L ${ptsUpV[ptsUpV.length - 1].x},${padT + chartH} Z`;
       svg += `<path d="${areaU}" fill="url(#speedUpGrad)" />`;
       svg += `<path d="${lineU}" fill="none" stroke="#34d399" stroke-width="${lineStroke}" stroke-linejoin="round" stroke-linecap="round" />`;
     }
@@ -3262,10 +3272,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         svg += `<text x="${x}" y="${H - 3}" fill="#94a3b8" font-size="${dateFontSize}" text-anchor="middle" font-family="monospace">${dateStr}</text>`;
       }
 
-      if (mode !== 'latency') {
+      if (mode !== 'latency' && ptsDown[idx].y !== null) {
         svg += `<circle id="dot-down-${idx}" cx="${x}" cy="${ptsDown[idx].y}" r="${dotR}" fill="#38bdf8" stroke="#0a0f1d" stroke-width="${dotStrkW}" pointer-events="none" />`;
       }
-      if (mode !== 'latency') {
+      if (mode !== 'latency' && ptsUp[idx].y !== null) {
         svg += `<circle id="dot-up-${idx}" cx="${x}" cy="${ptsUp[idx].y}" r="${dotR}" fill="#34d399" stroke="#0a0f1d" stroke-width="${dotStrkW}" pointer-events="none" />`;
       }
       if (mode !== 'throughput' && ptsLat[idx].y !== null) {

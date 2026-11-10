@@ -151,7 +151,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "legal_appendix_body": (
             "Ez a dokumentum a helyszínen üzemelő NetworkMeasureBox autonóm hálózati mérőhardver által függetlenül rögzített telemetriai adatokat tartalmazza. "
             "A mérések az Európai Unió <b>2015/2120 rendelete (BEREC nyílt internet iránymutatások)</b> előírásainak figyelembevételével készültek. "
-            "Minden sebességmérés előtt a mérőeszköz megvárja, hogy az általa látható egyéb forgalom alacsony legyen; az általa nem látható forgalmat, például egy másik router mögötti eszközökét, nem tudja kizárni. "
+            "Minden ütemezett sebességmérés előtt a mérőeszköz megvárja, hogy az általa látható egyéb forgalom alacsony legyen; a kézzel indított mérések azonnal elindulnak, az általa nem látható forgalmat (például egy másik router mögötti eszközökét) pedig nem tudja kizárni. "
             "Amennyiben a mért letöltési vagy feltöltési sebesség nem éri el a szerződésben rögzített garantált minimumot, vagy a szolgáltatáskimaradások mértéke meghaladja a megengedett határértéket, "
             "az előfizető jogosult hivatalos szolgáltatói hibajegyet nyitni, kötbérre igényt tartani, vagy az illetékes hírközlési hatóságnál piacfelügyeleti eljárást kezdeményezni."
         ),
@@ -282,7 +282,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
             "This document presents independent network telemetry recorded autonomously by an on-premises NetworkMeasureBox hardware probe. "
             "Measurements adhere to the core principles of <b>EU Regulation 2015/2120 (Open Internet Regulation)</b>, "
             "<b>BEREC Guidelines on Net Neutrality & QoS Measurement (BoR (20) 165)</b>, and <b>IETF RFC 2681</b>. "
-            "Before each throughput test the probe waits until the other traffic it can see is low; traffic it cannot see, such as devices behind another router, is not excluded. "
+            "Before each scheduled throughput test the probe waits until the other traffic it can see is low; tests started by hand begin at once, and traffic the probe cannot see, such as devices behind another router, is not excluded. "
             "Should measured throughput persistently fail to achieve contracted minimum guaranteed speeds, or should outage frequencies exceed regulatory tolerances, "
             "the subscriber is entitled to raise a formal dispute with the Internet Service Provider, claim contractual compensation, or escalate the case to the competent national regulatory authority."
         ),
@@ -413,7 +413,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
             "Dieses Dokument enthält unabhängige Netzwerktelemetriedaten, die von einer autonomen NetworkMeasureBox-Hardware vor Ort erfasst wurden. "
             "Die Prüfungen entsprechen den Vorgaben der <b>EU-Verordnung 2015/2120 (Open-Internet-Verordnung)</b>, "
             "den <b>BEREC-Leitlinien zur Messung der Dienstqualität (BoR (20) 165)</b> sowie <b>IETF RFC 2681</b>. "
-            "Vor jeder Durchsatzmessung wartet die Sonde, bis der für sie sichtbare übrige Verkehr gering ist; Verkehr, den sie nicht sieht, etwa von Geräten hinter einem anderen Router, kann sie nicht ausschließen. "
+            "Vor jeder geplanten Durchsatzmessung wartet die Sonde, bis der für sie sichtbare übrige Verkehr gering ist; von Hand gestartete Messungen beginnen sofort, und Verkehr, den sie nicht sieht, etwa von Geräten hinter einem anderen Router, kann sie nicht ausschließen. "
             "Sollten gemessene Werte wiederholt die vertraglich garantierte Mindestbandbreite unterschreiten oder Ausfallzeiten zulässige Grenzen übersteigen, "
             "ist der Kunde berechtigt, ein formelles Störungsticket zu eröffnen, Entschädigungsansprüche geltend zu machen oder die nationale Regulierungsbehörde einzuschalten."
         ),
@@ -544,7 +544,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
             "Ce document présente les données de télémétrie réseau enregistrées de manière autonome par une sonde matérielle NetworkMeasureBox sur site. "
             "Les mesures sont conformes aux dispositions du <b>Règlement européen 2015/2120 (Règlement sur l'Internet ouvert)</b>, "
             "aux <b>Lignes directrices du BEREC sur la qualité de service (BoR (20) 165)</b> et à la norme <b>IETF RFC 2681</b>. "
-            "Avant chaque mesure de débit, la sonde attend que l'autre trafic qu'elle voit soit faible ; le trafic qu'elle ne voit pas, par exemple celui d'appareils derrière un autre routeur, ne peut pas être exclu. "
+            "Avant chaque mesure de débit planifiée, la sonde attend que l'autre trafic qu'elle voit soit faible ; les mesures lancées à la main démarrent tout de suite, et le trafic qu'elle ne voit pas, par exemple celui d'appareils derrière un autre routeur, ne peut pas être exclu. "
             "En cas de non-respect persistant des vitesses minimales garanties ou en cas d'interruptions dépassant les tolérances, "
             "l'abonné est en droit d'ouvrir une réclamation officielle auprès du fournisseur d'accès, de demander des indemnités ou de saisir l'autorité nationale de régulation."
         ),
@@ -675,7 +675,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
             "Цей документ містить дані незалежної телеметрії мережі, зафіксовані автономним апаратним пристроєм NetworkMeasureBox на місці підключення. "
             "Вимірювання відповідають вимогам <b>Регламенту ЄС 2015/2120 (Про відкритий інтернет)</b>, "
             "<b>Керівним принципам BEREC щодо якості послуг (BoR (20) 165)</b> та стандарту <b>IETF RFC 2681</b>. "
-            "Перед кожним вимірюванням швидкості зонд чекає, доки інший видимий для нього трафік стане низьким; трафік, якого він не бачить, наприклад пристроїв за іншим роутером, виключити неможливо. "
+            "Перед кожним запланованим вимірюванням швидкості зонд чекає, доки інший видимий для нього трафік стане низьким; запущені вручну вимірювання починаються одразу, а трафік, якого він не бачить, наприклад пристроїв за іншим роутером, виключити неможливо. "
             "Якщо виміряні швидкості стабільно не досягають гарантованих договором мінімумів або час простою перевищує допустимі норми, "
             "абонент має право відкрити офіційну заявку на усунення несправності, вимагати компенсації або звернутися до національного регулятора зв'язку."
         ),
@@ -1009,8 +1009,13 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
     elif has_contract_speeds:
         verdict_metric_html = f"{tr['lbl_sla_compliance_rate']} -"
     else:
-        success_pct = (s_sum.successful_tests / len(report.speed_tests) * 100.0) if report.speed_tests else 100.0
-        verdict_metric_html = f"{tr['lbl_measurement_success_rate']} {success_pct:.1f}%"
+        # tests of the line only (LAN tests are left out of both counts); no tests: no rate
+        line_tests = [t for t in report.speed_tests if t.get("scope") != "lan"]
+        if line_tests:
+            success_pct = s_sum.successful_tests / len(line_tests) * 100.0
+            verdict_metric_html = f"{tr['lbl_measurement_success_rate']} {success_pct:.1f}%"
+        else:
+            verdict_metric_html = f"{tr['lbl_measurement_success_rate']} -"
 
     doc_title_text = tr["doc_title"].format(box_id=report.box_id)
     badge_probe_text = tr["badge_probe"].format(box_id=report.box_id)
@@ -1286,7 +1291,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
   <div class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-label">{tr['kpi_availability']}</div>
-      <div class="kpi-value { 'text-green' if report.uptime_pct >= 99.9 else 'text-red' }">{report.uptime_pct:.2f}%</div>
+      <div class="kpi-value { 'text-green' if report.uptime_pct >= 99.9 else 'text-red' }">{f"{report.uptime_pct:.2f}%" if getattr(report, "uptime_known", True) else "-"}</div>
       <div class="kpi-sub">{tr['kpi_outage_sub'].format(outages=len(report.outages), sec=report.total_outage_sec)}</div>
       {f"<div class='kpi-sub'>{tr['kpi_own_sub'].format(sec=report.own_action_sec)}</div>" if getattr(report, "own_action_sec", 0) else ""}
     </div>

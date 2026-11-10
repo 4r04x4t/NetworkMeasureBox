@@ -90,7 +90,7 @@
   "heal_healthy": "✅ <b>系统正常。</b>无需修复。",
   "heal_running": "<i>正在执行自动修复{tier}...</i>",
   "heal_tier": "（第 {tier} 级）",
-  "help_message": "<b>NetworkMeasureBox 管理聊天机器人</b>\n<i>设备 ID：{box_id}</i>\n\n<b>📡 网络测量与诊断：</b>\n• /status - 系统状态、运行时间、CPU 和 SLA 达标情况\n• /ping - 到参考端点的实时延迟和丢包\n• /test（或 /speed）<code>[ookla|cloudflare|fastcom|rtr]</code> - 运行测速\n• /report - 下载 24 小时正式 SLA 达标档案（.html 文件）\n• /ai - 下载供 LLM 使用的 AI 诊断快照（.md 文件）\n• /mode <code>[auto|standalone|mode_a|mode_b]</code> - 切换运行模式\n\n<b>🛡️ 安全、VPN 与 Tailscale：</b>\n• /tailscale - Tailscale 网状 VPN 状态、WebGUI 链接和登录\n• /vpn - WireGuard 和 OpenVPN 服务器状态及客户端\n• /vpn clients - 已连接的客户端和传输的数据\n• /vpn add <code>&lt;名称&gt;</code> - 创建新客户端，立即生成二维码和 .conf！\n• /vpn qr <code>&lt;名称&gt;</code> - 重新发送用于手机配对的二维码\n• /vpn conf <code>&lt;名称&gt;</code> - 下载客户端配置\n\n<b>🦆 动态 DNS（DuckDNS / dynv6）：</b>\n• /dyndns - DynDNS 状态、公网 IP 和倒计时\n• /dyndns update - 立即强制同步 IP\n\n<b>🛡️ DNS 广告拦截（Pi-hole Sinkhole）：</b>\n• /adblock - Sinkhole 统计、Gravity 数据库和拦截率\n• /adblock on | /adblock off - 开启 / 关闭广告拦截\n• /adblock block <code>&lt;域名&gt;</code> - 将域名加入黑名单\n• /adblock unblock <code>&lt;域名&gt;</code> - 将域名加入白名单\n• /adblock update - 下载并编译 Gravity 拦截列表\n\n<b>📶 Wi-Fi 与访客 Wi-Fi 探针：</b>\n• /wifi - 无线遥测、信号强度和隔离警报\n• /wifi scan - 扫描附近的 2.4/5 GHz Wi-Fi 网络\n\n<b>⚙️ 系统与资源：</b>\n• /tasks（或 /top）- CPU、内存、磁盘、温度和主要进程\n• /heal - 自主自愈与修复子系统\n• /backup - 管理并下载完整备份\n• /drivers - 网络控制器与硬件驱动\n• /reboot - 安全重启设备\n• /sla - SLA 结果的含义\n• /purge - 删除存储的数据\n• /lang - 更改语言（EN、HU、DE、FR、UK、RO、IT、ES、PT、PT-BR、ZH）",
+  "help_message": "<b>NetworkMeasureBox 管理聊天机器人</b>\n<i>设备 ID：{box_id}</i>\n\n<b>📡 网络测量与诊断：</b>\n• /status - 系统状态、运行时间、CPU 和 SLA 达标情况\n• /ping - 到参考端点的实时延迟和丢包\n• /test（或 /speed）<code>[ookla|cloudflare|fastcom|rtr]</code> - 运行测速\n• /report - 下载 24 小时 SLA 达标档案（.html 文件）\n• /ai - 下载供 LLM 使用的 AI 诊断快照（.md 文件）\n• /mode <code>[auto|standalone|mode_a|mode_b]</code> - 切换运行模式\n\n<b>🛡️ 安全、VPN 与 Tailscale：</b>\n• /tailscale - Tailscale 网状 VPN 状态、WebGUI 链接和登录\n• /vpn - WireGuard 和 OpenVPN 服务器状态及客户端\n• /vpn clients - 已连接的客户端和传输的数据\n• /vpn add <code>&lt;名称&gt;</code> - 创建新客户端，立即生成二维码和 .conf！\n• /vpn qr <code>&lt;名称&gt;</code> - 重新发送用于手机配对的二维码\n• /vpn conf <code>&lt;名称&gt;</code> - 下载客户端配置\n\n<b>🦆 动态 DNS（DuckDNS / dynv6）：</b>\n• /dyndns - DynDNS 状态、公网 IP 和倒计时\n• /dyndns update - 立即强制同步 IP\n\n<b>🛡️ DNS 广告拦截（Pi-hole Sinkhole）：</b>\n• /adblock - Sinkhole 统计、Gravity 数据库和拦截率\n• /adblock on | /adblock off - 开启 / 关闭广告拦截\n• /adblock block <code>&lt;域名&gt;</code> - 将域名加入黑名单\n• /adblock unblock <code>&lt;域名&gt;</code> - 将域名加入白名单\n• /adblock update - 下载并编译 Gravity 拦截列表\n\n<b>📶 Wi-Fi 与访客 Wi-Fi 探针：</b>\n• /wifi - 无线遥测、信号强度和隔离警报\n• /wifi scan - 扫描附近的 2.4/5 GHz Wi-Fi 网络\n\n<b>⚙️ 系统与资源：</b>\n• /tasks（或 /top）- CPU、内存、磁盘、温度和主要进程\n• /heal - 自主自愈与修复子系统\n• /backup - 管理并下载完整备份\n• /drivers - 网络控制器与硬件驱动\n• /reboot - 安全重启设备\n• /sla - SLA 结果的含义\n• /purge - 删除存储的数据\n• /lang - 更改语言（EN、HU、DE、FR、UK、RO、IT、ES、PT、PT-BR、ZH）",
   "isp": "互联网服务商（ISP）",
   "kill_failed": "❌ 无法停止进程 {pid}：{error}",
   "kill_ok": "✅ 进程 <code>{pid}</code> 已停止（信号 {sig}）。",
@@ -126,9 +126,9 @@
   "quick_commands": "快捷命令",
   "reboot_confirm": "⚠️ <b>需要确认重启</b>\n如需安全重启 NetworkMeasureBox，请发送：\n👉 <code>/reboot now</code>",
   "reboot_starting": "🔄 <b>NetworkMeasureBox 正在重启...</b>约 45 秒后恢复连接。",
-  "report_caption": "<b>📋 网络 SLA 档案（24 小时）</b>\n设备：<code>{box_id}</code> | ISP：<b>{isp}</b>\nSLA 结果：<b>{verdict}</b>\nSLA 达标率：<b>{sla:.0f}%</b> | 可用性：<b>{uptime:.2f}%</b>",
+  "report_caption": "<b>📋 网络 SLA 档案（24 小时）</b>\n设备：<code>{box_id}</code> | ISP：<b>{isp}</b>\nSLA 结果：<b>{verdict}</b>\nSLA 达标率：<b>{sla}</b> | 可用性：<b>{uptime}</b>",
   "report_fail": "档案已生成，但文档上传失败。",
-  "report_generating": "<i>📊 正在生成 24 小时正式 SLA 达标档案...</i>",
+  "report_generating": "<i>📊 正在生成 24 小时 SLA 达标档案...</i>",
   "server": "测量服务器",
   "services_security": "服务与安全",
   "sla_explain": "<b>⚖️ SLA 结果是什么意思？</b>\n\n这是 NMB 对最近 24 小时的自身评估，不是主管机关或运营商的决定，本身也没有法律效力。\n\n<b>低于目标</b>：可用性低于 99%、丢包高于 2.5%，或达到要求速度的测速不足 60%。\n<b>质量下降</b>：可用性低于 99.8%、丢包高于 0.5%，或有端口被限速或封锁。\n<b>达到目标</b>：以上情况都没有。\n\n这些阈值在 NMB 中是固定的，可能与您的合同不同。",
@@ -284,6 +284,10 @@
   "6u": [
    "🟡 上传不足",
    "6：上传低于保证阈值"
+  ],
+  "0m": [
+   "⚪ 未评估",
+   "本次测试未测量设有保证速度的方向，因此未评估"
   ]
  },
  "verdict": {

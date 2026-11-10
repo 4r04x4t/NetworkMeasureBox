@@ -172,6 +172,37 @@ def corrections_b_for(row: sqlite3.Row) -> List[Tuple[str, Any, Any, str]]:
     return out
 
 
+# Third pass (second independent review): the old Cloudflare code truncated the idle latency for ping_us
+# but rounded it for the "loaded" columns, so pass B's exact match missed about 5 % of those rows; and a
+# direction stored as 0 bit/s in a successful test was a direction that was not measured.
+MARKER_C = "data_correction_2026_11_10c"
+
+
+def corrections_c_for(row: sqlite3.Row) -> List[Tuple[str, Any, Any, str]]:
+    out: List[Tuple[str, Any, Any, str]] = []
+    keys = row.keys()
+
+    def fix(field: str, new: Any, reason: str) -> None:
+        if field in keys and row[field] != new and (row[field] is not None or new is not None):
+            out.append((field, row[field], new, reason))
+
+    engine = (row["engine"] or "").lower()
+    if engine == "cloudflare" and (row["ts"] or 0) < CLOUDFLARE_FIX_MS and row["ping_us"] is not None:
+        idle_trunc = row["ping_us"] / 1000.0          # int(idle * 1000) / 1000: up to 1 us below the idle value
+        same = [f for f in ("down_loaded_lat_ms", "up_loaded_lat_ms")
+                if row[f] is not None and -0.006 <= row[f] - idle_trunc <= 0.0061]
+        for f in same:
+            fix(f, None, "the idle latency was stored as the latency under load (no sample under load)")
+        if same and row["bufferbloat_grade"] is not None:
+            fix("bufferbloat_grade", None, "graded from the idle latency stored as the loaded one")
+            fix("bufferbloat_delta_ms", None, "graded from the idle latency stored as the loaded one")
+    if row["status"] == "ok":
+        for f in ("down_bps", "up_bps"):
+            if row[f] == 0:
+                fix(f, None, "0 bit/s was stored for a direction that was not measured")
+    return out
+
+
 BATCH_ROWS = 300
 PASSES = None   # set below: (marker, rule) in order
 
@@ -229,4 +260,4 @@ def _apply_pass(conn: sqlite3.Connection, marker: str, rule, now_ms: Optional[in
     return changed
 
 
-PASSES = ((MARKER, corrections_for), (MARKER_B, corrections_b_for))
+PASSES = ((MARKER, corrections_for), (MARKER_B, corrections_b_for), (MARKER_C, corrections_c_for))

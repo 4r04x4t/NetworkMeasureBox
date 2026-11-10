@@ -157,9 +157,20 @@ class Settings:
 # Storage
 # ------------------------------------------------------------------------------
 
+def _is_lan(engine, server_host, client_ip_source) -> int:
+    """A test against a server on the box's local network (the box's own rule, nmb/report/status_codes.py)."""
+    from nmb.report.status_codes import speed_scope
+    return 1 if speed_scope({"engine": engine, "server_host": server_host, "client_ip_source": client_ip_source}) == "lan" else 0
+
+
+def add_functions(conn: sqlite3.Connection) -> None:
+    conn.create_function("nmb_is_lan", 3, _is_lan, deterministic=True)
+
+
 def connect(data_dir: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(data_dir / "collector.db", timeout=30, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    add_functions(conn)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
     cols = {r[1] for r in conn.execute("PRAGMA table_info(box)")}
@@ -384,19 +395,19 @@ def box_summary(conn: sqlite3.Connection, uid: str, days: int = 30) -> Dict[str,
     if box is None:
         return {}
     stats = conn.execute(
-        """SELECT COUNT(*), AVG(down_bps), AVG(up_bps), AVG(ping_us), MIN(down_bps), MAX(down_bps)
-             FROM speedtest WHERE box_uid = ? AND status = 'ok' AND ts >= ? AND COALESCE(client_ip_source, '') != 'local'""",
+        """SELECT COUNT(*), AVG(down_bps), AVG(up_bps), AVG(ping_us), MIN(down_bps), MAX(down_bps), COUNT(down_bps)
+             FROM speedtest WHERE box_uid = ? AND status = 'ok' AND ts >= ? AND NOT nmb_is_lan(engine, server_host, client_ip_source)""",
         (uid, since)).fetchone()
     failed = conn.execute("SELECT COUNT(*) FROM speedtest WHERE box_uid = ? AND status != 'ok' AND ts >= ?", (uid, since)).fetchone()[0]
     below = None
     if box["contract_down_mbps"]:
         below = conn.execute(
             "SELECT COUNT(*) FROM speedtest WHERE box_uid = ? AND status = 'ok' AND ts >= ? AND down_bps < ? "
-            "AND COALESCE(client_ip_source, '') != 'local'",
+            "AND NOT nmb_is_lan(engine, server_host, client_ip_source)",
             (uid, since, box["contract_down_mbps"] * 1e6 * 0.8)).fetchone()[0]
     per_engine = conn.execute(
         """SELECT engine, COUNT(*), AVG(down_bps), AVG(up_bps) FROM speedtest
-            WHERE box_uid = ? AND status = 'ok' AND ts >= ? AND COALESCE(client_ip_source, '') != 'local'
+            WHERE box_uid = ? AND status = 'ok' AND ts >= ? AND NOT nmb_is_lan(engine, server_host, client_ip_source)
             GROUP BY engine ORDER BY engine""", (uid, since)).fetchall()
     ping = conn.execute(
         """SELECT target, label, SUM(sent), SUM(lost), AVG(rtt_avg_us), MAX(rtt_max_us) FROM ping_hour
@@ -404,7 +415,7 @@ def box_summary(conn: sqlite3.Connection, uid: str, days: int = 30) -> Dict[str,
     cases = conn.execute("SELECT case_id, first_seen, last_seen FROM box_case WHERE box_uid = ? ORDER BY first_seen", (uid,)).fetchall()
     return {"box": dict(box), "days": days, "ok_tests": stats[0], "failed_tests": failed,
             "avg_down_bps": stats[1], "avg_up_bps": stats[2], "avg_ping_us": stats[3],
-            "min_down_bps": stats[4], "max_down_bps": stats[5], "below_80pct": below,
+            "min_down_bps": stats[4], "max_down_bps": stats[5], "below_80pct": below, "measured_down": stats[6],
             "per_engine": [dict(zip(("engine", "count", "avg_down_bps", "avg_up_bps"), r)) for r in per_engine],
             "ping": [dict(zip(("target", "label", "sent", "lost", "avg_rtt_us", "max_rtt_us"), r)) for r in ping],
             "cases": [dict(r) for r in cases]}
@@ -535,7 +546,7 @@ def render_box(conn: sqlite3.Connection, uid: str, lang: str) -> Optional[str]:
              (t["avg_up"], _mbps(s["avg_up_bps"])), (t["avg_ping"], f'{s["avg_ping_us"] / 1000:.1f} ms' if s["avg_ping_us"] else "--"),
              (t["contract"], contract)]
     if s["below_80pct"] is not None:
-        cards.append((t["below"], f'{s["below_80pct"]} / {s["ok_tests"]}'))
+        cards.append((t["below"], f'{s["below_80pct"]} / {s["measured_down"]}'))   # of the tests that measured download
     grid = "".join(f'<div class="card"><span class="muted">{e(k)}</span><b>{e(str(v))}</b></div>' for k, v in cards)
     eng = "".join(f'<tr><td>{e(r["engine"] or "")}</td><td>{r["count"]}</td><td>{_mbps(r["avg_down_bps"])}</td><td>{_mbps(r["avg_up_bps"])}</td></tr>' for r in s["per_engine"])
     ping = "".join(

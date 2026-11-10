@@ -144,8 +144,13 @@ def _run_native_rmbt_speedtest(
     # Older binaries print only the median; never invent the minimum or the jitter.
     ping_min_ms = float(final_data["pingMin"]) if final_data.get("pingMin") else None
     jitter_ms = float(final_data["pingJitter"]) if final_data.get("pingJitter") is not None and "pingMin" in final_data else None
-    down_bps = int(down_mbps * 1e6)
-    up_bps = int(up_mbps * 1e6)
+    # A direction without transferred bytes (or without a figure) was not measured: None, never 0 bps.
+    def _measured(key_mbps: str, key_bytes: str) -> bool:
+        if final_data.get(key_mbps) is None:
+            return False
+        return final_data.get(key_bytes) is None or int(final_data.get(key_bytes) or 0) > 0
+    down_bps = int(down_mbps * 1e6) if _measured("down", "downBytes") else None
+    up_bps = int(up_mbps * 1e6) if _measured("up", "upBytes") else None
     open_uuid = final_data.get("openTestUuid")
     test_uuid = final_data.get("testUuid")
     if not share_url and open_uuid:
@@ -175,7 +180,8 @@ def _run_native_rmbt_speedtest(
     v4, v6 = _client_ips(interface, bind_ip)
 
     return SpeedtestResult(
-        status="ok",
+        status="ok" if (down_bps or up_bps) else "error",
+        error=None if (down_bps or up_bps) else "RTR transferred no data in either direction",
         down_bps=down_bps,
         up_bps=up_bps,
         ping_us=(round((ping_min_ms if ping_min_ms is not None else ping_ms) * 1000)
@@ -363,8 +369,8 @@ def execute_rtr_speedtest(
 
     res = SpeedtestResult(
         status="ok" if (dl_bytes > 0 or ul_bytes > 0) else "error",
-        down_bps=int(dl_mbps * 1_000_000),
-        up_bps=int(ul_mbps * 1_000_000),
+        down_bps=int(dl_mbps * 1_000_000) if dl_bytes > 0 else None,    # not measured: None, never 0
+        up_bps=int(ul_mbps * 1_000_000) if ul_bytes > 0 else None,
         ping_us=round(min_ping_ms * 1000) if min_ping_ms is not None else None,
         jitter_us=round(jitter_fallback_ms * 1000) if jitter_fallback_ms is not None else None,
         loss_pct=None,          # RMBT does not measure packet loss

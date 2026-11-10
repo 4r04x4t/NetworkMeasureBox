@@ -560,7 +560,9 @@ curl -s -X POST "https://c01.netztest.at/RMBTControlServer/testRequest" \\
             dur_flag = f"-t {cfg.iperf.duration or 10}"
             ipf_target = cfg.iperf.target_host or "speedtest.init7.net"
             ipf_port = cfg.iperf.target_port or 5201
-            through_mbps = down_mbps if cfg.iperf.reverse else up_mbps
+            # The directions that really ran (auto_direction / "both" with a failed upload), not cfg.iperf.reverse
+            ran = [label for label, bps in (("Download (-R / Server->Client)", res.down_bps),
+                                            ("Upload (Client->Server)", res.up_bps)) if bps is not None]
             meroscript = f"""#!/bin/sh
 # ==============================================================================
 # NetworkMeasureBox - Realtime iPerf3 Benchmark Execution
@@ -571,14 +573,15 @@ curl -s -X POST "https://c01.netztest.at/RMBTControlServer/testRequest" \\
 # 1. Target Endpoint & Parameters:
 # Server: {ipf_target}:{ipf_port}
 # Protocol: {(cfg.iperf.protocol or 'tcp').upper()} | Parallel Streams: {cfg.iperf.parallel or 1}
-# Direction: {'Download (-R / Server->Client)' if cfg.iperf.reverse else 'Upload (Client->Server)'}
-# Local Client IP: {res.client_ip or '--'}
+# Direction: {' + '.join(ran) or '--'}
+# Client IP: {res.client_ip or res.client_ipv6 or '--'}{' (local network test)' if local_test else ''}
 
 # 2. Realtime CLI Invocation:
 iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_flag} --connect-timeout 4000 -J
 
 # 3. Measured Real Telemetry:
-# Throughput: {through_mbps:.2f} Mbps ({(through_mbps/8):.2f} MB/s)
+# Download: {down_txt}
+# Upload: {up_txt}
 # Ping / RTT: {ping_txt} | Retransmits / Loss: {loss_txt}
 """
         else:

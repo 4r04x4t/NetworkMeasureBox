@@ -55,11 +55,11 @@ def main(argv: list[str] | None = None) -> int:
         summary_dict = {
             "window_hours": hours,
             "verdict": report.sla_verdict,
-            "uptime_pct": report.uptime_pct,
+            "uptime_pct": report.uptime_pct if report.uptime_known else None,
             "total_outage_sec": report.total_outage_sec,
             "outages_count": len(report.outages),
             "ping": {
-                "loss_pct": report.ping_summary.loss_pct,
+                "loss_pct": report.ping_summary.loss_pct if report.ping_summary.total_sent else None,
                 "avg_rtt_ms": report.ping_summary.rtt_avg_ms,
                 "p95_rtt_ms": report.ping_summary.rtt_p95_ms,
                 "jitter_ms": report.ping_summary.jitter_avg_ms,
@@ -67,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
             "speed": {
                 "avg_down_mbps": report.speed_summary.avg_down_mbps,
                 "avg_up_mbps": report.speed_summary.avg_up_mbps,
-                "sla_compliance_pct": report.speed_summary.sla_compliance_pct,
+                "sla_compliance_pct": report.speed_summary.sla_compliance_pct if report.speed_summary.judged_tests else None,
             },
             "throttled_ports": report.throttled_ports_count,
         }

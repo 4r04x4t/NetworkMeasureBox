@@ -99,15 +99,19 @@ def iter_ping_summary_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
     writer = _SafeWriter(out)
     writer.writerow(PING_HEADER)
     targets = {r["id"]: (r["addr"], r["label"], r["role"]) for r in conn.execute("SELECT id, addr, label, role FROM target").fetchall()}
-    cur = conn.execute(
-        """SELECT ts, target_id, sent, lost, rtt_min, rtt_avg, rtt_p95, rtt_max, jitter_us
-           FROM ping_minute WHERE ts >= ? AND ts <= ? ORDER BY ts ASC""",
-        (start_ms, end_ms))
     ms = lambda us: round(us / 1000.0, 2) if us is not None else ""
+    # Keyset pages: each batch is a short query that is finished before its rows go to a slow client, so
+    # no read transaction stays open (holding back the WAL checkpoint) for the whole download.
+    last = (start_ms - 1, -1)
     while True:
-        rows = cur.fetchmany(batch)
+        rows = conn.execute(
+            """SELECT ts, target_id, sent, lost, rtt_min, rtt_avg, rtt_p95, rtt_max, jitter_us
+               FROM ping_minute WHERE ts <= ? AND (ts > ? OR (ts = ? AND target_id > ?))
+               ORDER BY ts ASC, target_id ASC LIMIT ?""",
+            (end_ms, last[0], last[0], last[1], batch)).fetchall()
         if not rows:
             break
+        last = (rows[-1]["ts"], rows[-1]["target_id"])
         for r in rows:
             addr, label, role = targets.get(r["target_id"], ("", "", ""))
             writer.writerow([
@@ -163,11 +167,13 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
         r_keys = r.keys()
         d_mbps = round(r["down_bps"] / 1_000_000.0, 2) if r["down_bps"] is not None else None
         u_mbps = round(r["up_bps"] / 1_000_000.0, 2) if r["up_bps"] is not None else None
-        d_pct = round((d_mbps / contract_down_mbps) * 100.0, 1) if (contract_down_mbps > 0 and d_mbps is not None) else ""
-        u_pct = round((u_mbps / contract_up_mbps) * 100.0, 1) if (contract_up_mbps > 0 and u_mbps is not None) else ""
+        from nmb.report.status_codes import speed_scope
+        lan = speed_scope(r) == "lan"        # a LAN server's test: no share of the ISP's speed, ISP "LAN"
+        d_pct = round((d_mbps / contract_down_mbps) * 100.0, 1) if (contract_down_mbps > 0 and d_mbps is not None and not lan) else ""
+        u_pct = round((u_mbps / contract_up_mbps) * 100.0, 1) if (contract_up_mbps > 0 and u_mbps is not None and not lan) else ""
 
         client_ipv6_val = r["client_ipv6"] if "client_ipv6" in r_keys and r["client_ipv6"] else ""
-        isp = default_isp or ""          # the configured name; nothing is made up when none is set
+        isp = "LAN" if lan else (default_isp or "")   # the configured name; nothing made up when none is set
 
         writer.writerow([
             _iso(r["ts"]),
