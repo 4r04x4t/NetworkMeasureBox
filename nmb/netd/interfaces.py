@@ -916,6 +916,56 @@ def ppp_peer_addresses() -> List[str]:
     return re.findall(r"\bpeer ([0-9.]+)", getattr(res, "stdout", "") or "")
 
 
+PPP_PEER_MEMORY_DAYS = 90
+SILENT_HOP_MIN_SENT = 2000
+
+
+def first_hop_never_answers(conn, addr: str, now_ms: Optional[int] = None) -> bool:
+    """True when addr, pinged as a target, answered none of at least SILENT_HOP_MIN_SENT pings in 24 h."""
+    try:
+        import time as _time
+        now = now_ms or int(_time.time() * 1000)
+        row = conn.execute(
+            "SELECT SUM(m.sent), SUM(m.sent - m.lost) FROM ping_minute m JOIN target t ON t.id = m.target_id "
+            "WHERE t.addr = ? AND m.ts >= ?", (addr, now - 86_400_000)).fetchone()
+        sent, answered = (row[0] or 0, row[1] or 0) if row else (0, 0)
+        return sent >= SILENT_HOP_MIN_SENT and answered == 0
+    except Exception:
+        return False
+
+
+def known_ppp_peers(conn=None) -> List[str]:
+    """PPP peer addresses seen now, plus those remembered from when this box dialled PPPoE itself.
+
+    Behind another router that dials (standalone mode), the same ISP placeholder (10.0.0.1 on one ISP)
+    shows up as hop 2 in a traceroute; it is neither an ISP router that answers pings nor a sign of
+    double NAT (2026-11-10: the diagnostic bundle said "Double NAT" and the probe pinged it at 100 % loss).
+    """
+    peers = set(ppp_peer_addresses())
+    if conn is None:
+        return sorted(peers)
+    try:
+        import json as _json
+        import time as _time
+        now = int(_time.time() * 1000)
+        row = conn.execute("SELECT v FROM kv WHERE k = 'ppp_peers_seen'").fetchone()
+        seen = _json.loads(row[0]) if row and row[0] else {}
+        if not isinstance(seen, dict):
+            seen = {}
+        if peers:
+            for p in peers:
+                seen[p] = now
+            try:
+                conn.execute("INSERT OR REPLACE INTO kv (k, v, ts) VALUES ('ppp_peers_seen', ?, ?)", (_json.dumps(seen), now))
+            except Exception:
+                log.debug("PPP peers not remembered (read-only connection)", exc_info=True)
+        horizon = now - PPP_PEER_MEMORY_DAYS * 86_400_000
+        peers |= {p for p, ts in seen.items() if isinstance(ts, (int, float)) and ts >= horizon}
+    except Exception:
+        log.debug("remembered PPP peers not available", exc_info=True)
+    return sorted(peers)
+
+
 def sync_gateway_ping_targets(conn, iface: Optional[str] = None, isp_first_hop: bool = True) -> None:
     """Enroll and maintain Local Gateway and ISP First Hop in the ping probe targets table.
     
@@ -936,10 +986,18 @@ def sync_gateway_ping_targets(conn, iface: Optional[str] = None, isp_first_hop: 
 
         local_gw = get_default_gateway(iface)
         isp_hop = get_isp_first_hop() if isp_first_hop else None
-        peers = set(ppp_peer_addresses())
+        peers = set(known_ppp_peers(conn))
         if isp_hop in peers:
             isp_hop = None
-        if not isp_first_hop or not isp_hop and peers:
+        if isp_hop and first_hop_never_answers(conn, isp_hop):
+            # Pinging a hop that has answered none of thousands of pings only adds made-up "loss"
+            # (2026-11-10: 100 % loss to the ISP's placeholder for a whole day in the reports).
+            log.info("ISP first hop %s answered no ping in 24 h; not pinged as a target", isp_hop)
+            isp_hop = None
+            silent_hop = True
+        else:
+            silent_hop = False
+        if not isp_first_hop or (not isp_hop and (peers or silent_hop)):
             cur.execute("UPDATE target SET enabled = 0 WHERE role = 'ISP First Hop'")
         if not local_gw:
             cur.execute("UPDATE target SET enabled = 0 WHERE role = 'Local Gateway'")

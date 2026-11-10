@@ -407,7 +407,14 @@ def _get_wifi_phy_telemetry(wlan_iface: str = "wlan0") -> Dict[str, Any]:
     }
 
 
-def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optional[str], http_public_ip: Optional[str]) -> Dict[str, Any]:
+def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optional[str], http_public_ip: Optional[str],
+                                ppp_peers: Optional[List[str]] = None) -> Dict[str, Any]:
+    """STUN mapping plus a NAT verdict that says only what the data shows.
+
+    is_double_nat is True only with positive evidence, None when it is possible but cannot be told
+    from a traceroute (a private hop 2 is a second router OR the ISP's point-to-point / PPP peer),
+    False otherwise. A hop 2 that is a known PPP peer placeholder is never called a NAT (2026-11-10:
+    "Double NAT Detected" behind a router that dials PPPoE itself, where hop 2 was the ISP's peer)."""
     mapped_ip = None
     mapped_port = None
     stun_server_used = None
@@ -487,19 +494,26 @@ def _get_nat_and_stun_telemetry(local_ip: str, gateway_ip: str, hop2_ip: Optiona
             return False
 
     is_cgnat = False
-    is_double_nat = False
-    verdict = "Single NAT (Direct gateway mapping to Public IPv4)"
+    is_double_nat: Optional[bool] = False
+    verdict = "Not enough data for a NAT verdict (no STUN answer)."
+    peers = set(ppp_peers or [])
 
     if hop2_ip and is_rfc6598_cgnat(hop2_ip):
         is_cgnat = True
-        verdict = f"⚠️ Carrier-Grade NAT (CGNAT / RFC 6598 100.64.0.0/10) detected on Upstream Hop (`{hop2_ip}`). Direct inbound port forwarding is not supported by upstream ISP."
+        verdict = (f"Hop 2 (`{hop2_ip}`) is in 100.64.0.0/10, consistent with carrier-grade NAT (CGNAT); "
+                   "inbound port forwarding from the internet would then not reach this line.")
+    elif hop2_ip and hop2_ip in peers:
+        verdict = (f"Hop 2 (`{hop2_ip}`) is the ISP's PPP peer address (this box saw it as its own PPPoE peer): "
+                   "a placeholder on the ISP's side, not a NAT. The gateway in front of the box holds the public address.")
     elif hop2_ip and is_rfc1918(hop2_ip) and is_rfc1918(gateway_ip):
-        is_double_nat = True
-        verdict = f"⚠️ Double NAT Detected: Local Gateway (`{gateway_ip}`) WAN is private (`{hop2_ip}` RFC 1918), residing behind an upstream router/ONT. External public IP (`{http_public_ip or mapped_ip}`) is routable (no ISP CGNAT), but inbound services require DMZ/cascaded forwarding."
+        is_double_nat = None
+        verdict = (f"Possibly double NAT: hop 2 (`{hop2_ip}`) has a private address. It is either a second router in "
+                   f"front of the gateway (`{gateway_ip}`) or the ISP's point-to-point / PPP peer; a traceroute cannot "
+                   "tell them apart. The gateway's own status page shows its WAN address.")
     elif mapped_ip and http_public_ip and mapped_ip != http_public_ip:
-        verdict = f"Multi-WAN or Symmetric Carrier NAT: STUN mapped IP (`{mapped_ip}`) differs from HTTP egress IP (`{http_public_ip}`)."
+        verdict = f"Multi-WAN or symmetric carrier NAT: STUN mapped IP (`{mapped_ip}`) differs from HTTP egress IP (`{http_public_ip}`)."
     elif mapped_ip:
-        verdict = f"🟢 Clean Public IP Mapping: STUN mapped IP (`{mapped_ip}`) matches HTTP public egress IP. Single-tier NAT verified."
+        verdict = f"STUN mapped IP (`{mapped_ip}`) matches the HTTP public egress IP; no sign of a second NAT."
 
     return {
         "mapped_ip": mapped_ip,
@@ -602,21 +616,49 @@ def _get_dns_telemetry_matrix(gateway_ip: str = "") -> List[Dict[str, Any]]:
     return results
 
 
-def _get_loss_pattern_telemetry(conn: Any, day_ago_ms: int, probes: List[Any]) -> Dict[int, Dict[str, Any]]:
+def _explained_windows(conn: Any, since_ms: int, now_ms: int) -> List[tuple]:
+    """Times whose lost pings say nothing about the LAN or the line's quality: the box's own actions
+    (mode change, update, restart) and recorded outages (with 30 s around them)."""
+    spans: List[tuple] = []
+    try:
+        from nmb.report.metrics import effective_outage_ends, merge_spans, own_action_windows
+        spans.extend(own_action_windows(conn, since_ms, now_ms))
+        rows = conn.execute("SELECT id, start_ts, end_ts FROM outage WHERE (end_ts IS NULL OR end_ts >= ?) AND start_ts <= ?",
+                            (since_ms, now_ms)).fetchall()
+        ends = effective_outage_ends(conn, rows, now_ms)
+        for r in rows:
+            spans.append((r["start_ts"] - 30_000, (ends.get(r["id"]) or now_ms) + 30_000))
+        return merge_spans(spans)
+    except Exception:
+        log.debug("explained windows not available", exc_info=True)
+        return []
+
+
+def _get_loss_pattern_telemetry(conn: Any, day_ago_ms: int, probes: List[Any],
+                                windows: Optional[List[tuple]] = None, interval_ms: int = 500) -> Dict[int, Dict[str, Any]]:
+    """Loss runs per target, and the loss left once the explained windows are taken out.
+
+    2026-11-10: a few long bursts (the box's own mode changes and outages) made 0.85 % loss to the
+    gateway, and the bundle concluded "LOCAL LAN NETWORK FAULT". Now: runs are counted and split into
+    those inside explained windows and the rest, and the verdict uses only the residual loss.
+    """
     stats: Dict[int, Dict[str, Any]] = {}
+    windows = windows or []
     target_ids = [p["id"] for p in probes if p["sent"] and p["lost"]]
     if not target_ids:
         return stats
+    in_win = lambda ts: any(a <= ts <= b for a, b in windows)
 
     for tid in target_ids:
         try:
-            # Check if this target is an ICMP-filtering hop (>90% loss)
             matching_probe = next((p for p in probes if p["id"] == tid), None)
             if matching_probe and (matching_probe["lost"] / matching_probe["sent"]) > 0.90:
                 stats[tid] = {
-                    "max_consecutive": matching_probe["lost"],
+                    "max_consecutive": None,          # not measured: nearly every ping is lost
                     "outages_gt_3s": 0,
-                    "pattern": "ICMP Echo Filtering / Rate-limiting (Control Plane)",
+                    "pattern": "does not answer pings (ICMP filtered or a placeholder address)",
+                    "residual_loss_pct": round(matching_probe["lost"] / matching_probe["sent"] * 100.0, 2),
+                    "runs_total": 0, "runs_explained": 0,
                 }
                 continue
 
@@ -624,40 +666,44 @@ def _get_loss_pattern_telemetry(conn: Any, day_ago_ms: int, probes: List[Any]) -
                 "SELECT ts FROM ping_sample WHERE target_id = ? AND ts >= ? AND rtt_us IS NULL ORDER BY ts",
                 (tid, day_ago_ms)
             ).fetchall()
-            cur_consec = 0
-            max_consec = 0
-            outages_gt_3s = 0
-            prev_ts = None
-
+            runs: List[List[int]] = []
             for r in rows:
                 ts = r["ts"]
-                if prev_ts is not None and (ts - prev_ts) <= 1500:
-                    cur_consec += 1
+                if runs and ts - runs[-1][1] <= interval_ms * 3:
+                    runs[-1][1] = ts
+                    runs[-1][2] += 1
                 else:
-                    if cur_consec >= 4:
-                        outages_gt_3s += 1
-                    cur_consec = 1
-                if cur_consec > max_consec:
-                    max_consec = cur_consec
-                prev_ts = ts
-            if cur_consec >= 4:
-                outages_gt_3s += 1
+                    runs.append([ts, ts, 1])
+            max_consec = max((x[2] for x in runs), default=0)
+            long_runs = [x for x in runs if x[2] >= 6]
+            explained = [x for x in long_runs if in_win(x[0]) or in_win(x[1])]
+            residual_lost = sum(x[2] for x in runs if not (in_win(x[0]) or in_win(x[1])))
+            now_cap = int(time.time() * 1000)
+            win_ms = sum(max(0, min(b, now_cap) - max(a, day_ago_ms)) for a, b in windows)
+            residual_sent = max(1, (matching_probe["sent"] if matching_probe else 0) - int(win_ms / max(1, interval_ms)))
 
-            pattern_desc = "Sporadic isolated drops (Noise / Jitter)"
-            if max_consec >= 20:
-                pattern_desc = f"Clustered outage burst (~{max_consec * 0.5:.0f}s duration)"
-            elif max_consec >= 6:
-                pattern_desc = f"Micro-outage clusters (~{max_consec * 0.5:.0f}s duration)"
-            elif len(rows) == 0:
+            if not rows:
                 pattern_desc = "Pristine delivery"
+            elif long_runs and len(explained) == len(long_runs) and residual_lost <= 3 * max(1, len(runs) - len(long_runs)):
+                pattern_desc = (f"{len(long_runs)} burst(s), the longest ~{max_consec * interval_ms / 1000:.0f}s, all during "
+                                "the box's own actions or recorded outages")
+            elif max_consec >= 20:
+                pattern_desc = (f"{len(long_runs)} burst(s), the longest ~{max_consec * interval_ms / 1000:.0f}s; "
+                                f"{len(explained)} of them during the box's own actions or recorded outages")
+            elif max_consec >= 6:
+                pattern_desc = f"Micro-outage clusters (~{max_consec * interval_ms / 1000:.0f}s duration)"
+            else:
+                pattern_desc = "Scattered single drops"
 
             stats[tid] = {
                 "max_consecutive": max_consec,
-                "outages_gt_3s": outages_gt_3s,
+                "outages_gt_3s": sum(1 for x in runs if x[2] >= 4),
                 "pattern": pattern_desc,
+                "residual_loss_pct": round(residual_lost / residual_sent * 100.0, 2),
+                "runs_total": len(long_runs), "runs_explained": len(explained),
             }
         except Exception:
-            log.debug("suppressed exception", exc_info=True)
+            log.debug("loss pattern for target %s failed", tid, exc_info=True)
     return stats
 
 
@@ -724,8 +770,11 @@ def _is_private_ip(value: str) -> bool:
         return False
 
 
-def _hop_role_label(role: str, addr: str) -> str:
-    """A private address cannot be the ISP's public edge; it is usually an ONT or upstream router."""
+def _hop_role_label(role: str, addr: str, ppp_peers: Optional[List[str]] = None) -> str:
+    """A private address cannot be the ISP's public edge; it is usually an ONT or upstream router, or the
+    ISP's PPP peer placeholder (which never answers pings)."""
+    if role == "ISP First Hop" and addr in (ppp_peers or []):
+        return "ISP PPP peer (placeholder address; does not answer pings)"
     if role == "ISP First Hop" and _is_private_ip(addr):
         return "Upstream Router/ONT (private address)"
     return role
@@ -792,14 +841,11 @@ def _service_states() -> str:
 
 
 def _nmb_version() -> str:
-    root = Path(__file__).resolve().parents[2]
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=3, check=False
-        )
-        return result.stdout.strip() or "unknown (no git metadata)"
-    except OSError:
-        return "unknown (no git metadata)"
+    """The installed version (the updater's file), "dev-<sha>" in a checkout; never "no git metadata"
+    on an installed box (2026-11-10)."""
+    from nmb.common.version import installed_version
+    v = installed_version()
+    return f"{v} (installed)" if v not in ("unknown",) and not v.startswith("dev-") else v
 
 
 def _mask_sensitive(text: str, exact_values: List[str]) -> str:
@@ -816,7 +862,10 @@ def _mask_sensitive(text: str, exact_values: List[str]) -> str:
 _cached_llm_bundle: tuple[float, str] | None = None
 
 
-def _get_path_mtu_discovery(iface: str, target: str = "1.1.1.1") -> Dict[str, Any]:
+def _get_path_mtu_discovery(iface: str, target: str = "1.1.1.1", box_mode: Optional[str] = None) -> Dict[str, Any]:
+    """Path MTU from DF pings. Only a "frag needed"/"mtu =" message or a size that answers counts as
+    evidence; no answer at all means unknown (it used to report 1480 and "PPPoE confirmed"). The advice
+    depends on who clamps the MSS: this box in router mode, otherwise the router in front of it."""
     iface_mtu = 1500
     try:
         mtu_path = Path(f"/sys/class/net/{iface}/mtu")
@@ -825,43 +874,44 @@ def _get_path_mtu_discovery(iface: str, target: str = "1.1.1.1") -> Dict[str, An
     except Exception:
         log.debug("suppressed exception", exc_info=True)
 
-    discovered_pmtu = iface_mtu
+    discovered_pmtu: Optional[int] = None
     is_pppoe = False
     diag_note = ""
 
+    def df_ping(size: int):
+        r = subprocess.run(["ping", "-c", "2", "-i", "0.3", "-M", "do", "-s", str(size), "-W", "1", target],
+                           capture_output=True, text=True, timeout=4, check=False)
+        return r.returncode == 0, r.stdout + r.stderr
+
     try:
-        ping_r = subprocess.run(
-            ["ping", "-c", "1", "-M", "do", "-s", "1472", "-W", "1", target],
-            capture_output=True, text=True, timeout=2, check=False
-        )
-        combined = ping_r.stdout + ping_r.stderr
-        if "Frag needed" in combined or "too long" in combined or ping_r.returncode != 0:
+        ok_full, combined = df_ping(1472)
+        if ok_full:
+            discovered_pmtu = 1500
+            diag_note = "1500-byte packets with DF set pass along the route."
+        else:
             m = re.search(r"mtu = (\d+)", combined)
             if m:
                 discovered_pmtu = int(m.group(1))
+            elif df_ping(1464)[0]:
+                discovered_pmtu = 1492
+            elif not df_ping(56)[0]:
+                diag_note = f"`{target}` did not answer pings at all, so the path MTU is unknown."
             else:
-                p2 = subprocess.run(
-                    ["ping", "-c", "1", "-M", "do", "-s", "1464", "-W", "1", target],
-                    capture_output=True, text=True, timeout=2, check=False
-                )
-                if p2.returncode == 0:
-                    discovered_pmtu = 1492
+                diag_note = "Neither 1500 nor 1492 bytes passed with DF set, and no router said why; path MTU unknown."
+            if discovered_pmtu is not None and discovered_pmtu <= 1492:
+                is_pppoe = discovered_pmtu == 1492
+                if box_mode == "mode_a":
+                    advice = ("This box is the router: its firewall clamps the TCP MSS to the path MTU "
+                              "(nftables rule `tcp option maxseg size set rt mtu`), so TCP is not affected.")
                 else:
-                    discovered_pmtu = 1480
-
-            if discovered_pmtu <= 1492:
-                is_pppoe = True
-                diag_note = (
-                    f"Path MTU is capped at {discovered_pmtu} bytes (standard PPPoE overhead is 8 bytes: 1500 - 8 = 1492). "
-                    f"Packets of 1500 bytes with DF flag are fragmented or dropped by upstream gateway. "
-                    f"MSS Clamping or setting WAN MTU to {discovered_pmtu} is strongly recommended to eliminate fragmentation blackholes."
-                )
-            else:
+                    advice = ("The box is behind another router, which is the one that has to clamp the TCP MSS; NMB "
+                              "cannot see whether it does. Only if large transfers or some sites stall is that worth checking.")
+                diag_note = (f"Path MTU is {discovered_pmtu} bytes"
+                             + (" (consistent with PPPoE: 1500 - 8)" if is_pppoe else "") + ". " + advice)
+            elif discovered_pmtu is not None:
                 diag_note = f"Path MTU restricted to {discovered_pmtu} bytes along the route."
-        else:
-            diag_note = "Standard 1500-byte packets pass without fragmentation (Full Gigabit / FTTH MTU intact)."
     except Exception as e:
-        diag_note = f"PMTU probe exception: {e}"
+        diag_note = f"PMTU probe failed: {e}"
 
     return {
         "interface_mtu": iface_mtu,
@@ -1052,7 +1102,17 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     phy_info = _get_phy_and_ethtool(wan_iface)
 
     # 4. Path MTU Discovery
-    pmtu_info = _get_path_mtu_discovery(wan_iface, target="1.1.1.1")
+    try:
+        _mode_row = conn.execute("SELECT v FROM kv WHERE k = 'active_mode'").fetchone()
+        box_mode = _mode_row[0] if _mode_row else None
+    except Exception:
+        box_mode = None
+    try:
+        from nmb.netd.interfaces import known_ppp_peers
+        ppp_peers = known_ppp_peers(conn)
+    except Exception:
+        ppp_peers = []
+    pmtu_info = _get_path_mtu_discovery(wan_iface, target="1.1.1.1", box_mode=box_mode)
 
     # 5. Kernel routing table
     routes_text = "N/A"
@@ -1149,7 +1209,12 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     except Exception as e:
         log.debug("error querying ping probes: %s", e)
 
-    loss_patterns = _get_loss_pattern_telemetry(conn, day_ago, probes)
+    explained_windows = _explained_windows(conn, day_ago, db.now_ms())
+    try:
+        _interval = int(getattr(cfg.probe, "ping_interval_ms", 500) or 500)
+    except Exception:
+        _interval = 500
+    loss_patterns = _get_loss_pattern_telemetry(conn, day_ago, probes, windows=explained_windows, interval_ms=_interval)
 
     # 10. SQM Qdisc status & Kernel Mismatch Check
     sqm_status = "N/A"
@@ -1191,13 +1256,18 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
 
     # 11. Recent Warning & Critical System Events (filtered to prevent routine speedtest INFO floods)
     speed_stats = _speed_statistics(conn, db.now_ms() - 86_400_000)
+    # The stored severities are 'warn' and 'crit' (the query asked for 'warning'/'error'/'critical', which
+    # never exist). The box's own actions and mode changes are listed too, so outages can be compared
+    # with them (2026-11-10: the bundle showed only outage rows, so its reader blamed the line).
     events = conn.execute(
-        """SELECT ts, severity, source, kind, detail 
-           FROM event 
-           WHERE severity IN ('warning', 'error', 'critical') 
-              OR kind IN ('outage_start', 'outage_end', 'mode_transition', 'link_down', 'link_up')
-           ORDER BY ts DESC 
-           LIMIT 25"""
+        """SELECT ts, severity, source, kind, detail
+           FROM event
+           WHERE severity IN ('warn', 'crit')
+              OR kind IN ('outage_start', 'outage_end', 'mode_change', 'mode_change_failed', 'mode_setting_changed',
+                          'own_action_start', 'own_action_end', 'uplink_usb_fallback', 'uplink_usb_fallback_end',
+                          'pppoe_auth_refused', 'dns_fallback_activated', 'dns_restored', 'link_down', 'link_up')
+           ORDER BY ts DESC
+           LIMIT 40"""
     ).fetchall()
     conn.close()
 
@@ -1219,7 +1289,18 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     iperf_res = get_latest_iperf_result()
     iperf_srv = get_iperf_server_status()
     trace_res = get_latest_traceroute()
+    # A speed test on the box (any process) at the start or the end of the MTR makes it a loaded MTR.
+    try:
+        from nmb.speed.runner import measurement_running_anywhere
+        _busy_before = measurement_running_anywhere()
+    except Exception:
+        _busy_before = None
     mtr_data = _get_detailed_mtr(target="1.1.1.1", cycles=30)
+    try:
+        _busy_after = measurement_running_anywhere()
+        mtr_loaded = bool(_busy_before or _busy_after) if _busy_before is not None else None
+    except Exception:
+        mtr_loaded = None
 
     # 14. Sanitized config text
     conf_path = Path("/etc/nmb/nmb.conf")
@@ -1262,6 +1343,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         gateway_ip=local_gw_ip,
         hop2_ip=hop2_ip,
         http_public_ip=pub_ip_hdr,
+        ppp_peers=ppp_peers,
     )
 
     # Build Markdown document
@@ -1385,13 +1467,13 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         "",
         "## 3. Path MTU Discovery (PMTU) & NAT / CGNAT Topology",
         f"- **Configured Interface MTU**: `{pmtu_info.get('interface_mtu')} bytes`",
-        f"- **Discovered Path MTU (PMTU)**: `{pmtu_info.get('discovered_pmtu')} bytes`",
-        f"- **PPPoE Encapsulation Detected**: {'⚠️ YES (PPPoE 8-byte overhead confirmed)' if pmtu_info.get('is_pppoe') else 'No (Standard Ethernet / IPoE)'}",
+        f"- **Discovered Path MTU (PMTU)**: `{str(pmtu_info.get('discovered_pmtu')) + ' bytes' if pmtu_info.get('discovered_pmtu') else 'unknown'}`",
+        f"- **PPPoE on the path**: {'consistent with PPPoE (1492 bytes)' if pmtu_info.get('is_pppoe') else 'no sign of it'}",
         f"- **PMTU Diagnostic Analysis**: {pmtu_info.get('note')}",
         f"- **NAT Topology Verdict**: {nat_telemetry.get('verdict')}",
 f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same public port towards two STUN servers means endpoint-independent; a different port means symmetric NAT).",
         f"- **UDP STUN Probe (`{nat_telemetry.get('stun_server') or 'stun.cloudflare.com'}`)**: Mapped IP: `{nat_telemetry.get('mapped_ip') or 'N/A'}:{nat_telemetry.get('mapped_port') or 'N/A'}` (Matches Public Egress: `{'YES' if nat_telemetry.get('mapped_ip') == pub_ip_hdr else 'NO / Transformed'}`)",
-        f"- **Carrier-Grade NAT (CGNAT RFC 6598)**: `{'⚠️ YES (Detected)' if nat_telemetry.get('is_cgnat') else 'No (Public IP Assigned)'}` | **Double NAT**: `{'⚠️ YES (Detected)' if nat_telemetry.get('is_double_nat') else 'No'}`",
+        f"- **Carrier-Grade NAT (CGNAT RFC 6598)**: `{'consistent with CGNAT (hop 2 in 100.64.0.0/10)' if nat_telemetry.get('is_cgnat') else 'no sign of it'}` | **Double NAT**: `{ {True: 'yes', None: 'possible (cannot be told from a traceroute)', False: 'no sign of it'}.get(nat_telemetry.get('is_double_nat'), 'unknown') }`",
         "",
         "## 4. Network Interfaces & IP Configuration",
         "| Interface | Type | State | MAC Address | MTU | IPv4 | IPv6 | Speed |",
@@ -1658,38 +1740,45 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
 
         pat_info = loss_patterns.get(p["id"], {})
         pattern_str = pat_info.get("pattern", "Continuous pristine delivery")
-        if pat_info.get("max_consecutive", 0) > 0:
+        if pat_info.get("max_consecutive"):
             pattern_str = f"Max streak: {pat_info['max_consecutive']} ({pattern_str})"
+        residual = pat_info.get("residual_loss_pct", loss_pct if lost else 0.0)
 
-        lines.append(f"| `{p['target_addr']}` | **{_hop_role_label(role, p['target_addr'])}** | {p['target_label']} | {sent_str} | {lost:,} | **{loss_pct:.2f}%** | {avg_rtt_str} | {min_max_str} | {pattern_str} |")
+        lines.append(f"| `{p['target_addr']}` | **{_hop_role_label(role, p['target_addr'], ppp_peers)}** | {p['target_label']} | {sent_str} | {lost:,} | **{loss_pct:.2f}%** | {avg_rtt_str} | {min_max_str} | {pattern_str} |")
 
+        # The verdict below uses the loss left after the box's own actions and the recorded outages.
         if role == "Local Gateway":
-            local_gw_loss = loss_pct if sent > 0 else None
+            local_gw_loss = residual if sent > 0 else None
+            local_gw_raw = loss_pct
             local_gw_ip = p["target_addr"]
         elif role == "ISP First Hop":
-            isp_hop_loss = loss_pct if sent > 0 else None
+            isp_hop_loss = residual if sent > 0 else None
             isp_hop_ip = p["target_addr"]
         else:
             if sent > 0:
-                public_losses.append(loss_pct)
+                public_losses.append(residual)
 
     lines.append("")
+    explained_runs = sum(v.get("runs_explained", 0) for v in loss_patterns.values())
+    if explained_windows:
+        lines.append(f"> Loss during the box's own actions (mode change, update, restart) and during recorded outages is left out of the verdict below ({explained_runs} loss burst(s) fell into those times); the table above shows all of it.")
     if local_gw_loss is not None and local_gw_loss >= 0.5:
-        lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🔴 **LOCAL LAN NETWORK FAULT DETECTED** ({local_gw_loss:.2f}% packet loss to Local Gateway `{local_gw_ip}`). Packets are being dropped inside your local network between the NetworkMeasureBox and the local router. Check Ethernet cabling, switch ports, Wi-Fi interference, or router CPU saturation. Upstream ISP line is not the primary cause.")
+        lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🔴 **LOSS INSIDE THE LOCAL NETWORK** ({local_gw_loss:.2f}% scattered loss to the local gateway `{local_gw_ip}`, outside own actions and outages). Possible causes: cabling, a switch port, Wi-Fi, or the router being too busy to answer pings (some routers answer pings with low priority); check the cable and compare with a wired device.")
     elif isp_hop_loss is not None and isp_hop_loss >= 0.5:
         avg_pub = sum(public_losses) / len(public_losses) if public_losses else 0.0
         if avg_pub < 5.0 and isp_hop_loss > 90.0:
             hop_name = "upstream private router/ONT" if _is_private_ip(isp_hop_ip) else "ISP hop"
             lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🟡 **{hop_name.upper()} DOES NOT ANSWER PINGS** ({isp_hop_loss:.2f}% loss to `{isp_hop_ip}`). This alone is not a fault: forwarding works, because public targets average {avg_pub:.2f}% loss and the local gateway {local_gw_loss if local_gw_loss is not None else 0:.2f}%. A firewall or ICMP filter is the likely reason; this data cannot say which device applies it.")
         else:
-            lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🔴 **ISP / WAN ACCESS LINE FAULT DETECTED** ({isp_hop_loss:.2f}% packet loss to ISP First Hop `{isp_hop_ip}`). Local LAN is completely clean ({local_gw_loss or 0.0:.2f}% loss to router), proving that packet loss originates between the router and the ISP's first aggregation node (ONT/modem, fiber signal, or ISP CMTS/BRAS).")
+            lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🔴 **LOSS ON THE ACCESS LINE** ({isp_hop_loss:.2f}% loss to the first ISP hop `{isp_hop_ip}`, outside own actions and outages) while the local gateway shows {local_gw_loss or 0.0:.2f}%. This points to the part between the router and the ISP's first node (ONT/modem, fiber, or the ISP's access equipment); an ICMP rate limit on that hop would look the same, so compare with the public targets.")
     elif public_losses and (sum(public_losses) / len(public_losses)) >= 0.5:
         avg_pub = sum(public_losses) / len(public_losses)
-        lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🟡 **INTERNET TRANSIT / PEERING DEGRADATION** ({avg_pub:.2f}% average loss across Public DNS). Local LAN and ISP First Hop connection are both clean, indicating that drops occur beyond the ISP gateway in external transit/peering networks.")
+        lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🟡 **LOSS BEYOND THE FIRST HOPS** ({avg_pub:.2f}% average scattered loss to the public targets, outside own actions and outages) while the nearer hops show little; the drops happen further out (the ISP's core, transit or the targets themselves).")
     else:
         lines.append("> **LAN vs. WAN Loss Isolation Verdict**: 🟢 **NO CHRONIC LOSS**: under 0.5% loss across monitored targets in the past 24 hours. Short bursts can still appear in the table above.")
 
-    mtr_condition = "Loaded (During Active Download/Upload Test)" if is_speedtest_running() else "Idle (No concurrent speedtest)"
+    mtr_condition = {True: "Loaded (a speed test ran during the MTR; loss and delay are higher than idle)",
+                     False: "Idle (no speed test ran during the MTR)"}.get(mtr_loaded, "unknown")
     cycles_num = mtr_data.get("cycles", 30)
     mtr_target = "1.1.1.1"
 
@@ -1835,7 +1924,8 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
 
     lines.extend([
         "",
-        "## 14. Recent Warning & Critical System Events (Latest 25, Any Age; Compare Dates With the 24h Tables)",
+        "## 14. Recent Warnings, Outages and the Box's Own Actions (Latest 40, Any Age; Compare Dates With the 24h Tables)",
+        "> `own_action_*`, `mode_change*`: the box itself changed its network setup (mode change, update, restart). An outage in such a window is the box's own, not the line's.",
         "| Timestamp | Severity | Source | Kind | Detail |",
         "| :--- | :--- | :--- | :--- | :--- |",
     ])
@@ -1843,9 +1933,10 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
     if events:
         for e in events:
             ts_str = datetime.datetime.fromtimestamp(e["ts"] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-            lines.append(f"| {ts_str} | **{e['severity'].upper()}** | `{e['source']}` | `{e['kind']}` | {e['detail']} |")
+            detail = str(e["detail"] or "").replace("|", "/").replace("\n", " ")
+            lines.append(f"| {ts_str} | **{e['severity'].upper()}** | `{e['source']}` | `{e['kind']}` | {detail} |")
     else:
-        lines.append("| --:--:-- | **INFO** | `nmb` | `all_clear` | 🟢 0 Warning or Critical events recorded in last 24h. Routine speedtest INFOs routed to Section 7. |")
+        lines.append("| --:--:-- | **INFO** | `nmb` | `all_clear` | No warnings, outages or own actions recorded. Routine speed test events are in section 7. |")
 
     lines.extend([
         "",

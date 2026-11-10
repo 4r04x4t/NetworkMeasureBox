@@ -58,9 +58,18 @@ class TestLLMBundle(unittest.TestCase):
             hop2_ip="10.0.0.1",
             http_public_ip="198.51.100.55"
         )
-        self.assertTrue(d_nat["is_double_nat"])
+        # A private hop 2 is a second router OR the ISP's point-to-point / PPP peer: only "possible"
+        # (it said "Double NAT Detected" behind a router that dials PPPoE itself, 2026-11-10).
+        self.assertIsNone(d_nat["is_double_nat"])
         self.assertFalse(d_nat["is_cgnat"])
-        self.assertIn("Double NAT Detected", d_nat["verdict"])
+        self.assertIn("Possibly double NAT", d_nat["verdict"])
+
+        # A hop 2 that is a known PPP peer placeholder is not a NAT at all
+        peer = _get_nat_and_stun_telemetry(
+            local_ip="192.168.1.100", gateway_ip="192.168.1.1", hop2_ip="10.0.0.1",
+            http_public_ip="198.51.100.55", ppp_peers=["10.0.0.1"])
+        self.assertIs(peer["is_double_nat"], False)
+        self.assertIn("PPP peer", peer["verdict"])
 
         # Test CGNAT detection
         cgnat = _get_nat_and_stun_telemetry(
@@ -70,7 +79,7 @@ class TestLLMBundle(unittest.TestCase):
             http_public_ip="198.51.100.55"
         )
         self.assertTrue(cgnat["is_cgnat"])
-        self.assertIn("Carrier-Grade NAT", cgnat["verdict"])
+        self.assertIn("carrier-grade NAT", cgnat["verdict"])
 
         # Test Clean Single NAT
         clean = _get_nat_and_stun_telemetry(
@@ -163,7 +172,7 @@ class TestLLMBundle(unittest.TestCase):
         self.assertIn("## 9. Hop-by-Hop Multi-Sample MTR Path Telemetry", bundle)
         self.assertIn("## 10. LAN vs WAN Performance Isolation & iPerf3 Benchmark", bundle)
         self.assertIn("## 11. Active Queue Discipline", bundle)
-        self.assertIn("## 14. Recent Warning & Critical System Events", bundle)
+        self.assertIn("## 14. Recent Warnings, Outages and the Box's Own Actions", bundle)
         self.assertIn("## 15. Sanitized Configuration", bundle)
 
         # Check that Section 9 guidance has no Hungarian leftover text

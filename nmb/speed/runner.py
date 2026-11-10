@@ -828,6 +828,28 @@ def _measure_lock(wait_sec: float):
             time.sleep(2)
 
 
+def measurement_running_anywhere() -> bool:
+    """True when any process on the box holds the measurement lock (a test is running now). Checks
+    and releases at once; is_speedtest_running() only knows this process's own tests."""
+    if is_speedtest_running():
+        return True
+    import fcntl
+    try:
+        fd = os.open(MEASURE_LOCK, os.O_RDWR)
+    except OSError:
+        return False
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return False
+    except BlockingIOError:
+        return True
+    except OSError:
+        return False
+    finally:
+        os.close(fd)
+
+
 def run_measurement_cycle(cfg: Config, trigger: str = "schedule", *args, **kwargs) -> bool:
     """One measurement cycle at a time on the whole box (see _measure_lock)."""
     import fcntl
