@@ -297,6 +297,8 @@
   "low_disk_firing": "💾 <b>AVERTISMENT: SPAȚIU PE DISC REDUS</b>\n\nSpațiu liber pe partiția root: <b>{free:.0f} MB</b> (&lt; 500 MB)\nȘtergeți copiile de rezervă vechi: <code>/backup list</code>",
   "low_disk_resolved": "✅ <b>SPAȚIUL PE DISC A REVENIT</b>\n\nSpațiu liber: <b>{free:.0f} MB</b>.",
   "wan_failover_firing": "🔀 <b>COMUTARE WAN DE REZERVĂ</b>\n\nLegătura WAN principală (<code>{primary}</code>) a căzut.\nS-a comutat pe interfața de rezervă: <code>{active}</code>.",
-  "wan_failover_resolved": "✅ <b>LEGĂTURA WAN PRINCIPALĂ A REVENIT</b>\n\nTraficul este rutat din nou prin interfața principală: <code>{primary}</code>."
+  "wan_failover_resolved": "✅ <b>LEGĂTURA WAN PRINCIPALĂ A REVENIT</b>\n\nTraficul este rutat din nou prin interfața principală: <code>{primary}</code>.",
+  "data_cap_firing": "📉 <b>LIMITĂ DE DATE ATINSĂ</b>\n\nTestele de viteză automate s-au oprit pe: {links}\nPornesc din nou pe <b>{next}</b>. Testele pornite de tine rulează în continuare.",
+  "data_cap_resolved": "✅ <b>LIMITĂ DE DATE: TESTELE AUTOMATE RULEAZĂ DIN NOU</b>\n\nA început o perioadă nouă sau limita a fost mărită."
  }
 }

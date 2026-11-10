@@ -297,6 +297,8 @@
   "low_disk_firing": "💾 <b>AVVISO: SPAZIO SU DISCO SCARSO</b>\n\nSpazio libero sulla partizione root: <b>{free:.0f} MB</b> (&lt; 500 MB)\nValuta di eliminare i backup vecchi: <code>/backup list</code>",
   "low_disk_resolved": "✅ <b>SPAZIO SU DISCO RECUPERATO</b>\n\nSpazio libero: <b>{free:.0f} MB</b>.",
   "wan_failover_firing": "🔀 <b>FAILOVER WAN ATTIVATO</b>\n\nIl collegamento WAN principale (<code>{primary}</code>) è caduto.\nPassaggio all'interfaccia di riserva: <code>{active}</code>.",
-  "wan_failover_resolved": "✅ <b>COLLEGAMENTO WAN PRINCIPALE RIPRISTINATO</b>\n\nIl traffico è di nuovo instradato sull'interfaccia principale: <code>{primary}</code>."
+  "wan_failover_resolved": "✅ <b>COLLEGAMENTO WAN PRINCIPALE RIPRISTINATO</b>\n\nIl traffico è di nuovo instradato sull'interfaccia principale: <code>{primary}</code>.",
+  "data_cap_firing": "📉 <b>LIMITE DI DATI RAGGIUNTO</b>\n\nTest di velocità automatici fermati su: {links}\nRipartono il <b>{next}</b>. I test che avvii tu continuano.",
+  "data_cap_resolved": "✅ <b>LIMITE DI DATI: I TEST AUTOMATICI RIPARTONO</b>\n\nÈ iniziato un nuovo periodo o il limite è stato alzato."
  }
 }

@@ -250,6 +250,27 @@ class AlertMonitor:
             self._broadcast("wan_failover_resolved", primary=primary_iface)
             self._set_alert_state(conn, "wan_failover", "resolved", f"WAN restored {primary_iface}")
 
+    def check_data_cap(self, conn: sqlite3.Connection) -> None:
+        """Tell the owner when a data cap stopped the automatic tests on a link, and when they run again."""
+        from nmb.speed import data_cap
+        try:
+            u = data_cap.usage(conn, self.cfg)
+        except Exception:
+            log.debug("data cap usage not read", exc_info=True)
+            return
+        reached = [l for l in u["links"] if l["reached"]]
+        cur_state = self._get_alert_state(conn, "data_cap")
+        if reached and cur_state != "firing":
+            links = ", ".join(
+                f"{l['link']} ({l['used_mb']:.0f} of {l['cap_mb']} MB)" if l["cap_mb"] and l["used_mb"] >= l["cap_mb"]
+                else f"{l['link']} ({l['type']}: {l['type_used_mb']:.0f} of {l['type_cap_mb']} MB)"
+                for l in reached)
+            self._broadcast("data_cap_firing", links=links, next=u["next_reset"])
+            self._set_alert_state(conn, "data_cap", "firing", f"Data cap reached: {links}")
+        elif not reached and cur_state == "firing":
+            self._broadcast("data_cap_resolved")
+            self._set_alert_state(conn, "data_cap", "resolved", "Automatic tests run again")
+
     # =========================================================================
     # Main Periodic Execution Loop
     # =========================================================================
@@ -263,6 +284,7 @@ class AlertMonitor:
             self.check_service_health(conn)
             self.check_system_resources(conn)
             self.check_wan_failover(conn)
+            self.check_data_cap(conn)
             conn.close()
         except Exception as e:
             log.error("error during alert check: %s", e)

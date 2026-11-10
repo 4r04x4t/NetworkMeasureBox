@@ -1129,6 +1129,8 @@ ALERT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "low_disk_resolved": "✅ <b>TÁRHELY HELYREÁLLT</b>\n\nSzabad lemezterület: <b>{free:.0f} MB</b>.",
         "wan_failover_firing": "🔀 <b>AUTOMATIKUS WAN ÁTKAPCSOLÁS (FAILOVER)</b>\n\nElsődleges WAN (<code>{primary}</code>) kapcsolat megszakadt.\nÁtkapcsolva a tartalék interfészre: <code>{active}</code>.",
         "wan_failover_resolved": "✅ <b>ELSŐDLEGES WAN KAPCSOLAT HELYREÁLLT</b>\n\nA forgalom visszairányítva az elsődleges interfészre: <code>{primary}</code>.",
+        "data_cap_firing": "📉 <b>ADATKORLÁT BETELT</b>\n\nAz automatikus sebességmérések leálltak ezen: {links}\nÚjra indulnak: <b>{next}</b>. Az általad indított mérések továbbra is futnak.",
+        "data_cap_resolved": "✅ <b>ADATKORLÁT: AZ AUTOMATIKUS MÉRÉSEK ÚJRA FUTNAK</b>\n\nÚj időszak kezdődött, vagy a korlát nőtt.",
     },
     "en": {
         "outage_start": "🚨 <b>CRITICAL NETWORK OUTAGE DETECTED</b>\n\nAll probe targets unreachable.\nCause: <i>{cause}</i>\nDevice ID: <code>{box_id}</code>",
@@ -1147,6 +1149,8 @@ ALERT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "low_disk_resolved": "✅ <b>DISK STORAGE RECOVERED</b>\n\nFree disk space: <b>{free:.0f} MB</b>.",
         "wan_failover_firing": "🔀 <b>WAN FAILOVER ENGAGED</b>\n\nPrimary WAN (<code>{primary}</code>) link failed.\nSwitched to backup interface: <code>{active}</code>.",
         "wan_failover_resolved": "✅ <b>PRIMARY WAN LINK RESTORED</b>\n\nTraffic routed back to primary interface: <code>{primary}</code>.",
+        "data_cap_firing": "📉 <b>DATA CAP REACHED</b>\n\nAutomatic speed tests stopped on: {links}\nThey start again on <b>{next}</b>. Tests you start yourself still run.",
+        "data_cap_resolved": "✅ <b>DATA CAP: AUTOMATIC TESTS RUN AGAIN</b>\n\nA new period started or the cap was raised.",
     },
     "de": {
         "outage_start": "🚨 <b>KRITISCHER NETZWERKAUSFALL ERKANNT</b>\n\nAlle Messziele nicht erreichbar.\nUrsache: <i>{cause}</i>\nGeräte-ID: <code>{box_id}</code>",
@@ -1165,6 +1169,8 @@ ALERT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "low_disk_resolved": "✅ <b>SPEICHERPLATZ WIEDERHERGESTELLT</b>\n\nFreier Speicherplatz: <b>{free:.0f} MB</b>.",
         "wan_failover_firing": "🔀 <b>AUTOMATISCHES WAN-FAILOVER AKTIVIERT</b>\n\nPrimärer WAN-Uplink (<code>{primary}</code>) ausgefallen.\nUmgewechselt auf Backup-Schnittstelle: <code>{active}</code>.",
         "wan_failover_resolved": "✅ <b>PRIMÄRER WAN-UPLINK WIEDERHERGESTELLT</b>\n\nVerkehr wird wieder über primäre Schnittstelle geroutet: <code>{primary}</code>.",
+        "data_cap_firing": "📉 <b>DATENLIMIT ERREICHT</b>\n\nAutomatische Geschwindigkeitstests gestoppt auf: {links}\nSie starten wieder am <b>{next}</b>. Selbst gestartete Tests laufen weiter.",
+        "data_cap_resolved": "✅ <b>DATENLIMIT: AUTOMATISCHE TESTS LAUFEN WIEDER</b>\n\nEin neuer Zeitraum hat begonnen oder das Limit wurde erhöht.",
     },
     "fr": {
         "outage_start": "🚨 <b>PANNE RÉSEAU CRITIQUE DÉTECTÉE</b>\n\nToutes les cibles de test sont inaccessibles.\nCause: <i>{cause}</i>\nIdentifiant: <code>{box_id}</code>",
@@ -1183,6 +1189,8 @@ ALERT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "low_disk_resolved": "✅ <b>ESPACE DISQUE RÉCUPÉRÉ</b>\n\nEspace disque libre: <b>{free:.0f} Mo</b>.",
         "wan_failover_firing": "🔀 <b>BASCULEMENT WAN (FAILOVER) ENGAGÉ</b>\n\nLien WAN principal (<code>{primary}</code>) défaillant.\nBasculé sur l'interface de secours: <code>{active}</code>.",
         "wan_failover_resolved": "✅ <b>LIEN WAN PRINCIPAL RESTAURÉ</b>\n\nTrafic réacheminé vers l'interface principale: <code>{primary}</code>.",
+        "data_cap_firing": "📉 <b>PLAFOND DE DONNÉES ATTEINT</b>\n\nTests de débit automatiques arrêtés sur : {links}\nIls reprennent le <b>{next}</b>. Les tests que vous lancez vous-même continuent.",
+        "data_cap_resolved": "✅ <b>PLAFOND DE DONNÉES : LES TESTS AUTOMATIQUES REPRENNENT</b>\n\nUne nouvelle période a commencé ou le plafond a été relevé.",
     },
     "uk": {
         "outage_start": "🚨 <b>ВИЯВЛЕНО КРИТИЧНИЙ ЗБІЙ МЕРЕЖІ</b>\n\nУсі тестові вузли недоступні.\nПричина: <i>{cause}</i>\nІдентифікатор: <code>{box_id}</code>",
@@ -1201,6 +1209,8 @@ ALERT_TEMPLATES: Dict[str, Dict[str, str]] = {
         "low_disk_resolved": "✅ <b>ВІЛЬНЕ МІСЦЕ ВІДНОВЛЕНО</b>\n\nВільний простір на диску: <b>{free:.0f} МБ</b>.",
         "wan_failover_firing": "🔀 <b>АКТИВОВАНО АВАРІЙНЕ ПЕРЕМИКАННЯ WAN</b>\n\nОсновний канал WAN (<code>{primary}</code>) недоступний.\nПереключено на резервний інтерфейс: <code>{active}</code>.",
         "wan_failover_resolved": "✅ <b>ОСНОВНИЙ КАНАЛ WAN ВІДНОВЛЕНО</b>\n\nТрафік знову спрямовано через основний інтерфейс: <code>{primary}</code>.",
+        "data_cap_firing": "📉 <b>ЛІМІТ ДАНИХ ВИЧЕРПАНО</b>\n\nАвтоматичні тести швидкості зупинено на: {links}\nВони знову запустяться <b>{next}</b>. Тести, які ви запускаєте самі, працюють далі.",
+        "data_cap_resolved": "✅ <b>ЛІМІТ ДАНИХ: АВТОМАТИЧНІ ТЕСТИ ЗНОВУ ПРАЦЮЮТЬ</b>\n\nПочався новий період або ліміт збільшено.",
     }
 }
 

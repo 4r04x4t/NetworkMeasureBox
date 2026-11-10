@@ -168,3 +168,26 @@ class RunnerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BotAlertTest(unittest.TestCase):
+    def test_alert_fires_once_and_resolves(self):
+        from nmb.bot import alerts
+        conn = _conn()
+        conn.row_factory = sqlite3.Row
+        conn.executescript(SCHEMA)
+        cfg = Config()
+        cfg.data_cap = DataCapConfig(period="month", wired_mb=100)
+        eng = alerts.AlertMonitor.__new__(alerts.AlertMonitor)
+        eng.cfg = cfg
+        sent = []
+        eng._broadcast = lambda key, **kw: sent.append((key, kw))
+        with mock.patch.object(data_cap, "link_class", return_value="wired"):
+            data_cap.add(conn, cfg, "ppp0", 150)
+        eng.check_data_cap(conn)
+        eng.check_data_cap(conn)
+        self.assertEqual([k for k, _ in sent], ["data_cap_firing"])
+        self.assertIn("wired (150 of 100 MB)", sent[0][1]["links"])
+        cfg.data_cap.wired_mb = 0
+        eng.check_data_cap(conn)
+        self.assertEqual([k for k, _ in sent], ["data_cap_firing", "data_cap_resolved"])

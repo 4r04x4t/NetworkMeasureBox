@@ -99,7 +99,7 @@ Reached only over Tailscale (the developer PC was on another network, the Nighth
 | Data caps | ✅ | `nmb-selftest datacap` 5/5: usage counted per link since the period start, a cap set to the used amount was seen as reached, a scheduled cycle was skipped without running an engine, the owner's caps put back |
 | Mixed run without iPerf3 and Ookla | ✅ | Set to Cloudflare, Fast.com and RTR on the box; the next scheduled cycles ran only those |
 | Ping telemetry on PPPoE | ✅ after a fix | Before: 100 % loss on every target from 19:31 to 01:21 (probe bound to eth0, no address) and 8 outages left open. After: the probe moved to ppp0 within 30 s, no loss, 1.1.1.1 about 8 ms; the Local Gateway (no gateway on PPPoE) and the ISP First Hop (the PPP peer 10.0.0.1, which does not answer pings) switched off |
-| NetworkManager on the PPPoE port | ✅ (unit), live: to watch | The port is set unmanaged in router mode; the night's log showed "Activation: failed for connection 'netplan-eth0'" every 45 s before the fix |
+| NetworkManager on the PPPoE port | ✅ | eth0 unmanaged in router mode: one attempt during the restart (01:38) against 21 in the 42 minutes before ("Activation: failed for connection 'netplan-eth0'" every 45 s) |
 
 ### Wi-Fi access point (VM-D13, simulated radios)
 
@@ -367,7 +367,7 @@ Found in the code or in the box's logs and not fixed yet (the log review of 2026
 | What | Detail |
 |---|---|
 | Ookla rate limits at an hourly schedule | Ookla still refused the box every few hours (2026-11-08 17:20, 20:22-22:24, 11-09 01:27, 06:37, 07:41). One cause is fixed (the bot ran Ookla as a new client each time); watch whether it stops, and count manual and Telegram runs against the hour too |
-| False outages and lost pings of 2026-11-09/10 | 8 outages (19:12-21:10 starts, never closed) and the 100 %-loss minutes from 19:12 to 01:22 came from the probe fault and the test cabling, not from the line. They are still in the database and would show in the reports; a read-only copy is in the private log folder. To remove or mark them, the owner decides |
+| False outages and lost pings of 2026-11-09/10 | 8 outages (19:12-21:10 starts, never closed) and the 100 %-loss minutes from 19:12 to 01:22 came from the probe fault and the test cabling, not from the line. They are still in the database and would show in the reports; a read-only copy is in the private log folder. Because one of them is still open, the bot's outage alert has stayed "firing" since 19:12, so a real outage would not send a new alert until they are closed. To remove or mark them, the owner decides |
 | SD card writes | The developer log grows about 10 MB a day on the SD card (the boot-partition copy of the diagnostic snapshot is already limited to once an hour) |
 | Data used by the owner's schedule | The box runs every engine every 2-5 minutes (the owner's setting): on a 1000 Mbit/s line that is many GB an hour. USB has no daily limit set (0); since 2026-11-09 router mode does not fall back to USB for tests, but a limit for USB is still advisable |
 | `nmcli device reapply` | Putting IPv4 DNS first reapplies the profile once; that reset an open connection of the bot once (it reconnected) |

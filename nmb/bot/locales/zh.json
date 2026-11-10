@@ -297,6 +297,8 @@
   "low_disk_firing": "💾 <b>磁盘空间不足警告</b>\n\n根分区可用空间：<b>{free:.0f} MB</b>（&lt; 500 MB）\n可考虑清理旧备份：<code>/backup list</code>",
   "low_disk_resolved": "✅ <b>磁盘空间已恢复</b>\n\n可用空间：<b>{free:.0f} MB</b>。",
   "wan_failover_firing": "🔀 <b>已启用 WAN 故障切换</b>\n\n主 WAN 链路（<code>{primary}</code>）故障。\n已切换到备用接口：<code>{active}</code>。",
-  "wan_failover_resolved": "✅ <b>主 WAN 链路已恢复</b>\n\n流量已重新通过主接口：<code>{primary}</code>。"
+  "wan_failover_resolved": "✅ <b>主 WAN 链路已恢复</b>\n\n流量已重新通过主接口：<code>{primary}</code>。",
+  "data_cap_firing": "📉 <b>已达流量上限</b>\n\n以下链路的自动测速已停止：{links}\n将于 <b>{next}</b> 重新开始。您手动启动的测试仍会运行。",
+  "data_cap_resolved": "✅ <b>流量上限：自动测试已恢复</b>\n\n新的周期已开始，或上限已提高。"
  }
 }

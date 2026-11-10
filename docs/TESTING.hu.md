@@ -99,7 +99,7 @@ Csak Tailscale-en keresztül elérve (a fejlesztői gép másik hálózaton, a N
 | Adatkorlát | ✅ | `nmb-selftest datacap` 5/5: a felhasználás linkenként az időszak kezdete óta számolva, a felhasznált mennyiségre állított korlát elértnek látszott, egy ütemezett kör motor futtatása nélkül kimaradt, a tulajdonos korlátai visszaálltak |
 | Vegyes kör iPerf3 és Ookla nélkül | ✅ | A dobozon Cloudflare, Fast.com és RTR beállítva; a következő ütemezett körök csak ezeket futtatták |
 | Ping-telemetria PPPoE-n | ✅ javítás után | Előtte: 100% veszteség minden célpontra 19:31 és 01:21 között (a szonda az eth0-hoz volt kötve, cím nélkül) és 8 nyitva maradt kiesés. Utána: a szonda 30 s-on belül a ppp0-ra költözött, veszteség nincs, 1.1.1.1 kb. 8 ms; a Local Gateway (PPPoE-n nincs átjáró) és az ISP First Hop (a PPP peer 10.0.0.1, amely pingre nem válaszol) kikapcsolva |
-| NetworkManager a PPPoE-porton | ✅ (egység), élesben: figyelendő | Router módban a port nem kezelt; az éjszakai naplóban a javítás előtt 45 s-onként „Activation: failed for connection 'netplan-eth0'” állt |
+| NetworkManager a PPPoE-porton | ✅ | Router módban az eth0 nem kezelt: egy próbálkozás az újraindításkor (01:38), szemben az előtte lévő 42 perc 21 próbálkozásával („Activation: failed for connection 'netplan-eth0'” 45 s-onként) |
 
 ### Wi-Fi hozzáférési pont (VM-D13, szimulált rádiók)
 
@@ -367,7 +367,7 @@ A kódban vagy a box naplóiban talált, még nem javított hibák (a 2026-11-09
 | Mi | Részlet |
 |---|---|
 | Ookla rate limit óránkénti ütemezésnél | Az Ookla néhány óránként még elutasította a boxot (2026-11-08 17:20, 20:22-22:24, 11-09 01:27, 06:37, 07:41). Egy ok javítva (a bot minden alkalommal új kliensként futtatta az Ooklát); figyelni kell, megszűnik-e, és a kézi és Telegramos futásokat is bele kell számolni az órába |
-| Hamis kiesések és elveszett pingek, 2026-11-09/10 | 8 kiesés (kezdetük 19:12 és 21:10 között, egyik sem zárult le) és a 100%-os veszteségű percek 19:12 és 01:22 között a szonda hibájából és a teszt kábelezéséből jöttek, nem a vonaltól. Még az adatbázisban vannak és a jelentésekben megjelennének; olvasási célú másolatuk a privát naplómappában van. A törlésükről vagy megjelölésükről a tulajdonos dönt |
+| Hamis kiesések és elveszett pingek, 2026-11-09/10 | 8 kiesés (kezdetük 19:12 és 21:10 között, egyik sem zárult le) és a 100%-os veszteségű percek 19:12 és 01:22 között a szonda hibájából és a teszt kábelezéséből jöttek, nem a vonaltól. Még az adatbázisban vannak és a jelentésekben megjelennének; olvasási célú másolatuk a privát naplómappában van. Mivel közülük egy még nyitva van, a bot kiesés-riasztása 19:12 óta „firing” állapotban van, így egy valódi kiesésről sem jönne új riasztás, amíg le nem zárulnak. A törlésükről vagy megjelölésükről a tulajdonos dönt |
 | SD-kártya írások | A fejlesztői napló kb. 10 MB-ot nő naponta az SD-kártyán (a diagnosztikai pillanatkép boot partíciós másolata már óránként legfeljebb egyszer készül) |
 | A tulajdonos ütemezése által használt adat | A doboz 2-5 percenként minden motort futtat (a tulajdonos beállítása): egy 1000 Mbit/s-os vonalon ez óránként sok GB. A USB-nek nincs napi korlátja (0); 2026-11-09 óta a router mód nem vált USB-re méréshez, de USB-korlát beállítása így is ajánlott |
 | `nmcli device reapply` | Az IPv4 DNS előresorolása egyszer újraalkalmazza a profilt; ez egyszer megszakította a bot egy nyitott kapcsolatát (újracsatlakozott) |
