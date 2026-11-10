@@ -35,7 +35,12 @@ def effective_outage_ends(conn, rows, now: int) -> Dict[int, Optional[int]]:
         if i + 1 < len(ordered):
             candidates.append(ordered[i + 1]["start_ts"])
         try:
-            row = conn.execute("SELECT MIN(ts) FROM ping_minute WHERE ts >= ? AND lost < sent", (r["start_ts"],)).fetchone()
+            # Only an answer from the internet ends an outage; the local gateway answering does not
+            # (2026-11-10, the probe decides the same way).
+            row = conn.execute(
+                "SELECT MIN(m.ts) FROM ping_minute m LEFT JOIN target t ON t.id = m.target_id "
+                "WHERE m.ts >= ? AND m.lost < m.sent AND COALESCE(t.role, 'Public DNS') != 'Local Gateway'",
+                (r["start_ts"],)).fetchone()
             if row and row[0]:
                 candidates.append(int(row[0]))
         except Exception:

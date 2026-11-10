@@ -207,7 +207,9 @@ class ProbeEngine:
                 )
             except OSError as e:
                 log.debug("sendto error for %s: %s", target.addr, e)
-                # Enqueue immediate lost sample
+                # A probe that cannot even be sent (no route, ppp0 gone, cable out) is a lost probe like a
+                # timeout; it used to be stored as lost without counting towards an outage (2026-11-10).
+                target.consecutive_loss += 1
                 self.sample_queue.append((db.now_ms(), tid, None))
 
     def _process_replies(self, timeout_sec: float) -> None:
@@ -307,10 +309,29 @@ class ProbeEngine:
         log.info("outages left open by a stopped probe: %d ended where the data shows%s", closed,
                  f", #{keep} carries on (still no answer)" if keep is not None else "")
 
+    def _outage_state(self):
+        """(down, cause): the internet is down when every internet target is lost.
+
+        The local gateway answering does not hide an outage of the line behind it (2026-11-10: behind a home
+        router the box never recorded an ISP outage, because the router still answered). Only when the box has
+        no internet target at all do the gateway targets decide.
+        """
+        lost = lambda t: t.consecutive_loss >= self.outage_loss_ticks
+        targets = list(self.targets.values())
+        internet = [t for t in targets if t.role != "Local Gateway"]
+        gateways = [t for t in targets if t.role == "Local Gateway"]
+        if not internet:
+            down = bool(gateways) and all(lost(t) for t in gateways)
+            return down, "all probe targets unreachable"
+        down = all(lost(t) for t in internet)
+        if down and gateways and not all(lost(t) for t in gateways):
+            return True, "internet targets unreachable while the local gateway answers"
+        return down, "all probe targets unreachable"
+
     def _evaluate_outage(self, conn: db.sqlite3.Connection) -> None:
         """Detect and log network-wide outages when all targets drop packets."""
         now_ms = db.now_ms()
-        all_down = len(self.targets) > 0 and all(t.consecutive_loss >= self.outage_loss_ticks for t in self.targets.values())
+        all_down, cause = self._outage_state()
         if not self._open_rows_settled and (
                 all_down or time.monotonic() - self._started_mono >= self.outage_loss_ticks * self.interval_sec + 2):
             try:
@@ -322,10 +343,7 @@ class ProbeEngine:
             # Outage started
             log.warning("OUTAGE DETECTED: all targets unreachable")
             with db.tx(conn):
-                cur = conn.execute(
-                    "INSERT INTO outage (start_ts, cause) VALUES (?, 'all probe targets unreachable')",
-                    (now_ms,)
-                )
+                cur = conn.execute("INSERT INTO outage (start_ts, cause) VALUES (?, ?)", (now_ms, cause))
                 self.active_outage_id = cur.lastrowid
                 conn.execute(
                     "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'crit', 'probe', 'outage_start', 'Total connectivity loss detected')",
