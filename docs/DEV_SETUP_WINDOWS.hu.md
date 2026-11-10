@@ -113,11 +113,25 @@ Minden commit előtt mindnek át kell mennie. Nem kell hozzájuk hálózat és r
 Mindig úgy telepíts, ahogy a felhasználók is kapják: a `setup.sh`-val. Egyes fájlokat soha ne másolj át. Kivétel egy gyors próba, de akkor ezt mondd is meg.
 
 ```bash
-sha=$(git rev-parse --short HEAD)
+sha=$(git rev-parse HEAD)
 git archive HEAD -o /tmp/nmb.tar
 scp /tmp/nmb.tar nmb-box:/tmp/nmbd.tar
 ssh nmb-box "rm -rf /tmp/nmbd && mkdir /tmp/nmbd && tar xf /tmp/nmbd.tar -C /tmp/nmbd && cd /tmp/nmbd && \
   sudo -S -p '' sh -c 'env NMB_SOURCE_COMMIT=$sha bash setup.sh > /tmp/setupd.log 2>&1; echo rc=\$?; cd /; rm -rf /tmp/nmbd /tmp/nmbd.tar'" < ~/.nmb-pw
+```
+
+A `setup.sh` a teljes, 40 karakteres commit-azonosítót írja a `/opt/nmb/.source-commit` fájlba; a rövidet eldobja, és akkor a frissítés-ellenőrzés nem tudja, melyik verzió fut.
+
+Router módban a telepítés újraindítja az `nmb-netd`-t, ezért a PPPoE újratárcsáz, és az SSH-kapcsolat kb. 20 s-ra elakadhat: indítsd leválasztva, és várd meg. A naplóját ne a `/var/log`-ba írd, az a dobozon egy 48 MB-os RAM-lemez (2026-11-10-én egy megtelt `/var/log` félúton leállított egy telepítést):
+
+```bash
+sha=$(git rev-parse HEAD)
+git archive HEAD -o /tmp/nmb.tar
+scp /tmp/nmb.tar nmb-box:/tmp/nmbd.tar
+ssh nmb-box "rm -rf /tmp/nmbd && mkdir /tmp/nmbd && tar xf /tmp/nmbd.tar -C /tmp/nmbd && cd /tmp/nmbd && \
+  sudo -S -p '' sh -c 'setsid nohup env NMB_SOURCE_COMMIT=$sha bash setup.sh > /var/lib/nmb/persist/logs/setup-deploy.log 2>&1 < /dev/null &'" < ~/.nmb-pw
+until ssh nmb-box '! pgrep -f "[b]ash setup.sh"'; do sleep 10; done
+ssh nmb-box 'tail -3 /var/lib/nmb/persist/logs/setup-deploy.log; cat /opt/nmb/.source-commit; rm -rf /tmp/nmbd /tmp/nmbd.tar'
 ```
 
 Utána takaríts el. A doboz `/tmp`-je egy 256 MB-os tmpfs, és az otthagyott másolatok egyszer már megtöltötték. Ezután ellenőrizd a dobozt:

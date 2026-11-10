@@ -111,11 +111,25 @@ They must all pass before every commit. They need no network and no root. The li
 Always the way users get it, with `setup.sh`, never by copying single files (except for a quick try, which you say you did):
 
 ```bash
-sha=$(git rev-parse --short HEAD)
+sha=$(git rev-parse HEAD)
 git archive HEAD -o /tmp/nmb.tar
 scp /tmp/nmb.tar nmb-box:/tmp/nmbd.tar
 ssh nmb-box "rm -rf /tmp/nmbd && mkdir /tmp/nmbd && tar xf /tmp/nmbd.tar -C /tmp/nmbd && cd /tmp/nmbd && \
   sudo -S -p '' sh -c 'env NMB_SOURCE_COMMIT=$sha bash setup.sh > /tmp/setupd.log 2>&1; echo rc=\$?; cd /; rm -rf /tmp/nmbd /tmp/nmbd.tar'" < ~/.nmb-pw
+```
+
+The full commit id (40 characters) is what `setup.sh` records in `/opt/nmb/.source-commit`; a short one is dropped, and the update check then does not know the installed version.
+
+In router mode the install restarts `nmb-netd`, so PPPoE dials again and the SSH connection may stall for about 20 s: start it detached and wait for it. Keep its log out of `/var/log`, a 48 MB RAM disk on the box (a full one stopped an install halfway on 2026-11-10):
+
+```bash
+sha=$(git rev-parse HEAD)
+git archive HEAD -o /tmp/nmb.tar
+scp /tmp/nmb.tar nmb-box:/tmp/nmbd.tar
+ssh nmb-box "rm -rf /tmp/nmbd && mkdir /tmp/nmbd && tar xf /tmp/nmbd.tar -C /tmp/nmbd && cd /tmp/nmbd && \
+  sudo -S -p '' sh -c 'setsid nohup env NMB_SOURCE_COMMIT=$sha bash setup.sh > /var/lib/nmb/persist/logs/setup-deploy.log 2>&1 < /dev/null &'" < ~/.nmb-pw
+until ssh nmb-box '! pgrep -f "[b]ash setup.sh"'; do sleep 10; done
+ssh nmb-box 'tail -3 /var/lib/nmb/persist/logs/setup-deploy.log; cat /opt/nmb/.source-commit; rm -rf /tmp/nmbd /tmp/nmbd.tar'
 ```
 
 Clean up afterwards: the box's `/tmp` is a 256 MB tmpfs, and leftover copies once filled it. Then check the box:

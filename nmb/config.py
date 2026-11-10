@@ -304,8 +304,8 @@ public_results = false
 level = INFO
 file_enabled = true
 file_path = /var/log/nmb/nmb_developer.log
-max_bytes = 10485760
-backup_count = 5
+max_bytes = 5242880
+backup_count = 2
 console_enabled = true
 log_requests = true
 
@@ -596,8 +596,8 @@ class LoggingConfig:
     level: str = "DEBUG"
     file_enabled: bool = True
     file_path: str = "/var/log/nmb/nmb_developer.log"
-    max_bytes: int = 10485760  # 10 MB
-    backup_count: int = 5
+    max_bytes: int = 5242880   # 5 MB; with 2 copies 15 MB, inside the 48 MB /var/log RAM disk (devlog.fit_rotation)
+    backup_count: int = 2
     console_enabled: bool = True
     log_requests: bool = True
 

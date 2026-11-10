@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Development note for this batch (2026-11-10 night): made and tested on the box under Debian GNU/Linux 13 (trixie) on the Raspberry Pi 4, in router mode on the real DIGI PPPoE line, from a development PC with Garuda Linux, over Tailscale.
+- Development note for this batch (2026-11-10 night, 01:00-04:30): made and tested on the box under Debian GNU/Linux 13 (trixie) on the Raspberry Pi 4, in router mode on the real DIGI PPPoE line, from a development PC with Garuda Linux, over Tailscale.
 - Data caps for automatic speed tests (`[data_cap]`, Web UI card under the schedule in 11 languages, `nmb-cli datacap.save`): a cap per link (Ethernet/PPPoE, Wi-Fi, USB, link aggregation) and per connection type (fiber, cable, DSL, mobile/FWA, dial-up, satellite, leased line, other; USB counts as mobile), per day or per month with a reset day. Counted from the data the tests themselves move on the measured interface; at 80 % an event, at 100 % automatic tests on that link stop until the period ends, while tests started by hand still run and count. Tested live: `nmb-selftest datacap` (a reached cap skipped a scheduled cycle without running an engine; the counters were not touched).
 - The bot's `/status` shows the data the tests used per link in the current data cap period, with the cap when one is set.
 - Telegram alert when a data cap stops the automatic tests on a link (which link, how much, when they start again) and when they run again, in all 11 languages.
@@ -105,6 +105,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `setup.sh`: makes room on a nearly full `/var/log` (rotated NMB logs, oldest first) before it writes anything, since a full one stopped an install halfway; moves the old default developer log (6 x 10 MB, more than the 48 MB `/var/log` RAM disk) to 3 x 5 MB, and to 3 x 2 MB on 512 MB boards (16 MB `/var/log`); no longer prints or stores in `credentials.txt` a Web UI password the owner set, and warns on every run while the factory login `admin` / `admin` is still set.
+- Developer log default: 5 MB with 2 copies (was 10 MB with 5).
+- Docs: the full Telegram command list (it showed 5 languages and old `/mode` values), the storage guard and update check behaviour, the 5 GHz result; the deploy steps in DEV_SETUP_WINDOWS used a short commit id that `setup.sh` drops (the update check then did not know the installed version), and now run the install detached with its log on the SD card.
 - The Telegram bot started about 2 minutes after a reboot in router mode: it waited for `network-online.target`, and NetworkManager-wait-online fails only after its timeout there (NetworkManager tries DHCP on the WAN port until netd takes it; an ONT has no DHCP). The bot no longer waits for it; it retries Telegram by itself.
 - The storage guard only checked the data disk; `/var/log`, a 48 MB RAM disk of its own on the box, could fill up unnoticed. It now keeps 20 % of a separate log disk free (rotated logs first, oldest first, then active NMB logs over 1 MB emptied).
 - `/purge logs` (Telegram, Web UI) left the warnings kept on the SD card (`/var/lib/nmb/persist/logs`) while saying the logs were deleted; they are cleared now and counted in the summary.

@@ -95,7 +95,7 @@ NMB records independent measurements at your network edge. It can run behind you
   * **LAN (br-lan Bridge)**: Any number of physical Ethernet ports automatically grouped into unified Linux network bridge `br-lan` (`192.168.100.1/24`).
   * **DMZ**: In Mode A, the DMZ port gets its own subnet (`192.168.200.0/24`) with DHCP. Its devices reach the internet, but not the LAN, and the box only for DHCP and DNS.
   * **Guest Wi-Fi Client Probe**: Dedicated wireless card for client probe testing.
-  * **Storage guard** (`[storage]`, on by default): `nmb-netd` checks the disk every 10 minutes and keeps free a share that depends on its size (15 % up to 2 GB, 10 % up to 16 GB, 5 % above; at least 200 MB, at most 2 GB; `min_free_mb` overrides it). When less is free it deletes, oldest first: rotated logs, diagnostic bundles and crash reports; update backups except the newest; old reports; the system journal down to 32 MB; large active NMB logs; and only then measurements, a day at a time, keeping the last `keep_days` (7) days. Deleted measurements are recorded as an event. `setup.sh` stops when less than 500 MB is free and uses smaller logs on disks under 8 GB.
+  * **Storage guard** (`[storage]`, on by default): `nmb-netd` checks the disk every 10 minutes and keeps free a share that depends on its size (15 % up to 2 GB, 10 % up to 16 GB, 5 % above; at least 200 MB, at most 2 GB; `min_free_mb` overrides it). When less is free it deletes, oldest first: rotated logs, diagnostic bundles and crash reports; update backups except the newest; old reports; the system journal down to 32 MB; large active NMB logs; and only then measurements, a day at a time, keeping the last `keep_days` (7) days. Deleted measurements are recorded as an event. `setup.sh` stops when less than 500 MB is free and uses smaller logs on disks under 8 GB. `/var/log` is a RAM disk of its own (48 MB, 16 MB with 512 MB RAM): the guard keeps 20 % of it free, the developer log rotates within 40 % of it (3 x 5 MB by default), and `setup.sh` makes room there before it writes anything.
   * **Measuring over Wi-Fi**: The box can join your own Wi-Fi to measure over it (`[wifi_uplink]`: `ssid`, `password`, `interface`, `hidden`, `enabled`; its own NetworkManager profile `nmb-uplink`, separate from the guest client). `[network] measurement_link` chooses where speed tests run: `auto` (Ethernet when a cable is connected, otherwise Wi-Fi), `ethernet` or `wifi`. With a cable and Wi-Fi both up, the default route stays on Ethernet, and a source rule (table 150) makes tests bound to Wi-Fi really leave over Wi-Fi. Set it in the Web UI under the schedule, or with `nmb-cli run wifi.uplink`. Needs NetworkManager. Each wireless interface can be given its role in Ports & Drivers: 📶 *Guest Wi-Fi client* or 📡 *Main Wi-Fi client (measuring)*; one interface cannot be both, and with `interface = auto` the main client skips the radio of an enabled guest client.
   * **Settings from a USB stick**: put an `nmb.conf` with only the keys to change (for example the Wi-Fi password, the Telegram token or the PPPoE login) at the top level of a USB stick and plug it in. The box applies it once, keeps a backup of the old settings, never wipes a set secret with an empty value, and writes `nmb-import-result.txt` (names only) back to the stick. Template: `config/usb-import.example.conf`; off with `[usb_import] enabled = false`. Not tested with a real stick yet.
   * **USB tethering** (`[usb_uplink]`, off by default): a phone, mobile hotspot (for example a Netgear Nighthawk) or cellular modem on USB is recognised by its driver (`rndis_host`, `cdc_ncm`, `cdc_ether`, `ipheth`, `qmi_wwan`, `cdc_mbim`) and never taken for the wired line. Turned on, it gets its own NetworkManager profile (`nmb-usb-uplink`) with an address but never the default route, so the box's traffic and the outage probe stay on the cable; `measurement_link = usb` (or a manual test on that interface) measures over it through a source rule (table 152). Test status with a Netgear Nighthawk M6 Pro (US AT&T model, 5G) on the Raspberry Pi 4: detection and speed tests over USB work; the box's own fallback to USB worked once (cable out of the router); **router mode on USB shared the internet to a laptop on the cable and a client on the box's Wi-Fi (2.4 GHz, 802.11n) in a live test on 2026-11-08**, after two fixes that day; Wi-Fi sharing on the LAN port through USB is not confirmed yet. See docs/TESTING.md. **When it is the only internet** (no wired or Wi-Fi default route), the box uses it automatically (default route with metric 900, removed when the cable or Wi-Fi is back; each switch is an event). **In router mode (Mode A)**, when no DHCP server answers on the Ethernet port, USB becomes the WAN and the single Ethernet port plus the Wi-Fi access point share the mobile internet; a DHCP server appearing on the port stops the box's DHCP at once. The LAN-port sharing (`[wifi_share]`) also takes USB as its upstream. Results over USB are stored as mobile (`fwa`); tests over USB have their own daily data limit (`daily_limit_mb`, default 1024 MB, 0 = none). Web UI card, `nmb-cli run usb.uplink ...`, in all 11 languages.
@@ -233,7 +233,7 @@ Memory-saving profiles for constrained Linux systems. These have only been run o
 
 ### 14. Autonomous Self-Healing & Safety Rollback Watchdog (`nmb-heal`)
 * Automated background health audits of binaries, database, permissions and connectivity, with repairs.
-* **Update from GitHub in a few clicks**: "Apply Stable Update" in the Web UI, `nmb-cli update --apply --yes` or `nmb-heal update --apply`. On the standard install (`/opt/nmb`, no Git data) the box downloads the newest commit of this repository, runs its tests (nothing changes if they fail), backs up settings and measurements, installs it with `setup.sh` (which keeps settings and measurements and replaces the program files) and puts the previous version back if the install or the web server check fails. The Web UI shows each step; the log is `/var/log/nmb/update.log`. A Git checkout updates with `git pull` and rolls back to the previous commit.
+* **Update from GitHub in a few clicks**: "Apply Stable Update" in the Web UI, `nmb-cli update --apply --yes` or `nmb-heal update --apply`. On the standard install (`/opt/nmb`, no Git data) the box downloads the newest commit of this repository, runs its tests (nothing changes if they fail), backs up settings and measurements, installs it with `setup.sh` (which keeps settings and measurements and replaces the program files) and puts the previous version back if the install or the web server check fails. The Web UI shows each step; the log is `/var/log/nmb/update.log`. A Git checkout updates with `git pull` and rolls back to the previous commit. An update is offered only when GitHub is ahead of the installed commit: a box running newer code (not pushed yet) is never "updated" back to older code.
 
 ### 15. Central Measurement Collector (`nmb-collector`)
 An ISP or a specialist runs `nmb-collector` on their own server; boxes whose owner agrees send their results to it. Everything is off until the box owner turns it on (Web UI → System → Central measurement collector, or `[collector]` in `nmb.conf`), with three separate consents:
@@ -310,13 +310,14 @@ What has actually been run, so you can judge what to rely on. The full record (w
 | Router mode on a real PPPoE line (Raspberry Pi 4, Debian 13, 2026-11-09) | Automatic mode chose it, kernel PPPoE about 900/320 Mbit/s, redial, a real phone on the box's Wi-Fi, the WAN closed from another network, the box's IPv6 and IPv6 for a simulated LAN client, port forwarding and UPnP reached from another network. These fixes and tests were made under Debian 13 on the box. See TESTING.md |
 | Clean install, x86-64 | Tested in a simulated environment on a PC with these operating systems: Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 and Rocky Linux 10 (for RHEL 10) and Alpine 3.22 / 3.20. Install, services, Web UI, a real speed test, reinstall and (on Alpine) reboot |
 | `mode_a` router and `mode_b` bridge | Tested in virtual machines, with DHCP, NAT, DMZ isolation and client traffic. Not on Raspberry Pi hardware |
-| Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. On the Raspberry Pi 4 radio: router mode, 2.4 GHz, 802.11n, 20 MHz, a phone and a laptop browsed (2026-11-08); the default settings start 802.11ac at 80 MHz on 5 GHz (2026-11-09), no client on 5 GHz yet. One radio: one band at a time |
+| Wi-Fi access point | WPA2 on 2.4 and 5 GHz and WPA3 on 2.4 GHz, with simulated radios and a real client. On the Raspberry Pi 4 radio: router mode, 2.4 GHz, 802.11n, 20 MHz, a phone and a laptop browsed (2026-11-08); on 5 GHz 802.11ac at 80 MHz a laptop and a phone with IPv4 and IPv6 (2026-11-10), about 85-95 Mbit/s, the limit of the Pi 4's radio as an access point. One radio: one band at a time |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Not verified. The hostapd in Debian 13 rejected the Wi-Fi 7 settings, so NMB steps down to an older standard |
 | PPPoE | On a real line (DIGI, 2026-11-09) and against a simulated ISP: dial-in, the ISP's refusal shown, redial, router mode on it |
 | VLAN, multi-WAN load balancing, link aggregation | Code exists, not tested on a real line |
 | Other distributions (such as Raspberry Pi OS, Arch), 32-bit systems | Not tested; setup supports Debian-based systems, Fedora, RHEL and its rebuilds, and Alpine |
 | Devices with 512 MB RAM | Tested in a VM with 512 MB: 25 minutes of tests every minute, no out-of-memory kill, no swap used |
 | Reinstall and upgrade with `setup.sh` | Tested on Ubuntu 26.04, Alpine 3.22 and Rocky Linux 10: settings and measurements kept, removed files cleaned up, services back after a reboot |
+| Telegram commands that change the box | Run on the Raspberry Pi 4 in router mode on PPPoE (2026-11-10) through the bot's command handler: `/mode`, `/vpn start`/`stop`, `/heal`, `/heal fix`, `/heal updates`, `/wifi connect`, `/dyndns on`/`off`/`update`, `/adblock on`/`off`, `/backup create`, `/kill`, `/reboot now`; `/purge ... confirm` on copies of the data and `/purge logs` in an isolated mount namespace, so nothing real was deleted. `/heal apply` only when nothing newer is on GitHub |
 | Update from GitHub (no Git install) | Unit tests only (download, safe unpacking, test gate, status). Not yet run against the real repository |
 | Central collector and remote control | Tested with a real collector and box client on one machine: upload, search by case number, CSV, diagnostics only with consent, remote speed test, refusal without consent, cross-site requests refused. Not yet run between two machines |
 | WireGuard and OpenVPN server, HTTPS proxy | Tested in a VM with a real client: tunnel, internet and Web UI through the tunnel |
@@ -350,7 +351,7 @@ After installation, open the web dashboard directly in your browser without ente
 ```
 http://<appliance-ip>/
 ```
-* **Default credentials**: `admin` / `admin` unless installed with `RANDOM_ADMIN_PASSWORD=1` (saved to `/var/lib/nmb/credentials.txt`; see Security Model for the boot partition copy). Change immediately in the Settings tab.
+* **Default credentials**: `admin` / `admin` unless installed with `RANDOM_ADMIN_PASSWORD=1` (saved to `/var/lib/nmb/credentials.txt`; see Security Model for the boot partition copy). Change immediately in the Settings tab. `setup.sh` warns on every run while the factory login is set; a password you set is not printed and not written to `credentials.txt`.
 
 ---
 
@@ -381,22 +382,41 @@ When `nmb-telegram` is configured, you can manage the entire appliance directly 
 | Command | Description |
 |---|---|
 | `/menu` | Opens the main interactive Touch Menu (Inline Keyboards) |
-| `/status` | Real-time appliance status: uptime, WAN mode, public IP, ISP name, CPU/RAM load |
+| `/status` | Real-time appliance status: uptime, WAN mode, public IP, ISP name, CPU/RAM load, data the tests used in the data cap period |
 | `/ping` | Instant latency, jitter, and packet loss matrix to the reference targets |
 | `/test [engine]` | Runs an on-demand speedtest (`ookla`, `cloudflare`, `fastcom`, `rtr`, `iperf`) with bufferbloat rating |
 | `/report [window]` | Generates and sends the SLA Dossier (`.html`) directly into the chat |
+| `/sla` | Explains what the SLA result means |
 | `/ai` | Exports the sanitized Markdown diagnostic snapshot for external LLM analysis |
-| `/mode [auto\|a\|b]`| Views or switches operational mode (Active Router vs Passive Bridge) |
+| `/mode [auto\|standalone\|mode_a\|mode_b]` | Shows the mode the box runs and the override, or sets the override; when it leads to the mode already running, nothing is rebuilt (no PPPoE redial) |
 | `/vpn` | PiVPN Hub status: active WireGuard & OpenVPN tunnels, connected client counts |
 | `/vpn clients` | Displays connected peer roster with handshake times, endpoints, and RX/TX traffic |
 | `/vpn qr <name>` | Generates and dispatches a camera-scannable QR code PNG for instant device pairing |
 | `/vpn conf <name>`| Dispatches the downloadable `.conf` profile for WireGuard or OpenVPN |
-| `/vpn add <name>` | Creates a new VPN client profile and returns the QR code |
+| `/vpn add <name> [wg\|ovpn]` | Creates a new VPN client profile and returns the QR code |
+| `/vpn del <name>` | Deletes a VPN client profile |
+| `/vpn start\|stop [wg\|ovpn]` | Starts or stops the WireGuard or OpenVPN server |
 | `/adblock` | DNS Sinkhole status: total queries today, blocked queries, blocklist domain count |
 | `/adblock on\|off` | Enables or disables the DNS Ad-Blocker sinkhole |
-| `/sla` | Explains what the SLA result means |
-| `/purge [category] confirm` | Shows or deletes stored data (settings, passwords and VPN keys are kept) |
-| `/lang [en\|hu\|de\|fr\|uk]` | Switches the bot's language across 5 supported international languages |
+| `/dyndns` | DynDNS (DuckDNS or dynv6) status of the updater that runs in the web server: last update, address, next run |
+| `/dyndns on\|off\|update` | Turns the updater on or off (it follows within 30 s) or updates the name now with the configured provider |
+| `/dyndns interval <min>\|domain <name>\|token <token>` | Changes the update interval, the name or the token |
+| `/wifi [scan\|saved]` | Wi-Fi status, nearby networks, saved profiles |
+| `/wifi connect <ssid> [password]` | Joins a Wi-Fi network as a client; in router mode the radio is the access point and the bot says so instead |
+| `/tailscale` | Tailscale status of the box |
+| `/heal` | Health audit: services, database, permissions, missing programs |
+| `/heal fix [tier]` | Repairs what the audit found (restarts services first; higher tiers go further) |
+| `/heal updates` | Checks GitHub; offers an update only when GitHub is newer than the installed version |
+| `/heal apply` | Installs that update with a backup first and rollback on failure; does nothing when nothing newer exists |
+| `/backup [list]` | Lists the stored backups |
+| `/backup create` | Makes a full backup (settings, database, VPN keys) |
+| `/backup send <file>` | Sends a backup into the chat (Telegram limits bots to 50 MB) |
+| `/tasks` | Load, memory and the busiest processes |
+| `/kill <pid> [15\|9\|1\|2]` | Sends TERM, KILL, HUP or INT to a process the bot may signal (PID 1 and the bot itself are protected; other signals are refused) |
+| `/drivers` | Network adapters and their drivers |
+| `/purge [category] confirm` | Shows or deletes stored data: `measurements`, `events`, `reports`, `backups`, `logs` (NMB logs, the logs kept on the SD card, the system journal and the kernel buffer) or `all`; settings, passwords and VPN keys are kept |
+| `/reboot now` | Restarts the box (about 1-2 minutes; in router mode the home network is offline meanwhile) |
+| `/lang [code]` | Switches the bot's language: `hu`, `en`, `de`, `fr`, `uk`, `ro`, `it`, `es`, `pt`, `pt-br`, `zh` |
 
 ---
 

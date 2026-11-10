@@ -38,6 +38,21 @@ fetch_ookla() {
 
 info "Starting NetworkMeasureBox production installation..."
 
+# /var/log is a small RAM disk on an installed box (48 MB, 16 MB on 512 MB boards). When it is full, every
+# line this script prints fails and "set -e" stops the install halfway (2026-11-10, a 100 % full /var/log):
+# make room first, rotated NMB logs oldest first.
+if [ -d /var/log/nmb ] && command -v df >/dev/null 2>&1; then
+    LOG_FREE_PCT=$(df -P /var/log 2>/dev/null | awk 'NR==2 {gsub("%","",$5); print 100-$5}')
+    if [ -n "$LOG_FREE_PCT" ] && [ "$LOG_FREE_PCT" -lt 20 ]; then
+        ls -1tr /var/log/nmb/*.log.[0-9]* /var/log/nmb/*.gz /var/log/nmb/*.old 2>/dev/null | while read -r f; do
+            LOG_FREE_PCT=$(df -P /var/log | awk 'NR==2 {gsub("%","",$5); print 100-$5}')
+            [ "$LOG_FREE_PCT" -ge 25 ] && break
+            rm -f "$f"
+        done
+        info "/var/log was almost full; removed old rotated NMB logs."
+    fi
+fi
+
 # Standalone Ookla CLI and OONI probe binaries, for systems without a package for them.
 machine_arch() {
     case "$(uname -m)" in
@@ -340,10 +355,13 @@ if [ ! -f "$CONFIG_FILE" ]; then
         cp "$SCRIPT_DIR/config/nmb.conf.example" "$CONFIG_FILE"
     fi
     info "Created default configuration at $CONFIG_FILE"
-    # Small disks: smaller log files (the storage guard also scales its free-space target to the disk).
-    if [ -n "$DISK_TOTAL_MB" ] && [ "$DISK_TOTAL_MB" -lt 8192 ] && ! grep -q '^\[logging\]' "$CONFIG_FILE"; then
+    # Small disks or 512 MB boards (a 16 MB /var/log RAM disk): smaller log files (the storage guard also
+    # scales its free-space target to the disk).
+    RAM_KB=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+    if { { [ -n "$DISK_TOTAL_MB" ] && [ "$DISK_TOTAL_MB" -lt 8192 ]; } || [ "${RAM_KB:-0}" -le 800000 ]; } \
+            && ! grep -q '^\[logging\]' "$CONFIG_FILE"; then
         printf '\n[logging]\nmax_bytes = 2097152\nbackup_count = 2\n' >> "$CONFIG_FILE"
-        info "Small disk: developer log limited to 2 x 2 MB."
+        info "Small disk or memory: developer log limited to 3 x 2 MB."
     fi
     # Interface names differ between systems (eth0, ens3, enp1s0...); use the ones that exist here.
     if [ ! -e /sys/class/net/eth0 ]; then
@@ -363,6 +381,13 @@ if [ ! -f "$CONFIG_FILE" ]; then
             info "Using $LAN_IF as the LAN interface"
         fi
     fi
+fi
+
+# The old default developer log (10 MB with 5 copies, 60 MB) did not fit the 48 MB /var/log RAM disk
+# and filled it on 2026-11-10; a value the owner set stays.
+if grep -q '^max_bytes = 10485760$' "$CONFIG_FILE" 2>/dev/null && grep -q '^backup_count = 5$' "$CONFIG_FILE" 2>/dev/null; then
+    sed -i 's/^max_bytes = 10485760$/max_bytes = 5242880/; s/^backup_count = 5$/backup_count = 2/' "$CONFIG_FILE"
+    info "Developer log: the old default 6 x 10 MB changed to 3 x 5 MB (fits /var/log)."
 fi
 
 # A shared factory Wi-Fi password would be identical on every box.
@@ -385,9 +410,14 @@ if [ "${RANDOM_ADMIN_PASSWORD:-0}" = "1" ] && grep -q "admin_password = admin" "
     sed -i "s/admin_password = admin/admin_password = $ADMIN_PASS/" "$CONFIG_FILE"
     info "Generated secure random Web UI admin password: $ADMIN_PASS"
 else
-    ADMIN_PASS=$(grep -E '^\s*admin_password\s*=' "$CONFIG_FILE" 2>/dev/null | cut -d= -f2 | tr -d ' ' || echo "admin")
-    [ -z "$ADMIN_PASS" ] && ADMIN_PASS="admin"
-    info "Standard router Web UI admin credentials: admin / $ADMIN_PASS"
+    # The password the owner set is not printed: this output often goes to a log file.
+    if grep -qE '^\s*admin_password\s*=\s*(admin)?\s*$' "$CONFIG_FILE" 2>/dev/null; then
+        ADMIN_PASS="admin"
+        warn "The Web UI still has the factory login admin / admin: change it in Settings (anyone on the LAN, the box's Wi-Fi or your Tailscale network can log in with it)."
+    else
+        ADMIN_PASS="(set; not shown)"
+        info "Web UI admin password: set by the owner (not shown)."
+    fi
 fi
 
 # Detect primary IP address
@@ -586,7 +616,7 @@ BANNER=$(cat <<EOF
 \033[0m
   * Management Web UI  : \033[1;34mhttp://${HOST_IP}\033[0m (Standard HTTP Port 80)
   * Web UI Credentials : Username: \033[1;32madmin\033[0m | Password: \033[1;33m${ADMIN_PASS}\033[0m
-  * Credentials Saved  : /var/lib/nmb/credentials.txt (mirrored to /boot/firmware/)
+  * Credentials Saved  : /var/lib/nmb/credentials.txt (on the boot partition only while it is the factory or a new random password)
   * Configuration File : \033[1;33m/etc/nmb/nmb.conf\033[0m
   * Live Database      : /var/lib/nmb/live/nmb.db (tmpfs RAM)
   * Persistent SD DB   : /var/lib/nmb/persist/nmb.db (15-min snapshots)

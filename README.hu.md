@@ -94,7 +94,7 @@ A NetworkMeasureBox egy olcsó, energiatakarékos céleszközön (jelenleg Raspb
 * **Flash- és SD-Kártya Élettartam Védelem**: Élő adatbázis memóriában futó tmpfs-en, 15 percenkénti és leállításkori atomi pillanatképek SD-re, ext4 `noatime,commit=600`.
 * **Hálózatfelderítő (Device Explorer)**: Beépített ARP sweep és MAC OUI vendor felismerés (Apple, Samsung, Intel, Xiaomi stb.) a helyi és a vendéghálózaton.
 * **Dedikált Vendég Wi-Fi Kliens Szonda**: Másodlagos vezeték nélküli interfésszel automatikusan felkapcsolódik a router vendég Wi-Fi hálózatára, és ellenőrzi annak sávszélességét, stabilitását és izolációját.
-* **Tárhelyőr** (`[storage]`, alapból bekapcsolva): az `nmb-netd` 10 percenként ellenőrzi a lemezt, és a mérete szerinti részt tartja szabadon (2 GB-ig 15%, 16 GB-ig 10%, fölötte 5%; legalább 200 MB, legfeljebb 2 GB; a `min_free_mb` felülírja). Ha ennél kevesebb a szabad hely, a legrégebbivel kezdve töröl: elforgatott naplók, diagnosztikai csomagok és összeomlás-jelentések; a frissítési mentések a legújabb kivételével; régi jelentések; a rendszernapló 32 MB-ig; a nagy aktív NMB-naplók; és csak legvégül mérések, naponként, az utolsó `keep_days` (7) napot megtartva. A törölt mérésekről esemény készül. A `setup.sh` megáll, ha 500 MB-nál kevesebb a szabad hely, és 8 GB alatti lemezen kisebb naplókat használ.
+* **Tárhelyőr** (`[storage]`, alapból bekapcsolva): az `nmb-netd` 10 percenként ellenőrzi a lemezt, és a mérete szerinti részt tartja szabadon (2 GB-ig 15%, 16 GB-ig 10%, fölötte 5%; legalább 200 MB, legfeljebb 2 GB; a `min_free_mb` felülírja). Ha ennél kevesebb a szabad hely, a legrégebbivel kezdve töröl: elforgatott naplók, diagnosztikai csomagok és összeomlás-jelentések; a frissítési mentések a legújabb kivételével; régi jelentések; a rendszernapló 32 MB-ig; a nagy aktív NMB-naplók; és csak legvégül mérések, naponként, az utolsó `keep_days` (7) napot megtartva. A törölt mérésekről esemény készül. A `setup.sh` megáll, ha 500 MB-nál kevesebb a szabad hely, és 8 GB alatti lemezen kisebb naplókat használ. A `/var/log` külön RAM-lemez (48 MB, 512 MB RAM-nál 16 MB): az őr ennek 20%-át szabadon tartja, a fejlesztői napló a 40%-án belül forog (alapból 3 x 5 MB), a `setup.sh` pedig itt helyet csinál, mielőtt bármit írna.
 * **Mérés Wi-Fi-n**: A box a saját Wi-Fi-hálózatodra is csatlakozhat, hogy azon mérjen (`[wifi_uplink]`: `ssid`, `password`, `interface`, `hidden`, `enabled`; saját NetworkManager-profil, `nmb-uplink`, a vendégklienstől külön). A `[network] measurement_link` adja meg, hol fut a sebességmérés: `auto` (Etherneten, ha van kábel, különben Wi-Fi-n), `ethernet` vagy `wifi`. Ha a kábel és a Wi-Fi is él, az alapútvonal az Etherneten marad, és egy forrásszabály (150-es tábla) gondoskodik róla, hogy a Wi-Fi-hez kötött mérés tényleg Wi-Fi-n menjen ki. A webes felületen az ütemezés alatt, vagy `nmb-cli run wifi.uplink` paranccsal állítható. NetworkManager kell hozzá. Minden vezeték nélküli interfész szerepe a Portok és driverek alatt választható: 📶 *Vendég Wi-Fi-kliens* vagy 📡 *Fő Wi-Fi-kliens (mérés)*; egy interfész nem lehet egyszerre mindkettő, és `interface = auto` esetén a fő kliens kihagyja a bekapcsolt vendégkliens rádióját.
 * **Beállítások USB pendrive-ról**: egy `nmb.conf` fájl a pendrive gyökerében, csak a módosítandó kulcsokkal (például Wi-Fi jelszó, Telegram token, PPPoE belépés); bedugva a doboz egyszer alkalmazza, a régi beállításokról mentést készít, beállított titkot üres értékkel soha nem töröl, és `nmb-import-result.txt` fájlt ír vissza a pendrive-ra (csak nevekkel). Minta: `config/usb-import.example.conf`; kikapcsolás: `[usb_import] enabled = false`. Valódi pendrive-val még nincs tesztelve.
 * **USB tethering** (`[usb_uplink]`, alapból kikapcsolva): az USB-re dugott telefont, mobil hotspotot (például Netgear Nighthawk) vagy mobilmodemet a drivere alapján ismeri fel (`rndis_host`, `cdc_ncm`, `cdc_ether`, `ipheth`, `qmi_wwan`, `cdc_mbim`), és soha nem tekinti vezetékes vonalnak. Bekapcsolva saját NetworkManager-profilt kap (`nmb-usb-uplink`), címmel, de soha nem az alapértelmezett útvonallal, így a doboz forgalma és a kiesésmérő a kábelen marad; a `measurement_link = usb` (vagy egy erre az interfészre kért kézi mérés) egy forrásszabályon (152-es tábla) át rajta mér. Teszt állapot egy Netgear Nighthawk M6 Pro (amerikai AT&T-modell, 5G) eszközzel a Raspberry Pi 4-en: a felismerés és az USB-n át végzett mérés működik; a doboz saját átállása USB-re egyszer működött (kábel kihúzva a routerből); **router módban az USB internetet egy kábeles laptopnak és egy, a doboz Wi-Fi-jén lévő kliensnek (2,4 GHz, 802.11n) élő teszten megosztotta 2026-11-08-án**, aznapi két javítás után; a Wi-Fi megosztás a LAN porton USB-n át még nincs igazolva. Részletek: docs/TESTING.hu.md. **Ha ez az egyetlen internet** (nincs vezetékes vagy Wi-Fi alapértelmezett útvonal), a doboz magától ezt használja (900-as metrikájú alapértelmezett útvonal, ami eltűnik, amint visszajön a kábel vagy a Wi-Fi; minden váltás esemény). **Router módban (Mode A)**, ha az Ethernet-porton nem válaszol DHCP-szerver, az USB lesz a WAN, és az egyetlen Ethernet-port meg a Wi-Fi hozzáférési pont osztja tovább a mobilnetet; ha a porton DHCP-szerver jelenik meg, a doboz azonnal leállítja a saját DHCP-jét. A LAN-porti megosztás (`[wifi_share]`) is tudja az USB-t forrásként használni. Az USB-n mért eredmények mobilként (`fwa`) kerülnek be; az USB-s méréseknek saját napi adatkorlátjuk van (`daily_limit_mb`, alapból 1024 MB, 0 = nincs). Webes kártya, `nmb-cli run usb.uplink ...`, mind a 11 nyelven.
@@ -452,7 +452,7 @@ A beépített felügyeleti bot (`nmb-telegram`) segítségével az eszköz böng
 ## 16. Önjavító Watchdog és Biztonsági Visszaállás (`nmb-heal`)
 
 * Autonóm háttérbeli audit: ellenőrzi a binárisok épségét, az adatbázist, a jogosultságokat és az internetkapcsolatot.
-* **Frissítés a GitHubról pár kattintással**: „Apply Stable Update” a webes felületen, `nmb-cli update --apply --yes` vagy `nmb-heal update --apply`. A szabványos telepítésen (`/opt/nmb`, Git-adat nélkül) a box letölti ennek a tárolónak a legújabb commitját, lefuttatja a tesztjeit (ha elbuknak, semmi sem változik), elmenti a beállításokat és a méréseket, a `setup.sh`-val telepíti (ez megtartja a beállításokat és a méréseket, a programfájlokat lecseréli), és ha a telepítés vagy a webszerver ellenőrzése nem sikerül, visszarakja az előző verziót. A webes felület mutatja a lépéseket; a napló: `/var/log/nmb/update.log`. Git-es példány `git pull`-lal frissül, és az előző commitra áll vissza.
+* **Frissítés a GitHubról pár kattintással**: „Apply Stable Update” a webes felületen, `nmb-cli update --apply --yes` vagy `nmb-heal update --apply`. A szabványos telepítésen (`/opt/nmb`, Git-adat nélkül) a box letölti ennek a tárolónak a legújabb commitját, lefuttatja a tesztjeit (ha elbuknak, semmi sem változik), elmenti a beállításokat és a méréseket, a `setup.sh`-val telepíti (ez megtartja a beállításokat és a méréseket, a programfájlokat lecseréli), és ha a telepítés vagy a webszerver ellenőrzése nem sikerül, visszarakja az előző verziót. A webes felület mutatja a lépéseket; a napló: `/var/log/nmb/update.log`. Git-es példány `git pull`-lal frissül, és az előző commitra áll vissza. Frissítést csak akkor ajánl, ha a GitHubon újabb commit van, mint a telepített: egy újabb kódot futtató doboz (még fel nem töltött változtatásokkal) sosem „frissül” vissza régebbire.
 
 ---
 
@@ -567,20 +567,41 @@ Ha beállította az `nmb-telegram` szolgáltatást, a dobozt közvetlenül a Tel
 | Parancs | Leírás |
 |---|---|
 | `/menu` | Megnyitja a fő interaktív érintőmenüt (Inline billentyűzet) |
-| `/status` | Valós idejű rendszerállapot: üzemidő, hálózati mód, IP címek, szolgáltató, CPU/RAM |
-| `/ping` | Azonnali ICMP válaszidő és csomagvesztési mátrix a 4 referencia-célpontra |
+| `/status` | Valós idejű rendszerállapot: üzemidő, hálózati mód, IP címek, szolgáltató, CPU/RAM, a mérések adatforgalma az adatkorlát időszakában |
+| `/ping` | Azonnali ICMP válaszidő és csomagvesztési mátrix a referencia-célpontokra |
 | `/test [motor]` | Sebességmérés indítása (`ookla`, `cloudflare`, `fastcom`, `rtr`, `iperf`) bufferbloat osztályzattal |
 | `/report [ablak]` | Legenerálja és közvetlenül elküldi a hivatalos SLA dossziét (`.html`) a csevegésbe |
+| `/sla` | Elmagyarázza, mit jelent az SLA-eredmény |
 | `/ai` | Szanált Markdown diagnosztikai állapotcsomag külső LLM elemzéshez |
-| `/mode [auto\|a\|b]`| Megjeleníti vagy átkapcsolja a működési módot (Router vs Transzparens Híd) |
+| `/mode [auto\|standalone\|mode_a\|mode_b]` | Megmutatja a futó módot és a felülbírálást, vagy beállítja a felülbírálást; ha az a már futó módhoz vezet, semmi nem épül újra (nincs PPPoE-újratárcsázás) |
 | `/vpn` | PiVPN Hub állapot: aktív WireGuard & OpenVPN alagutak, kliensek száma |
 | `/vpn clients` | Csatlakoztatott kliensek listája, legutóbbi kézfogás és RX/TX forgalom |
 | `/vpn qr <név>` | Kamera segítségével leolvasható QR kódot küld az azonnali mobil párosításhoz |
 | `/vpn conf <név>` | Letölthető `.conf` profilt küld a csevegésbe |
-| `/vpn add <név>` | Új VPN kliens profilt hoz létre és visszaküldi a beállításokat |
+| `/vpn add <név> [wg\|ovpn]` | Új VPN kliens profilt hoz létre és visszaküldi a beállításokat |
+| `/vpn del <név>` | Töröl egy VPN kliens profilt |
+| `/vpn start\|stop [wg\|ovpn]` | Elindítja vagy leállítja a WireGuard vagy az OpenVPN szervert |
 | `/adblock` | DNS Sinkhole státusz: mai kérések, blokkolt kérések, szűrési arány, doménszám |
 | `/adblock on\|off` | Be- vagy kikapcsolja a DNS reklámszűrőt |
-| `/lang [hu\|en\|de\|fr\|uk]` | Átkapcsolja a bot nyelvét a támogatott 5 nyelv valamelyikére |
+| `/dyndns` | DynDNS (DuckDNS vagy dynv6): a webszerverben futó frissítő állapota, utolsó frissítés, cím, következő futás |
+| `/dyndns on\|off\|update` | Be- vagy kikapcsolja a frissítőt (30 s-on belül követi), vagy most frissíti a nevet a beállított szolgáltatóval |
+| `/dyndns interval <perc>\|domain <név>\|token <token>` | Módosítja a frissítési időközt, a nevet vagy a tokent |
+| `/wifi [scan\|saved]` | Wi-Fi állapot, közeli hálózatok, mentett profilok |
+| `/wifi connect <ssid> [jelszó]` | Kliensként csatlakozik egy Wi-Fi-hálózathoz; router módban a rádió a hozzáférési pont, ezt jelzi a bot |
+| `/tailscale` | A doboz Tailscale-állapota |
+| `/heal` | Egészségügyi vizsgálat: szolgáltatások, adatbázis, jogosultságok, hiányzó programok |
+| `/heal fix [szint]` | Kijavítja, amit a vizsgálat talált (előbb szolgáltatás-újraindítás; a magasabb szintek tovább mennek) |
+| `/heal updates` | Megnézi a GitHubot; csak akkor ajánl frissítést, ha ott újabb van a telepítettnél |
+| `/heal apply` | Telepíti ezt a frissítést előzetes mentéssel és hiba esetén visszaállítással; ha nincs újabb, nem csinál semmit |
+| `/backup [list]` | Kilistázza a tárolt mentéseket |
+| `/backup create` | Teljes mentést készít (beállítások, adatbázis, VPN-kulcsok) |
+| `/backup send <fájl>` | Elküld egy mentést a csevegésbe (a Telegram a botoknak 50 MB-ot enged) |
+| `/tasks` | Terhelés, memória és a legtöbbet dolgozó folyamatok |
+| `/kill <pid> [15\|9\|1\|2]` | TERM, KILL, HUP vagy INT jelet küld egy folyamatnak, amelyet a bot leállíthat (a PID 1 és maga a bot védett; más jelet elutasít) |
+| `/drivers` | Hálózati adapterek és meghajtóik |
+| `/purge [kategória] confirm` | Megmutatja vagy törli a tárolt adatokat: `measurements`, `events`, `reports`, `backups`, `logs` (NMB-naplók, az SD-kártyán őrzött naplók, a rendszernapló és a kernel-puffer) vagy `all`; a beállítások, jelszavak és VPN-kulcsok megmaradnak |
+| `/reboot now` | Újraindítja a dobozt (kb. 1-2 perc; router módban ezalatt az otthoni hálózat offline) |
+| `/lang [kód]` | Átállítja a bot nyelvét: `hu`, `en`, `de`, `fr`, `uk`, `ro`, `it`, `es`, `pt`, `pt-br`, `zh` |
 
 ---
 
@@ -614,7 +635,7 @@ A telepítés befejeztével nyissa meg a böngészőjében a WebGUI-t közvetlen
 ```
 http://<az-eszköz-ip-címe>/
 ```
-* **Bejelentkezési adatok**: `admin` / `admin`, kivéve ha `RANDOM_ADMIN_PASSWORD=1` értékkel telepíted (mentve a `/var/lib/nmb/credentials.txt` fájlba; a boot-partíciós másolatról lásd: Biztonsági Modell).
+* **Bejelentkezési adatok**: `admin` / `admin`, kivéve ha `RANDOM_ADMIN_PASSWORD=1` értékkel telepíted (mentve a `/var/lib/nmb/credentials.txt` fájlba; a boot-partíciós másolatról lásd: Biztonsági Modell). A `setup.sh` minden futáskor figyelmeztet, amíg a gyári belépés él; az általad beállított jelszót nem írja ki, és nem menti a `credentials.txt`-be.
   * Felhasználónév: `admin`
   * Jelszó: `admin` (a Beállítások fülön azonnal megváltoztatható!)
 * Állítsa be az előfizetői szerződésében szereplő adatokat (névleges és garantált letöltés/feltöltés), válassza ki a hálózati kártyák szerepköreit, és az eszköz máris megkezdi a folyamatos mérést és adatgyűjtést!
@@ -638,13 +659,14 @@ Ami ténylegesen futott, hogy el tudd dönteni, mire támaszkodhatsz. A részlet
 | Router mód valódi PPPoE vonalon (Raspberry Pi 4, Debian 13, 2026-11-09) | Az automatikus mód választotta, kernelbeli PPPoE kb. 900/320 Mbit/s, újratárcsázás, egy valódi telefon a doboz Wi-Fi-jén, a WAN zárva másik hálózatról nézve, a doboz IPv6-ja és IPv6 egy szimulált LAN-kliensnek, port-továbbítás és UPnP másik hálózatról elérve. Ezek a javítások és tesztek Debian 13 alatt, a dobozon készültek. Lásd TESTING.hu.md |
 | Tiszta telepítés, x86-64 | Szimulált környezetben tesztelve ezekkel az operációs rendszerekkel PC-n: Debian 13, Debian 12, Ubuntu 26.04 LTS, Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, Fedora 45, AlmaLinux 10 és Rocky Linux 10 (a RHEL 10 helyett) és Alpine 3.22 / 3.20. Telepítés, szolgáltatások, webes felület, valódi sebességmérés, újratelepítés és (Alpine-on) újraindítás |
 | `mode_a` router és `mode_b` híd | Virtuális gépeken tesztelve, DHCP-vel, NAT-tal, DMZ-izolációval és kliensforgalommal. Raspberry Pi hardveren nem |
-| Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. A Raspberry Pi 4 rádióján: router mód, 2,4 GHz, 802.11n, 20 MHz, egy telefon és egy laptop böngészett (2026-11-08); alapbeállítással 5 GHz-en 802.11ac, 80 MHz indul (2026-11-09), 5 GHz-es kliens még nem volt rajta. Egy rádió: egyszerre egy sáv. Csak router módban fut; standalone és híd módban a rádió az otthoni Wi-Fi kliense marad |
+| Wi-Fi hozzáférési pont | WPA2 2,4 és 5 GHz-en, WPA3 2,4 GHz-en, szimulált rádiókkal és valódi klienssel. A Raspberry Pi 4 rádióján: router mód, 2,4 GHz, 802.11n, 20 MHz, egy telefon és egy laptop böngészett (2026-11-08); 5 GHz-en 802.11ac, 80 MHz-en egy laptop és egy telefon IPv4-gyel és IPv6-tal (2026-11-10), kb. 85-95 Mbit/s, ami a Pi 4 rádiójának korlátja hozzáférési pontként. Egy rádió: egyszerre egy sáv. Csak router módban fut; standalone és híd módban a rádió az otthoni Wi-Fi kliense marad |
 | Wi-Fi 7, 6 GHz, 160/320 MHz | Nincs igazolva. A Debian 13 hostapd-ja elutasította a Wi-Fi 7 beállításokat, ezért az NMB régebbi szabványra lép vissza |
 | PPPoE | Valódi vonalon (DIGI, 2026-11-09) és szimulált szolgáltatóval: tárcsázás, a szolgáltató elutasító üzenete megjelenik, újratárcsázás, router mód rajta |
 | VLAN, Multi-WAN terheléselosztás, link aggregáció | A kód megvan, valódi vonalon nincs tesztelve |
 | Más disztribúciók (például Raspberry Pi OS, Arch), 32 bites rendszerek | Nincs tesztelve; a telepítő Debian-alapú rendszert, Fedorát, RHEL-t és klónjait, valamint Alpine-t támogat |
 | 512 MB RAM-os eszközök | 512 MB-os virtuális gépen tesztelve: 25 perc percenkénti méréssel, memóriahiány miatti leállítás és swap-használat nélkül |
 | Újratelepítés és frissítés `setup.sh`-val | Ubuntu 26.04-en, Alpine 3.22-n és Rocky Linux 10-en tesztelve: a beállítások és mérések megmaradtak, a törölt fájlok eltűntek, újraindítás után minden szolgáltatás fut |
+| A dobozt módosító Telegram-parancsok | A Raspberry Pi 4-en, router módban, PPPoE-n (2026-11-10), a bot parancskezelőjén át: `/mode`, `/vpn start`/`stop`, `/heal`, `/heal fix`, `/heal updates`, `/wifi connect`, `/dyndns on`/`off`/`update`, `/adblock on`/`off`, `/backup create`, `/kill`, `/reboot now`; a `/purge ... confirm` az adatok másolatain, a `/purge logs` elkülönített mount-névtérben, így semmi valódi nem törlődött. A `/heal apply` csak úgy, hogy nem volt újabb a GitHubon |
 | Frissítés a GitHubról (Git nélküli telepítés) | Csak egységtesztek (letöltés, biztonságos kicsomagolás, tesztkapu, állapot). A valódi tárolóval még nem futott |
 | Központi gyűjtő és távoli irányítás | Valódi gyűjtővel és box-klienssel egy gépen tesztelve: feltöltés, keresés ügyszámra, CSV, diagnosztika csak hozzájárulással, távoli sebességmérés, elutasítás hozzájárulás nélkül, más oldalról érkező kérések elutasítása. Két gép között még nem futott |
 | WireGuard és OpenVPN szerver, HTTPS-proxy | Virtuális gépen tesztelve valódi klienssel: alagút, internet és webes felület az alagúton át |
