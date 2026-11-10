@@ -603,7 +603,7 @@ Ki használhatja: a `[telegram] allowed_chat_ids` Telegram-azonosítókat sorol 
 | `/heal apply` | Telepíti ezt a frissítést előzetes mentéssel és hiba esetén visszaállítással; ha nincs újabb, nem csinál semmit |
 | `/backup [list]` | Kilistázza a tárolt mentéseket |
 | `/backup create` | Teljes mentést készít (beállítások, adatbázis, VPN-kulcsok) |
-| `/backup send <fájl>` | Elküld egy mentést a csevegésbe (a Telegram a botoknak 50 MB-ot enged) |
+| `/backup send <fájl> [plain]` | Elküld egy mentést a csevegésbe, a webes felület Telegram kártyáján megadott jelmondattal titkosítva (`.gpg` fájl: `gpg -d` vagy Kleopatra nyitja meg); jelmondat nélkül nem küld semmit, a `plain` titkosítatlanul küldi. A Telegram a botoknak 50 MB-ot enged |
 | `/tasks` | Terhelés, memória és a legtöbbet dolgozó folyamatok |
 | `/kill <pid> [15\|9\|1\|2]` | TERM, KILL, HUP vagy INT jelet küld egy folyamatnak, amelyet a bot leállíthat (a PID 1 és maga a bot védett; más jelet elutasít) |
 | `/drivers` | Hálózati adapterek és meghajtóik |

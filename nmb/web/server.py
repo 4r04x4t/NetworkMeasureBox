@@ -1026,6 +1026,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "latency_threshold_ms": lat_ms,
                 "alert_on_loss": getattr(self.server.cfg.telegram, "alert_on_loss", True),
                 "alert_on_latency": getattr(self.server.cfg.telegram, "alert_on_latency", True),
+                "backup_passphrase_set": bool(getattr(self.server.cfg.telegram, "backup_passphrase", "")),
                 "service_active": active,
                 "pid": pid,
                 "bot_info": bot_info,
@@ -2999,6 +3000,19 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             elif token_in and not token_in.startswith("***") and "..." not in token_in:
                 self.server.cfg.telegram.token = token_in
             # If token_in is empty and clear_token is False, preserve existing self.server.cfg.telegram.token
+
+            # The /backup send passphrase: never sent back to the browser; empty keeps the saved one.
+            pass_in = body_json.get("backup_passphrase")
+            if body_json.get("clear_backup_passphrase"):
+                self.server.cfg.telegram.backup_passphrase = ""
+            elif isinstance(pass_in, str) and pass_in != "":
+                from nmb.common.backup import passphrase_problem
+                problem = passphrase_problem(pass_in)
+                if problem:
+                    self._send_json({"status": "error", "ok": False, "error_key": "js_tg_pass_short",
+                                     "error": "The backup passphrase needs at least 12 characters, no control characters and no spaces at the ends."}, status=400)
+                    return
+                self.server.cfg.telegram.backup_passphrase = pass_in
 
             chat_ids_raw = body_json.get("allowed_chat_ids", body_json.get("chat_ids", []))
             parsed_chats = []

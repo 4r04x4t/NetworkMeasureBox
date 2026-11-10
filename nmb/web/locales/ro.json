@@ -1077,7 +1077,7 @@
  "telegram_btn_stop": "⏹️ Oprește",
  "telegram_btn_test": "📨 Trimite o notificare de test",
  "telegram_chats": "ID-uri de chat autorizate (separate prin virgulă):",
- "telegram_chats_hint": "Doar utilizatorii și grupurile Telegram indicate pot trimite comenzi și primi alerte.",
+ "telegram_chats_hint": "Un chat privat funcționează dacă este chatul propriu al unui utilizator din listă. Pentru un grup, indicați ID-ul grupului și ID-ul fiecărui membru care poate da comenzi; ceilalți membri sunt ignorați.",
  "telegram_cmd_desc_adblock": "Telemetria blocării reclamelor prin DNS sinkhole",
  "telegram_cmd_desc_help": "Lista completă a comenzilor și meniu interactiv",
  "telegram_cmd_desc_ip": "Adrese IP publice și locale (WAN, LAN, Tailscale)",
@@ -2437,5 +2437,9 @@
  "ssh_keys_only_hint": "Mai sigur: SSH acceptă atunci doar chei SSH. Se poate activa doar dacă un cont are deja o cheie, ca să nu te blochezi. Tailscale SSH funcționează în continuare. Dezactivat implicit.",
  "ssh_keys_only_on": "SSH acceptă acum doar chei",
  "ssh_keys_only_off": "SSH acceptă din nou parole",
- "js_packets_short": "pach."
+ "js_packets_short": "pach.",
+ "telegram_backup_pass": "Frază de acces pentru copii de rezervă (/backup send):",
+ "telegram_backup_pass_hint": "Botul trimite copiile de rezervă doar criptate cu această frază (GnuPG, AES-256). Deschideți-le cu gpg -d sau Kleopatra. Cel puțin 12 caractere; lăsați gol pentru a o păstra pe cea salvată.",
+ "telegram_backup_pass_saved": "Fraza a fost salvată",
+ "js_tg_pass_short": "Fraza de acces trebuie să aibă cel puțin 12 caractere."
 }

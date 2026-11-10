@@ -1488,9 +1488,10 @@ class CommandHandler:
             if len(args) < 2:
                 self._say(chat_id, "usage", cmd="/backup send &lt;filename&gt;")
                 return
-            self._backup_send(chat_id, args[1].strip(), lang)
+            plain = len(args) > 2 and args[2].strip().lower() == "plain"
+            self._backup_send(chat_id, args[1].strip(), lang, plain=plain)
         else:
-            self._say(chat_id, "unknown_sub", cmd=html.escape(subcmd), supported="<code>/backup list</code>, <code>/backup create [label]</code>, <code>/backup send &lt;filename&gt;</code>")
+            self._say(chat_id, "unknown_sub", cmd=html.escape(subcmd), supported="<code>/backup list</code>, <code>/backup create [label]</code>, <code>/backup send &lt;filename&gt; [plain]</code>")
 
     def _backup_list(self, chat_id: int, lang: Optional[str] = None) -> None:
         if lang is None:
@@ -1532,22 +1533,42 @@ class CommandHandler:
         except Exception as e:
             self._say_error(chat_id, "Backup", e)
 
-    def _backup_send(self, chat_id: int, filename: str, lang: Optional[str] = None) -> None:
+    def _backup_send(self, chat_id: int, filename: str, lang: Optional[str] = None, plain: bool = False) -> None:
+        """Sends a backup encrypted with the owner's passphrase. The archive holds nmb.conf with every
+        password and token and the VPN keys, and Telegram keeps what it is sent: unencrypted only when
+        asked for with "plain" (audit bot H1)."""
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
         clean_name = os.path.basename(filename)
         path = backup.BACKUP_DIR / clean_name
-        if not path.is_file():
+        if not clean_name or not path.is_file():
             not_found = t("backup_not_found", lang, file=html.escape(clean_name))
             self.client.send_message(chat_id, not_found)
+            return
+
+        passphrase = getattr(self.cfg.telegram, "backup_passphrase", "") or ""
+        if not plain and backup.passphrase_problem(passphrase):
+            self.client.send_message(chat_id, t("backup_need_passphrase", lang, file=html.escape(clean_name)))
             return
 
         up_label = t("backup_uploading", lang, file=html.escape(clean_name))
         self.client.send_message(chat_id, up_label)
         try:
-            data = path.read_bytes()
-            caption = t("backup_caption", lang, file=html.escape(clean_name), size=format_bytes(len(data)))
-            ok = self.client.send_document(chat_id, clean_name, data, caption=caption)
+            if plain:
+                self.client.send_message(chat_id, t("backup_plain_warning", lang))
+                data = path.read_bytes()
+                out_name = clean_name
+                caption = t("backup_caption", lang, file=html.escape(out_name), size=format_bytes(len(data)))
+            else:
+                try:
+                    data = backup.encrypt_for_transfer(path, passphrase)
+                except Exception as e:
+                    self.client.send_message(chat_id, t("backup_encrypt_failed", lang, error=html.escape(str(e))))
+                    return
+                out_name = clean_name + ".gpg"
+                caption = t("backup_caption_encrypted", lang, file=html.escape(out_name),
+                            orig=html.escape(clean_name), size=format_bytes(len(data)))
+            ok = self.client.send_document(chat_id, out_name, data, caption=caption)
             if not ok:
                 self._say(chat_id, "backup_send_failed")
         except Exception as e:

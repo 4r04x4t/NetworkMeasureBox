@@ -417,7 +417,7 @@ Who may use it: `[telegram] allowed_chat_ids` lists Telegram ids. A private chat
 | `/heal apply` | Installs that update with a backup first and rollback on failure; does nothing when nothing newer exists |
 | `/backup [list]` | Lists the stored backups |
 | `/backup create` | Makes a full backup (settings, database, VPN keys) |
-| `/backup send <file>` | Sends a backup into the chat (Telegram limits bots to 50 MB) |
+| `/backup send <file> [plain]` | Sends a backup into the chat, encrypted with the backup passphrase set on the Web UI's Telegram card (a `.gpg` file: open it with `gpg -d` or Kleopatra); without a passphrase it sends nothing, `plain` sends it unencrypted. Telegram limits bots to 50 MB |
 | `/tasks` | Load, memory and the busiest processes |
 | `/kill <pid> [15\|9\|1\|2]` | Sends TERM, KILL, HUP or INT to a process the bot may signal (PID 1 and the bot itself are protected; other signals are refused) |
 | `/drivers` | Network adapters and their drivers |

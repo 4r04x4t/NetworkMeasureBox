@@ -237,7 +237,11 @@
   "upd_started": "⏳ Actualizarea la <b>{ver}</b> rulează în fundal: teste pe această cutie, o copie de rezervă, apoi instalarea. Verificați peste câteva minute cu /heal updates (interfața web arată fiecare pas).",
   "donate_title": "Susține proiectul",
   "donate_text": "NetworkMeasureBox este gratuit și open source. Dacă îți este util, o donație ajută la continuarea muncii. Trimite doar moneda rețelei afișate și verifică adresa după lipire. Atinge o adresă pentru a o copia.",
-  "donate_footer": "Susține proiectul"
+  "donate_footer": "Susține proiectul",
+  "backup_need_passphrase": "🔒 Copiile de rezervă se trimit doar criptate și nu este setată nicio frază de acces. Setați una în interfața web (cardul Telegram), apoi încercați din nou. Pentru a o trimite totuși necriptată: <code>/backup send {file} plain</code>",
+  "backup_caption_encrypted": "🔒 <b>Copie de rezervă NetworkMeasureBox (criptată)</b>\nFișier: <code>{file}</code> ({size})\nDeschidere: <code>gpg -d {file} &gt; {orig}</code>",
+  "backup_plain_warning": "⚠️ Trimitere necriptată: arhiva conține toate parolele, cheile și tokenurile cutiei, iar Telegram păstrează o copie.",
+  "backup_encrypt_failed": "Criptarea a eșuat, nu s-a trimis nimic: {error}"
  },
  "keyboard": [
   [

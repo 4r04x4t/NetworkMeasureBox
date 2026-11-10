@@ -9968,7 +9968,7 @@ ${pkgList}`;
   let telegramFormLoaded = false;
 
   function clearTelegramDirty() {
-    ['telegram-cfg-enabled', 'telegram-cfg-token', 'telegram-cfg-chats', 'telegram-cfg-alert-loss', 'telegram-cfg-loss-thresh', 'telegram-cfg-alert-latency', 'telegram-cfg-lat-thresh'].forEach(id => {
+    ['telegram-cfg-enabled', 'telegram-cfg-token', 'telegram-cfg-chats', 'telegram-cfg-backup-pass', 'telegram-cfg-alert-loss', 'telegram-cfg-loss-thresh', 'telegram-cfg-alert-latency', 'telegram-cfg-lat-thresh'].forEach(id => {
       const el = document.getElementById(id);
       if (el) delete el.dataset.dirty;
     });
@@ -9982,6 +9982,9 @@ ${pkgList}`;
       lastTelegramStatus = d;
 
       // Populate form fields ONLY on initial load or explicit user-triggered refresh.
+      const passBadge = document.getElementById('telegram-pass-saved-badge');
+      if (passBadge) passBadge.hidden = !d.backup_passphrase_set;
+
       // Background interval polls must NEVER overwrite form fields while the user is typing or viewing!
       if (!telegramFormLoaded || forceFormReload) {
         const elEnabled = document.getElementById('telegram-cfg-enabled');
@@ -10123,6 +10126,11 @@ ${pkgList}`;
       const lossThreshold = parseFloat(document.getElementById('telegram-cfg-loss-thresh')?.value) || 5.0;
       const alertOnLatency = document.getElementById('telegram-cfg-alert-latency')?.checked ?? true;
       const latencyThreshold = parseFloat(document.getElementById('telegram-cfg-lat-thresh')?.value) || 100.0;
+      const backupPass = document.getElementById('telegram-cfg-backup-pass')?.value || '';
+      if (backupPass && backupPass.length < 12) {
+        showToast(t('js_tg_pass_short', 'The backup passphrase needs at least 12 characters.'));
+        return;
+      }
 
       showToast(t('telegram_saving', 'Saving Telegram settings...'));
       const res = await fetch('/api/telegram/save', {
@@ -10139,16 +10147,19 @@ ${pkgList}`;
           alert_loss_threshold_pct: lossThreshold,
           alert_on_latency: alertOnLatency,
           latency_threshold_ms: latencyThreshold,
-          alert_latency_threshold_ms: latencyThreshold
+          alert_latency_threshold_ms: latencyThreshold,
+          backup_passphrase: backupPass
         })
       });
       const data = await res.json();
       if (data.ok || data.status === 'ok') {
+        const passEl = document.getElementById('telegram-cfg-backup-pass');
+        if (passEl) passEl.value = '';
         showToast(t('telegram_saved_ok', 'Telegram settings saved successfully!'));
         clearTelegramDirty();
         setTimeout(() => loadTelegramStatus(true), 1000);
       } else {
-        showToast(t('error_prefix', 'Error: ') + (data.error || data.message || t('js_save_failed', 'Failed to save')));
+        showToast(t('error_prefix', 'Error: ') + (data.error_key ? t(data.error_key, data.error) : (data.error || data.message || t('js_save_failed', 'Failed to save'))));
       }
     } catch (e) {
       showToast(t('network_error', 'Network error: ') + e);

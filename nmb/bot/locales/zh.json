@@ -237,7 +237,11 @@
   "upd_started": "⏳ 正在后台更新到 <b>{ver}</b>：先在本设备上测试，再备份，然后安装。几分钟后用 /heal updates 查看（网页界面会显示每一步）。",
   "donate_title": "支持本项目",
   "donate_text": "NetworkMeasureBox 免费且开源。如果它对您有帮助，捐赠可以让工作继续下去。请只发送所示网络的币种，并在粘贴后核对地址。点按地址即可复制。",
-  "donate_footer": "支持本项目"
+  "donate_footer": "支持本项目",
+  "backup_need_passphrase": "🔒 备份只以加密方式发送，但尚未设置备份口令。请在网页界面（Telegram 卡片）中设置后重试。如仍要不加密发送：<code>/backup send {file} plain</code>",
+  "backup_caption_encrypted": "🔒 <b>NetworkMeasureBox 备份（已加密）</b>\n文件：<code>{file}</code>（{size}）\n打开：<code>gpg -d {file} &gt; {orig}</code>",
+  "backup_plain_warning": "⚠️ 不加密发送：该归档包含设备的所有密码、密钥和令牌，且 Telegram 会保留副本。",
+  "backup_encrypt_failed": "加密失败，未发送任何内容：{error}"
  },
  "keyboard": [
   [

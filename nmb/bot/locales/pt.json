@@ -237,7 +237,11 @@
   "upd_started": "⏳ A atualização para <b>{ver}</b> está a decorrer em segundo plano: testes nesta caixa, uma cópia de segurança e depois a instalação. Verifique dentro de alguns minutos com /heal updates (a interface web mostra cada passo).",
   "donate_title": "Apoiar o projeto",
   "donate_text": "O NetworkMeasureBox é gratuito e de código aberto. Se lhe for útil, um donativo ajuda a continuar o trabalho. Envie apenas a moeda da rede indicada e verifique o endereço depois de o colar. Toque num endereço para o copiar.",
-  "donate_footer": "Apoiar o projeto"
+  "donate_footer": "Apoiar o projeto",
+  "backup_need_passphrase": "🔒 As cópias só são enviadas cifradas e não há frase-passe definida. Defina uma na interface web (cartão Telegram) e tente de novo. Para a enviar mesmo assim sem cifra: <code>/backup send {file} plain</code>",
+  "backup_caption_encrypted": "🔒 <b>Cópia de segurança do NetworkMeasureBox (cifrada)</b>\nFicheiro: <code>{file}</code> ({size})\nAbrir: <code>gpg -d {file} &gt; {orig}</code>",
+  "backup_plain_warning": "⚠️ Envio sem cifra: o arquivo contém todas as palavras-passe, chaves e tokens da caixa, e o Telegram guarda uma cópia.",
+  "backup_encrypt_failed": "A cifragem falhou, nada foi enviado: {error}"
  },
  "keyboard": [
   [

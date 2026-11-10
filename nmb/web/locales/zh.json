@@ -1077,7 +1077,7 @@
  "telegram_btn_stop": "⏹️ 停止",
  "telegram_btn_test": "📨 发送测试通知",
  "telegram_chats": "授权的聊天 ID（以逗号分隔）：",
- "telegram_chats_hint": "只有指定的 Telegram 用户和群组可以发送命令和接收警报。",
+ "telegram_chats_hint": "私聊仅在其为列表中用户本人的聊天时有效。对于群组，请填写群组 ID 以及每位可发命令成员的用户 ID；其他成员将被忽略。",
  "telegram_cmd_desc_adblock": "DNS Sinkhole 广告拦截遥测",
  "telegram_cmd_desc_help": "完整命令列表和交互菜单",
  "telegram_cmd_desc_ip": "公网与本地 IP 地址（WAN、LAN、Tailscale）",
@@ -2437,5 +2437,9 @@
  "ssh_keys_only_hint": "更安全：SSH 将只接受 SSH 密钥。只有在某个账户已有密钥时才能开启，因此不会把自己锁在外面。Tailscale SSH 仍可使用。默认关闭。",
  "ssh_keys_only_on": "SSH 现在只接受密钥",
  "ssh_keys_only_off": "SSH 重新接受密码",
- "js_packets_short": "包"
+ "js_packets_short": "包",
+ "telegram_backup_pass": "备份口令（/backup send）：",
+ "telegram_backup_pass_hint": "机器人只发送用此口令加密的备份（GnuPG，AES-256）。用 gpg -d 或 Kleopatra 打开。至少 12 个字符；留空则保留已保存的口令。",
+ "telegram_backup_pass_saved": "口令已保存",
+ "js_tg_pass_short": "备份口令至少需要 12 个字符。"
 }

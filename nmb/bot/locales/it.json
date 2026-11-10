@@ -237,7 +237,11 @@
   "upd_started": "⏳ L'aggiornamento a <b>{ver}</b> è in corso in background: test su questo box, un backup, poi l'installazione. Controlla tra qualche minuto con /heal updates (l'interfaccia web mostra ogni passo).",
   "donate_title": "Sostieni il progetto",
   "donate_text": "NetworkMeasureBox è gratuito e open source. Se ti è utile, una donazione aiuta a portare avanti il lavoro. Invia solo la moneta della rete indicata e controlla l'indirizzo dopo averlo incollato. Tocca un indirizzo per copiarlo.",
-  "donate_footer": "Sostieni il progetto"
+  "donate_footer": "Sostieni il progetto",
+  "backup_need_passphrase": "🔒 I backup vengono inviati solo cifrati e non è impostata alcuna passphrase. Impostala nell'interfaccia web (scheda Telegram) e riprova. Per inviarlo comunque in chiaro: <code>/backup send {file} plain</code>",
+  "backup_caption_encrypted": "🔒 <b>Backup di NetworkMeasureBox (cifrato)</b>\nFile: <code>{file}</code> ({size})\nApri: <code>gpg -d {file} &gt; {orig}</code>",
+  "backup_plain_warning": "⚠️ Invio in chiaro: l'archivio contiene tutte le password, chiavi e token del box e Telegram ne conserva una copia.",
+  "backup_encrypt_failed": "Cifratura non riuscita, non è stato inviato nulla: {error}"
  },
  "keyboard": [
   [

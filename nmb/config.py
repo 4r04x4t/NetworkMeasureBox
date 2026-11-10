@@ -335,6 +335,8 @@ allowed_chat_ids =
 alert_loss_threshold_pct = 5.0
 alert_latency_threshold_ms = 100.0
 alert_jitter_threshold_ms = 30.0
+# /backup send encrypts with this passphrase (at least 12 characters); empty = no encrypted send
+backup_passphrase = 
 
 [guest_wifi]
 enabled = false
@@ -567,6 +569,9 @@ class TelegramConfig:
     alert_jitter_threshold_ms: float = 30.0
     alert_on_loss: bool = True
     alert_on_latency: bool = True
+    # /backup send encrypts with this (GnuPG symmetric, AES-256); empty = the bot refuses to send
+    # backups unless asked for "plain" explicitly.
+    backup_passphrase: str = ""
 
 
 @dataclass
@@ -1092,6 +1097,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.telegram.alert_jitter_threshold_ms = tg.getfloat("alert_jitter_threshold_ms", fallback=cfg.telegram.alert_jitter_threshold_ms)
         cfg.telegram.alert_on_loss = tg.getboolean("alert_on_loss", fallback=cfg.telegram.alert_on_loss)
         cfg.telegram.alert_on_latency = tg.getboolean("alert_on_latency", fallback=cfg.telegram.alert_on_latency)
+        cfg.telegram.backup_passphrase = tg.get("backup_passphrase", cfg.telegram.backup_passphrase)
 
     if parser.has_section("guest_wifi"):
         gw = parser["guest_wifi"]
@@ -1450,6 +1456,7 @@ def _fill_parser(cfg: "Config", parser) -> None:
     parser["telegram"]["alert_jitter_threshold_ms"] = str(cfg.telegram.alert_jitter_threshold_ms)
     parser["telegram"]["alert_on_loss"] = str(cfg.telegram.alert_on_loss).lower()
     parser["telegram"]["alert_on_latency"] = str(cfg.telegram.alert_on_latency).lower()
+    parser["telegram"]["backup_passphrase"] = str(cfg.telegram.backup_passphrase)
 
     # iPerf
     parser["iperf"]["enabled"] = str(cfg.iperf.enabled).lower()

@@ -111,6 +111,51 @@ def run_helper(cmd: str) -> Tuple[int, str]:
         return 1, str(e)
 
 
+MIN_PASSPHRASE = 12
+
+
+def passphrase_problem(passphrase: str) -> str:
+    """'' when the passphrase can be used, otherwise why not."""
+    if len(passphrase or "") < MIN_PASSPHRASE:
+        return "short"
+    if len(passphrase) > 256 or any(ord(c) < 32 or ord(c) == 127 for c in passphrase) or passphrase != passphrase.strip():
+        return "invalid"
+    return ""
+
+
+def encrypt_for_transfer(path: Path, passphrase: str, timeout: float = 120.0) -> bytes:
+    """The archive encrypted with GnuPG (symmetric, AES-256, integrity-protected), as the bytes of a
+    .gpg file that `gpg -d` or Kleopatra opens anywhere. The passphrase goes over a pipe, never on the
+    command line, and a throwaway GnuPG home is used, so nothing is left behind in the service's home.
+    A backup leaves the box only this way unless the owner asks for plain (audit bot H1)."""
+    import tempfile
+    problem = passphrase_problem(passphrase)
+    if problem:
+        raise ValueError(f"backup passphrase {problem}")
+    gpg = shutil.which("gpg")
+    if not gpg:
+        raise RuntimeError("gpg is not installed")
+    r_fd, w_fd = os.pipe()
+    with tempfile.TemporaryDirectory(prefix="nmb-gpg-") as home:
+        try:
+            os.write(w_fd, passphrase.encode("utf-8"))
+        finally:
+            os.close(w_fd)
+        try:
+            proc = subprocess.run(
+                [gpg, "--homedir", home, "--batch", "--yes", "--no-tty", "--quiet",
+                 "--pinentry-mode", "loopback", "--passphrase-fd", str(r_fd),
+                 "--symmetric", "--cipher-algo", "AES256", "--s2k-digest-algo", "SHA512",
+                 "--s2k-mode", "3", "--s2k-count", "65011712", "--compress-algo", "none",
+                 "--output", "-", str(path)],
+                pass_fds=(r_fd,), capture_output=True, timeout=timeout, check=False)
+        finally:
+            os.close(r_fd)
+    if proc.returncode != 0 or not proc.stdout:
+        raise RuntimeError((proc.stderr or b"").decode("utf-8", "replace").strip()[-300:] or f"gpg exit {proc.returncode}")
+    return proc.stdout
+
+
 def create_backup(
     backup_type: str = "full",
     comment: str = "",

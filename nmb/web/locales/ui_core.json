@@ -973,7 +973,11 @@
   "ssh_keys_only_hint": "Safer: SSH then accepts only SSH keys. It can be switched on only when an account already has a key, so you cannot lock yourself out. Tailscale SSH keeps working. Off by default.",
   "ssh_keys_only_on": "SSH now accepts keys only",
   "ssh_keys_only_off": "SSH accepts passwords again",
-  "js_packets_short": "pkt"
+  "js_packets_short": "pkt",
+  "telegram_backup_pass": "Backup passphrase (/backup send):",
+  "telegram_backup_pass_hint": "The bot sends backups only encrypted with this passphrase (GnuPG, AES-256). Open them with gpg -d or Kleopatra. At least 12 characters; leave empty to keep the saved one.",
+  "telegram_backup_pass_saved": "Passphrase saved",
+  "js_tg_pass_short": "The backup passphrase needs at least 12 characters."
  },
  "hu": {
   "ui_ookla": "Ookla",
@@ -1949,7 +1953,11 @@
   "ssh_keys_only_hint": "Biztonságosabb: az SSH ekkor csak SSH-kulcsot fogad el. Csak akkor kapcsolható be, ha valamelyik fióknak már van kulcsa, így nem zárhatod ki magad. A Tailscale SSH továbbra is működik. Alapból kikapcsolva.",
   "ssh_keys_only_on": "Az SSH mostantól csak kulcsot fogad el",
   "ssh_keys_only_off": "Az SSH újra elfogad jelszót",
-  "js_packets_short": "csomag"
+  "js_packets_short": "csomag",
+  "telegram_backup_pass": "Mentés jelmondata (/backup send):",
+  "telegram_backup_pass_hint": "A bot a mentéseket csak ezzel a jelmondattal titkosítva küldi el (GnuPG, AES-256). Megnyitás: gpg -d vagy Kleopatra. Legalább 12 karakter; üresen hagyva a mentett marad.",
+  "telegram_backup_pass_saved": "Jelmondat mentve",
+  "js_tg_pass_short": "A mentés jelmondata legalább 12 karakter legyen."
  },
  "de": {
   "ui_ookla": "Ookla",
@@ -2925,7 +2933,11 @@
   "ssh_keys_only_hint": "Sicherer: SSH akzeptiert dann nur SSH-Schlüssel. Es lässt sich nur einschalten, wenn ein Konto bereits einen Schlüssel hat, sodass Sie sich nicht aussperren können. Tailscale SSH funktioniert weiter. Standardmäßig aus.",
   "ssh_keys_only_on": "SSH akzeptiert jetzt nur Schlüssel",
   "ssh_keys_only_off": "SSH akzeptiert wieder Passwörter",
-  "js_packets_short": "Pkt."
+  "js_packets_short": "Pkt.",
+  "telegram_backup_pass": "Passphrase für Sicherungen (/backup send):",
+  "telegram_backup_pass_hint": "Der Bot sendet Sicherungen nur mit dieser Passphrase verschlüsselt (GnuPG, AES-256). Öffnen mit gpg -d oder Kleopatra. Mindestens 12 Zeichen; leer lassen, um die gespeicherte zu behalten.",
+  "telegram_backup_pass_saved": "Passphrase gespeichert",
+  "js_tg_pass_short": "Die Passphrase muss mindestens 12 Zeichen haben."
  },
  "fr": {
   "ui_ookla": "Ookla",
@@ -3901,7 +3913,11 @@
   "ssh_keys_only_hint": "Plus sûr : SSH n'accepte alors que les clés SSH. Ne peut être activé que si un compte possède déjà une clé, pour que vous ne puissiez pas vous bloquer. Tailscale SSH continue de fonctionner. Désactivé par défaut.",
   "ssh_keys_only_on": "SSH n'accepte plus que les clés",
   "ssh_keys_only_off": "SSH accepte de nouveau les mots de passe",
-  "js_packets_short": "paq."
+  "js_packets_short": "paq.",
+  "telegram_backup_pass": "Phrase secrète des sauvegardes (/backup send) :",
+  "telegram_backup_pass_hint": "Le bot n'envoie les sauvegardes que chiffrées avec cette phrase (GnuPG, AES-256). Ouvrez-les avec gpg -d ou Kleopatra. Au moins 12 caractères ; laissez vide pour garder celle enregistrée.",
+  "telegram_backup_pass_saved": "Phrase enregistrée",
+  "js_tg_pass_short": "La phrase secrète doit compter au moins 12 caractères."
  },
  "uk": {
   "ui_ookla": "Ookla",
@@ -4877,6 +4893,10 @@
   "ssh_keys_only_hint": "Безпечніше: SSH прийматиме лише SSH-ключі. Увімкнути можна лише тоді, коли в обліковому записі вже є ключ, тож ви не заблокуєте себе. Tailscale SSH і далі працює. Типово вимкнено.",
   "ssh_keys_only_on": "SSH тепер приймає лише ключі",
   "ssh_keys_only_off": "SSH знову приймає паролі",
-  "js_packets_short": "пак."
+  "js_packets_short": "пак.",
+  "telegram_backup_pass": "Парольна фраза резервних копій (/backup send):",
+  "telegram_backup_pass_hint": "Бот надсилає резервні копії лише зашифрованими цією фразою (GnuPG, AES-256). Відкрити: gpg -d або Kleopatra. Щонайменше 12 символів; залиште порожнім, щоб зберегти поточну.",
+  "telegram_backup_pass_saved": "Фразу збережено",
+  "js_tg_pass_short": "Парольна фраза має містити щонайменше 12 символів."
  }
 }

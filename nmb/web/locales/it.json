@@ -1077,7 +1077,7 @@
  "telegram_btn_stop": "⏹️ Arresta",
  "telegram_btn_test": "📨 Invia una notifica di prova",
  "telegram_chats": "ID chat autorizzati (separati da virgola):",
- "telegram_chats_hint": "Solo gli utenti e i gruppi Telegram indicati possono inviare comandi e ricevere avvisi.",
+ "telegram_chats_hint": "Una chat privata funziona se è la chat di un utente elencato. Per un gruppo indica l'ID del gruppo e l'ID utente di ogni membro che può dare comandi; gli altri membri vengono ignorati.",
  "telegram_cmd_desc_adblock": "Telemetria del blocco pubblicità tramite DNS sinkhole",
  "telegram_cmd_desc_help": "Elenco completo dei comandi e menu interattivo",
  "telegram_cmd_desc_ip": "Indirizzi IP pubblici e locali (WAN, LAN, Tailscale)",
@@ -2437,5 +2437,9 @@
  "ssh_keys_only_hint": "Più sicuro: SSH accetta solo chiavi SSH. Si può attivare solo se un account ha già una chiave, così non puoi restare chiuso fuori. Tailscale SSH continua a funzionare. Disattivato per impostazione predefinita.",
  "ssh_keys_only_on": "SSH ora accetta solo chiavi",
  "ssh_keys_only_off": "SSH accetta di nuovo le password",
- "js_packets_short": "pacch."
+ "js_packets_short": "pacch.",
+ "telegram_backup_pass": "Passphrase dei backup (/backup send):",
+ "telegram_backup_pass_hint": "Il bot invia i backup solo cifrati con questa passphrase (GnuPG, AES-256). Aprili con gpg -d o Kleopatra. Almeno 12 caratteri; lascia vuoto per mantenere quella salvata.",
+ "telegram_backup_pass_saved": "Passphrase salvata",
+ "js_tg_pass_short": "La passphrase deve avere almeno 12 caratteri."
 }
