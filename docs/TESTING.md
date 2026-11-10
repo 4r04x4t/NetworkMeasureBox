@@ -105,6 +105,8 @@ Reached only over Tailscale (the developer PC was on another network, the Nighth
 | netd restart in automatic mode | ✅ after a fix | Before: two dials 20 s apart ("auto mode: PPPoE on; rebuilding router mode"), 312 of 464 pings lost in that minute. After: one dial, router mode built once |
 | Mode setting changed, same mode | ✅ after a fix | Router to automatic and back on the PPPoE line: the same pppd process, 0 of 32 pings lost each time ("the box stays in mode_a") |
 | IPv6 on a real phone over the box's Wi-Fi | ✅ | 2026-11-10 02:56, the owner's phone: ipv6test.google.com "using IPv6 already", test-ipv6.run 10/10 for IPv6 and IPv4, both addresses from DIGI |
+| Telegram commands that change the box | ✅ after fixes | 2026-11-10, through the bot's own command handler on the box (replies collected, the actions real): `/mode mode_a` and `/mode auto` (the same pppd, no redial); `/vpn stop`/`start` for WireGuard and OpenVPN (no client connected); `/heal`, `/heal fix` (healthy, nothing done); `/heal updates` (offered older code as "2.5.0 -> 2.5.0" before the fix, "latest runs (commit)" after); `/wifi connect` (now refuses while the radio is the access point); `/dyndns off`/`on`/`update` (the web server's updater stops within 35 s and comes back; before the fix it kept running); `/adblock off`/`on`; `/backup create` (37.5 MB in 32 s) and `/backup list`; `/purge` with confirm on copies of the data in the box's RAM disk (measurements failed with "database or disk is full" before the fix, now in slices; events, reports, backups); `/reboot now` (back on Tailscale 77 s later in router mode with PPPoE, one dial, IPv4 and IPv6, Wi-Fi up, the database kept up to the last minute) |
+| /var/log full | ✅ after a fix | Found during the round: the 48 MB RAM disk was at 100 % (developer log 10 MB x 5), logging failed in every service and an installer run stopped halfway. Rotated copies saved to the PC; the rotation now fits the file system: 1 % used after the reboot |
 | Wired WAN cable out for 3 s | ✅ | 02:28, by accident: the PPPoE session stayed up (no redial, no outage, no ping lost) |
 | False outage rows of 2026-11-09 removed | ✅ | Owner's decision: database backed up first (box and PC), then outages 18-25 deleted, outage 17 (18:56, the cable move) ended at 19:00:49 when the box was online again over USB, the lost samples and fully lost minutes between 19:00:49 and 01:20:58 deleted, two edge minutes corrected. Availability in the last 24 h: 99.55 % (was 73.22 %) |
 
@@ -313,7 +315,7 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 
 | What | How |
 |---|---|
-| Fixes of the 2026-11-09 log review | Telegram during an outage (cable out of the router): the bot log shows growing pauses, not several requests a second. `/dyndns off` and `/dyndns on` from Telegram are saved. Block only DNS (for example port 53 on the router): the fallback starts while IP works, and the normal DNS comes back within 15 minutes after the block ends. Router mode on the Pi: `journalctl -u nmb-netd` shows no "hostapd did not start". `/var/lib/nmb/.rmbt_client_uuid` stays the same across RTR tests. A cable pull leaves no repeated "dead default route" lines |
+| Fixes of the 2026-11-09 log review | Telegram during an outage (cable out of the router): the bot log shows growing pauses, not several requests a second. (`/dyndns off` and `/dyndns on`: done 2026-11-10, see Results.) Block only DNS (for example port 53 on the router): the fallback starts while IP works, and the normal DNS comes back within 15 minutes after the block ends. Router mode on the Pi: `journalctl -u nmb-netd` shows no "hostapd did not start". `/var/lib/nmb/.rmbt_client_uuid` stays the same across RTR tests. A cable pull leaves no repeated "dead default route" lines |
 | Automatic mode (`mode = auto`) | Box in `auto` with the cable in the home router: standalone, no switch. Cable out of the router for 90 s: router mode with the access point (Tailscale over USB or Wi-Fi must stay up). Cable on the ONT with PPPoE saved: router mode with PPPoE. Cable back in the router: standalone within about 30 s. Router reboot (under 90 s): stays standalone. On a box with several wired ports: the other ports bridged to the WAN port, a PC behind it gets the router's address |
 | IPv6 on the line | `sudo nmb-selftest ipv6`: the LAN router's advertisement (lifetime, prefixes), the box's public IPv6 address and route, HTTPS over IPv6. 2026-11-09 on the Pi 4: the home router (GL.iNet Flint 4) advertised lifetime 0 and no prefix, so the LAN got no IPv6 although the ISP provides it; to re-test after IPv6 is turned on for the router's LAN. DynDNS must then set the AAAA record |
 | IPv6 in router mode on a DHCP WAN or USB | Built for a PPPoE WAN only (2026-11-09); behind another router or on a hotspot the LAN still gets IPv4 only |
@@ -343,7 +345,7 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | Upgrade and backup from an older release | Install 2.4.0, update to the current one with its config; restore a 2.4.0 backup |
 | WAN failover, load balancing, VLAN, link aggregation | Two WAN NICs, pull one; a Linux bridge with VLAN filtering |
 | Hostile networks | IPv6-only WAN, CGNAT, broken DNS, captive portal, flapping link, clock jump |
-| Telegram commands that change the box | On a spare box: `/reboot now`, `/purge ... confirm`, `/heal apply`, `/mode`, `/wifi connect`, `/vpn start`/`stop` |
+| Telegram commands that change the box, what is left | Done on 2026-11-10 (see Results). Left: `/heal apply` with a real update on GitHub (only the "nothing newer" path ran), `/purge logs confirm` (deletes the box's logs and journal; not run on the owner's box), `/purge` on the real data (run on copies), `/kill`, `/wifi connect` in standalone mode |
 | Telegram backup over 50 MB | Telegram refuses bigger files; the bot must say so instead of failing quietly |
 | Lost settings across real processes | Web UI, `nmb-cli`, bot and `nmb-netd` saving in turns for an hour; every value set stays (the unit test covers two copies in one process) |
 | SMTP | Against a local mock server, then a real mailbox |
@@ -373,10 +375,11 @@ Found in the code or in the box's logs and not fixed yet (the log review of 2026
 | What | Detail |
 |---|---|
 | Ookla rate limits at an hourly schedule | Ookla still refused the box every few hours (2026-11-08 17:20, 20:22-22:24, 11-09 01:27, 06:37, 07:41). One cause is fixed (the bot ran Ookla as a new client each time); watch whether it stops, and count manual and Telegram runs against the hour too |
-| SD card writes | The developer log grows about 10 MB a day on the SD card (the boot-partition copy of the diagnostic snapshot is already limited to once an hour) |
+| SD card writes | The developer log grows about 10 MB a day (since 2026-11-10 its rotation fits 40 % of /var/log) (the boot-partition copy of the diagnostic snapshot is already limited to once an hour) |
 | Data used by the owner's schedule | The box runs every engine every 2-5 minutes (the owner's setting): on a 1000 Mbit/s line that is many GB an hour. USB has no daily limit set (0); since 2026-11-09 router mode does not fall back to USB for tests, but a limit for USB is still advisable |
 | `nmcli device reapply` | Putting IPv4 DNS first reapplies the profile once; that reset an open connection of the bot once (it reconnected) |
-| Leftovers on the test box | 22 old `/tmp/nmb-install-*` folders from 2026-11-07 deploys |
+| Slow bot start after a reboot in router mode | The bot waits for `network-online.target`; NetworkManager-wait-online fails after its timeout because eth0 is not managed in router mode, so the bot starts about 2 minutes after boot (2026-11-10: boot 03:38:05, bot 03:40:05) |
+| pppd warning on every dial | "can't open options file /root/.ppprc: Permission denied" (netd runs with limited rights); harmless |
 
 ## Known limits
 
