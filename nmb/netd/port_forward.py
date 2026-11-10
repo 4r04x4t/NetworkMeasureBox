@@ -122,11 +122,13 @@ def box_open_ports(cfg: Any) -> List[Tuple[str, int]]:
     """Ports the box itself keeps open on the WAN: Tailscale's direct connections and the VPN servers
     that are on. A forwarding rule may not take them."""
     ports = [("udp", 41641)]
+    # On in the settings, or running anyway (its tunnel interface exists): the firewall must not cut off
+    # a server that runs (2026-11-10 on the box: OpenVPN ran with enabled = false in nmb.conf).
     wg = getattr(cfg, "wireguard", None)
-    if wg is not None and getattr(wg, "enabled", False):
+    if wg is not None and (getattr(wg, "enabled", False) or Path("/sys/class/net/wg0").exists()):
         ports.append(("udp", int(getattr(wg, "port", 51820) or 51820)))
     ov = getattr(cfg, "openvpn", None)
-    if ov is not None and getattr(ov, "enabled", False):
+    if ov is not None and (getattr(ov, "enabled", False) or Path("/sys/class/net/tun0").exists()):
         proto = "tcp" if "tcp" in str(getattr(ov, "proto", "udp")).lower() else "udp"
         ports.append((proto, int(getattr(ov, "port", 1194) or 1194)))
     return ports

@@ -177,5 +177,18 @@ class ModeOrderTest(unittest.TestCase):
             order.fw.apply_host_guard.assert_called_once_with([("udp", 41641)])
 
 
+
+class RunningVpnPortTest(unittest.TestCase):
+    def test_running_server_keeps_its_port_open_even_if_disabled_in_config(self):
+        from nmb.netd import port_forward
+        cfg = Config()
+        cfg.openvpn.enabled = False
+        cfg.wireguard.enabled = False
+        with patch.object(port_forward.Path, "exists", lambda self: str(self) == "/sys/class/net/tun0"):
+            ports = port_forward.box_open_ports(cfg)
+        self.assertIn(("udp", 1194), ports)
+        self.assertNotIn(("udp", 51820), ports)
+
+
 if __name__ == "__main__":
     unittest.main()
