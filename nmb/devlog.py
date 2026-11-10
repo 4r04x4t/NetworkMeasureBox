@@ -209,6 +209,26 @@ class DevLogBufferHandler(logging.Handler):
             return self._counter
 
 
+LOG_SHARE_OF_FS = 0.4      # the developer log and its rotated copies take at most this share of their file system
+
+
+def fit_rotation(directory: Path, max_bytes: int, backup_count: int) -> tuple:
+    """Shrink the rotation so the log and its copies fit the file system they are on. /var/log on the box is
+    a 48 MB RAM disk and the defaults (10 MB, 5 copies) need 60 MB: it filled up on 2026-11-10, every
+    service lost its log and the installer stopped halfway (it writes its own log there)."""
+    try:
+        st = os.statvfs(str(directory))
+        budget = int(st.f_frsize * st.f_blocks * LOG_SHARE_OF_FS)
+    except (OSError, AttributeError):
+        return max_bytes, backup_count
+    max_bytes, backup_count = max(1, int(max_bytes)), max(0, int(backup_count))
+    if budget <= 0 or max_bytes * (backup_count + 1) <= budget:
+        return max_bytes, backup_count
+    backup_count = min(backup_count, 2)
+    max_bytes = max(256 * 1024, budget // (backup_count + 1))
+    return max_bytes, backup_count
+
+
 # Singleton handler instances
 _BUFFER_HANDLER: Optional[DevLogBufferHandler] = None
 _FILE_HANDLER: Optional[RotatingFileHandler] = None
@@ -332,6 +352,7 @@ def setup_dev_logging(
             try:
                 target_p = Path(log_file)
                 target_p.parent.mkdir(parents=True, exist_ok=True)
+                max_bytes, backup_count = fit_rotation(target_p.parent, max_bytes, backup_count)
                 _FILE_HANDLER = RotatingFileHandler(
                     log_file,
                     maxBytes=max_bytes,
