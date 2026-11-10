@@ -79,5 +79,8 @@ nmb_credentials.txt
 *.conf
 !config/nmb.conf.example
 !os/99-nmb-performance.conf
+# files shipped with the box (no secrets), installed by setup.sh
+!os/*.conf
+!config/*.example.conf
 /tmp/
 *.tar.gz
