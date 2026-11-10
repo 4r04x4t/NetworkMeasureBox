@@ -34,6 +34,34 @@ class PurgeTests(unittest.TestCase):
             self.assertTrue((backups / "b.tar.gz").exists())
 
 
+    def test_measurements_go_in_slices_and_events_stay(self):
+        # 2026-11-10: one DELETE of everything filled the 256 MB RAM disk with write-ahead log.
+        import sqlite3
+        from nmb.db import database as db
+        schema = (Path(purge.__file__).resolve().parent.parent / "db" / "schema.sql").read_text()
+        with tempfile.TemporaryDirectory() as tmp:
+            live = Path(tmp) / "live.db"
+            c = sqlite3.connect(live)
+            c.executescript(schema)
+            hour = 3600 * 1000
+            c.executemany("INSERT INTO ping_sample (ts, target_id, rtt_us) VALUES (?, 1, 5000)",
+                          [(i * 60_000, ) for i in range(3 * 24 * 60)])           # three days, one per minute
+            c.execute("INSERT INTO event (ts, severity, source, kind, detail) VALUES (1, 'info', 'x', 'y', 'z')")
+            c.commit()
+            c.close()
+            slices = []
+            real = purge._purge_table_sliced
+            with patch.object(db, "get_live_db", return_value=live), \
+                 patch.object(db, "snapshot"), \
+                 patch.object(purge, "_purge_table_sliced", side_effect=lambda *a: slices.append(a[1]) or real(*a)):
+                purge._purge_tables(["measurements"])
+            c = sqlite3.connect(live)
+            self.assertEqual(c.execute("SELECT COUNT(*) FROM ping_sample").fetchone()[0], 0)
+            self.assertEqual(c.execute("SELECT COUNT(*) FROM event").fetchone()[0], 1)
+            c.close()
+            self.assertIn("ping_sample", slices)
+            self.assertEqual(purge.SLICE_MS, 6 * hour)
+
 class BotLanguageTests(unittest.TestCase):
     def test_verdict_is_translated_everywhere(self):
         for lang in SUPPORTED_LANGUAGES:

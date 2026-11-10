@@ -51,15 +51,46 @@ def get_purge_summary(cfg) -> Dict[str, Dict[str, int]]:
     return summary
 
 
+# The big tables go in time slices: one DELETE of everything writes about as much write-ahead log as the
+# database is big, and the live database sits in a 256 MB RAM disk next to its own copy limit of up to
+# 192 MB ("database or disk is full", 2026-11-10). Each slice is committed and the log checkpointed.
+SLICED_TABLES = {"ping_sample": "ts", "ping_minute": "ts", "iface_stat": "ts"}
+SLICE_MS = 6 * 3600 * 1000
+
+
+def _purge_table_sliced(conn, table: str, col: str) -> int:
+    deleted = 0
+    while True:
+        with db.tx(conn):
+            n = conn.execute(f"DELETE FROM {table} WHERE {col} < "
+                             f"(SELECT MIN({col}) + ? FROM {table})", (SLICE_MS,)).rowcount
+            if n <= 0:
+                n += conn.execute(f"DELETE FROM {table}").rowcount   # rows the slice query cannot reach
+        deleted += max(n, 0)
+        try:
+            conn.execute("PRAGMA wal_checkpoint(RESTART)")
+        except sqlite3.Error:
+            pass
+        if n <= 0:
+            return deleted
+
+
 def _purge_tables(categories: List[str]) -> int:
     conn = db.connect()
     deleted = 0
     try:
-        with db.tx(conn):
-            for category in categories:
-                for table in CATEGORY_TABLES[category]:
-                    deleted += conn.execute(f"DELETE FROM {table}").rowcount
+        for category in categories:
+            for table in CATEGORY_TABLES[category]:
+                if table in SLICED_TABLES:
+                    deleted += _purge_table_sliced(conn, table, SLICED_TABLES[table])
+                else:
+                    with db.tx(conn):
+                        deleted += conn.execute(f"DELETE FROM {table}").rowcount
         conn.execute("VACUUM")
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except sqlite3.Error:
+            pass
     finally:
         conn.close()
     # The persistent copy would otherwise bring the rows back after a reboot.
