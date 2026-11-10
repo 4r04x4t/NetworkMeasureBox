@@ -293,6 +293,7 @@ class ModeA(NetworkMode):
         from nmb.netd import usb_uplink
         usb_uplink.set_router_wan(self.usb_wan)
         if self.usb_wan:
+            firewall.apply_wan_guard([self.usb_wan], self._wan_open_ports())
             ok = self._setup_lan_and_nat(self.usb_wan, extra_lan=[self.cfg.wan_interface])
             # A default route through a LAN port (NetworkManager's old lease on the WAN port) would swallow
             # every packet the box sends; the box's own internet is USB now.
@@ -316,7 +317,11 @@ class ModeA(NetworkMode):
         interfaces.set_link_up(wan)
         self.active_wan = wan
 
-        if (self.cfg.pppoe_enabled or getattr(self, 'auto_pppoe', False)) and self.cfg.pppoe_user:
+        pppoe = bool((self.cfg.pppoe_enabled or getattr(self, 'auto_pppoe', False)) and self.cfg.pppoe_user)
+        # The WAN guard goes up before the line is dialled: pppd brings up ppp0 with a public address
+        # within seconds, and the full router rules come only after the LAN, Wi-Fi and DHCP (audit netd H3).
+        firewall.apply_wan_guard(["ppp0" if pppoe else wan] + self._wan2_list(), self._wan_open_ports())
+        if pppoe:
             log.info("launching PPPoE client on %s", wan)
             self._start_ra_watch()
             self.svc_mgr.start_pppd(wan)
@@ -343,15 +348,29 @@ class ModeA(NetworkMode):
         except Exception:
             return None
 
+    def _wan2_list(self) -> List[str]:
+        wan2 = getattr(self.cfg, "wan2_interface", "")
+        return [wan2] if wan2 and wan2 != self.cfg.wan_interface and interfaces.interface_exists(wan2) else []
+
     def apply_firewall(self) -> None:
         """NAT, the WAN guard, port forwarding and UPnP; called at setup and again when those settings change."""
         from nmb.netd import port_forward
         full = self._full()
         forwards = port_forward.active_rules(full) if full is not None else []
-        firewall.enable_nat_mode_a(self.active_wan, self.lan_ifaces, dmz_iface=getattr(self, "dmz_iface", ""),
-                                   open_ports=self._wan_open_ports(), forwards=forwards,
-                                   gateway_ip=self.cfg.gateway_ip,
-                                   gateway_netmask=getattr(self.cfg, "gateway_netmask", "255.255.255.0"))
+        open_ports = self._wan_open_ports()
+        wan2 = [] if self.usb_wan else self._wan2_list()
+        firewall.apply_wan_guard([self.active_wan] + wan2, open_ports)
+        ok = firewall.enable_nat_mode_a(self.active_wan, self.lan_ifaces, dmz_iface=getattr(self, "dmz_iface", ""),
+                                        open_ports=open_ports, forwards=forwards,
+                                        gateway_ip=self.cfg.gateway_ip,
+                                        gateway_netmask=getattr(self.cfg, "gateway_netmask", "255.255.255.0"),
+                                        extra_wans=wan2)
+        self.firewall_error = ""
+        if not ok:
+            # Fail closed: no routing for the LAN without the router's rules (the result was ignored before).
+            self.firewall_error = "router firewall rules could not be applied; LAN routing is off"
+            log.error("Mode A: %s", self.firewall_error)
+            firewall._set_sysctl_forward(False)
         if forwards:
             log.info("port forwarding: %d rule(s) on %s", len(forwards), self.active_wan)
         self._upnp_wanted = bool(full is not None and getattr(full.port_forward, "upnp", False) and self.lan_ifaces)
@@ -492,15 +511,17 @@ class ModeA(NetworkMode):
         if self.lan_ifaces or self.dmz_iface:
             self.svc_mgr.start_dnsmasq(self.lan_ifaces, dmz_iface=self.dmz_iface)
 
-        # 5. Enable NAT and IPv4 forwarding
-        self.apply_firewall()
-
-        # 6. Bring up Secondary WAN2 if configured
+        # 5. Secondary WAN2, if configured: up first, so the router rules below cover it too
         wan2 = getattr(self.cfg, "wan2_interface", "")
-        if wan2 and interfaces.interface_exists(wan2) and not self.usb_wan:
+        wan2_up = bool(wan2 and interfaces.interface_exists(wan2) and not self.usb_wan)
+        if wan2_up:
             interfaces.set_link_up(wan2)
             log.info("secondary WAN2 interface %s brought up", wan2)
             self._configure_wan_ip(wan2, self.cfg.wan2_proto, self.cfg.wan2_ip, self.cfg.wan2_netmask, "")
+
+        # 6. NAT, the WAN guard, then IPv4 forwarding
+        self.apply_firewall()
+        if wan2_up:
             firewall.enable_nat_for_wan2(wan2, self.lan_ifaces)
             self._apply_wan2_routing(wan2)
 
@@ -531,8 +552,10 @@ class ModeA(NetworkMode):
             interfaces.flush_ip_addresses(self.dmz_iface)
             self.dmz_iface = ""
         log.info("tearing down Mode A")
-        firewall.disable_nat()
+        # pppd first, then the rules: the other way round ppp0 was briefly up without them (audit netd H3).
+        # The WAN guard stays until the next mode puts its own in place.
         self.svc_mgr.stop_all()
+        firewall.disable_nat()
 
         if interfaces.interface_exists("br-lan"):
             lan_ports = list(getattr(self.cfg, "lan_ports", None) or [])
@@ -583,6 +606,7 @@ class ModeA(NetworkMode):
             "dnsmasq_running": self.svc_mgr.processes.get("dnsmasq") is not None and self.svc_mgr.processes["dnsmasq"].is_running(),
             "hostapd_running": self.svc_mgr.processes.get("hostapd") is not None and self.svc_mgr.processes["hostapd"].is_running(),
             "pppoe_running": self.svc_mgr.processes.get("pppd") is not None and self.svc_mgr.processes["pppd"].is_running(),
+            "firewall_error": getattr(self, "firewall_error", ""),
             "pppoe_error": self.pppoe_error,
             "port_forward": self._port_forward_status(),
             "ipv6_lan": self._ipv6_lan_status(),
@@ -606,6 +630,16 @@ class ModeA(NetworkMode):
                 "upnp_mappings": port_forward.upnp_mappings() if running else []}
 
 
+def _box_open_ports() -> List[tuple]:
+    """The ports the internet may reach on the box in every mode: Tailscale and the VPN servers that are on."""
+    from nmb.netd.port_forward import box_open_ports
+    try:
+        from nmb.config import load_config
+        return box_open_ports(load_config())
+    except Exception:
+        return box_open_ports(None)
+
+
 class ModeB(NetworkMode):
     """Mode B: Passive Inline Probe (Transparent Bridge)."""
 
@@ -615,6 +649,8 @@ class ModeB(NetworkMode):
 
     def setup(self) -> bool:
         log.info("initializing Mode B (Passive Inline Bridge)")
+        # 0. The host guard first: this mode had no firewall for the box itself (audit netd H1)
+        firewall.apply_host_guard(_box_open_ports())
         # 1. Clean up any lingering Mode A processes or NAT
         firewall.disable_nat()
         self.svc_mgr.stop_all()
@@ -709,6 +745,9 @@ class ModeStandalone(NetworkMode):
 
     def setup(self) -> bool:
         log.info("initializing Standalone Mode (LAN endpoint probe)")
+        # The host guard first: this mode had no firewall for the box itself, and mode = auto picks it on a
+        # public ISP DHCP line too (audit netd H1).
+        firewall.apply_host_guard(_box_open_ports())
         firewall.disable_nat()
         self.svc_mgr.stop_all()
 

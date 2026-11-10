@@ -335,6 +335,11 @@ class NetworkDaemon:
                         log.info("Mode A: WAN source changed; rebuilding the router setup")
                         self.current_mode_inst.teardown()
                         self.current_mode_inst.setup()
+                else:
+                    # A changed home IPv6 prefix: the host guard follows it (standalone, transparent mode).
+                    from nmb.netd import firewall as _fw
+                    from nmb.netd.port_forward import box_open_ports as _ports
+                    self._timed("host guard refresh", lambda: _fw.refresh_host_guard(_ports(self.cfg)))
                 # A default route through a port with no cable or no address leads nowhere but still wins.
                 from nmb.netd import interfaces as _ifs
                 self._timed("dead route reaper", _ifs.reap_dead_default_routes)
