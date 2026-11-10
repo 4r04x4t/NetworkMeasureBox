@@ -154,6 +154,24 @@ flowchart TD
   - Embedded `mongoose.c` or `libmicrohttpd`.
   - Frontend HTML gzipped and compiled into a C byte array (`const unsigned char dashboard_html_gz[]`).
 
+### 4.4A Optimised Web Interface for the Native Build (Owner, 2026-11-10; Planned)
+
+The native build gets a lighter, faster Web UI with **every function of the Python UI** (nothing is dropped to make it small). The Python UI is the reference for what the pages do, not for how they are built (Quality Bar, point 6).
+
+**Starting point, measured on the Python version (2026-11-10):** one page holds the whole UI: `dashboard.html` 402 KB, `dashboard.js` 489 KB, `dashboard.css` 97 KB (about 184 KB gzip-compressed together), plus about 85 KB of texts for the chosen language inlined into the page; every visit loads all of it, also for one card. The page keeps 11 separate polling timers running, also when the browser tab is hidden. Many texts had no translation, and some logic read the visible text.
+
+**Requirements:**
+
+1. **Split by page, load on demand.** A small shell (header, menu, login state, AMOLED black styles) loads first; each page (dashboard, speed tests, router, Wi-Fi, VPN, ad-blocker, logs, settings, ...) is its own module and is loaded only when opened, then kept in the browser cache.
+2. **Size budgets, checked at every build** (compressed sizes, the build fails above them): the shell with the first page at most **60 KB** on the PC/Pi class and at most **40 KB** on router builds; the whole UI at most **150 KB**, so it fits the 8 MiB flash of the TL-WR1043ND v1 next to `nmbd`. Each build prints the sizes per module; growth is a reviewed change, not an accident.
+3. **Served efficiently:** assets stored pre-compressed in the binary (gzip, and Brotli where the client accepts it), file names with a content hash, long cache lifetime, strong `ETag` and `304 Not Modified`; HTTP keep-alive (HTTP/2 where the platform has it); nothing loaded from the internet (no CDN, no web fonts), so the UI also works without internet on the box's own LAN.
+4. **Live data over one stream, not many timers:** one Server-Sent Events (or WebSocket) connection carries what the open page shows (ping, throughput, test progress, status); the server sends only changes, at a rate the page needs, and nothing while no page is open. The browser stops all updates while the tab is hidden (Page Visibility API) and resumes with one catch-up request. Long lists (logs, processes, DNS queries, results) are paged and filtered on the server, never sent whole.
+5. **Plain, small code:** no front-end framework; modern standard JavaScript modules and one style sheet built on CSS variables (the AMOLED black look of 6B.1, add-on themes only replace variables); icons as one SVG sprite; no inline scripts or styles, which also allows a strict Content Security Policy. The DOM is updated in place (only the values that changed), never rebuilt every second.
+6. **Texts:** every visible text goes through a translation key; only the current language is sent, per page module; the language menu stays in each language's own name. A build check fails on any visible text without a key and on any key missing from a language; logic never depends on a visible text (it uses states and data attributes).
+7. **Light on the box:** the API answers from data the daemons already hold; expensive values (hardware detection, Wi-Fi capabilities, reports) are computed once and cached instead of on every page load (the Python `/api/config` runs radio detection on each call). An open UI must not visibly change measurement results: the box's CPU use with the dashboard open is measured and kept low (target, to measure: under 2 % on the Pi 4 and under 10 % on the TL-WR1043ND v1).
+8. **Fast to use, measured:** targets (to confirm by measurement): first useful screen under 1 s on the Pi 4 over Wi-Fi from a mid-range phone, under 2 s on the TL-WR1043ND v1; switching pages under 300 ms after the first load; no layout jumps while data arrives. Works on a phone screen, with the keyboard alone, and with enough contrast.
+9. **Tested:** a headless browser test opens every page in every language on the PC build and records size, load time, requests and console errors; the numbers go into `docs/TESTING.md` next to the Python UI's, and the release checklist includes the router build.
+
 ### 4.5 In-Memory Database & Persistence (`nmb-db`)
 - **Current Bottleneck**: Periodic SQLite backup snapshots via Python stdlib.
 - **Go Blueprint**:
