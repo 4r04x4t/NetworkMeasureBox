@@ -208,7 +208,7 @@ must end up in exactly one package, and the register's check fails otherwise.
 
 ## 5. The downloaded images and firmware: taking apart, analysing, using
 
-Material: the set of roadmap section 6B.4 (outside the repository; never committed). Everything here is
+Material: the set of roadmap section 6B.4, from its copy inside WSL2 (`~/src/NMB-depythonization-firmwares`; outside every repository, never committed). Everything here is
 **read only on the PC**: no image is written to a device for analysis. Unpacking is done on copies in a work
 folder outside the repository; the files are untrusted data and are unpacked into fresh empty folders without
 root (no loop mounts).

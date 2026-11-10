@@ -902,7 +902,7 @@ The native build ships with a complete user manual and a complete list of its co
 
 ### 6B.4 Downloaded images and firmware to work with
 
-The owner downloaded the base images and router firmware for this work on 2026-11-10 (outside the repository, about 7 GB): `%USERPROFILE%\Downloads\NMB-depythonization-firmwares` on the development PC (under `/mnt/c/Users/<user>/Downloads/` in WSL2). Its `README.md` lists every file, its source and how it was checked. It holds:
+The owner downloaded the base images and router firmware for this work on 2026-11-10 (outside the repository, about 7 GB): `%USERPROFILE%\Downloads\NMB-depythonization-firmwares` on the development PC (under `/mnt/c/Users/<user>/Downloads/` in WSL2). A full copy is inside WSL2 next to the source folders (`~/src/NMB-depythonization-firmwares`); the analysis works from that copy, which is on the Linux file system. Its `README.md` lists every file, its source and how it was checked. It holds:
 
 - **platforms/**: candidate bases for section 6A — OpenWrt 25.12.6, Alpine 3.24.4, Fedora IoT 44 and Debian 13.7.0 for the Raspberry Pi 4 (arm64) and x86-64;
 - **routers/**: OpenWrt images and the makers' stock firmware for the targets of the porting plan (ASUS RT-AXE7800 stock Asuswrt, RT-N12+ OpenWrt 22.03.7 and stock B1, RT-AC57U v1, TP-Link Archer C6 v2, TL-WR1043ND v1 OpenWrt 22.03.7 and TP-Link stock 140319, TL-WR740N v4 community build and stock firmware);
