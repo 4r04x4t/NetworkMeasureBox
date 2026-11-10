@@ -204,8 +204,10 @@ class TestHeadlessFeatures(unittest.TestCase):
         with mock.patch("nmb.netd.interfaces.find_active_wired_interface", return_value=None):
             self.assertFalse(enforce_wired_default_route_priority())
 
-        # When wired interface is active and route metric > 50, adjusts route
-        with mock.patch("nmb.netd.interfaces.find_active_wired_interface", return_value=("eth0", "192.168.1.10")):
+        # When wired interface is active and route metric > 50, adjusts route (a port NetworkManager does not run;
+        # a NetworkManager port gets the metric in its profile, see tests/test_probe_line.py)
+        with mock.patch("nmb.netd.interfaces.find_active_wired_interface", return_value=("eth0", "192.168.1.10")), \
+             mock.patch("nmb.netd.interfaces._wired_metric_via_network_manager", return_value=None):
             mock_ip_out = "default via 192.168.1.1 dev eth0 metric 600\ndefault via 192.168.1.1 dev wlan0 metric 100"
             with mock.patch("subprocess.run") as mock_run:
                 mock_run.side_effect = [

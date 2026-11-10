@@ -104,3 +104,34 @@ class MetricsHideSwitchedOffTargetsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WiredMetricTest(unittest.TestCase):
+    """The wired priority goes into the NetworkManager profile, not a route of our own outside it."""
+
+    def test_metric_set_in_the_profile_and_old_route_removed(self):
+        calls = []
+
+        def run(cmd, **k):
+            calls.append(cmd)
+            out = ""
+            if cmd[:3] == ["nmcli", "-g", "GENERAL.CONNECTION"]:
+                out = "netplan-eth0\n"
+            elif cmd[:3] == ["nmcli", "-g", "ipv4.route-metric"]:
+                out = "-1\n"
+            elif cmd[:4] == ["ip", "-4", "route", "show"]:
+                out = "default via 192.168.8.1 metric 50\n"
+            return SimpleNamespace(stdout=out, stderr="", returncode=0)
+        with mock.patch.object(interfaces.shutil, "which", return_value="/usr/bin/nmcli"), \
+             mock.patch.object(interfaces.subprocess, "run", side_effect=run):
+            self.assertTrue(interfaces._wired_metric_via_network_manager("eth0"))
+        self.assertIn(["nmcli", "connection", "modify", "netplan-eth0", "ipv4.route-metric", "50"], calls)
+        self.assertIn(["nmcli", "device", "reapply", "eth0"], calls)
+        dels = [c for c in calls if c[:4] == ["ip", "-4", "route", "del"]]
+        self.assertEqual(dels, [["ip", "-4", "route", "del", "default", "via", "192.168.8.1", "metric", "50", "dev", "eth0"]])
+        self.assertFalse(any(c[:3] == ["ip", "route", "replace"] for c in calls))
+
+    def test_unmanaged_port_falls_back(self):
+        with mock.patch.object(interfaces.shutil, "which", return_value="/usr/bin/nmcli"), \
+             mock.patch.object(interfaces.subprocess, "run", return_value=SimpleNamespace(stdout="--\n", stderr="", returncode=0)):
+            self.assertIsNone(interfaces._wired_metric_via_network_manager("eth0"))

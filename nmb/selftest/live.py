@@ -740,6 +740,53 @@ def g_portfwd(rep: Report, cfg) -> None:
                 f"{len(before.get('rules', []))} rule(s)")
 
 
+def g_datacap(rep: Report, cfg) -> None:
+    """Data caps (nmb/speed/data_cap.py) on the live box, without touching the counters: the cap of the link the
+    tests use now is set to what tests already used, a scheduled cycle must then be skipped without running an
+    engine, and the owner's caps are put back. Also shows the usage per link."""
+    from nmb.speed import data_cap, runner
+    from nmb.netd.interfaces import find_preferred_measurement_interface
+    before = _api_json("GET", "/api/data-cap")
+    if "links" not in before:
+        rep.add("datacap", "settings", FAIL, before.get("message", "no answer from the Web API"))
+        return
+    iface = find_preferred_measurement_interface(cfg)[0]
+    link = data_cap.link_class(iface)
+    row = next((l for l in before["links"] if l["link"] == link), None)
+    used = float(row["used_mb"]) if row else 0.0
+    rep.add("datacap", "usage counted per link", PASS if row is not None else FAIL,
+            ", ".join(f"{l['link']} {l['used_mb']:.0f} MB" + (f" of {l['cap_mb']}" if l["cap_mb"] else "") for l in before["links"])
+            + f" since {before.get('period_start')}")
+    if used < 1:
+        rep.add("datacap", "a reached cap stops automatic tests", SKIP, f"no test data counted on {link} yet in this period")
+        return
+    keys = {f"{l['link']}_mb": l["cap_mb"] for l in before["links"]}
+    try:
+        res = _api_json("POST", "/api/data-cap/save", {f"{link}_mb": max(1, int(used))})
+        rep.add("datacap", "temporary cap saved", PASS if res.get("status") == "ok" else FAIL, f"{link} {max(1, int(used))} MB")
+        tmp_cfg = _cfg()
+        conn = _db()
+        try:
+            reached, why = data_cap.check(conn, tmp_cfg, iface)
+        finally:
+            conn.close()
+        rep.add("datacap", "the cap is seen as reached", PASS if reached else FAIL, why or "not reached")
+        outcome: Dict[str, Any] = {}
+        ran = []
+        orig = runner._run_single_engine
+        try:
+            runner._run_single_engine = lambda eng, *a, **k: ran.append(eng)   # nothing may run; never measures
+            runner._run_measurement_cycle(tmp_cfg, trigger="schedule", engine="cloudflare", run_port_check=False, outcome=outcome)
+        finally:
+            runner._run_single_engine = orig
+        rep.add("datacap", "a scheduled cycle is skipped", PASS if outcome.get("data_cap") and not ran else FAIL,
+                outcome.get("data_cap") or f"ran {ran or 'nothing'}")
+    finally:
+        back = _api_json("POST", "/api/data-cap/save", keys)
+        rep.add("datacap", "owner's caps put back", PASS if back.get("status") == "ok" else FAIL,
+                ", ".join(f"{k} {v}" for k, v in keys.items()))
+
+
 def g_dhcp_probe(rep: Report, cfg) -> None:
     """The DHCP guard against a throwaway DHCP server, on a plain port and on a bridge port."""
     if not shutil.which("dnsmasq"):
@@ -1298,9 +1345,9 @@ GROUPS: Dict[str, Callable] = {
     "services": g_services, "mode": g_mode, "internet": g_internet, "config": g_config, "web": g_web, "cli": g_cli,
     "usb": g_usb, "router": g_router, "dhcp-probe": g_dhcp_probe, "speed": g_speed, "wifi-ap": g_wifi_ap,
     "collector": g_collector, "telegram": g_telegram, "pppoe": g_pppoe, "dyndns": g_dyndns, "ipv6": g_ipv6,
-    "portfwd": g_portfwd,
+    "portfwd": g_portfwd, "datacap": g_datacap,
 }
-QUICK = [g for g in GROUPS if g not in ("telegram", "portfwd")]   # portfwd changes settings for a minute: --full or by name
+QUICK = [g for g in GROUPS if g not in ("telegram", "portfwd", "datacap")]   # portfwd changes settings for a minute: --full or by name
 
 
 def prune_reports(keep: int = 30, folder: Optional[Path] = None) -> int:

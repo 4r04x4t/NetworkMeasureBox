@@ -547,6 +547,45 @@ def find_preferred_measurement_interface(cfg: Optional[Any] = None, target_iface
     return "eth0", None, True
 
 
+WIRED_ROUTE_METRIC = "50"
+
+
+def _wired_metric_via_network_manager(iface: str) -> Optional[bool]:
+    """Metric 50 in the NetworkManager profile of iface (None when NetworkManager does not run iface).
+
+    A route added with `ip route` outside NetworkManager stayed after the cable moved from the router to a laptop
+    (2026-11-08) and beat Wi-Fi and USB; NetworkManager installs its own route and takes it away with the cable.
+    An old route of ours (proto boot) is removed. True when something changed."""
+    if not shutil.which("nmcli"):
+        return None
+    name = (subprocess.run(["nmcli", "-g", "GENERAL.CONNECTION", "device", "show", iface],
+                           capture_output=True, text=True, check=False).stdout or "").strip()
+    if not name or name == "--":
+        return None
+    changed = False
+    cur = (subprocess.run(["nmcli", "-g", "ipv4.route-metric", "connection", "show", name],
+                          capture_output=True, text=True, check=False).stdout or "").strip()
+    if cur != WIRED_ROUTE_METRIC:
+        res = subprocess.run(["nmcli", "connection", "modify", name, "ipv4.route-metric", WIRED_ROUTE_METRIC],
+                             capture_output=True, text=True, check=False)
+        if res.returncode == 0:
+            subprocess.run(["nmcli", "device", "reapply", iface], capture_output=True, text=True, check=False)
+            log.info("wired route priority: metric %s set in the NetworkManager profile %s", WIRED_ROUTE_METRIC, name)
+            changed = True
+        else:
+            log.debug("nmcli could not set the route metric on %s: %s", name, res.stderr.strip())
+    out = subprocess.run(["ip", "-4", "route", "show", "default", "dev", iface, "proto", "boot"],
+                         capture_output=True, text=True, check=False).stdout or ""
+    for line in out.splitlines():
+        parts = line.split()          # "default via 192.168.8.1 metric 50" (dev left out by the filter)
+        if "dev" not in parts:
+            parts += ["dev", iface]
+        subprocess.run(["ip", "-4", "route", "del"] + parts, capture_output=True, check=False)
+        log.info("removed the old wired default route outside NetworkManager on %s", iface)
+        changed = True
+    return changed
+
+
 def enforce_wired_default_route_priority() -> bool:
     """Ensure Linux kernel default route priority strictly favors wired Ethernet over Wi-Fi.
 
@@ -558,6 +597,9 @@ def enforce_wired_default_route_priority() -> bool:
         return False
 
     w_iface, _ = wired
+    nm = _wired_metric_via_network_manager(w_iface)
+    if nm is not None:
+        return nm
     try:
         res = subprocess.run(["ip", "route", "show", "default"], capture_output=True, text=True, check=False)
         lines = res.stdout.strip().splitlines()
