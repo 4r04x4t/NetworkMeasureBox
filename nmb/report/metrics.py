@@ -361,7 +361,7 @@ def aggregate_report_data(
         """SELECT ts, trigger, status, server_name, server_host, server_location, client_ip, client_ipv6,
                   down_bps, up_bps, ping_us, jitter_us, loss_pct, result_url, error,
                   down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms, connection_type,
-                  engine, colo
+                  engine, colo, bound_iface
            FROM speedtest
            WHERE ts >= ? AND ts <= ?
            ORDER BY ts DESC""",
@@ -375,14 +375,6 @@ def aggregate_report_data(
     contract_down = float(cfg.isp.contract_down_mbps or 0.0)
     contract_up = float(cfg.isp.contract_up_mbps or 0.0)
 
-    # Cache dynamic dual-stack fallback once if needed
-    fallback_ips = {}
-    try:
-        from nmb.netd.interfaces import get_dual_stack_ips
-        fallback_ips = get_dual_stack_ips()
-    except Exception:
-        log.debug("suppressed exception", exc_info=True)
-
     for s in speed_rows:
         d_dict = dict(s)
         try:
@@ -395,11 +387,8 @@ def aggregate_report_data(
         d_dict["down_mbps"] = round(d_mbps, 2) if d_mbps is not None else None
         d_dict["up_mbps"] = round(u_mbps, 2) if u_mbps is not None else None
 
-        # Fallback client IP and IPv6
-        if not d_dict.get("client_ip"):
-            d_dict["client_ip"] = fallback_ips.get("public_ipv4") or fallback_ips.get("ipv4")
-        if not d_dict.get("client_ipv6"):
-            d_dict["client_ipv6"] = fallback_ips.get("public_ipv6") or fallback_ips.get("ipv6")
+        # No fallback: a test without a recorded public address shows none. The report used to put
+        # today's address (or the LAN address) next to tests from days ago.
 
         # Resolved ISP Name (Per-measurement provider detection)
         isp_name = getattr(cfg.isp, "name", None)
@@ -419,36 +408,14 @@ def aggregate_report_data(
         d_dict["down_pct_of_guaranteed"] = round((d_mbps / guar_down) * 100.0, 1) if (guar_down > 0 and d_mbps is not None) else None
         d_dict["up_pct_of_guaranteed"] = round((u_mbps / guar_up) * 100.0, 1) if (guar_up > 0 and u_mbps is not None) else None
 
-        # Measurement status code classification (1–15)
-        st_val = s["status"]
-        conn_tech = (d_dict.get("connection_type") or "").lower()
-        if st_val == "ok":
-            if conn_tech in ("wifi", "wlan", "guest_wifi"):
-                status_code = 14
-                status_desc = "Wi-Fi measurement"
-            elif guar_down > 0 and (d_mbps or 0) < guar_down:
-                status_code = 6
-                status_desc = "invalid: below the guaranteed speed"
-            elif contract_down > 0 and (d_mbps or 0) < contract_down * 0.40:
-                status_code = 6
-                status_desc = "invalid: far below the expected speed"
-            else:
-                status_code = 1
-                status_desc = "valid measurement"
-        elif st_val == "skipped_busy":
-            status_code = 9
-            status_desc = "skipped: background traffic"
-        elif st_val == "error":
-            err_str = str(s["error"] or "").lower()
-            if "timeout" in err_str or "timed out" in err_str:
-                status_code = 7
-                status_desc = "invalid: timeout"
-            else:
-                status_code = 12
-                status_desc = "error"
-        else:
-            status_code = 1
-            status_desc = "valid measurement"
+        # Measurement status code (shared with the detailed CSV: nmb/report/status_codes.py)
+        from nmb.report.status_codes import classify
+        status_code, status_desc = classify(
+            s["status"], s["error"], d_mbps, u_mbps,
+            bound_iface=d_dict.get("bound_iface"),
+            connection_type=d_dict.get("connection_type"),
+            contract_down=contract_down, contract_up=contract_up,
+            guaranteed_down=guar_down, guaranteed_up=guar_up)
 
         d_dict["status_code"] = status_code
         d_dict["status_desc"] = status_desc

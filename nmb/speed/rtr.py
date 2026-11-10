@@ -74,16 +74,12 @@ def _client_ips(interface: Optional[str], bind_ip: Optional[str]) -> Tuple[Optio
             conn.close()
             for line in body.splitlines():
                 if line.startswith("ip="):
-                    ip = line[3:].strip()
-                    return (None, ip) if ":" in ip else (ip, None)
+                    from nmb.common.netaddr import split_global
+                    return split_global(line[3:].strip())
         except Exception:
             log.debug("client IP over %s failed", bind_ip, exc_info=True)
-    try:
-        from nmb.netd.interfaces import get_dual_stack_ips
-        dual = get_dual_stack_ips(interface)
-        return dual.get("ipv4"), dual.get("ipv6")
-    except Exception:
-        return None, None
+    # No cached or LAN address instead: an address this test did not use is not its client IP.
+    return None, None
 
 
 def _run_native_rmbt_speedtest(
@@ -125,9 +121,15 @@ def _run_native_rmbt_speedtest(
     share_url = None
     test_uuid = None
     open_uuid = None
+    measure_server = None
     for line in proc.stdout.splitlines():
         if "Result:" in line and "netztest.at/share/" in line:
             share_url = line.split()[-1].strip()
+        if line.startswith("Server:") and measure_server is None:
+            # "Server:   <addr>:<port> (TLS)": the measurement server RTR assigned, not the control host
+            parts = line.split()
+            if len(parts) >= 2:
+                measure_server = parts[1]
         if line.startswith("{") and '"FINAL_RESULT"' in line:
             try:
                 final_data = json.loads(line)
@@ -143,13 +145,12 @@ def _run_native_rmbt_speedtest(
 
     down_mbps = float(final_data.get("down", 0.0))
     up_mbps = float(final_data.get("up", 0.0))
-    ping_ms = float(final_data.get("pingMedian") or 0.0)
+    ping_ms = float(final_data["pingMedian"]) if final_data.get("pingMedian") is not None else None
     # Older binaries print only the median; never invent the minimum or the jitter.
     ping_min_ms = float(final_data["pingMin"]) if final_data.get("pingMin") else None
     jitter_ms = float(final_data["pingJitter"]) if final_data.get("pingJitter") is not None and "pingMin" in final_data else None
     down_bps = int(down_mbps * 1e6)
     up_bps = int(up_mbps * 1e6)
-    ping_us = int(ping_ms * 1000)
     open_uuid = final_data.get("openTestUuid")
     test_uuid = final_data.get("testUuid")
     if not share_url and open_uuid:
@@ -172,6 +173,9 @@ def _run_native_rmbt_speedtest(
         "ping_min_ms": ping_min_ms,
         "ping_median_ms": ping_ms,
         "ping_count": final_data.get("pingCount"),
+        "measurement_server": measure_server,
+        "down_bytes": final_data.get("downBytes"),
+        "up_bytes": final_data.get("upBytes"),
     })
     v4, v6 = _client_ips(interface, bind_ip)
 
@@ -179,22 +183,23 @@ def _run_native_rmbt_speedtest(
         status="ok",
         down_bps=down_bps,
         up_bps=up_bps,
-        ping_us=int((ping_min_ms if ping_min_ms is not None else ping_ms) * 1000),
-        jitter_us=int(jitter_ms * 1000) if jitter_ms is not None else None,
-        loss_pct=0.0,
+        ping_us=(round((ping_min_ms if ping_min_ms is not None else ping_ms) * 1000)
+                 if (ping_min_ms is not None or ping_ms is not None) else None),
+        jitter_us=round(jitter_ms * 1000) if jitter_ms is not None else None,
+        loss_pct=None,          # RMBT does not measure packet loss
         client_ip=v4,
         client_ipv6=v6,
         server_name="RTR-NetTest (Native C Open-RMBT)",
-        server_host=urlparse(host).netloc,
-        server_location="Vienna, Austria (BEREC Cluster)",
-        result_url=share_url or "https://www.netztest.at",
+        server_host=measure_server or urlparse(host).netloc,
+        server_location=None,   # RTR does not say where its measurement server stands
+        result_url=share_url,   # only a real result page, never the project's home page
         raw_json=raw_json,
         down_loaded_lat_ms=loaded_down_lat,
         up_loaded_lat_ms=loaded_up_lat,
         bufferbloat_grade=grade,
         bufferbloat_delta_ms=delta,
         engine="rtr",
-        colo="VIE",
+        colo=None,
         bound_iface=interface,
         bound_ip=bind_ip,
     )
@@ -273,10 +278,16 @@ def execute_rtr_speedtest(
     ping_conn.quit()
     ping_conn.close()
 
-    sorted_pings = sorted(r.client_ns for r in ping_results) if ping_results else [15_000_000]
-    min_ping_ms = sorted_pings[0] / 1e6
-    median_ping_ms = sorted_pings[len(sorted_pings) // 2] / 1e6
-    ping_shortest_server = min((r.server_ns for r in ping_results), default=sorted_pings[0])
+    # The server's timings, in the order sent, as the native client and RTR itself use them; no ping
+    # means no value (it used to invent 15 ms), and jitter is the mean change between successive pings
+    # (it used to be median minus minimum, which is not jitter).
+    import statistics
+    rtts = [r.server_ns for r in ping_results if r.server_ns > 0] or [r.client_ns for r in ping_results if r.client_ns > 0]
+    min_ping_ms = min(rtts) / 1e6 if rtts else None
+    median_ping_ms = statistics.median(rtts) / 1e6 if rtts else None
+    jitter_fallback_ms = (statistics.fmean(abs(b - a) for a, b in zip(rtts, rtts[1:])) / 1e6
+                          if len(rtts) >= 2 else None)
+    ping_shortest_server = min((r.server_ns for r in ping_results if r.server_ns > 0), default=min(rtts) if rtts else 0)
 
     # 5. Multi-threaded Download Phase
     from nmb.speed.rmbt.__main__ import _run_phase
@@ -300,9 +311,9 @@ def execute_rtr_speedtest(
     ul_mbps = ul_bytes * 8.0 / (ul_ns / 1e9) / 1e6
 
     base = urlparse(host)
-    share_url = f"{base.scheme}://{base.netloc}/share/{params.open_test_uuid}" if params.open_test_uuid else "https://www.netztest.at"
-    log.info("RTR measurement complete: Down: %.2f Mbps, Up: %.2f Mbps, Ping: %.2f ms, Link: %s",
-             dl_mbps, ul_mbps, min_ping_ms, share_url)
+    share_url = f"{base.scheme}://{base.netloc}/share/{params.open_test_uuid}" if params.open_test_uuid else None
+    log.info("RTR measurement complete: Down: %.2f Mbps, Up: %.2f Mbps, Ping: %s ms, Link: %s",
+             dl_mbps, ul_mbps, f"{min_ping_ms:.2f}" if min_ping_ms is not None else "n/a", share_url)
 
     # 7. Submit Result to Control Server
     speed_detail = []
@@ -356,13 +367,13 @@ def execute_rtr_speedtest(
         status="ok" if (dl_bytes > 0 or ul_bytes > 0) else "error",
         down_bps=int(dl_mbps * 1_000_000),
         up_bps=int(ul_mbps * 1_000_000),
-        ping_us=int(min_ping_ms * 1000),
-        jitter_us=int(abs(median_ping_ms - min_ping_ms) * 1000),
-        loss_pct=0.0,
+        ping_us=round(min_ping_ms * 1000) if min_ping_ms is not None else None,
+        jitter_us=round(jitter_fallback_ms * 1000) if jitter_fallback_ms is not None else None,
+        loss_pct=None,          # RMBT does not measure packet loss
         server_id=None,
         server_name=f"RTR-NetTest ({params.server_addr})",
         server_host=f"{params.server_addr}:{params.server_port}",
-        server_location="Vienna, Austria (BEREC Cluster)",
+        server_location=None,
         client_ip=v4,
         client_ipv6=v6,
         result_url=share_url,
@@ -374,8 +385,10 @@ def execute_rtr_speedtest(
             "share_url": share_url,
             "dl_threads": len(dl_results),
             "ul_threads": len(ul_results),
-            "ping_min_ms": round(min_ping_ms, 2),
-            "ping_median_ms": round(median_ping_ms, 2),
+            "ping_min_ms": round(min_ping_ms, 2) if min_ping_ms is not None else None,
+            "ping_median_ms": round(median_ping_ms, 2) if median_ping_ms is not None else None,
+            "ping_count": len(rtts),
+            "down_bytes": dl_bytes, "up_bytes": ul_bytes,
         }),
         error=None,
         down_loaded_lat_ms=None,
@@ -383,7 +396,7 @@ def execute_rtr_speedtest(
         bufferbloat_grade=bb_grade,
         bufferbloat_delta_ms=bb_delta,
         engine="rtr",
-        colo="VIE",
+        colo=None,
         bound_iface=interface,
         bound_ip=bind_ip,
     )

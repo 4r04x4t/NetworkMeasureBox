@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from nmb.common.netaddr import global_ip
 from nmb.config import Config, load_config
 from nmb.db import database as db
 from nmb.probe import cross_traffic
@@ -213,8 +214,10 @@ def _run_single_engine(
 
             status = raw_res.get("status", "error")
             bps = int(raw_res.get("bps", 0))
-            rtt_ms = raw_res.get("rtt_ms")
-            ping_us = int(rtt_ms * 1000) if rtt_ms is not None else None
+            # iPerf3's RTT is the sending stream's mean TCP RTT while it saturates the upload: latency
+            # under load, not the idle ping, so it goes into the loaded-latency column (2026-11-10).
+            rtt_ms = raw_res.get("rtt_ms") if protocol == "tcp" else None
+            ping_us = None
             jitter_ms = raw_res.get("jitter_ms")
             jitter_us = int(jitter_ms * 1000) if jitter_ms is not None else None
             loss_pct = raw_res.get("lost_percent")
@@ -239,13 +242,17 @@ def _run_single_engine(
                 server_name=_iperf_label(target_host, target_port),
                 server_host=target_host,
                 server_location=_iperf_location(target_host, target_port, protocol, parallel),
-                client_ip=raw_res.get("local_host"),
+                # The local socket address is the box's own (usually a LAN) address: it is the client
+                # IP only when it is a public one; otherwise it stays in bound_ip.
+                client_ip=global_ip(raw_res.get("local_host")) if ":" not in str(raw_res.get("local_host") or "") else None,
+                client_ipv6=global_ip(raw_res.get("local_host")) if ":" in str(raw_res.get("local_host") or "") else None,
                 raw_json=raw_res.get("raw_output"),
                 error=raw_res.get("error"),
                 engine="iperf3",
-                colo=f"Port {target_port}",
+                colo=None,
+                up_loaded_lat_ms=rtt_ms if (up_bps and rtt_ms is not None) else None,
                 bound_iface=bound_iface,
-                bound_ip=bound_ip,
+                bound_ip=bound_ip or raw_res.get("local_host"),
                 retransmits=retransmits,
                 tcp_window=tcp_window,
             )
@@ -387,7 +394,7 @@ def _run_single_engine(
                 res.server_host,
                 res.server_location,
                 engine if engine in ("cloudflare", "fastcom", "rtr", "iperf3") else (getattr(res, "engine", None) or engine),
-                getattr(res, "colo", None) or ("VIE" if engine == "rtr" else None),
+                getattr(res, "colo", None),
                 res.bound_iface,
                 res.bound_ip,
                 getattr(res, "retransmits", None),

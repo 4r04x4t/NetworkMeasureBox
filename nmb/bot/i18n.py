@@ -298,30 +298,35 @@ def get_measurement_status(code: int, lang: str = DEFAULT_LANGUAGE) -> Tuple[str
 
     badges = {
         "hu": {
+            0: ("⚪ NINCS ÉRTÉKELVE", "Nincs beállítva garantált sebesség, ezért ez az eredmény nincs összevetve vele"),
             1: ("🟢 MEGFELELŐ", "1: Sikeres mérés (Megfelel a garantált értékeknek)"),
             6: ("🔴 NEM MEGFELELŐ", "6: Letöltés és feltöltés elmaradás a garantált értéktől"),
             14: ("🟡 LETÖLTÉS HIBA", "14: Letöltés elmaradás a garantált értéktől"),
             15: ("🟡 FELTÖLTÉS HIBA", "15: Feltöltés elmaradás a garantált értéktől")
         },
         "en": {
+            0: ("⚪ NOT JUDGED", "No guaranteed speed is set, so this result is not compared with one"),
             1: ("🟢 COMPLIANT", "1: Compliant measurement (Meets guaranteed speeds)"),
             6: ("🔴 NON-COMPLIANT", "6: Download and upload speeds below guaranteed thresholds"),
             14: ("🟡 DOWNLOAD DEFICIT", "14: Download speed below guaranteed threshold"),
             15: ("🟡 UPLOAD DEFICIT", "15: Upload speed below guaranteed threshold")
         },
         "de": {
+            0: ("⚪ NICHT BEWERTET", "Keine garantierte Geschwindigkeit eingestellt, daher wird dieses Ergebnis nicht damit verglichen"),
             1: ("🟢 KONFORM", "1: Konforme Messung (Garantiertes SLA erfüllt)"),
             6: ("🔴 NICHT KONFORM", "6: Download- und Upload-Rate unterhalb der Garantie"),
             14: ("🟡 DOWNLOAD-DEFIZIT", "14: Download-Rate unterhalb der Garantie"),
             15: ("🟡 UPLOAD-DEFIZIT", "15: Upload-Rate unterhalb der Garantie")
         },
         "fr": {
+            0: ("⚪ NON ÉVALUÉ", "Aucun débit garanti n'est défini, ce résultat n'est donc comparé à aucun seuil"),
             1: ("🟢 CONFORME", "1: Mesure conforme (Respecte les débits garantis)"),
             6: ("🔴 NON CONFORME", "6: Débits de téléchargement et téléversement non conformes"),
             14: ("🟡 DÉFICIT TÉLÉCHARGEMENT", "14: Débit de téléchargement inférieur au seuil garanti"),
             15: ("🟡 DÉFICIT TÉLÉVERSEMENT", "15: Débit de téléversement inférieur au seuil garanti")
         },
         "uk": {
+            0: ("⚪ НЕ ОЦІНЕНО", "Гарантовану швидкість не задано, тому результат ні з чим не порівнюється"),
             1: ("🟢 ВІДПОВІДАЄ", "1: Відповідає нормам (Досягнуто гарантованих швидкостей)"),
             6: ("🔴 НЕ ВІДПОВІДАЄ", "6: Швидкість завантаження та вивантаження нижче гарантованої"),
             14: ("🟡 ДЕФІЦИТ ЗАВАНТАЖЕННЯ", "14: Швидкість завантаження нижче гарантованого порогу"),

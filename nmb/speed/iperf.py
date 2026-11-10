@@ -233,7 +233,7 @@ def run_iperf_client_test(
             down_mbps = round(down_bps / 1_000_000.0, 2)
             total_mbps = round(bps / 1_000_000.0, 2)
 
-            retransmits = sum_sent.get("retransmits", 0) if protocol.lower() == "tcp" else None
+            retransmits = sum_sent.get("retransmits") if protocol.lower() == "tcp" else None
             sum_sent_rev = end.get("sum_sent_bidir_reverse", {})
             server_retx = sum_sent_rev.get("retransmits", 0) if protocol.lower() == "tcp" else 0
 
@@ -258,7 +258,7 @@ def run_iperf_client_test(
             down_mbps = round(bps / 1_000_000.0, 2) if reverse else None
             total_mbps = round(bps / 1_000_000.0, 2)
 
-            retransmits = sum_sent.get("retransmits", 0) if protocol.lower() == "tcp" else None
+            retransmits = sum_sent.get("retransmits") if protocol.lower() == "tcp" else None
             server_retx = 0
 
             jitter_ms = None
@@ -326,18 +326,19 @@ def run_iperf_client_test(
                 raw_lines.append(f"Packet Loss: {lost_percent if lost_percent is not None else 0.0:.2f}%")
             raw_lines.append(f"Test Duration: {elapsed:.2f}s | Command: {' '.join(cmd)}")
 
-        # TCP Window / Buffer telemetry
-        win_size = test_start.get("window_size") or test_start.get("rcvbuf") or test_start.get("sndbuf")
-        blk_size = test_start.get("blksize")
-        mss_val = start_info.get("tcp_mss_default")
-        if win_size and win_size > 0:
-            tcp_window_str = f"{win_size // 1024} KB"
-        elif blk_size and blk_size > 0:
-            tcp_window_str = f"Block: {blk_size // 1024} KB"
-        elif mss_val:
-            tcp_window_str = f"MSS: {mss_val} B"
+        # TCP window: the largest congestion window a sender stream reached, or the socket buffer iPerf3
+        # reports; never the block size, the MSS or "autotuning" in its place (2026-11-10: every row
+        # said "Block: 128 KB", which is the write size, not a window).
+        cwnds = [((st.get("sender") or {}).get("max_snd_cwnd") or 0) for st in streams]
+        sock_buf = start_info.get("sndbuf_actual") or start_info.get("rcvbuf_actual")
+        if protocol.lower() != "tcp":
+            tcp_window_str = None
+        elif cwnds and max(cwnds) > 0:
+            tcp_window_str = f"max cwnd {max(cwnds) // 1024} KB"
+        elif sock_buf and sock_buf > 0:
+            tcp_window_str = f"socket buffer {sock_buf // 1024} KB"
         else:
-            tcp_window_str = "Auto (TCP Autotuning)"
+            tcp_window_str = None
 
         res = {
             "status": "ok",

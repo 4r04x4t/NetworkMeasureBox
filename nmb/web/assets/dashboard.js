@@ -2189,7 +2189,7 @@
 
       const downMbps = (latest.down_bps !== null && latest.down_bps !== undefined) ? (latest.down_bps / 1000000.0) : null;
       const upMbps = (latest.up_bps !== null && latest.up_bps !== undefined) ? (latest.up_bps / 1000000.0) : null;
-      const latMs = (latest.ping_us || 0) / 1000.0;
+      const latMs = (latest.ping_us !== null && latest.ping_us !== undefined) ? latest.ping_us / 1000.0 : null;
 
       let downPct = (latest.down_pct_of_offered !== undefined && latest.down_pct_of_offered !== null) ? latest.down_pct_of_offered : ((contractDown > 0 && downMbps !== null) ? (downMbps / contractDown) * 100.0 : null);
       let upPct = (latest.up_pct_of_offered !== undefined && latest.up_pct_of_offered !== null) ? latest.up_pct_of_offered : ((contractUp > 0 && upMbps !== null) ? (upMbps / contractUp) * 100.0 : null);
@@ -2220,7 +2220,7 @@
         }
       }
 
-      if (elLatency) elLatency.innerText = (latMs > 0 ? latMs.toFixed(2) : '--') + ' ms';
+      if (elLatency) elLatency.innerText = (latMs !== null ? latMs.toFixed(2) + ' ms' : '--');
       if (elBufferbloat) elBufferbloat.innerText = latest.bufferbloat_grade ? `${latest.bufferbloat_grade} (+${latest.bufferbloat_delta_ms || 0} ms)` : (latest.jitter_us ? `${t('js_jitter', 'Jitter')}: ${(latest.jitter_us/1000.0).toFixed(2)} ms` : '--');
 
       let srvNameSafe = escapeHtml(latest.server_name || latest.server_host || '--');
@@ -2828,7 +2828,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
             <td><b>${escapeHtml(t.label || t.addr)}</b> <code style="font-size:11px; color:#94a3b8;">(${escapeHtml(t.addr)})</code></td>
             <td>${t.sent.toLocaleString()}</td>
             <td>${t.lost.toLocaleString()}</td>
-            <td><b>${(t.loss_pct || 0).toFixed(2)}%</b></td>
+            <td><b>${t.loss_pct !== null && t.loss_pct !== undefined ? t.loss_pct.toFixed(2) + '%' : '--'}</b></td>
             <td>${(t.avg_rtt_ms || 0).toFixed(2)} ms</td>
             <td>${(t.p95_rtt_ms || 0).toFixed(2)} ms</td>
           </tr>`;
@@ -2839,7 +2839,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       // Speedtest table (Tab 3)
       if (data.speed_tests && data.speed_tests.length > 0) {
         let sHtml = '';
-        let totDown = 0, totUp = 0, totLat = 0, countOk = 0;
+        let totDown = 0, totUp = 0, totLat = 0, countOk = 0, countLat = 0;
         const cDown = (data.contract && data.contract.contract_down_mbps) ? parseFloat(data.contract.contract_down_mbps) : 0;
         const cUp = (data.contract && data.contract.contract_up_mbps) ? parseFloat(data.contract.contract_up_mbps) : 0;
 
@@ -2868,9 +2868,11 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           const dtStr = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
           const dMbps = (st.down_bps || 0) / 1000000.0;
           const uMbps = (st.up_bps || 0) / 1000000.0;
-          const lat = (st.ping_us || 0) / 1000.0;
+          // A test without a ping (iPerf3 has none) is left out of the average, not counted as 0 ms.
+          const lat = (st.ping_us !== null && st.ping_us !== undefined) ? st.ping_us / 1000.0 : null;
           if (st.status === 'ok') {
-            totDown += dMbps; totUp += uMbps; totLat += lat; countOk++;
+            totDown += dMbps; totUp += uMbps; countOk++;
+            if (lat !== null) { totLat += lat; countLat++; }
           }
           const bb = st.bufferbloat_grade ? `<span class="badge badge-ok">${escapeHtml(st.bufferbloat_grade)} (+${st.bufferbloat_delta_ms || 0}ms)</span>` : '--';
           
@@ -2924,7 +2926,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
               ? `<td colspan="2" style="color:#f87171; white-space: normal; max-width: 320px;" title="${escapeHtml(st.error || '')}">✖ ${escapeHtml(t('speed_failed', 'No result'))}: ${escapeHtml(speedErrorText(st.error))}</td>`
               : `<td style="white-space: nowrap;"><b>${dMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(dPct)}</td>
             <td style="white-space: nowrap;"><b>${uMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(uPct)}</td>`}
-            <td style="white-space: nowrap;">${st.status === 'ok' ? lat.toFixed(2) + ' ms' : '--'}</td>
+            <td style="white-space: nowrap;">${st.status === 'ok' && lat !== null ? lat.toFixed(2) + ' ms' : '--'}</td>
             <td style="white-space: nowrap;">${bb}</td>
             <td style="white-space: nowrap;">${clientIpCell}</td>
             <td style="white-space: nowrap;">${link}</td>
@@ -2946,7 +2948,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           const avgUPct = (data.speed && data.speed.avg_up_pct_of_offered) ? data.speed.avg_up_pct_of_offered : (cUp > 0 ? (avgU / cUp) * 100.0 : null);
           document.getElementById('avg-down-display').innerHTML = `<b>${avgD.toFixed(2)} Mbps</b> ${renderRowPctBadge(avgDPct)}`;
           document.getElementById('avg-up-display').innerHTML = `<b>${avgU.toFixed(2)} Mbps</b> ${renderRowPctBadge(avgUPct)}`;
-          document.getElementById('avg-lat-display').innerHTML = `<b>${(totLat / countOk).toFixed(2)} ms</b>`;
+          document.getElementById('avg-lat-display').innerHTML = countLat ? `<b>${(totLat / countLat).toFixed(2)} ms</b>` : '<b>--</b>';
         }
       }
 
@@ -3118,7 +3120,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       const lat = (item.ping_us || 0) / 1000.0;
       if (dM > maxMbps) maxMbps = dM;
       if (uM > maxMbps) maxMbps = uM;
-      if (lat > maxLat) maxLat = lat;
+      if (lat > maxLat) maxLat = lat;   // a missing ping (null) adds 0 here: harmless for the maximum
     });
 
     function niceCeil(v) {
@@ -3189,10 +3191,11 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       const x = getX(idx);
       const dM = (item.down_bps || 0) / 1000000.0;
       const uM = (item.up_bps || 0) / 1000000.0;
-      const lat = (item.ping_us || 0) / 1000.0;
+      const lat = (item.ping_us !== null && item.ping_us !== undefined) ? item.ping_us / 1000.0 : null;
       ptsDown.push({ x, y: getYDown(dM), val: dM });
       ptsUp.push({ x, y: getYUp(uM), val: uM });
-      ptsLat.push({ x, y: getYLat(lat), val: lat });
+      // No ping measured: a gap in the latency line, never a point at 0 ms.
+      ptsLat.push({ x, y: lat !== null ? getYLat(lat) : null, val: lat });
     });
 
     const lineStroke = isMobile ? "3" : "2.5";
@@ -3222,11 +3225,15 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       svg += `<path d="${lineU}" fill="none" stroke="#34d399" stroke-width="${lineStroke}" stroke-linejoin="round" stroke-linecap="round" />`;
     }
 
-    if (mode !== 'throughput' && ptsLat.length > 0) {
-      let lineL = `M ${ptsLat[0].x},${ptsLat[0].y}`;
-      for (let i = 1; i < ptsLat.length; i++) {
-        lineL += ` L ${ptsLat[i].x},${ptsLat[i].y}`;
+    if (mode !== 'throughput' && ptsLat.some(p => p.y !== null)) {
+      let lineL = '';
+      let penDown = false;
+      for (let i = 0; i < ptsLat.length; i++) {
+        if (ptsLat[i].y === null) { penDown = false; continue; }
+        lineL += `${penDown ? ' L' : ' M'} ${ptsLat[i].x},${ptsLat[i].y}`;
+        penDown = true;
       }
+      lineL = lineL.trim();
       const latStrokeDash = (mode === 'combined') ? 'stroke-dasharray="4,3"' : '';
       svg += `<path d="${lineL}" fill="none" stroke="#fbbf24" stroke-width="${latStroke}" ${latStrokeDash} stroke-linejoin="round" stroke-linecap="round" />`;
     }
@@ -3256,7 +3263,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       if (mode !== 'latency') {
         svg += `<circle id="dot-up-${idx}" cx="${x}" cy="${ptsUp[idx].y}" r="${dotR}" fill="#34d399" stroke="#0a0f1d" stroke-width="${dotStrkW}" pointer-events="none" />`;
       }
-      if (mode !== 'throughput') {
+      if (mode !== 'throughput' && ptsLat[idx].y !== null) {
         svg += `<circle id="dot-lat-${idx}" cx="${x}" cy="${ptsLat[idx].y}" r="${dotR}" fill="#fbbf24" stroke="#0a0f1d" stroke-width="${dotStrkW}" pointer-events="none" />`;
       }
     });
@@ -3331,8 +3338,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     const dtStr = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
     const dMbps = (item.down_bps || 0) / 1000000.0;
     const uMbps = (item.up_bps || 0) / 1000000.0;
-    const lat = (item.ping_us || 0) / 1000.0;
-    const jitter = item.jitter_ms !== undefined ? `${item.jitter_ms.toFixed(1)} ms` : (item.jitter_us ? `${(item.jitter_us / 1000.0).toFixed(1)} ms` : null);
+    const lat = (item.ping_us !== null && item.ping_us !== undefined) ? item.ping_us / 1000.0 : null;
+    const jitter = item.jitter_ms != null ? `${item.jitter_ms.toFixed(1)} ms` : (item.jitter_us != null ? `${(item.jitter_us / 1000.0).toFixed(1)} ms` : null);
 
     let engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;font-size: 11px;">OOKLA</span>';
     if (item.engine === 'cloudflare') {
@@ -3358,7 +3365,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         <span style="color:#34d399; font-weight:600;">${t('speed_tip_up', '⬆️ Upload:')}</span>
         <span style="font-weight:700; color:#f8fafc; text-align:right;">${uMbps.toFixed(2)} Mbps</span>
         <span style="color:#fbbf24; font-weight:600;">🏓 Ping RTT:</span>
-        <span style="font-weight:700; color:#f8fafc; text-align:right;">${lat.toFixed(2)} ms</span>
+        <span style="font-weight:700; color:#f8fafc; text-align:right;">${lat !== null ? lat.toFixed(2) + ' ms' : '--'}</span>
         ${jitter ? `<span style="color:#cbd5e1;">〰️ ${t('js_jitter', 'Jitter')}:</span><span style="text-align:right; color:#cbd5e1;">${jitter}</span>` : ''}
         ${bb ? `<span style="color:#cbd5e1;">📶 Bufferbloat:</span><span style="text-align:right;">${bb}</span>` : ''}
       </div>

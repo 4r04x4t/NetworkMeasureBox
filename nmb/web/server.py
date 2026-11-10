@@ -487,10 +487,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             now = db.now_ms()
             csv_data = export_detailed_speedtests_csv(
                 conn, 0, now,
-                contract_down_mbps=float(self.server.cfg.isp.contract_down_mbps or 1000.0),
-                contract_up_mbps=float(self.server.cfg.isp.contract_up_mbps or 200.0),
-                guaranteed_down_mbps=float(getattr(self.server.cfg.isp, "guaranteed_down_mbps", 0.0) or 300.0),
-                guaranteed_up_mbps=float(getattr(self.server.cfg.isp, "guaranteed_up_mbps", 0.0) or 50.0),
+                contract_down_mbps=float(self.server.cfg.isp.contract_down_mbps or 0.0),
+                contract_up_mbps=float(self.server.cfg.isp.contract_up_mbps or 0.0),
+                guaranteed_down_mbps=float(getattr(self.server.cfg.isp, "guaranteed_down_mbps", 0.0) or 0.0),
+                guaranteed_up_mbps=float(getattr(self.server.cfg.isp, "guaranteed_up_mbps", 0.0) or 0.0),
                 default_isp=getattr(self.server.cfg.isp, "name", ""),
             )
             conn.close()
@@ -498,7 +498,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             today_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
-            self.send_header("Content-Disposition", f'attachment; filename="Osszes_sebesseg_meresi_eredmeny_datum_{today_str}.csv"')
+            # A neutral name in every language (it was Hungarian for everyone).
+            self.send_header("Content-Disposition", f'attachment; filename="nmb_speedtests_detailed_{today_str}.csv"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -3794,9 +3795,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "account_id": cfg.isp.account_id,
             "circuit_id": cfg.isp.circuit_id,
             "contract_down_mbps": cfg.isp.contract_down_mbps,
-            "guaranteed_down_mbps": getattr(cfg.isp, "guaranteed_down_mbps", 300.0),
+            "guaranteed_down_mbps": getattr(cfg.isp, "guaranteed_down_mbps", 0.0),
             "contract_up_mbps": cfg.isp.contract_up_mbps,
-            "guaranteed_up_mbps": getattr(cfg.isp, "guaranteed_up_mbps", 75.0),
+            "guaranteed_up_mbps": getattr(cfg.isp, "guaranteed_up_mbps", 0.0),
         }
         self._send_json(data)
 

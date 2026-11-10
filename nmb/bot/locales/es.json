@@ -265,6 +265,10 @@
   ]
  ],
  "status": {
+  "0": [
+   "⚪ SIN EVALUAR",
+   "No hay ninguna velocidad garantizada configurada, así que el resultado no se compara"
+  ],
   "1": [
    "🟢 CUMPLE",
    "1: Medición conforme (alcanza las velocidades garantizadas)"

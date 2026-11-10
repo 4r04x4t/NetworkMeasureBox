@@ -149,16 +149,20 @@ def ensure_schema_upgrades(conn: sqlite3.Connection) -> None:
                 log.info("migrating schema: adding column %s to speedtest", col_name)
                 cur.execute(f"ALTER TABLE speedtest ADD COLUMN {col_name} {col_type}")
 
-        # Separate IPv4 and IPv6 for legacy records that stored IPv6 in client_ip
+        # Separate IPv4 and IPv6 for legacy records that stored IPv6 in client_ip. The IPv4 of such a row
+        # is unknown: it stays empty (it used to get today's address, one the test never had).
         try:
             cur.execute("UPDATE speedtest SET client_ipv6 = client_ip WHERE client_ip LIKE '%:%' AND (client_ipv6 IS NULL OR client_ipv6 = '')")
-            from nmb.netd.interfaces import get_dual_stack_ips
-            dual = get_dual_stack_ips()
-            v4 = dual.get("public_ipv4") or dual.get("ipv4")
-            if v4:
-                cur.execute("UPDATE speedtest SET client_ip = ? WHERE client_ip LIKE '%:%'", (v4,))
+            cur.execute("UPDATE speedtest SET client_ip = NULL WHERE client_ip LIKE '%:%'")
         except Exception:
             log.debug("suppressed exception", exc_info=True)
+
+        # Clear values that were filled in instead of measured (once; originals kept, see corrections.py)
+        try:
+            from nmb.db import corrections
+            corrections.apply(conn)
+        except Exception as e:
+            log.warning("speed test data correction not applied: %s", e)
     except Exception as e:
         log.debug("schema upgrade check exception: %s", e)
 

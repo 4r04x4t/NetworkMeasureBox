@@ -68,9 +68,12 @@ def calculate_bufferbloat(
     """
     if ping_ms is None or ping_ms <= 0:
         return None, None
-    down_delta = max(0.0, down_lat_ms - ping_ms) if down_lat_ms is not None else 0.0
-    up_delta = max(0.0, up_lat_ms - ping_ms) if up_lat_ms is not None else 0.0
-    worst_delta = max(down_delta, up_delta)
+    # Only the directions whose latency under load was really sampled count. A missing one used to
+    # count as "no rise", so a test without any loaded sample got A+ and 0 ms (2026-11-10).
+    deltas = [max(0.0, lat - ping_ms) for lat in (down_lat_ms, up_lat_ms) if lat is not None]
+    if not deltas:
+        return None, None
+    worst_delta = max(deltas)
     if worst_delta <= 5.0:
         grade = "A+"
     elif worst_delta <= 30.0:
@@ -411,10 +414,13 @@ def run_official_ookla(server_id: Optional[int] = None, interface: Optional[str]
 
         data = json.loads(res.stdout)
         # Ookla returns bandwidth in bytes per second -> convert to bits per second
-        down_bps = int(data.get("download", {}).get("bandwidth", 0) * 8)
-        up_bps = int(data.get("upload", {}).get("bandwidth", 0) * 8)
-        ping_ms = data.get("ping", {}).get("latency", 0.0)
-        jitter_ms = data.get("ping", {}).get("jitter", 0.0)
+        down_bw = (data.get("download") or {}).get("bandwidth")
+        up_bw = (data.get("upload") or {}).get("bandwidth")
+        down_bps = int(down_bw * 8) if down_bw is not None else None
+        up_bps = int(up_bw * 8) if up_bw is not None else None
+        ping_ms = (data.get("ping") or {}).get("latency")
+        jitter_ms = (data.get("ping") or {}).get("jitter")
+        # Ookla leaves packetLoss out when it could not measure it: then it is unknown, not 0 %.
         loss = data.get("packetLoss")
 
         # Extract loaded latency for Bufferbloat assessment
@@ -436,35 +442,23 @@ def run_official_ookla(server_id: Optional[int] = None, interface: Optional[str]
         srv_loc = f"{server_data.get('location', '')}, {server_data.get('country', '')}".strip(", ")
 
         iface_data = data.get("interface", {})
-        raw_ip = iface_data.get("externalIp") or iface_data.get("internalIp")
-        client_ip = None
-        client_ipv6 = None
-        if raw_ip:
-            if ":" in raw_ip:
-                client_ipv6 = raw_ip
-            else:
-                client_ip = raw_ip
-
-        try:
-            from nmb.netd.interfaces import get_dual_stack_ips
-            dual = get_dual_stack_ips()
-            if not client_ip:
-                client_ip = dual.get("ipv4")
-            if not client_ipv6:
-                client_ipv6 = dual.get("ipv6")
-        except Exception:
-            log.debug("suppressed exception", exc_info=True)
+        # Only the address Ookla's server saw, and only a public one: internalIp is the box's LAN
+        # address (it stays in bound_ip), and a cached address of the other IP family was never used
+        # by this test.
+        from nmb.common.netaddr import split_global
+        client_ip, client_ipv6 = split_global(iface_data.get("externalIp"))
 
         bound_iface_val = interface or iface_data.get("name")
         bound_ip_val = bind_ip or iface_data.get("internalIp")
 
         return SpeedtestResult(
-            status="ok",
+            status="ok" if (down_bps or up_bps) else "error",
+            error=None if (down_bps or up_bps) else "Ookla returned no download or upload result",
             down_bps=down_bps,
             up_bps=up_bps,
-            ping_us=int(ping_ms * 1000) if ping_ms else None,
-            jitter_us=int(jitter_ms * 1000) if jitter_ms else None,
-            loss_pct=float(loss) if loss is not None else 0.0,
+            ping_us=round(ping_ms * 1000) if ping_ms else None,
+            jitter_us=round(jitter_ms * 1000) if jitter_ms is not None else None,
+            loss_pct=float(loss) if loss is not None else None,
             server_id=server_data.get("id"),
             server_name=srv_name,
             server_host=srv_host,
@@ -506,32 +500,20 @@ def run_speedtest_cli(interface: Optional[str] = None, bind_ip: Optional[str] = 
         srv_host = server_data.get("host")
         srv_loc = f"{server_data.get('name', '')}, {server_data.get('country', '')}".strip(", ")
 
-        raw_ip = data.get("client", {}).get("ip")
-        client_ip = None
-        client_ipv6 = None
-        if raw_ip:
-            if ":" in raw_ip:
-                client_ipv6 = raw_ip
-            else:
-                client_ip = raw_ip
-
-        try:
-            from nmb.netd.interfaces import get_dual_stack_ips
-            dual = get_dual_stack_ips()
-            if not client_ip:
-                client_ip = dual.get("ipv4")
-            if not client_ipv6:
-                client_ipv6 = dual.get("ipv6")
-        except Exception:
-            log.debug("suppressed exception", exc_info=True)
+        from nmb.common.netaddr import split_global
+        client_ip, client_ipv6 = split_global((data.get("client") or {}).get("ip"))
+        down = data.get("download")
+        up = data.get("upload")
+        ping = data.get("ping")
 
         return SpeedtestResult(
-            status="ok",
-            down_bps=int(data.get("download", 0)),
-            up_bps=int(data.get("upload", 0)),
-            ping_us=int(data.get("ping", 0) * 1000),
+            status="ok" if (down or up) else "error",
+            error=None if (down or up) else "speedtest-cli returned no download or upload result",
+            down_bps=int(down) if down is not None else None,
+            up_bps=int(up) if up is not None else None,
+            ping_us=round(ping * 1000) if ping else None,
             jitter_us=None,
-            loss_pct=0.0,
+            loss_pct=None,          # speedtest-cli does not measure packet loss
             server_id=server_data.get("id"),
             server_name=srv_name,
             server_host=srv_host,

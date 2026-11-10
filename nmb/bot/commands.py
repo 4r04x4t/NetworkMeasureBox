@@ -290,8 +290,10 @@ class CommandHandler:
             # Determine client IP and ISP
             client_ip = "--"
             try:
+                from nmb.common.netaddr import global_ip
                 dual = interfaces.get_dual_stack_ips()
-                client_ip = dual.get("public_ipv4") or dual.get("ipv4") or "--"
+                # The current public address only; a LAN address is never shown as the public one.
+                client_ip = global_ip(dual.get("public_ipv4")) or global_ip(dual.get("ipv4")) or "--"
             except Exception:
                 log.debug("suppressed exception", exc_info=True)
             isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
@@ -438,7 +440,7 @@ class CommandHandler:
             # Only this test's own rows: a scheduled test may have stored one meanwhile (2026-11-09).
             conn = db.connect(readonly=True)
             rows = conn.execute(
-                """SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine, error, client_ip
+                """SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine, error, client_ip, client_ipv6
                    FROM speedtest WHERE ts >= ? AND trigger = 'telegram' ORDER BY id""", (t0 - 1000,)
             ).fetchall()
             conn.close()
@@ -452,36 +454,43 @@ class CommandHandler:
 
             down_mbps = (row["down_bps"] or 0) / 1_000_000.0
             up_mbps = (row["up_bps"] or 0) / 1_000_000.0
-            ping_ms = (row["ping_us"] or 0) / 1000.0
-            jitter_ms = (row["jitter_us"] or 0) / 1000.0
+            ping_txt = f"{row['ping_us'] / 1000.0:.1f} ms" if row["ping_us"] is not None else "--"
+            jitter_txt = f"{row['jitter_us'] / 1000.0:.1f} ms" if row["jitter_us"] is not None else "--"
 
-            # Resolving IP and ISP
-            client_ip = row["client_ip"] or "--"
-            if client_ip == "--":
-                try:
-                    dual = interfaces.get_dual_stack_ips()
-                    client_ip = dual.get("public_ipv4") or dual.get("ipv4") or "--"
-                except Exception:
-                    log.debug("suppressed exception", exc_info=True)
+            # The address this test had; no other address in its place (2026-11-10).
+            client_ip = row["client_ip"] or row["client_ipv6"] or "--"
             isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
 
-            c_down = self.cfg.isp.contract_down_mbps or 1000.0
-            c_up = self.cfg.isp.contract_up_mbps or 300.0
-            g_down = self.cfg.isp.guaranteed_down_mbps or (c_down * 0.8)
-            g_up = self.cfg.isp.guaranteed_up_mbps or (c_up * 0.8)
+            # Only the speeds the owner set: nothing invented (it used 1000/300 Mbit/s and 80 % of them).
+            c_down = float(self.cfg.isp.contract_down_mbps or 0.0)
+            c_up = float(self.cfg.isp.contract_up_mbps or 0.0)
+            g_down = float(self.cfg.isp.guaranteed_down_mbps or 0.0)
+            g_up = float(self.cfg.isp.guaranteed_up_mbps or 0.0)
 
-            down_compliance = (down_mbps / c_down) * 100.0 if c_down else 0.0
-            up_compliance = (up_mbps / c_up) * 100.0 if c_up else 0.0
+            def _share(got: float, offered: float, minimum: float) -> str:
+                parts = []
+                if offered > 0:
+                    parts.append(f"{got / offered * 100.0:.0f}%")
+                if minimum > 0:
+                    parts.append(f"Min: {minimum:.0f} Mbps")
+                return f" ({' | '.join(parts)})" if parts else ""
 
-            # Result against the contracted guaranteed speeds
-            if down_mbps >= g_down and up_mbps >= g_up:
-                status_code = 1
-            elif down_mbps < g_down and up_mbps < g_up:
+            down_share = _share(down_mbps, c_down, g_down)
+            up_share = _share(up_mbps, c_up, g_up)
+
+            # Result against the guaranteed speeds the owner set; 0 = none set, nothing judged
+            down_low = g_down > 0 and down_mbps < g_down
+            up_low = g_up > 0 and up_mbps < g_up
+            if g_down <= 0 and g_up <= 0:
+                status_code = 0
+            elif down_low and up_low:
                 status_code = 6
-            elif down_mbps < g_down:
+            elif down_low:
                 status_code = 14
-            else:
+            elif up_low:
                 status_code = 15
+            else:
+                status_code = 1
 
             status_badge, status_text = get_measurement_status(status_code, lang)
             active_engine = (row["engine"] if "engine" in row.keys() else engine) or "RTR-NetTest"
@@ -493,9 +502,9 @@ class CommandHandler:
 🌐 <b>{t('public_ip', lang)}:</b> <code>{html.escape(client_ip)}</code>
 🏢 <b>{t('isp', lang)}:</b> <b>{html.escape(isp_name)}</b>
 
-📥 <b>{t('download', lang)}:</b> <b>{down_mbps:.1f} Mbps</b> ({down_compliance:.0f}% | Min: {g_down:.0f} Mbps)
-📤 <b>{t('upload', lang)}:</b> <b>{up_mbps:.1f} Mbps</b> ({up_compliance:.0f}% | Min: {g_up:.0f} Mbps)
-⏱️ <b>{t('latency_rtt', lang)}:</b> {ping_ms:.1f} ms (Jitter: {jitter_ms:.1f} ms)
+📥 <b>{t('download', lang)}:</b> <b>{down_mbps:.1f} Mbps</b>{down_share}
+📤 <b>{t('upload', lang)}:</b> <b>{up_mbps:.1f} Mbps</b>{up_share}
+⏱️ <b>{t('latency_rtt', lang)}:</b> {ping_txt} (Jitter: {jitter_txt})
 🖥️ <b>{t('server', lang)}:</b> {html.escape(str(row['server_name'] or t('edge_server', lang)))}
 
 ⚖️ <b>{t('speed_result_label', lang)}:</b> {status_badge}

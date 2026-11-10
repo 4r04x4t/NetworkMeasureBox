@@ -265,6 +265,10 @@
   ]
  ],
  "status": {
+  "0": [
+   "⚪ NEEVALUAT",
+   "Nu este setată nicio viteză garantată, deci rezultatul nu este comparat cu una"
+  ],
   "1": [
    "🟢 CONFORM",
    "1: Măsurătoare conformă (atinge vitezele garantate)"

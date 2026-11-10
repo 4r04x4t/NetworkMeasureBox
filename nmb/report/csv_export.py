@@ -82,20 +82,20 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
         except Exception:
             pass
         r_keys = r.keys()
-        d_mbps = round(r["down_bps"] / 1_000_000.0, 2) if r["down_bps"] else None
-        u_mbps = round(r["up_bps"] / 1_000_000.0, 2) if r["up_bps"] else None
+        d_mbps = round(r["down_bps"] / 1_000_000.0, 2) if r["down_bps"] is not None else None
+        u_mbps = round(r["up_bps"] / 1_000_000.0, 2) if r["up_bps"] is not None else None
         d_pct = round((d_mbps / contract_down_mbps) * 100.0, 1) if (contract_down_mbps > 0 and d_mbps is not None) else ""
         u_pct = round((u_mbps / contract_up_mbps) * 100.0, 1) if (contract_up_mbps > 0 and u_mbps is not None) else ""
 
         client_ipv6_val = r["client_ipv6"] if "client_ipv6" in r_keys and r["client_ipv6"] else ""
-        isp = default_isp or "Unknown ISP"
+        isp = default_isp or ""          # the configured name; nothing is made up when none is set
 
         writer.writerow([
             _iso(r["ts"]),
             r["ts"],
             r["trigger"],
             r["status"],
-            r["engine"] or "ookla",
+            r["engine"] or "",
             r["colo"] or "",
             r["connection_type"] or "",
             r["client_ip"] or "",
@@ -105,8 +105,8 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
             u_mbps if u_mbps is not None else "",
             d_pct,
             u_pct,
-            round(r["ping_us"] / 1000.0, 2) if r["ping_us"] else "",
-            round(r["jitter_us"] / 1000.0, 2) if r["jitter_us"] else "",
+            round(r["ping_us"] / 1000.0, 2) if r["ping_us"] is not None else "",
+            round(r["jitter_us"] / 1000.0, 2) if r["jitter_us"] is not None else "",
             r["loss_pct"] if r["loss_pct"] is not None else "",
             r["bufferbloat_grade"] or "",
             r["bufferbloat_delta_ms"] if r["bufferbloat_delta_ms"] is not None else "",
@@ -126,74 +126,60 @@ def export_detailed_speedtests_csv(
     conn: sqlite3.Connection,
     start_ms: int,
     end_ms: int,
-    contract_down_mbps: float = 1000.0,
-    contract_up_mbps: float = 200.0,
-    guaranteed_down_mbps: float = 300.0,
-    guaranteed_up_mbps: float = 50.0,
+    contract_down_mbps: float = 0.0,
+    contract_up_mbps: float = 0.0,
+    guaranteed_down_mbps: float = 0.0,
+    guaranteed_up_mbps: float = 0.0,
     default_isp: str = "",
 ) -> str:
-    """Generate the detailed semicolon-separated speed test CSV export."""
+    """The detailed semicolon-separated speed test CSV (UTF-8 with BOM, for spreadsheets).
+
+    Speeds that are not set are 0 and judge nothing: the export used to fill in 1000/200 and 300/50
+    Mbit/s. A value that was not measured is "--", never "0 %" or "0 ms". Times are UTC (column
+    "Time zone" says so). The status code is the dossier's (nmb/report/status_codes.py).
+    """
+    from nmb.report.status_codes import classify
     out = io.StringIO()
     # Semicolon delimited with UTF-8 BOM
     out.write("\ufeff")
     writer = csv.writer(out, delimiter=";")
     writer.writerow([
-        "Time", "IP address", "ISP", "Download", "Download %", "Upload", "Upload %", "Latency", "Status"
+        "Time", "IP address", "ISP", "Download", "Download %", "Upload", "Upload %", "Latency", "Status",
+        "Time zone", "Status text", "Engine", "Interface",
     ])
 
     rows = conn.execute(
         """SELECT ts, trigger, status, down_bps, up_bps, ping_us, jitter_us, client_ip, client_ipv6,
-                  connection_type, error
+                  connection_type, error, engine, bound_iface
            FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""",
         (start_ms, end_ms)
     ).fetchall()
 
+    def pct(value: Optional[float], of: float) -> str:
+        return f"{round(value / of * 100.0)} %" if (of and of > 0 and value is not None) else "--"
+
     for r in rows:
-        d_mbps = (r["down_bps"] or 0) / 1_000_000.0 if r["down_bps"] else None
-        u_mbps = (r["up_bps"] or 0) / 1_000_000.0 if r["up_bps"] else None
-        d_pct = round((d_mbps / contract_down_mbps) * 100.0) if (contract_down_mbps > 0 and d_mbps is not None) else 0
-        u_pct = round((u_mbps / contract_up_mbps) * 100.0) if (contract_up_mbps > 0 and u_mbps is not None) else 0
-        ping_ms = round(r["ping_us"] / 1000.0) if r["ping_us"] else 0
-
-        # Format datetime as YYYY-MM-DD HH:MM:SS
+        d_mbps = r["down_bps"] / 1_000_000.0 if r["down_bps"] is not None else None
+        u_mbps = r["up_bps"] / 1_000_000.0 if r["up_bps"] is not None else None
         dt = datetime.datetime.fromtimestamp(r["ts"] / 1000.0, tz=datetime.timezone.utc)
-        dt_str = dt.strftime("%Y-%m-%d %H:%M:%S")
-
-        ip_str = r["client_ip"] or r["client_ipv6"] or "--"
-
-        # Determine status code (1-15)
-        st_val = r["status"]
-        conn_tech = (r["connection_type"] or "").lower()
-        if st_val == "ok":
-            if conn_tech in ("wifi", "wlan", "guest_wifi"):
-                status_code = 14
-            elif guaranteed_down_mbps > 0 and (d_mbps or 0) < guaranteed_down_mbps:
-                status_code = 6
-            elif contract_down_mbps > 0 and (d_mbps or 0) < contract_down_mbps * 0.40:
-                status_code = 6
-            else:
-                status_code = 1
-        elif st_val == "skipped_busy":
-            status_code = 9
-        elif st_val == "error":
-            err_str = str(r["error"] or "").lower()
-            status_code = 7 if ("timeout" in err_str or "timed out" in err_str) else 12
-        else:
-            status_code = 1
-
-        d_str = f"{d_mbps:.2f} Mb/s" if d_mbps is not None else "--"
-        u_str = f"{u_mbps:.2f} Mb/s" if u_mbps is not None else "--"
-
+        code, text = classify(r["status"], r["error"], d_mbps, u_mbps, bound_iface=r["bound_iface"],
+                              connection_type=r["connection_type"],
+                              contract_down=contract_down_mbps, contract_up=contract_up_mbps,
+                              guaranteed_down=guaranteed_down_mbps, guaranteed_up=guaranteed_up_mbps)
         writer.writerow([
-            dt_str,
-            ip_str,
+            dt.strftime("%Y-%m-%d %H:%M:%S"),
+            r["client_ip"] or r["client_ipv6"] or "--",
             default_isp or "",
-            d_str,
-            f"{d_pct} %",
-            u_str,
-            f"{u_pct} %",
-            f"{ping_ms} ms",
-            status_code,
+            f"{d_mbps:.2f} Mb/s" if d_mbps is not None else "--",
+            pct(d_mbps, contract_down_mbps),
+            f"{u_mbps:.2f} Mb/s" if u_mbps is not None else "--",
+            pct(u_mbps, contract_up_mbps),
+            f"{round(r['ping_us'] / 1000.0)} ms" if r["ping_us"] is not None else "--",
+            code,
+            "UTC",
+            text,
+            r["engine"] or "",
+            r["bound_iface"] or "",
         ])
 
     return out.getvalue()

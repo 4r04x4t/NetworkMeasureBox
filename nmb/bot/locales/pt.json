@@ -265,6 +265,10 @@
   ]
  ],
  "status": {
+  "0": [
+   "⚪ NÃO AVALIADO",
+   "Não está definida nenhuma velocidade garantida, por isso o resultado não é comparado"
+  ],
   "1": [
    "🟢 CONFORME",
    "1: Medição conforme (atinge as velocidades garantidas)"

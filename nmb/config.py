@@ -1064,9 +1064,9 @@ def load_config(path: Path | None = None) -> Config:
         cfg.isp.account_id = isp.get("account_id", cfg.isp.account_id)
         cfg.isp.circuit_id = isp.get("circuit_id", cfg.isp.circuit_id)
         cfg.isp.contract_down_mbps = isp.getfloat("contract_down_mbps", fallback=cfg.isp.contract_down_mbps)
-        cfg.isp.guaranteed_down_mbps = isp.getfloat("guaranteed_down_mbps", fallback=getattr(cfg.isp, "guaranteed_down_mbps", 300.0))
+        cfg.isp.guaranteed_down_mbps = isp.getfloat("guaranteed_down_mbps", fallback=getattr(cfg.isp, "guaranteed_down_mbps", 0.0))
         cfg.isp.contract_up_mbps = isp.getfloat("contract_up_mbps", fallback=cfg.isp.contract_up_mbps)
-        cfg.isp.guaranteed_up_mbps = isp.getfloat("guaranteed_up_mbps", fallback=getattr(cfg.isp, "guaranteed_up_mbps", 75.0))
+        cfg.isp.guaranteed_up_mbps = isp.getfloat("guaranteed_up_mbps", fallback=getattr(cfg.isp, "guaranteed_up_mbps", 0.0))
         cfg.isp.connection_type = isp.get("connection_type", getattr(cfg.isp, "connection_type", "fiber")).strip()
 
     if parser.has_section("smtp"):
@@ -1432,9 +1432,9 @@ def _fill_parser(cfg: "Config", parser) -> None:
     parser["isp"]["account_id"] = str(cfg.isp.account_id)
     parser["isp"]["circuit_id"] = str(cfg.isp.circuit_id)
     parser["isp"]["contract_down_mbps"] = str(cfg.isp.contract_down_mbps)
-    parser["isp"]["guaranteed_down_mbps"] = str(getattr(cfg.isp, "guaranteed_down_mbps", 300.0))
+    parser["isp"]["guaranteed_down_mbps"] = str(getattr(cfg.isp, "guaranteed_down_mbps", 0.0))
     parser["isp"]["contract_up_mbps"] = str(cfg.isp.contract_up_mbps)
-    parser["isp"]["guaranteed_up_mbps"] = str(getattr(cfg.isp, "guaranteed_up_mbps", 75.0))
+    parser["isp"]["guaranteed_up_mbps"] = str(getattr(cfg.isp, "guaranteed_up_mbps", 0.0))
     parser["isp"]["connection_type"] = str(getattr(cfg.isp, "connection_type", "fiber"))
 
     # SMTP

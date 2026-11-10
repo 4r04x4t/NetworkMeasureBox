@@ -102,7 +102,7 @@ class CloudflareSpeedResult:
     up_bps: Optional[int] = None
     ping_us: Optional[int] = None
     jitter_us: Optional[int] = None
-    loss_pct: Optional[float] = 0.0
+    loss_pct: Optional[float] = None   # this engine does not measure packet loss
     down_loaded_lat_ms: Optional[float] = None
     up_loaded_lat_ms: Optional[float] = None
     bufferbloat_grade: Optional[str] = None
@@ -115,28 +115,16 @@ class CloudflareSpeedResult:
 
     def to_speedtest_result(self, bound_iface: Optional[str] = None, bound_ip: Optional[str] = None) -> SpeedtestResult:
         """Convert to standard NMB SpeedtestResult for DB persistence."""
-        srv_name = f"Cloudflare Edge ({self.meta.colo})" if self.meta.colo else "Cloudflare Global Edge"
-        srv_loc = f"{self.meta.city}, {self.meta.country}" if self.meta.city else "Anycast Edge"
+        srv_name = f"Cloudflare Edge ({self.meta.colo})" if self.meta.colo else "Cloudflare Edge"
+        # The city/country headers describe the CLIENT (the box's own town), not the server: the server's
+        # place is only known through its colo code (2026-11-10: rows said the box's town next to colo BUD).
+        srv_loc = f"Cloudflare {self.meta.colo}" if self.meta.colo else None
         srv_host = f"speed.cloudflare.com [{self.meta.colo}]" if self.meta.colo else "speed.cloudflare.com"
 
-        raw_ip = self.meta.client_ip
-        v4 = None
-        v6 = None
-        if raw_ip:
-            if ":" in raw_ip:
-                v6 = raw_ip
-            else:
-                v4 = raw_ip
-
-        try:
-            from nmb.netd.interfaces import get_dual_stack_ips
-            dual = get_dual_stack_ips()
-            if not v4:
-                v4 = dual.get("ipv4")
-            if not v6:
-                v6 = dual.get("ipv6")
-        except Exception:
-            log.debug("suppressed exception", exc_info=True)
+        # Only the address Cloudflare saw for this test, and only a public one; no cached address of the
+        # other IP family that the test never used.
+        from nmb.common.netaddr import split_global
+        v4, v6 = split_global(self.meta.client_ip)
 
         return SpeedtestResult(
             status=self.status,
@@ -155,9 +143,9 @@ class CloudflareSpeedResult:
             raw_json=json.dumps({
                 "engine": "cloudflare",
                 "colo": self.meta.colo,
-                "city": self.meta.city,
-                "country": self.meta.country,
-                "asn": self.meta.asn,
+                "client_city": self.meta.city,
+                "client_country": self.meta.country,
+                "client_asn": self.meta.asn,
                 "recovered_tls_streams": self.recovered_streams,
                 "tier_downloads_mbps": self.tier_downloads,
                 "tier_uploads_mbps": self.tier_uploads,
@@ -254,7 +242,7 @@ def measure_idle_latency(count: int = 8) -> Tuple[Optional[float], Optional[floa
 
     median_lat = statistics.median(latencies)
     deltas = [abs(latencies[i] - latencies[i - 1]) for i in range(1, len(latencies))]
-    jitter = statistics.mean(deltas) if deltas else 0.0
+    jitter = statistics.mean(deltas) if deltas else None   # one sample gives no jitter, not 0
     return median_lat, jitter, latencies
 
 
@@ -443,7 +431,8 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
     stop_probe.set()
     probe.join(timeout=4.0)
     mean_down_mbps = _plausible_mbps(measured_down, capacity, "download")
-    loaded_down_lat = statistics.median(down_loaded_lats) if down_loaded_lats else idle_lat
+    # No sample under load means unknown, not "the same as idle" (that gave a made-up A+ grade).
+    loaded_down_lat = statistics.median(down_loaded_lats) if down_loaded_lats else None
 
     # 4. Upload Throughput & Loaded Upload Latency
     up_loaded_lats: List[float] = []
@@ -454,7 +443,7 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
     stop_probe.set()
     probe.join(timeout=4.0)
     mean_up_mbps = _plausible_mbps(measured_up, capacity, "upload")
-    loaded_up_lat = statistics.median(up_loaded_lats) if up_loaded_lats else idle_lat
+    loaded_up_lat = statistics.median(up_loaded_lats) if up_loaded_lats else None
 
     window_label = f"{STREAMS}x{TEST_SECONDS:.0f}s"
     tier_downloads = {window_label: round(measured_down, 2)}
@@ -476,9 +465,9 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
         status="ok" if (mean_down_mbps and mean_up_mbps) else "error",
         down_bps=int(mean_down_mbps * 1_000_000) if mean_down_mbps else None,
         up_bps=int(mean_up_mbps * 1_000_000) if mean_up_mbps else None,
-        ping_us=int((idle_lat or 0.0) * 1000),
-        jitter_us=int((jitter or 0.0) * 1000),
-        loss_pct=0.0,
+        ping_us=round(idle_lat * 1000) if idle_lat is not None else None,
+        jitter_us=round(jitter * 1000) if jitter is not None else None,
+        loss_pct=None,          # not measured by this engine
         down_loaded_lat_ms=round(loaded_down_lat, 2) if loaded_down_lat else None,
         up_loaded_lat_ms=round(loaded_up_lat, 2) if loaded_up_lat else None,
         bufferbloat_grade=bb_grade,
