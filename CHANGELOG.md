@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `docs/DEPYTHONIZATION_ROADMAP.md`: a register of the faults found in the Python version (security, bot, VPN, firewall, DNS, measurement honesty, measurement data, non-hermetic tests) that the native build must make impossible, each with a native test; open security holes are listed only by category until fixed.
 - `docs/DEPYTHONIZATION_ROADMAP.md` section 6B.5: sandboxing as a built-in option of the native build (a sandbox per daemon, a stricter one for third-party engines, add-ons and upload parsers, sandboxed self-test and update, try-before-apply for firewall, mode, DNS and VPN changes with an automatic rollback, and the user's control over the level).
 - Optional SSH with keys only (Web UI > System > SSH access, `nmb-cli run ssh.keys_only`), off by default: it can be switched on only when an account already has an SSH key, the box checks that sshd really takes the setting (before the Raspberry Pi image's own SSH settings), and switches back by itself if not; Tailscale SSH keeps working. Texts in all 11 languages.
 - `docs/NMHH_SZELESSAVNET_OSSZEHASONLITAS.hu.md` (and English `docs/NMHH_SZELESSAVNET_COMPARISON.md`): how NMB compares with the Hungarian regulator's Szélessáv.net measuring box, with every point marked by its source (NMHH's sample contract, the application page, the owner's experience, NMB's own tests), linked from both READMEs.
