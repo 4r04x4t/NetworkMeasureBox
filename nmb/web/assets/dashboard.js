@@ -2556,7 +2556,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         if (dataLimitInput && data.daily_data_limit_mb !== undefined && document.activeElement !== dataLimitInput) {
           dataLimitInput.value = data.daily_data_limit_mb;
         }
-        if (typeof loadDataCap === 'function') loadDataCap();
+        if (typeof loadDataCap === 'function' && Date.now() - (window._dcLoadedAt || 0) > 30000) loadDataCap();
         if (data.idle_threshold_mode && document.getElementById('sched-gate-mode')) {
           document.getElementById('sched-gate-mode').value = data.idle_threshold_mode;
           onSchedGateModeChange(data.idle_threshold_mode);
@@ -10500,6 +10500,7 @@ Signal: ${sigName}`;
   }
 
   async function loadDataCap() {
+    window._dcLoadedAt = Date.now();   // the status refresh calls this often; the usage changes per test cycle
     try { const r = await fetch('/api/data-cap'); if (r.ok) renderDataCap(await r.json()); } catch (e) {}
   }
 
