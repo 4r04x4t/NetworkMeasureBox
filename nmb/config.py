@@ -560,6 +560,7 @@ class ProbeConfig:
     socket_buffer_kb: int = 256
     batch_flush_sec: float = 10.0
     outage_loss_seconds: float = 15.0
+    isp_first_hop: bool = True       # ping the first hop of the ISP too (never a PPP peer placeholder)
 
 
 @dataclass
@@ -642,6 +643,21 @@ class WifiShareConfig:
     enabled: bool = False
     lan_interface: str = "eth0"
     address: str = "192.168.77.1/24"
+
+
+@dataclass
+class DataCapConfig:
+    """Data caps for automatic speed tests per link and per connection type (nmb/speed/data_cap.py)."""
+    period: str = "month"          # day or month
+    reset_day: int = 1             # month: the day the count starts again (1-28)
+    wired_mb: int = 0              # 0 = no cap
+    wifi_mb: int = 0
+    usb_mb: int = 0
+    lag_mb: int = 0
+    by_type: Dict[str, int] = field(default_factory=dict)   # connection type -> MB per period
+
+    def link_cap(self, link: str) -> int:
+        return int(getattr(self, f"{link}_mb", 0) or 0)
 
 
 @dataclass
@@ -737,6 +753,7 @@ class Config:
     usb_uplink: UsbUplinkConfig = field(default_factory=UsbUplinkConfig)
     wifi_share: WifiShareConfig = field(default_factory=WifiShareConfig)
     port_forward: PortForwardConfig = field(default_factory=PortForwardConfig)
+    data_cap: DataCapConfig = field(default_factory=DataCapConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
     ooni: OoniConfig = field(default_factory=OoniConfig)
     wireguard: WireGuardConfig = field(default_factory=WireGuardConfig)
@@ -913,6 +930,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.probe.socket_buffer_kb = p.getint("socket_buffer_kb", fallback=cfg.probe.socket_buffer_kb)
         cfg.probe.batch_flush_sec = p.getfloat("batch_flush_sec", fallback=cfg.probe.batch_flush_sec)
         cfg.probe.outage_loss_seconds = p.getfloat("outage_loss_seconds", fallback=cfg.probe.outage_loss_seconds)
+        cfg.probe.isp_first_hop = p.getboolean("isp_first_hop", fallback=True)
 
     if parser.has_section("traffic_gate"):
         tg = parser["traffic_gate"]
@@ -1067,6 +1085,16 @@ def load_config(path: Path | None = None) -> Config:
         cfg.storage.min_free_mb = max(0, min(100_000, so.getint("min_free_mb", fallback=0)))
         cfg.storage.keep_days = max(1, min(3650, so.getint("keep_days", fallback=7)))
 
+    if parser.has_section("data_cap"):
+        dc = parser["data_cap"]
+        period = dc.get("period", "month").strip().lower()
+        cfg.data_cap.period = period if period in ("day", "month") else "month"
+        cfg.data_cap.reset_day = min(max(dc.getint("reset_day", fallback=1), 1), 28)
+        for link in ("wired", "wifi", "usb", "lag"):
+            setattr(cfg.data_cap, f"{link}_mb", min(max(dc.getint(f"{link}_mb", fallback=0), 0), 100_000_000))
+        from nmb.speed.data_cap import parse_by_type
+        cfg.data_cap.by_type = parse_by_type(dc.get("by_type", ""))
+
     if parser.has_section("port_forward"):
         from nmb.netd.port_forward import parse_config_rules
         pf = parser["port_forward"]
@@ -1195,7 +1223,7 @@ def _filled(cfg: "Config"):
 
 def _fill_parser(cfg: "Config", parser) -> None:
     """Write every setting of cfg into parser (the keys save_config owns)."""
-    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "usb_uplink", "wifi_share", "port_forward", "storage", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
+    for sec in ("system", "network", "guest_wifi", "probe", "speedtest", "iperf", "isp", "smtp", "telegram", "web", "logging", "duckdns", "collector", "wifi_uplink", "usb_uplink", "wifi_share", "port_forward", "data_cap", "storage", "wireguard", "openvpn", "proxy", "tailscale", "traffic_gate"):
         if not parser.has_section(sec):
             parser.add_section(sec)
 
@@ -1281,6 +1309,7 @@ def _fill_parser(cfg: "Config", parser) -> None:
     parser["probe"]["socket_buffer_kb"] = str(cfg.probe.socket_buffer_kb)
     parser["probe"]["batch_flush_sec"] = str(cfg.probe.batch_flush_sec)
     parser["probe"]["outage_loss_seconds"] = str(cfg.probe.outage_loss_seconds)
+    parser["probe"]["isp_first_hop"] = str(bool(getattr(cfg.probe, "isp_first_hop", True))).lower()
 
     # Traffic Gate (Idle enforcement)
     parser["traffic_gate"]["mode"] = str(getattr(cfg.speedtest, "idle_threshold_mode", "percent")).lower()
@@ -1398,6 +1427,11 @@ def _fill_parser(cfg: "Config", parser) -> None:
     parser["wifi_share"]["enabled"] = str(cfg.wifi_share.enabled).lower()
     parser["wifi_share"]["lan_interface"] = str(cfg.wifi_share.lan_interface)
     parser["wifi_share"]["address"] = str(cfg.wifi_share.address)
+    parser["data_cap"]["period"] = str(cfg.data_cap.period)
+    parser["data_cap"]["reset_day"] = str(int(cfg.data_cap.reset_day))
+    for link in ("wired", "wifi", "usb", "lag"):
+        parser["data_cap"][f"{link}_mb"] = str(int(getattr(cfg.data_cap, f"{link}_mb", 0) or 0))
+    parser["data_cap"]["by_type"] = json.dumps(cfg.data_cap.by_type, separators=(",", ":"))
     parser["port_forward"]["enabled"] = str(cfg.port_forward.enabled).lower()
     parser["port_forward"]["upnp"] = str(cfg.port_forward.upnp).lower()
     parser["port_forward"]["rules"] = json.dumps(cfg.port_forward.rules, separators=(",", ":"))

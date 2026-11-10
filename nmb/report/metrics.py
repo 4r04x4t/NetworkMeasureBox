@@ -200,9 +200,11 @@ def aggregate_report_data(
         (start, now)
     ).fetchall()
 
+    # Only targets the probe pings now: a switched-off one (the Local Gateway on PPPoE, the PPP peer as "ISP
+    # First Hop") would keep showing a day of lost pings.
     target_map = {
         r["id"]: (r["addr"], r["label"])
-        for r in conn.execute("SELECT id, addr, label FROM target").fetchall()
+        for r in conn.execute("SELECT id, addr, label FROM target WHERE enabled = 1").fetchall()
     }
 
     per_target_accum: Dict[int, dict] = {}
@@ -215,6 +217,8 @@ def aggregate_report_data(
 
     for r in ping_rows:
         tid = r["target_id"]
+        if tid not in target_map:
+            continue
         sent = r["sent"]
         lost = r["lost"]
         total_sent += sent

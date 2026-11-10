@@ -2553,6 +2553,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         if (dataLimitInput && data.daily_data_limit_mb !== undefined && document.activeElement !== dataLimitInput) {
           dataLimitInput.value = data.daily_data_limit_mb;
         }
+        if (typeof loadDataCap === 'function') loadDataCap();
         if (data.idle_threshold_mode && document.getElementById('sched-gate-mode')) {
           document.getElementById('sched-gate-mode').value = data.idle_threshold_mode;
           onSchedGateModeChange(data.idle_threshold_mode);
@@ -10456,3 +10457,61 @@ Signal: ${sigName}`;
   window.pfAddRow = pfAddRow;
   window.loadPortForward = loadPortForward;
   window.savePortForward = savePortForward;
+
+  // ---- Data caps for automatic tests (per link and per connection type) ----
+  const DC_LINKS = ['wired', 'wifi', 'usb', 'lag'];
+
+  function dcBar(used, cap) {
+    if (!cap) return escapeHtml(String(Math.round(used))) + ' MB';
+    const pct = Math.min(100, Math.round(used / cap * 100));
+    const color = pct >= 100 ? '#f87171' : (pct >= 80 ? '#fbbf24' : '#34d399');
+    return `<div style="display: flex; align-items: center; gap: 8px;"><div style="flex: 1; min-width: 80px; height: 8px; background: #1e293b; border-radius: 4px;">` +
+      `<div style="width: ${pct}%; height: 8px; background: ${color}; border-radius: 4px;"></div></div>` +
+      `<span>${escapeHtml(String(Math.round(used)))} / ${escapeHtml(String(cap))} MB</span></div>`;
+  }
+
+  function renderDataCap(d) {
+    const period = document.getElementById('dc-period');
+    if (period && document.activeElement !== period) period.value = d.period || 'month';
+    const rd = document.getElementById('dc-reset-day');
+    if (rd && document.activeElement !== rd) rd.value = d.reset_day || 1;
+    (d.links || []).forEach(l => {
+      const inp = document.getElementById('dc-cap-' + l.link);
+      if (inp && document.activeElement !== inp) inp.value = l.cap_mb || 0;
+      const used = document.getElementById('dc-used-' + l.link);
+      if (used) {
+        let html = dcBar(l.used_mb || 0, l.cap_mb || 0);
+        if (l.type_cap_mb) html += `<div class="form-hint">${escapeHtml(t('dc_t_' + l.type, l.type))}: ${dcBar(l.type_used_mb || 0, l.type_cap_mb)}</div>`;
+        if (l.reached) html += `<div class="form-hint" style="color: #f87171;">${escapeHtml(t('dc_reached', 'cap reached: automatic tests stop'))}</div>`;
+        used.innerHTML = html;
+      }
+    });
+    document.querySelectorAll('.dc-type').forEach(inp => {
+      if (document.activeElement !== inp) inp.value = (d.by_type || {})[inp.dataset.type] || 0;
+    });
+    const cur = document.getElementById('dc-current');
+    if (cur) cur.textContent = t('dc_current', 'Tests now use {link} ({iface}). Period since {start}, next reset {next}.')
+      .replace('{link}', t('dc_link_' + (d.current_link || 'wired'), d.current_link || '--'))
+      .replace('{iface}', d.current_iface || '--').replace('{start}', d.period_start || '--').replace('{next}', d.next_reset || '--');
+  }
+
+  async function loadDataCap() {
+    try { const r = await fetch('/api/data-cap'); if (r.ok) renderDataCap(await r.json()); } catch (e) {}
+  }
+
+  async function saveDataCap() {
+    const body = {period: document.getElementById('dc-period').value, reset_day: Number(document.getElementById('dc-reset-day').value) || 1, by_type: {}};
+    DC_LINKS.forEach(l => { body[l + '_mb'] = Number(document.getElementById('dc-cap-' + l).value) || 0; });
+    document.querySelectorAll('.dc-type').forEach(inp => { const v = Number(inp.value) || 0; if (v) body.by_type[inp.dataset.type] = v; });
+    const msg = document.getElementById('dc-msg');
+    try {
+      const r = await fetch('/api/data-cap/save', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+      const d = await r.json();
+      if (msg) { msg.textContent = r.ok ? t('dc_saved', 'Saved.') : (d.message || 'Error'); msg.style.color = r.ok ? '#34d399' : '#f87171'; }
+      if (r.ok) renderDataCap(d);
+    } catch (e) {
+      if (msg) { msg.textContent = 'Network error: ' + e; msg.style.color = '#f87171'; }
+    }
+  }
+  window.loadDataCap = loadDataCap;
+  window.saveDataCap = saveDataCap;

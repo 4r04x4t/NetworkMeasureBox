@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -863,12 +864,26 @@ def get_isp_first_hop(target: str = "1.1.1.1", timeout_sec: int = 4) -> Optional
     return None
 
 
-def sync_gateway_ping_targets(conn, iface: Optional[str] = None) -> None:
+def ppp_peer_addresses() -> List[str]:
+    """The peer addresses of PPP links ("peer 10.0.0.1/32"): an ISP's PPPoE concentrator often uses one
+    placeholder for every customer and does not answer pings on it (DIGI, 2026-11-09)."""
+    ip_bin = shutil.which("ip")
+    if not ip_bin:
+        return []
+    res = run_cmd([ip_bin, "-4", "-o", "addr", "show"], check=False)
+    return re.findall(r"\bpeer ([0-9.]+)", getattr(res, "stdout", "") or "")
+
+
+def sync_gateway_ping_targets(conn, iface: Optional[str] = None, isp_first_hop: bool = True) -> None:
     """Enroll and maintain Local Gateway and ISP First Hop in the ping probe targets table.
     
     Dynamically identifies:
       1. Local Default Gateway (e.g. 192.168.1.1) -> Role: 'Local Gateway'
       2. ISP First Hop / WAN Gateway (e.g. 10.0.0.1) -> Role: 'ISP First Hop'
+
+    A target that does not fit the line any more is switched off, not left to pile up lost pings: the Local
+    Gateway when the box has none (PPPoE: the default route has no gateway), the ISP First Hop when it is the
+    PPP peer placeholder or when `[probe] isp_first_hop = false`.
     """
     try:
         cur = conn.cursor()
@@ -878,7 +893,14 @@ def sync_gateway_ping_targets(conn, iface: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE target ADD COLUMN role TEXT DEFAULT 'Public DNS'")
 
         local_gw = get_default_gateway(iface)
-        isp_hop = get_isp_first_hop()
+        isp_hop = get_isp_first_hop() if isp_first_hop else None
+        peers = set(ppp_peer_addresses())
+        if isp_hop in peers:
+            isp_hop = None
+        if not isp_first_hop or not isp_hop and peers:
+            cur.execute("UPDATE target SET enabled = 0 WHERE role = 'ISP First Hop'")
+        if not local_gw:
+            cur.execute("UPDATE target SET enabled = 0 WHERE role = 'Local Gateway'")
 
         # Update existing null roles to 'Public DNS'
         cur.execute("UPDATE target SET role = 'Public DNS' WHERE role IS NULL")
@@ -889,7 +911,7 @@ def sync_gateway_ping_targets(conn, iface: Optional[str] = None) -> None:
             if row:
                 if row["addr"] != local_gw:
                     log.info("updating Local Gateway target address: %s -> %s", row["addr"], local_gw)
-                    cur.execute("UPDATE target SET addr = ?, enabled = 1 WHERE id = ?", (local_gw, row["id"]))
+                cur.execute("UPDATE target SET addr = ?, enabled = 1 WHERE id = ?", (local_gw, row["id"]))
             else:
                 cur.execute("SELECT id FROM target WHERE addr = ?", (local_gw,))
                 existing = cur.fetchone()
@@ -905,7 +927,7 @@ def sync_gateway_ping_targets(conn, iface: Optional[str] = None) -> None:
             if row:
                 if row["addr"] != isp_hop:
                     log.info("updating ISP First Hop target address: %s -> %s", row["addr"], isp_hop)
-                    cur.execute("UPDATE target SET addr = ?, enabled = 1 WHERE id = ?", (isp_hop, row["id"]))
+                cur.execute("UPDATE target SET addr = ?, enabled = 1 WHERE id = ?", (isp_hop, row["id"]))
             else:
                 cur.execute("SELECT id FROM target WHERE addr = ?", (isp_hop,))
                 existing = cur.fetchone()

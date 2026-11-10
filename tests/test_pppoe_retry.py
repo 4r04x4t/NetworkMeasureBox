@@ -302,3 +302,31 @@ class ShutdownOrderTest(unittest.TestCase):
     def test_unit_waits_long_enough(self):
         unit = (Path(__file__).resolve().parent.parent / "systemd" / "nmb-netd.service").read_text()
         self.assertRegex(unit, r"TimeoutStopSec=(4[5-9]|[5-9]\d)")
+
+
+class PppoeWanLeftToTheRouterTest(unittest.TestCase):
+    """2026-11-09 night: NetworkManager started DHCP on eth0 every 45 s ("Activation: failed for connection
+    'netplan-eth0'") while PPPoE ran on it."""
+
+    def test_pppoe_port_is_released_and_given_back(self):
+        from nmb.selftest import live  # noqa: F401  (imports the package like the box)
+        cfg = Config()
+        cfg.network.pppoe_enabled, cfg.network.pppoe_user, cfg.network.pppoe_password = True, "u", "p"
+        cfg.usb_uplink.enabled = False
+        svc = MagicMock()
+        mode = modes.ModeA(cfg.network, svc)
+        mode.full_cfg = cfg
+        ifs = MagicMock()
+        ifs.interface_exists.return_value = True
+        ifs.get_carrier.return_value = True
+        ifs.get_ip_addresses.return_value = []
+        ifs.usb_tether_kind.return_value = None
+        with patch.object(modes, "interfaces", ifs), patch.object(modes, "firewall", MagicMock()), \
+             patch.object(modes.time, "sleep"), patch("nmb.netd.wifi.unblock_wifi", create=True), \
+             patch.object(modes.ModeA, "_start_ra_watch"):
+            mode.setup()
+            released = [c.args[0] for c in svc._release_from_network_manager.call_args_list]
+            self.assertIn("eth0", released)
+            mode.teardown()
+        returned = [c.args[0] for c in svc.return_to_network_manager.call_args_list]
+        self.assertIn("eth0", returned)

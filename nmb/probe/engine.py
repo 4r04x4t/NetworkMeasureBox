@@ -45,28 +45,39 @@ class TargetState:
     consecutive_loss: int = 0
 
 
+BIND_CHECK_SEC = 30.0
+
+
+def probe_device(cfg) -> Optional[str]:
+    """The interface the pings leave by: the router's WAN in router mode (ppp0 on PPPoE), else the measuring
+    link, but only one that has an address; None (no binding: the default route) otherwise."""
+    from nmb.netd.interfaces import _usable_address, find_preferred_measurement_interface, router_wan_interface
+    rw = router_wan_interface()
+    if rw:
+        return rw if _usable_address(rw) else None
+    try:
+        iface, ip, _wired = find_preferred_measurement_interface(cfg)
+    except Exception:
+        return None
+    if iface and ip and ":" not in ip:
+        return iface
+    return None
+
+
 class ProbeEngine:
     def __init__(self, cfg: Config):
         self.cfg = cfg
         self.running = False
         self.ident = os.getpid() & 0xFFFF
         self.seq = 0
-        from nmb.netd.interfaces import find_preferred_measurement_interface
-        pref_iface, pref_ip, is_wired = find_preferred_measurement_interface(cfg)
-        bind_dev = pref_iface if is_wired else (cfg.network.wan_interface or pref_iface or None)
-        if is_wired:
-            log.info("ProbeEngine: active wired Ethernet detected on %s (carrier=1); strictly prioritizing wired interface for latency probing", bind_dev)
-        self.sock, self.is_raw = create_icmp_socket(bind_iface=bind_dev)
+        self.bind_dev = probe_device(cfg)
+        log.info("ProbeEngine: probing over %s", self.bind_dev or "the default route")
+        self.sock, self.is_raw = create_icmp_socket(bind_iface=self.bind_dev)
+        self.last_bind_check = time.monotonic()
 
         # High-performance kernel epoll event loop
         self.epoll: Optional[select.epoll] = None
-        if hasattr(select, "epoll"):
-            try:
-                self.epoll = select.epoll()
-                self.epoll.register(self.sock.fileno(), select.EPOLLIN | select.EPOLLERR | select.EPOLLHUP)
-                log.debug("Kernel epoll event polling initialized for ICMP socket")
-            except Exception as e:
-                log.debug("epoll init fallback: %s", e)
+        self._register_epoll()
 
         self.targets: Dict[int, TargetState] = {}
         self.addr_to_target_id: Dict[str, int] = {}
@@ -85,6 +96,47 @@ class ProbeEngine:
         self.last_gate_sample_time = time.monotonic()
         self.last_gw_sync_time = time.monotonic()
 
+    def _register_epoll(self) -> None:
+        if not hasattr(select, "epoll"):
+            return
+        try:
+            if self.epoll is None:
+                self.epoll = select.epoll()
+            self.epoll.register(self.sock.fileno(), select.EPOLLIN | select.EPOLLERR | select.EPOLLHUP)
+            log.debug("Kernel epoll event polling initialized for ICMP socket")
+        except Exception as e:
+            log.debug("epoll init fallback: %s", e)
+
+    def _check_bind_device(self, now: float) -> None:
+        """Follow the line: router mode on PPPoE, USB taking over, a cable plugged in. The socket used to be bound
+        once at start, to eth0 when the measuring link was not wired; under PPPoE eth0 has no address, and every
+        ping was lost for 6 hours (2026-11-09), opening false outages."""
+        if now - self.last_bind_check < BIND_CHECK_SEC:
+            return
+        self.last_bind_check = now
+        dev = probe_device(self.cfg)
+        if dev == self.bind_dev:
+            return
+        log.info("ProbeEngine: the line changed, probing over %s instead of %s", dev or "the default route", self.bind_dev or "the default route")
+        try:
+            new_sock, is_raw = create_icmp_socket(bind_iface=dev)
+        except OSError as e:
+            log.warning("ProbeEngine: could not rebind to %s: %s", dev, e)
+            return
+        if self.epoll is not None:
+            try:
+                self.epoll.unregister(self.sock.fileno())
+            except Exception:
+                pass
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+        self.sock, self.is_raw, self.bind_dev = new_sock, is_raw, dev
+        self.pending_pings.clear()      # replies to the old socket will not come
+        self._register_epoll()
+        self._load_targets()            # the gateways may differ on the new line
+
     def _load_targets(self) -> None:
         """Load target list from SQLite database, enrolling dynamic gateway targets."""
         try:
@@ -92,7 +144,8 @@ class ProbeEngine:
             try:
                 sync_conn = db.connect()
                 with db.tx(sync_conn):
-                    sync_gateway_ping_targets(sync_conn, self.cfg.network.wan_interface)
+                    sync_gateway_ping_targets(sync_conn, self.bind_dev,
+                                              isp_first_hop=bool(getattr(self.cfg.probe, "isp_first_hop", True)))
                 sync_conn.close()
             except Exception as e:
                 log.debug("gateway sync error: %s", e)
@@ -313,8 +366,10 @@ class ProbeEngine:
                 self._flush_samples()
                 self.last_flush_time = now
 
-            # Periodically re-sync gateway targets (every 1 hour)
-            if now - self.last_gw_sync_time >= 3600.0:
+            self._check_bind_device(now)
+
+            # Periodically re-sync gateway targets (every 5 minutes)
+            if now - self.last_gw_sync_time >= 300.0:
                 self._load_targets()
                 self.last_gw_sync_time = now
 

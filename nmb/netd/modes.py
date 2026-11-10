@@ -326,6 +326,11 @@ class ModeA(NetworkMode):
         else:
             self._configure_wan_ip(wan, self.cfg.wan_proto, self.cfg.wan_ip, self.cfg.wan_netmask, self.cfg.wan_gateway)
         ok = self._setup_lan_and_nat(self.active_wan)
+        if self.pppoe_iface or str(self.cfg.wan_proto).lower() == "static":
+            # NetworkManager kept starting DHCP on the PPPoE port (its netplan profile, every 45 s all night,
+            # 2026-11-09): the router owns the WAN port too while Mode A runs, and gives it back at teardown.
+            self.svc_mgr._release_from_network_manager(self.cfg.wan_interface)
+            self.nm_released.append(self.cfg.wan_interface)
         self._renew_lan_clients(list(getattr(self.cfg, "lan_ports", None) or [self.cfg.lan_interface]))
         return ok
 

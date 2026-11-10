@@ -415,7 +415,8 @@ class AutonomousScheduler(threading.Thread):
                     self.last_detail = f"Measurement completed ({engine})"
                 elif outcome.get("data_limit"):
                     self.last_outcome = "skipped_busy"
-                    self.last_detail = "No speed test: daily data limit reached"
+                    self.last_detail = ("No speed test: " + outcome["data_cap"]) if outcome.get("data_cap") \
+                        else "No speed test: daily data limit reached"
                 elif outcome.get("wan_down"):
                     self.last_outcome = "skipped_busy"
                     self.last_detail = "No speed test: router mode, its internet line is down"

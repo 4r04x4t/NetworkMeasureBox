@@ -2652,6 +2652,45 @@
         </div>
 
         <!-- Traffic Gate (< 2% Idle Load) Settings -->
+        <!-- Data caps for automatic tests, per link and per connection type (nmb/speed/data_cap.py) -->
+        <div id="data-cap-card" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px; padding: 14px 16px; margin-bottom: 18px;">
+          <div style="font-size: 13px; font-weight: 700; color: #fbbf24; margin-bottom: 6px;" data-i18n="dc_title">📉 Data caps for automatic tests</div>
+          <p class="form-hint" style="margin-bottom: 10px;" data-i18n="dc_desc">Counted from the data the speed tests use on each link. When a cap is reached, automatic tests on that link stop until the period ends; tests you start yourself still run (and still count). 0 = no cap.</p>
+          <div class="router-row-3">
+            <div class="form-group"><label class="form-label" for="dc-period" data-i18n="dc_period">Period</label>
+              <select id="dc-period" class="form-input"><option value="month" data-i18n="dc_period_month">Month</option><option value="day" data-i18n="dc_period_day">Day</option></select></div>
+            <div class="form-group"><label class="form-label" for="dc-reset-day" data-i18n="dc_reset_day">Month starts on day</label><input type="number" id="dc-reset-day" class="form-input" min="1" max="28" step="1"></div>
+            <div class="form-group"><div id="dc-current" class="form-hint" style="color: #cbd5e1; margin-top: 22px;">--</div></div>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table" style="min-width: 420px;">
+              <thead><tr><th data-i18n="dc_link">Link</th><th data-i18n="dc_cap">Cap (MB)</th><th data-i18n="dc_used">Used by tests</th></tr></thead>
+              <tbody>
+                <tr><td data-i18n="dc_link_wired">Ethernet / PPPoE</td><td><input type="number" id="dc-cap-wired" class="form-input" min="0" step="100" style="width: 120px;"></td><td id="dc-used-wired">--</td></tr>
+                <tr><td data-i18n="dc_link_wifi">Wi-Fi</td><td><input type="number" id="dc-cap-wifi" class="form-input" min="0" step="100" style="width: 120px;"></td><td id="dc-used-wifi">--</td></tr>
+                <tr><td data-i18n="dc_link_usb">USB (phone, hotspot, modem)</td><td><input type="number" id="dc-cap-usb" class="form-input" min="0" step="100" style="width: 120px;"></td><td id="dc-used-usb">--</td></tr>
+                <tr><td data-i18n="dc_link_lag">Link aggregation</td><td><input type="number" id="dc-cap-lag" class="form-input" min="0" step="100" style="width: 120px;"></td><td id="dc-used-lag">--</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="form-label" style="margin-top: 12px;" data-i18n="dc_by_type">Caps per connection type (MB per period, 0 = none)</div>
+          <div class="form-hint" style="margin-bottom: 6px;" data-i18n="dc_by_type_hint">For each test the stricter of the link cap and the cap of its connection type holds.</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
+            <div class="form-group"><label class="form-label" for="dc-type-fiber" data-i18n="dc_t_fiber">Fiber</label><input type="number" id="dc-type-fiber" class="form-input dc-type" data-type="fiber" min="0" step="100"></div>
+            <div class="form-group"><label class="form-label" for="dc-type-docsis" data-i18n="dc_t_docsis">Cable (DOCSIS)</label><input type="number" id="dc-type-docsis" class="form-input dc-type" data-type="docsis" min="0" step="100"></div>
+            <div class="form-group"><label class="form-label" for="dc-type-xdsl" data-i18n="dc_t_xdsl">DSL</label><input type="number" id="dc-type-xdsl" class="form-input dc-type" data-type="xdsl" min="0" step="100"></div>
+            <div class="form-group"><label class="form-label" for="dc-type-fwa" data-i18n="dc_t_fwa">Mobile / 4G / 5G / FWA</label><input type="number" id="dc-type-fwa" class="form-input dc-type" data-type="fwa" min="0" step="100"></div>
+            <div class="form-group"><label class="form-label" for="dc-type-dialup" data-i18n="dc_t_dialup">Dial-up</label><input type="number" id="dc-type-dialup" class="form-input dc-type" data-type="dialup" min="0" step="100"></div>
+            <div class="form-group"><label class="form-label" for="dc-type-satellite" data-i18n="dc_t_satellite">Satellite</label><input type="number" id="dc-type-satellite" class="form-input dc-type" data-type="satellite" min="0" step="100"></div>
+            <div class="form-group"><label class="form-label" for="dc-type-ethernet" data-i18n="dc_t_ethernet">Leased line</label><input type="number" id="dc-type-ethernet" class="form-input dc-type" data-type="ethernet" min="0" step="100"></div>
+            <div class="form-group"><label class="form-label" for="dc-type-other" data-i18n="dc_t_other">Other</label><input type="number" id="dc-type-other" class="form-input dc-type" data-type="other" min="0" step="100"></div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px;">
+            <button type="button" class="btn-primary" style="padding: 8px 16px;" onclick="saveDataCap()" data-i18n="dc_save">💾 Save data caps</button>
+            <span id="dc-msg" class="form-hint"></span>
+          </div>
+        </div>
+
         <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 14px 16px; margin-bottom: 18px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
             <span style="font-size: 13px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">

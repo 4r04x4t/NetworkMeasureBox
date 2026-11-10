@@ -959,6 +959,25 @@ def _run_measurement_cycle(
         if outcome is not None:
             outcome["wan_down"] = True
         return False
+    # Data cap of the link the tests would use (and of its connection type): automatic tests stop for the
+    # rest of the period; manual ones still run and still count.
+    if trigger == "schedule" and not force:
+        from nmb.speed import data_cap
+        cap_conn = db.connect()
+        try:
+            reached, why = data_cap.check(cap_conn, cfg, pref_gate_iface)
+            if reached:
+                log.warning("speed test skipped: %s", why)
+                if outcome is not None:
+                    outcome["data_limit"] = True
+                    outcome["data_cap"] = why
+                if data_cap.note_skip_due(cap_conn, pref_gate_iface):
+                    with db.tx(cap_conn):
+                        cap_conn.execute("INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
+                                         (now_ms, trigger, f"skipped: {why}", engine))
+                return False
+        finally:
+            cap_conn.close()
     from nmb.netd.lan_topology import traffic_monitor_device
     check_gate_iface = traffic_monitor_device(cfg.network, pref_gate_iface)
     monitor = None
@@ -1111,6 +1130,11 @@ def _run_measurement_cycle(
                 data_budget.add_usage_mb(conn, used_now, key=USAGE_KEY)
         except Exception:
             log.debug("usb usage accounting failed", exc_info=True)
+        try:
+            from nmb.speed import data_cap
+            data_cap.add(conn, cfg, pref_gate_iface, used_now)   # per link and connection type ([data_cap])
+        except Exception:
+            log.debug("data cap accounting failed", exc_info=True)
 
     if token.is_set():
         if outcome is not None:

@@ -796,6 +796,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(self._port_forward_payload())
             return
 
+        if path == "/api/data-cap":
+            self._send_json(self._data_cap_payload())
+            return
+
         if path == "/api/wifi-share/status":
             from nmb.netd import wifi_share
             self._send_json(wifi_share.status(self.server.cfg))
@@ -2472,6 +2476,20 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json(st, status=200 if ok else 400)
             return
 
+        if path == "/api/data-cap/save":
+            from nmb.speed import data_cap
+            try:
+                self.server.cfg.data_cap = data_cap.clean(body_json, self.server.cfg.data_cap)
+            except data_cap.CapError as e:
+                self._send_json({"status": "error", "message": str(e)}, status=400)
+                return
+            save_config(self.server.cfg)
+            self._notify_daemon_reload()
+            out = self._data_cap_payload()
+            out.update(status="ok", message="Saved.")
+            self._send_json(out)
+            return
+
         if path == "/api/port-forward/save":
             from nmb.netd import port_forward as pf
             cfg = self.server.cfg
@@ -4097,6 +4115,24 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.server.cfg.iperf.server_enabled = (res.get("status") == "ok")
         save_config(self.server.cfg)
         self._send_json({"status": "ok", "server": get_iperf_server_status()})
+
+    def _data_cap_payload(self) -> dict:
+        """Data caps and what the tests used in the current period, per link and connection type."""
+        from nmb.speed import data_cap
+        cfg = self.server.cfg
+        conn = db.connect(readonly=True)
+        try:
+            out = data_cap.usage(conn, cfg)
+        finally:
+            conn.close()
+        try:
+            from nmb.netd.interfaces import find_preferred_measurement_interface
+            iface = find_preferred_measurement_interface(cfg)[0]
+        except Exception:
+            iface = ""
+        out["current_iface"] = iface
+        out["current_link"] = data_cap.link_class(iface) if iface else ""
+        return out
 
     def _port_forward_payload(self) -> dict:
         """Port forwarding settings and what router mode applies now (from nmb-netd's state file)."""
