@@ -92,6 +92,8 @@ class ProbeEngine:
 
         self.traffic_gate = TrafficGate(cfg.network.wan_interface)
         self.active_outage_id: Optional[int] = None
+        self._open_rows_settled = False       # outages a stopped probe left open, handled once after start
+        self._started_mono = time.monotonic()
         self.last_flush_time = time.monotonic()
         self.last_gate_sample_time = time.monotonic()
         self.last_gw_sync_time = time.monotonic()
@@ -277,10 +279,44 @@ class ProbeEngine:
             ts_ms = db.now_ms()
             self.sample_queue.append((ts_ms, pending.target_id, None))
 
+    def _settle_open_outages(self, conn: db.sqlite3.Connection, all_down: bool) -> None:
+        """Once after start: outages that a stopped probe (restart, update) left open. The newest one carries on
+        while the line is still down; the others end where the data shows, at the next outage or the first
+        answered ping, as the reports already read them (nmb/report/metrics.py). 2026-11-10: rows left open
+        since 2026-11-08 kept the outage alert firing and each restart opened another one."""
+        self._open_rows_settled = True
+        from nmb.report.metrics import effective_outage_ends
+        rows = [{"id": r[0], "start_ts": r[1], "end_ts": r[2]}
+                for r in conn.execute("SELECT id, start_ts, end_ts FROM outage ORDER BY start_ts")]
+        open_ids = [r["id"] for r in rows if not r["end_ts"]]
+        if not open_ids:
+            return
+        now_ms = db.now_ms()
+        keep = open_ids[-1] if (all_down and rows[-1]["id"] == open_ids[-1]) else None
+        ends = effective_outage_ends(conn, rows, now_ms)
+        closed = 0
+        with db.tx(conn):
+            for oid in open_ids:
+                if oid == keep:
+                    continue
+                end = ends.get(oid) or now_ms
+                conn.execute("UPDATE outage SET end_ts = ? WHERE id = ? AND end_ts IS NULL", (end, oid))
+                closed += 1
+        if keep is not None:
+            self.active_outage_id = keep
+        log.info("outages left open by a stopped probe: %d ended where the data shows%s", closed,
+                 f", #{keep} carries on (still no answer)" if keep is not None else "")
+
     def _evaluate_outage(self, conn: db.sqlite3.Connection) -> None:
         """Detect and log network-wide outages when all targets drop packets."""
         now_ms = db.now_ms()
         all_down = len(self.targets) > 0 and all(t.consecutive_loss >= self.outage_loss_ticks for t in self.targets.values())
+        if not self._open_rows_settled and (
+                all_down or time.monotonic() - self._started_mono >= self.outage_loss_ticks * self.interval_sec + 2):
+            try:
+                self._settle_open_outages(conn, all_down)
+            except Exception:
+                log.warning("could not settle outages left open", exc_info=True)
 
         if all_down and self.active_outage_id is None:
             # Outage started

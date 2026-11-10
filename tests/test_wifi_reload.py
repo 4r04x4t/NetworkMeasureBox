@@ -94,5 +94,45 @@ class WifiOnlyReloadTest(unittest.TestCase):
         d.switch_mode.assert_called_once()
 
 
+class ModeSettingTest(unittest.TestCase):
+    """Router -> automatic (or back) while the box would stay in router mode: no rebuild, no new dial."""
+
+    def _reload(self, target, **changes):
+        old = Config()
+        old.network.mode = "mode_a"
+        new = Config()
+        new.network = dataclasses.replace(old.network, **changes)
+        d = _daemon(ModeA, new, old)
+        d.detector.evaluate_target_mode.return_value = (target, "test")
+        d._record_event = mock.Mock()
+        d._apply_auto_details = mock.Mock()
+        with mock.patch.object(netd_daemon, "load_config", return_value=new), \
+             mock.patch.object(netd_daemon, "_kernel_tuning_signature", return_value="same"), \
+             mock.patch("nmb.netd.interfaces.interface_exists", return_value=True), \
+             mock.patch("nmb.netd.interfaces.set_link_up"), \
+             mock.patch("nmb.netd.wifi.unblock_wifi"), \
+             mock.patch.object(ModeA, "teardown") as teardown:
+            d._apply_reload()
+        return d, teardown
+
+    def test_same_mode_keeps_running(self):
+        d, teardown = self._reload("mode_a", mode="auto")
+        teardown.assert_not_called()
+        d.switch_mode.assert_not_called()
+        self.assertEqual(d.modes["mode_a"].cfg.mode, "auto")
+        d._apply_auto_details.assert_called_once()
+        self.assertEqual(d.svc_mgr.started, [])           # Wi-Fi untouched too
+
+    def test_same_mode_with_a_band_change_restarts_only_the_access_point(self):
+        d, teardown = self._reload("mode_a", mode="auto", wifi_band="5ghz")
+        teardown.assert_not_called()
+        self.assertEqual(d.svc_mgr.started, [("wlan0", "br-lan", "5ghz")])
+
+    def test_other_mode_rebuilds(self):
+        d, teardown = self._reload("standalone", mode="standalone")
+        teardown.assert_called_once()
+        d.switch_mode.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

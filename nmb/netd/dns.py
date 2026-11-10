@@ -261,7 +261,10 @@ def ensure_dns_fallback(
             curr_ns = get_current_nameservers()
         else:
             return True, "Fallback DNS active"
-    if not force and curr_ns:
+    if not force:
+        # Also with no nameserver line: the C library then asks 127.0.0.1, which is the box's own resolver
+        # (ad blocker on port 53). In router mode on PPPoE resolv.conf has no line, and taking that as broken
+        # switched to the fallback resolvers and back about every 16 minutes (2026-11-10).
         for attempt in range(3):   # one lost packet is not a broken resolver
             ok, res_ip, lat = test_dns_resolution(timeout=1.5)
             if ok:

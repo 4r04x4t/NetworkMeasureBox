@@ -80,6 +80,8 @@ class NetworkDaemon:
                     log.error("port forwarding not applied: %s", e)
             return
         changed = changed_fields(old_network, self.cfg.network)
+        if "mode" in changed and (changed - {"mode"}) <= WIFI_AP_FIELDS and self._keep_mode_if_same(changed):
+            return
         if changed <= WIFI_AP_FIELDS and self._reapply_wifi_only(changed):
             if self.cfg.port_forward != old_pf and isinstance(self.current_mode_inst, ModeA):
                 try:
@@ -102,18 +104,45 @@ class NetworkDaemon:
         self._apply_auto_details(override)
         self.switch_mode(target_mode, f"configuration reload ({reason})")
 
-    def _reapply_wifi_only(self, changed: set) -> bool:
-        """Access point settings only: hand the new settings to the running mode and restart the access
-        point where one runs. False when the mode must be rebuilt instead (a bridge with its own AP)."""
-        inst = self.current_mode_inst
-        if not isinstance(inst, (ModeA, ModeStandalone)) or getattr(inst, "wlan_active", False):
-            return False
+    def _adopt_network_cfg(self) -> None:
+        """Hand the reloaded [network] settings to the running objects without rebuilding them."""
         network = self.cfg.network
         for mode in self.modes.values():
             mode.cfg = network
         self.svc_mgr.cfg = network
         self.detector.cfg = network
         self.modes["mode_a"].full_cfg = self.cfg
+
+    def _keep_mode_if_same(self, changed: set) -> bool:
+        """The mode setting changed (for example automatic to router) but the box would end up in the mode it
+        runs now: keep it running. 2026-11-10: router -> automatic on the PPPoE line rebuilt router mode and
+        dialled again, about 20 s without internet, to land in router mode with PPPoE once more."""
+        inst = self.current_mode_inst
+        if inst is None or not self.current_mode_name or getattr(inst, "wlan_active", False):
+            return False
+        old_cfg = self.detector.cfg
+        self.detector.cfg = self.cfg.network
+        override = self._get_override_mode()
+        target, reason = self.detector.evaluate_target_mode(override)
+        if target != self.current_mode_name:
+            self.detector.cfg = old_cfg
+            return False
+        self._adopt_network_cfg()
+        log.info("mode setting is now %s; the box stays in %s (%s)", self.cfg.network.mode, target, reason)
+        self._apply_auto_details(override)          # rebuilds only if PPPoE dialling itself changes
+        if changed - {"mode"} and isinstance(inst, ModeA):
+            inst.reapply_wifi()
+        self._record_event("info", "mode_setting_changed",
+                           f"Mode setting {self.cfg.network.mode}: staying in {target} ({reason})")
+        return True
+
+    def _reapply_wifi_only(self, changed: set) -> bool:
+        """Access point settings only: hand the new settings to the running mode and restart the access
+        point where one runs. False when the mode must be rebuilt instead (a bridge with its own AP)."""
+        inst = self.current_mode_inst
+        if not isinstance(inst, (ModeA, ModeStandalone)) or getattr(inst, "wlan_active", False):
+            return False
+        self._adopt_network_cfg()
         log.info("Wi-Fi settings changed (%s); the WAN and LAN stay up", ", ".join(sorted(changed)))
         if isinstance(inst, ModeA):
             inst.reapply_wifi()

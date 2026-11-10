@@ -154,6 +154,38 @@ class OutageReadingTest(unittest.TestCase):
         self.assertIsNone(conn.execute("SELECT end_ts FROM outage WHERE id = 1").fetchone()[0])   # untouched
 
 
+
+class SettleOpenOutagesTest(unittest.TestCase):
+    """After a restart the probe ends the outages a stopped probe left open, once, where the data shows."""
+
+    def _probe(self, conn):
+        p = engine.ProbeEngine.__new__(engine.ProbeEngine)
+        p.active_outage_id = None
+        p._open_rows_settled = False
+        for oid, start, end in ((1, 1_000, None), (2, 5_000, 6_000), (3, 9_000, None)):
+            conn.execute("INSERT INTO outage (id, start_ts, end_ts, cause) VALUES (?, ?, ?, 'x')", (oid, start, end))
+        conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (1, 12000, 120, 0)")
+        conn.commit()
+        return p
+
+    def _ends(self, conn):
+        return {r[0]: r[1] for r in conn.execute("SELECT id, end_ts FROM outage")}
+
+    def test_line_up_after_restart_closes_them_all(self):
+        conn = _conn()
+        p = self._probe(conn)
+        p._settle_open_outages(conn, all_down=False)
+        self.assertEqual(self._ends(conn), {1: 5_000, 2: 6_000, 3: 12_000})
+        self.assertIsNone(p.active_outage_id)
+        self.assertTrue(p._open_rows_settled)
+
+    def test_line_still_down_keeps_the_newest_one(self):
+        conn = _conn()
+        p = self._probe(conn)
+        p._settle_open_outages(conn, all_down=True)
+        self.assertEqual(self._ends(conn), {1: 5_000, 2: 6_000, 3: None})
+        self.assertEqual(p.active_outage_id, 3)             # no second row for the same outage
+
 class OutageAlertTest(unittest.TestCase):
     def test_stale_open_outage_resolves_the_alert(self):
         from nmb.bot import alerts
