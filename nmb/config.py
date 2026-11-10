@@ -146,6 +146,47 @@ def merge_drive_config(drive_text: str, current_text: str) -> str:
     return unique_wifi_password("\n".join(out) + "\n")
 
 
+DRIVE_CONFIG_PATHS = (Path("/boot/firmware/nmb.conf"), Path("/boot/nmb.conf"))
+
+
+def install_drive_config(mirror: Path, dest: Path = DEFAULT_CONFIG_PATH, owner: str = "nmb") -> bool:
+    """Recover nmb.conf from the boot-partition copy (run as root by nmb-helper heal-restore-config).
+
+    Only the two drive copies are accepted; their marks never become values (merge with no current file),
+    and the new file is written next to the old one under a random name, given to the service user with
+    mode 0640, then renamed into place, so nothing outside /etc/nmb can be touched (2026-11-10: the helper
+    copied any file the caller named and handed it to the service user).
+    """
+    import pwd
+    import tempfile
+    mirror = Path(mirror)
+    if mirror not in DRIVE_CONFIG_PATHS or mirror.is_symlink() or not mirror.is_file():
+        return False
+    if mirror.stat().st_size > 256 * 1024:
+        return False
+    text = merge_drive_config(mirror.read_text(encoding="utf-8", errors="replace"), "")
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".nmb.conf.", dir=str(dest.parent))
+    try:
+        try:
+            pw = pwd.getpwnam(owner)
+            os.fchown(fd, pw.pw_uid, pw.pw_gid)
+        except (KeyError, PermissionError):
+            pass
+        os.fchmod(fd, 0o640)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, dest)
+        return True
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        return False
+
+
 def sync_drive_config(source_path: Path = DEFAULT_CONFIG_PATH) -> Optional[Path]:
     """Synchronize /etc/nmb/nmb.conf to drive-editable FAT32 boot partition."""
     if not source_path.is_file():
@@ -1580,20 +1621,8 @@ def _save_config_locked(cfg: Config, path: Path) -> bool:
         return True
     except (PermissionError, OSError):
         tmp_path.unlink(missing_ok=True)
-        # Fallback: attempt write via sudo -n if available, or write to drive config target
-        try:
-            import io
-            import subprocess
-            buf = io.StringIO()
-            parser.write(buf)
-            content = buf.getvalue()
-            p = subprocess.run(["sudo", "-n", "tee", str(path)], input=content, text=True, capture_output=True)
-            if p.returncode == 0:
-                sync_drive_config(path)
-                return True
-        except Exception:
-            pass
-        # No last fallback onto the boot partition: that would put every secret on the FAT card in clear
+        # No "sudo tee" fallback (removed 2026-11-10: as root it would follow a symlink put in the settings
+        # folder and overwrite any file) and no last fallback onto the boot partition: that would put every secret on the FAT card in clear
         # (it did until 2026-11-10 when the root file system was read-only). A failed save is reported.
         log.error("settings could not be saved to %s", path)
         return False

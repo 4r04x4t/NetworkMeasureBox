@@ -3,7 +3,10 @@
 # Generates and prints the deep invasive technical diagnostic snapshot.
 set -eu
 
-PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "
+# The code next to this script (root-owned /opt/nmb on the box), never the caller's PYTHONPATH or folder.
+NMB_ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+cd / || exit 1
+PYTHONPATH="$NMB_ROOT" exec /usr/bin/python3 -c "
 import sys
 from nmb.report.invasive_logger import generate_invasive_snapshot, PRIMARY_SNAPSHOT_PATH, get_boot_drive_snapshot_target
 

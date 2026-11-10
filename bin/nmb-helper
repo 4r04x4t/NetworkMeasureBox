@@ -4,6 +4,40 @@
 set -eu
 
 # wg-quick and OpenVPN run commands from these lines as root, and the files are written by the nmb user.
+# Root work never runs in the caller's directory: Python would load modules from there (2026-11-10).
+cd / || exit 1
+unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
+
+# Allow-lists for the repair and driver actions (tests/test_helper_allowlists.py keeps them equal to
+# nmb/common/heal.py and nmb/netd/drivers.py).
+CORE_LINKS="nmb-netd nmb-probe nmb-speed nmb-report nmb-telegram nmb-web nmb-helper nmb-vpn nmb-wifi nmb-iperf nmb-ooni nmb-invasive-log nmb-factory-reset nmb-cli nmb-driver nmb-adblock pivpn pihole nmb-heal"
+CORE_DIRS="/etc/nmb /var/lib/nmb /var/lib/nmb/live /var/lib/nmb/persist /var/lib/nmb/persist/reports /var/lib/nmb/adblock /var/lib/nmb/backups /var/log/nmb /run/nmb"
+REPAIR_PACKAGES="dnsmasq ethtool hostapd iperf3 mtr-tiny ooniprobe-cli openvpn sqlite3 traceroute wireguard-tools"
+DRIVER_PACKAGES="all firmware-realtek firmware-linux-nonfree firmware-misc-nonfree firmware-atheros firmware-iwlwifi firmware-brcm80211 ethtool pciutils usbutils kmod-usb-net-rtl8152 kmod-usb-net-asix kmod-usb-net-asix-ax88179 kmod-r8169 kmod-igc kmod-e1000e linux-firmware-realtek linux-firmware-other linux-firmware"
+INSTALL_TARGETS="/usr/local/bin/rmbt-client /usr/local/bin/speedtest /usr/local/bin/ooniprobe"
+
+in_list() {
+    case " $2 " in *" $1 "*) return 0 ;; esac
+    return 1
+}
+
+# A file root itself prepared: a regular file owned by root in a folder only root can change.
+root_prepared_file() {
+    [ -f "$1" ] && [ ! -L "$1" ] || return 1
+    f="$(readlink -f "$1")" || return 1
+    [ "$(stat -c %u "$f")" = 0 ] || return 1
+    d="$(dirname "$f")"
+    [ "$(stat -c %u "$d")" = 0 ] && [ $(( 0$(stat -c %a "$d") & 022 )) -eq 0 ] || return 1
+    while [ "$d" != "/" ]; do
+        d="$(dirname "$d")"
+        mode="$(stat -c %a "$d")"
+        [ "$(stat -c %u "$d")" = 0 ] || return 1
+        # a folder others may write is fine only with the sticky bit (like /tmp): entries stay their owner's
+        if [ $(( 0$mode & 022 )) -ne 0 ] && [ $(( 0$mode & 01000 )) -eq 0 ]; then return 1; fi
+    done
+    return 0
+}
+
 reject_unsafe_vpn_config() {
     if grep -Eiq '^[[:space:]]*(PreUp|PostUp|PreDown|PostDown)[[:space:]]*=' "$1" 2>/dev/null ||
        grep -Eiq '^[[:space:]]*(up|down|script-security|plugin|client-connect|client-disconnect|learn-address|auth-user-pass-verify|tls-verify|ipchange|route-up|route-pre-down|iproute|config|management|management-client-user|log|log-append|writepid|cd|chroot)([[:space:]]|$)' "$1" 2>/dev/null; then
@@ -244,9 +278,9 @@ case "${1:-}" in
     install-drivers)
         # Parameterized installation of network driver and firmware packages
         PKG="${2:-all}"
-        # A name starting with "-" would be read as a package manager option, which can run commands.
-        if ! printf '%s' "$PKG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+.:_-]*$'; then
-            echo "Invalid package name." >&2
+        # Only the driver and firmware packages NMB recommends (nmb/netd/drivers.py), never any package.
+        if ! in_list "$PKG" "$DRIVER_PACKAGES"; then
+            echo "Refusing: '$PKG' is not one of the driver or firmware packages NMB installs." >&2
             exit 1
         fi
         if command -v apt-get >/dev/null 2>&1; then
@@ -295,19 +329,19 @@ case "${1:-}" in
         ;;
     backup-create)
         shift
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.backup create "$@"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -m nmb.common.backup create "$@"
         ;;
     backup-restore)
         shift
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.backup restore "$@"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -m nmb.common.backup restore "$@"
         ;;
     backup-list)
         shift
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.backup list "$@"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -m nmb.common.backup list "$@"
         ;;
     backup-delete)
         shift
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.backup delete "$@"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -m nmb.common.backup delete "$@"
         ;;
     factory-reset)
         shift
@@ -319,10 +353,10 @@ case "${1:-}" in
         ;;
     usb-import)
         shift
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.usb_import "$@"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -m nmb.common.usb_import "$@"
         ;;
     sync-drive-config)
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.config import sync_drive_config; sync_drive_config()"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -c "from nmb.config import sync_drive_config; sync_drive_config()"
         ;;
     invasive-log)
         shift
@@ -331,49 +365,63 @@ case "${1:-}" in
         elif [ -x /opt/nmb/bin/nmb-invasive-log ]; then
             exec /opt/nmb/bin/nmb-invasive-log "$@"
         else
-            PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.report.invasive_logger import generate_invasive_snapshot; md, _ = generate_invasive_snapshot(force_write=True); print(md)"
+            PYTHONPATH=/opt/nmb exec /usr/bin/python3 -c "from nmb.report.invasive_logger import generate_invasive_snapshot; md, _ = generate_invasive_snapshot(force_write=True); print(md)"
         fi
         ;;
     diagnostic-bundle)
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.report.crash_trap import create_diagnostic_bundle; p = create_diagnostic_bundle(); print(p)"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -c "from nmb.report.crash_trap import create_diagnostic_bundle; p = create_diagnostic_bundle(); print(p)"
         ;;
     crashes-list)
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "import json; from nmb.report.crash_trap import list_crash_reports; print(json.dumps(list_crash_reports(), indent=2))"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -c "import json; from nmb.report.crash_trap import list_crash_reports; print(json.dumps(list_crash_reports(), indent=2))"
         ;;
     crashes-clear)
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "from nmb.report.crash_trap import clear_crash_reports; n = clear_crash_reports(); print(f'Cleared {n} crash report(s).')"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -c "from nmb.report.crash_trap import clear_crash_reports; n = clear_crash_reports(); print(f'Cleared {n} crash report(s).')"
         ;;
     heal-symlink)
         LINK_NAME="${2:-}"
         TARGET_PATH="${3:-}"
-        if [ -n "$LINK_NAME" ] && [ -n "$TARGET_PATH" ] && [ -f "$TARGET_PATH" ]; then
-            ln -sf "$TARGET_PATH" "/usr/local/bin/$LINK_NAME"
-            chmod 755 "$TARGET_PATH" 2>/dev/null || true
+        case "$LINK_NAME" in
+            pivpn) EXPECT=/opt/nmb/bin/nmb-vpn ;;
+            pihole) EXPECT=/opt/nmb/bin/nmb-adblock ;;
+            *) EXPECT="/opt/nmb/bin/$LINK_NAME" ;;
+        esac
+        if ! in_list "$LINK_NAME" "$CORE_LINKS" || [ "$TARGET_PATH" != "$EXPECT" ] || [ ! -f "$EXPECT" ]; then
+            echo "Refusing symlink: only NMB's own commands to /opt/nmb/bin." >&2
+            exit 1
         fi
+        ln -sfn "$EXPECT" "/usr/local/bin/$LINK_NAME"
         ;;
     heal-permissions)
         DIR_PATH="${2:-}"
-        if [ -n "$DIR_PATH" ]; then
-            mkdir -p "$DIR_PATH"
-            chown nmb:nmb "$DIR_PATH" 2>/dev/null || true
-            chmod 2775 "$DIR_PATH" 2>/dev/null || true
+        if ! in_list "$DIR_PATH" "$CORE_DIRS"; then
+            echo "Refusing: not one of NMB's own folders." >&2
+            exit 1
         fi
+        [ -L "$DIR_PATH" ] && { echo "Refusing: $DIR_PATH is a symlink." >&2; exit 1; }
+        mkdir -p "$DIR_PATH"
+        chown nmb:nmb "$DIR_PATH" 2>/dev/null || true
+        chmod 2775 "$DIR_PATH" 2>/dev/null || true
         ;;
     heal-restore-config)
         MIRROR_PATH="${2:-}"
-        if [ -f "$MIRROR_PATH" ]; then
-            mkdir -p /etc/nmb
-            cp "$MIRROR_PATH" /etc/nmb/nmb.conf
-            chown nmb:nmb /etc/nmb/nmb.conf 2>/dev/null || true
-            chmod 640 /etc/nmb/nmb.conf
-        fi
+        case "$MIRROR_PATH" in
+            /boot/firmware/nmb.conf|/boot/nmb.conf) ;;
+            *) echo "Refusing: only the boot-partition copy can restore the settings." >&2; exit 1 ;;
+        esac
+        nmb_root_python "from pathlib import Path; from nmb.config import install_drive_config; sys.exit(0 if install_drive_config(Path('$MIRROR_PATH')) else 1)"
         ;;
     heal-install-file)
         SRC_PATH="${2:-}"
         DST_PATH="${3:-}"
-        if [ -f "$SRC_PATH" ] && [ -n "$DST_PATH" ]; then
-            install -m 755 "$SRC_PATH" "$DST_PATH"
+        if ! in_list "$DST_PATH" "$INSTALL_TARGETS"; then
+            echo "Refusing: not one of NMB's engine programs." >&2
+            exit 1
         fi
+        if ! root_prepared_file "$SRC_PATH"; then
+            echo "Refusing: the program must be prepared by root (owned by root, in a folder only root can change)." >&2
+            exit 1
+        fi
+        install -m 755 -o root -g root "$SRC_PATH" "$DST_PATH"
         ;;
     heal-dpkg-repair)
         # Kill stale apt processes holding locks if unresponsive
@@ -385,6 +433,10 @@ case "${1:-}" in
         ;;
     heal-pkg-install)
         PKG="${2:-}"
+        if ! in_list "$PKG" "$REPAIR_PACKAGES"; then
+            echo "Refusing: '$PKG' is not one of the packages NMB repairs." >&2
+            exit 1
+        fi
         if [ -n "$PKG" ]; then
             if command -v apt-get >/dev/null 2>&1; then
                 export DEBIAN_FRONTEND=noninteractive
@@ -398,11 +450,11 @@ case "${1:-}" in
         fi
         ;;
     heal-audit)
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -c "import json; from nmb.common.heal import audit_system_health; print(json.dumps(audit_system_health(), indent=2))"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -c "import json; from nmb.common.heal import audit_system_health; print(json.dumps(audit_system_health(), indent=2))"
         ;;
     heal-fix)
         shift
-        PYTHONPATH="${PYTHONPATH:-/opt/nmb:.}" exec python3 -m nmb.common.heal fix "$@"
+        PYTHONPATH=/opt/nmb exec /usr/bin/python3 -m nmb.common.heal fix "$@"
         ;;
     self-update)
         # self-update {check|status|start [commit]|run [commit]}

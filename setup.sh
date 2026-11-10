@@ -278,7 +278,7 @@ fi
 # Allow NMB only the privileged commands it needs
 if [ -d /etc/sudoers.d ]; then
     cat > /etc/sudoers.d/020_nmb-net <<SUDOERS
-$NMB_USER ALL=(root) NOPASSWD: /usr/local/bin/nmb-helper, /usr/bin/systemctl reboot, /usr/bin/tee /etc/nmb/nmb.conf, /usr/sbin/iw, /usr/sbin/rfkill, /usr/bin/resolvectl
+$NMB_USER ALL=(root) NOPASSWD: /usr/local/bin/nmb-helper, /usr/bin/systemctl reboot, /usr/sbin/iw, /usr/sbin/rfkill, /usr/bin/resolvectl
 SUDOERS
     chmod 0440 /etc/sudoers.d/020_nmb-net
 fi

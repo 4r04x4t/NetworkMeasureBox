@@ -129,8 +129,8 @@ class SecurityRegressionTest(unittest.TestCase):
         bad = subprocess.run(["sh", str(helper), "install-drivers", "-oAPT::Update::Pre-Invoke::=id"],
                              capture_output=True, text=True)
         self.assertEqual(bad.returncode, 1)
-        self.assertIn("Invalid package", bad.stderr)
-        source = helper.read_text().split("case ")[0]
+        self.assertIn("Refusing", bad.stderr)        # only allow-listed driver packages (2026-11-10)
+        source = helper.read_text().split('case "${1:-}" in')[0]          # the functions before the main switch
         for line, code in (("PostUp = id", 1), ("up /tmp/x", 1), ("port 1194", 0)):
             with tempfile.NamedTemporaryFile("w", suffix=".conf") as conf:
                 conf.write(line + "\n")
