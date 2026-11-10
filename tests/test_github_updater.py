@@ -148,3 +148,29 @@ class BotApplyMessageTest(unittest.TestCase):
         self.assertNotIn("Update installed", text)
         self.assertNotIn("tests passed", text)
 
+
+
+class SandboxedTestRunTest(unittest.TestCase):
+    """The update's test run never sees the box's real settings (2026-11-10: tests as root wrote into them)."""
+
+    def test_env_points_everything_at_throwaway_files(self):
+        import tempfile as tf
+        from pathlib import Path as P
+        with tf.TemporaryDirectory() as srcdir, tf.TemporaryDirectory() as tmp:
+            src = P(srcdir)
+            (src / "tests").mkdir()
+            (src / "config").mkdir()
+            (src / "config" / "nmb.conf.example").write_text("[network]\n")
+            calls = []
+            with mock.patch.object(updater, "_run", side_effect=lambda cmd, **kw: calls.append((cmd, kw)) or 0), \
+                 mock.patch.object(updater.os, "geteuid", return_value=1000):
+                self.assertEqual(updater.run_tests_sandboxed(src, tmp), 0)
+            cmd, kw = calls[0]
+            env = kw["env"]
+            self.assertTrue(env["NMB_CONFIG"].startswith(tmp))
+            self.assertTrue(P(env["NMB_CONFIG"]).exists())
+            for key in ("NMB_LIVE_DB", "NMB_PERSIST_DB", "NMB_MEASURE_LOCK", "NMB_DYNDNS_STATE", "NMB_BACKUP_DIR",
+                        "NMB_PERSIST_LOG_DIR"):
+                self.assertTrue(env[key].startswith(tmp), key)
+            self.assertTrue(str(kw["cwd"]).startswith(tmp))     # a copy, not the download
+            self.assertIsNone(kw["preexec"])                    # not root here; as root it drops to nobody

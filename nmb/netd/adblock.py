@@ -47,6 +47,8 @@ log = logging.getLogger("nmb.netd.adblock")
 
 # Persistent and Runtime Storage Paths
 def _resolve_data_dir() -> Path:
+    if os.environ.get("NMB_ADBLOCK_DIR"):          # tests and the update's test run (nmb/common/updater.py)
+        return Path(os.environ["NMB_ADBLOCK_DIR"])
     std_dir = Path("/var/lib/nmb/adblock")
     if std_dir.exists() or os.access("/var/lib", os.W_OK):
         return std_dir

@@ -64,3 +64,25 @@ class KillSignalTest(unittest.TestCase):
             res = tasks.kill_process(4242, sig_num=19)
         self.assertEqual(res["status"], "error")
         kill.assert_not_called()
+
+
+class BundleRedactionTest(unittest.TestCase):
+    """The diagnostic bundle never carries tokens or passwords (it packed nmb.conf as it was until 2026-11-10)."""
+
+    def test_config_in_the_bundle_is_redacted(self):
+        import os
+        import tarfile
+        import tempfile
+        from nmb.report import crash_trap
+        with tempfile.TemporaryDirectory() as tmp:
+            conf = Path(tmp) / "nmb.conf"
+            conf.write_text("[telegram]\ntoken = 123456:SECRETSECRET\nenabled = true\n[network]\npppoe_user = someone\n")
+            with mock.patch.dict(os.environ, {"NMB_CONFIG": str(conf), "NMB_BUNDLE_DIR": f"{tmp}/b"}):
+                bundle = crash_trap.create_diagnostic_bundle()
+            with tarfile.open(bundle, "r:gz") as tar:
+                member = next(m for m in tar.getmembers() if m.name == "config/nmb.conf")
+                text = tar.extractfile(member).read().decode()
+        self.assertNotIn("SECRETSECRET", text)
+        self.assertNotIn("someone", text)
+        self.assertIn("enabled = true", text)
+        self.assertIn("<redacted", text)

@@ -110,6 +110,9 @@ Minden commit előtt mindnek át kell mennie. Nem kell hozzájuk hálózat és r
 
 ## 6. Egy változtatás telepítése a dobozra
 
+> **A tesztkészletet soha ne futtasd rootként (vagy `nmb`-ként) egy működő dobozon.** Néhány teszt útvonal nélkül menti a beállításokat és listákat, ami a dobozon a valódi `/etc/nmb/nmb.conf` (2026-11-10: felülírta a PPPoE-belépést, a Telegram-csevegést és mást). Úgy futtasd, ahogy a frissítő: `nobody`-ként egy másolaton: `python3 -c "from pathlib import Path; import tempfile; from nmb.common import updater; t = tempfile.mkdtemp(); print(updater.run_tests_sandboxed(Path('.'), t))"` a kicsomagolt forrásból, rootként (magától átvált nobody-ra). A kimenet a `/var/log/nmb/update.log`-ba kerül.
+
+
 Mindig úgy telepíts, ahogy a felhasználók is kapják: a `setup.sh`-val. Egyes fájlokat soha ne másolj át. Kivétel egy gyors próba, de akkor ezt mondd is meg.
 
 ```bash

@@ -225,13 +225,60 @@ def download(sha: str, dest: Path) -> Path:
 # Apply
 # ------------------------------------------------------------------------------
 
-def _run(cmd: List[str], cwd: Optional[Path] = None, timeout: int = 600, env: Optional[dict] = None) -> int:
+def _run(cmd: List[str], cwd: Optional[Path] = None, timeout: int = 600, env: Optional[dict] = None,
+         preexec=None) -> int:
     with open(LOG_FILE, "a") if LOG_FILE.parent.exists() else open(os.devnull, "w") as out:
         try:
             return subprocess.run(cmd, cwd=cwd, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                  timeout=timeout, env=env, check=False).returncode
+                                  timeout=timeout, env=env, check=False, preexec_fn=preexec).returncode
         except subprocess.TimeoutExpired:
             return 124
+
+
+UNPRIVILEGED_UID = 65534     # nobody
+
+
+def _drop_to_nobody() -> None:
+    os.setgroups([])
+    os.setgid(UNPRIVILEGED_UID)
+    os.setuid(UNPRIVILEGED_UID)
+
+
+def run_tests_sandboxed(src: Path, tmp: str) -> int:
+    """The new version's tests, the way they run on a developer's PC: as an unprivileged user on a copy of the
+    code, with the box's settings, database and locks pointed at throwaway files.
+
+    2026-11-10: the update ran them as root on the live box, and tests that save settings without a path
+    wrote test values into the real /etc/nmb/nmb.conf (PPPoE login, Telegram chat, schedule, VPN ...) and
+    into /var/lib/nmb/secrets.keep; the Telegram bot then refused to start. As nobody such a write fails,
+    so the test fails and the update is refused, which is safe."""
+    work = Path(tmp) / "src"
+    shutil.copytree(src, work, symlinks=True)
+    cfg = Path(tmp) / "nmb.conf"
+    example = work / "config" / "nmb.conf.example"
+    if example.exists():
+        shutil.copy(example, cfg)
+    env = {"PATH": os.environ.get("PATH", "/usr/sbin:/usr/bin:/sbin:/bin"), "HOME": tmp, "TMPDIR": tmp,
+           "LANG": "C.UTF-8", "NMB_CONFIG": str(cfg),
+           "NMB_LIVE_DB": f"{tmp}/live.db", "NMB_PERSIST_DB": f"{tmp}/persist.db",
+           "NMB_OOKLA_COOLDOWN_FILE": f"{tmp}/ookla_cooldown.json",
+           # the box's own scheduled tests hold the real lock; its DynDNS state is not the tests'
+           "NMB_MEASURE_LOCK": f"{tmp}/speedtest.lock", "NMB_DYNDNS_STATE": f"{tmp}/dyndns_state.json",
+           "NMB_PERSIST_LOG_DIR": f"{tmp}/persist-logs", "NMB_BACKUP_DIR": f"{tmp}/backups",
+           "NMB_ADBLOCK_DIR": f"{tmp}/adblock", "NMB_CRASH_DIR": f"{tmp}/crashes", "NMB_BUNDLE_DIR": f"{tmp}/bundles",
+           "PYTHONPATH": str(work), "PYTHONDONTWRITEBYTECODE": "1"}
+    preexec = None
+    if os.geteuid() == 0:
+        for root, dirs, files in os.walk(tmp):
+            for name in dirs + files:
+                try:
+                    os.chown(os.path.join(root, name), UNPRIVILEGED_UID, UNPRIVILEGED_UID, follow_symlinks=False)
+                except OSError:
+                    pass
+        os.chown(tmp, UNPRIVILEGED_UID, UNPRIVILEGED_UID)
+        preexec = _drop_to_nobody
+    return _run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"], cwd=work, timeout=900,
+                env=env, preexec=preexec)
 
 
 def _restart_services() -> None:
@@ -274,12 +321,7 @@ def apply(sha: Optional[str] = None) -> Dict[str, Any]:
 
         _write_status("running", "test", commit=sha[:8])
         with tempfile.TemporaryDirectory(prefix="nmb-verify-") as tmp:
-            env = dict(os.environ, NMB_LIVE_DB=f"{tmp}/live.db", NMB_PERSIST_DB=f"{tmp}/persist.db",
-                       NMB_OOKLA_COOLDOWN_FILE=f"{tmp}/ookla_cooldown.json",
-                       # the box's own scheduled tests hold the real lock; its DynDNS state is not the tests'
-                       NMB_MEASURE_LOCK=f"{tmp}/speedtest.lock", NMB_DYNDNS_STATE=f"{tmp}/dyndns_state.json",
-                       PYTHONPATH=str(src), PYTHONDONTWRITEBYTECODE="1")
-            if _run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"], cwd=src, timeout=900, env=env) != 0:
+            if run_tests_sandboxed(src, tmp) != 0:
                 return _finish("failed", f"The tests of version {sha[:8]} failed; nothing was changed. See {LOG_FILE}.")
 
         _write_status("running", "backup", commit=sha[:8])

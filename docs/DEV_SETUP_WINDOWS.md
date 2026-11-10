@@ -108,6 +108,9 @@ They must all pass before every commit. They need no network and no root. The li
 
 ## 6. Installing a change on the box
 
+> **Never run the test suite as root (or as `nmb`) on a working box.** Some tests save settings and lists without a path, and on the box that is the real `/etc/nmb/nmb.conf` (2026-11-10: the PPPoE login, the Telegram chat and more were overwritten). Run it the way the updater does, as `nobody` on a copy: `python3 -c "from pathlib import Path; import tempfile; from nmb.common import updater; t = tempfile.mkdtemp(); print(updater.run_tests_sandboxed(Path('.'), t))"` from the unpacked source, as root (it drops to nobody itself). The output goes to `/var/log/nmb/update.log`.
+
+
 Always the way users get it, with `setup.sh`, never by copying single files (except for a quick try, which you say you did):
 
 ```bash

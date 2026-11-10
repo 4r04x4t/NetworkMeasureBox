@@ -12,6 +12,8 @@ import inspect
 import json
 import logging
 import os
+import re
+import io
 import sys
 import tarfile
 import threading
@@ -22,7 +24,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger("nmb.report.crash")
 
-CRASH_DIR = Path("/var/log/nmb/crashes")
+CRASH_DIR = Path(os.environ.get("NMB_CRASH_DIR", "/var/log/nmb/crashes"))
+_SECRET_KEY = re.compile(r"(password|psk|token|auth_key|secret|pppoe_user)", re.I)
 FALLBACK_CRASH_DIR = Path.home() / ".local/share/nmb/crashes"
 MAX_CRASH_REPORTS = 15
 
@@ -34,6 +37,8 @@ _trap_lock = threading.Lock()
 
 def get_boot_drive_crashes_target() -> Optional[Path]:
     """Find appropriate location on FAT32 boot partition for emergency crash dumps."""
+    if os.environ.get("NMB_CRASH_DIR"):      # a test run: never the real boot partition
+        return None
     candidates = [
         Path("/boot/firmware/nmb_crashes"),
         Path("/boot/nmb_crashes"),
@@ -355,7 +360,7 @@ def clear_crash_reports() -> int:
 
 def create_diagnostic_bundle() -> Path:
     """Package complete system state, logs, snapshots, and crashes into a single .tar.gz archive."""
-    out_dir = Path("/var/log/nmb/bundles")
+    out_dir = Path(os.environ.get("NMB_BUNDLE_DIR", "/var/log/nmb/bundles"))
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
     except (PermissionError, OSError):
@@ -365,6 +370,33 @@ def create_diagnostic_bundle() -> Path:
     ts_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     bundle_path = out_dir / f"nmb_diagnostic_bundle_{ts_str}.tar.gz"
 
+    def _add(tar, path: Path, arcname: str) -> None:
+        # A file the bundle may not read (the OpenVPN status log is root's) is left out, not a failed bundle
+        # (2026-11-10: the bundle failed as soon as one log was unreadable).
+        try:
+            if path.is_file():
+                tar.add(path, arcname=arcname)
+        except OSError:
+            log.debug("left out of the bundle: %s", path)
+
+    def _add_redacted_config(tar, path: Path, arcname: str) -> None:
+        # The bundle is meant to be sent to someone: tokens and passwords never go in (they did until 2026-11-10).
+        try:
+            if not path.is_file():
+                return
+            lines = []
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                key, sep, val = line.partition("=")
+                if sep and _SECRET_KEY.search(key) and val.strip():
+                    line = f"{key}= <redacted, {len(val.strip())} chars>"
+                lines.append(line)
+            data = ("\n".join(lines) + "\n").encode("utf-8")
+            info = tarfile.TarInfo(arcname)
+            info.size, info.mtime, info.mode = len(data), int(path.stat().st_mtime), 0o600
+            tar.addfile(info, io.BytesIO(data))
+        except OSError:
+            log.debug("config left out of the bundle: %s", path)
+
     with tarfile.open(bundle_path, mode="w:gz") as tar:
         # 1. Invasive Snapshots
         for snap_p in (
@@ -372,29 +404,28 @@ def create_diagnostic_bundle() -> Path:
             Path("/var/log/nmb/invasive_dev_snapshot.json"),
             Path.home() / ".local/share/nmb/invasive_dev_snapshot.md",
         ):
-            if snap_p.is_file():
-                tar.add(snap_p, arcname=f"diagnostics/{snap_p.name}")
+            _add(tar, snap_p, f"diagnostics/{snap_p.name}")
 
         # 2. Crash Reports
         for cr_dir in (CRASH_DIR, FALLBACK_CRASH_DIR):
             if cr_dir.is_dir():
                 for cr in cr_dir.glob("crash_*.md"):
-                    tar.add(cr, arcname=f"crashes/{cr.name}")
+                    _add(tar, cr, f"crashes/{cr.name}")
 
-        # 3. Configurations
-        for conf_p in (Path("/etc/nmb/nmb.conf"), Path("/boot/firmware/nmb.conf"), Path("/boot/nmb.conf")):
-            try:
-                if conf_p.is_file():
-                    tar.add(conf_p, arcname=f"config/{conf_p.name}")
-            except (PermissionError, OSError):
-                pass
+        # 3. Configurations, secrets redacted
+        for conf_p in (Path(os.environ.get("NMB_CONFIG", "/etc/nmb/nmb.conf")), Path("/boot/firmware/nmb.conf"), Path("/boot/nmb.conf")):
+            _add_redacted_config(tar, conf_p, f"config/{conf_p.name}")
 
         # 4. Standard Logs
         log_dir = Path("/var/log/nmb")
         if log_dir.is_dir():
             for l in log_dir.glob("*.log"):
-                if l.stat().st_size < 10 * 1024 * 1024:  # under 10MB
-                    tar.add(l, arcname=f"logs/{l.name}")
+                try:
+                    small = l.stat().st_size < 10 * 1024 * 1024   # under 10MB
+                except OSError:
+                    continue
+                if small:
+                    _add(tar, l, f"logs/{l.name}")
 
     log.info("assembled complete diagnostic bundle archive: %s (%d bytes)", bundle_path, bundle_path.stat().st_size)
     return bundle_path
