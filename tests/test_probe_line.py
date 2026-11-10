@@ -135,3 +135,37 @@ class WiredMetricTest(unittest.TestCase):
         with mock.patch.object(interfaces.shutil, "which", return_value="/usr/bin/nmcli"), \
              mock.patch.object(interfaces.subprocess, "run", return_value=SimpleNamespace(stdout="--\n", stderr="", returncode=0)):
             self.assertIsNone(interfaces._wired_metric_via_network_manager("eth0"))
+
+
+class OutageReadingTest(unittest.TestCase):
+    """Open outages left by a stopped probe end at the next outage or at the first answered ping; overlaps
+    count once (2026-11-10: eight open rows showed 0 % availability). The stored rows are not changed."""
+
+    def test_effective_ends_and_merge(self):
+        from nmb.report import metrics
+        conn = _conn()
+        for oid, start, end in ((1, 1_000, None), (2, 5_000, None), (3, 9_000, None), (4, 20_000, 21_000)):
+            conn.execute("INSERT INTO outage (id, start_ts, end_ts, cause) VALUES (?, ?, ?, 'x')", (oid, start, end))
+        conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (1, 12000, 120, 0)")
+        rows = conn.execute("SELECT id, start_ts, end_ts, cause FROM outage").fetchall()
+        ends = metrics.effective_outage_ends(conn, rows, now=100_000)
+        self.assertEqual(ends, {1: 5_000, 2: 9_000, 3: 12_000, 4: 21_000})
+        self.assertEqual(metrics.merged_length([(1_000, 5_000), (4_000, 9_000), (20_000, 21_000)]), 9_000)
+        self.assertIsNone(conn.execute("SELECT end_ts FROM outage WHERE id = 1").fetchone()[0])   # untouched
+
+
+class OutageAlertTest(unittest.TestCase):
+    def test_stale_open_outage_resolves_the_alert(self):
+        from nmb.bot import alerts
+        conn = _conn()
+        conn.execute("INSERT INTO outage (id, start_ts, end_ts, cause) VALUES (1, 1000, NULL, 'all probe targets unreachable')")
+        conn.commit()
+        eng = alerts.AlertMonitor.__new__(alerts.AlertMonitor)
+        eng.cfg = SimpleNamespace(system=SimpleNamespace(box_id="nmb-test"))
+        sent = []
+        eng._broadcast = lambda key, **kw: sent.append(key)
+        eng.check_outages(conn)                      # no answers yet: firing
+        conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (1, 60000, 120, 0)")
+        conn.commit()
+        eng.check_outages(conn)                      # answered again: resolved
+        self.assertEqual(sent, ["outage_start", "outage_resolved"])

@@ -69,8 +69,14 @@ class AlertMonitor:
     def check_outages(self, conn: sqlite3.Connection) -> None:
         """Check for ongoing or recently resolved outages."""
         ongoing = conn.execute(
-            "SELECT id, start_ts, cause FROM outage WHERE end_ts IS NULL ORDER BY start_ts DESC LIMIT 1"
+            "SELECT id, start_ts, end_ts, cause FROM outage WHERE end_ts IS NULL ORDER BY start_ts DESC LIMIT 1"
         ).fetchone()
+        if ongoing:
+            # A row left open by a probe that stopped is over once pings are answered again; otherwise the alert
+            # stayed "firing" and a real outage later sent no alert (2026-11-10).
+            from nmb.report.metrics import effective_outage_ends
+            if effective_outage_ends(conn, [ongoing], db.now_ms()).get(ongoing["id"]):
+                ongoing = None
 
         cur_state = self._get_alert_state(conn, "outage")
 
@@ -84,7 +90,7 @@ class AlertMonitor:
             last_out = conn.execute(
                 "SELECT start_ts, end_ts FROM outage ORDER BY end_ts DESC LIMIT 1"
             ).fetchone()
-            dur_sec = int((last_out["end_ts"] - last_out["start_ts"]) / 1000) if last_out else 0
+            dur_sec = int((last_out["end_ts"] - last_out["start_ts"]) / 1000) if last_out and last_out["end_ts"] else 0
             self._broadcast("outage_resolved", dur=dur_sec, box_id=self.cfg.system.box_id)
             self._set_alert_state(conn, "outage", "resolved", f"Outage resolved ({dur_sec}s)")
             log.info("broadcast outage resolved alert")

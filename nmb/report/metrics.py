@@ -17,6 +17,47 @@ from nmb.db import database as db
 log = logging.getLogger("nmb.report.metrics")
 
 
+
+
+def effective_outage_ends(conn, rows, now: int) -> Dict[int, Optional[int]]:
+    """The end of each outage as the data shows it, without changing the stored rows.
+
+    An outage still open (no end) when a newer one starts was left by a probe that stopped (a restart or an
+    update); one with answered pings after its start is over by the first of them. 2026-11-10: eight such
+    rows, each "ongoing", added up to more than a day and showed 0 % availability."""
+    ordered = sorted(rows, key=lambda r: r["start_ts"])
+    ends: Dict[int, Optional[int]] = {}
+    for i, r in enumerate(ordered):
+        if r["end_ts"]:
+            ends[r["id"]] = r["end_ts"]
+            continue
+        candidates = []
+        if i + 1 < len(ordered):
+            candidates.append(ordered[i + 1]["start_ts"])
+        try:
+            row = conn.execute("SELECT MIN(ts) FROM ping_minute WHERE ts >= ? AND lost < sent", (r["start_ts"],)).fetchone()
+            if row and row[0]:
+                candidates.append(int(row[0]))
+        except Exception:
+            pass
+        ends[r["id"]] = min(candidates) if candidates else None
+    return ends
+
+
+def merged_length(spans) -> int:
+    """Total length of time spans, overlaps counted once."""
+    total, cur_s, cur_e = 0, None, None
+    for s_, e_ in sorted(spans):
+        if cur_e is None or s_ > cur_e:
+            if cur_e is not None:
+                total += cur_e - cur_s
+            cur_s, cur_e = s_, e_
+        else:
+            cur_e = max(cur_e, e_)
+    if cur_e is not None:
+        total += cur_e - cur_s
+    return total
+
 def latest_measured_test(tests: List[dict]) -> Optional[dict]:
     """Return the newest test with results; a skipped test has no speed to show."""
     return next((t for t in tests if t.get("status") == "ok"), None)
@@ -173,19 +214,22 @@ def aggregate_report_data(
         (start, now)
     ).fetchall()
 
-    total_outage_ms = 0
+    ends = effective_outage_ends(conn, outage_rows, now)
+    spans = []
     for r in outage_rows:
         o_start = max(start, r["start_ts"])
-        o_end = min(now, r["end_ts"]) if r["end_ts"] else now
+        eff_end = ends.get(r["id"])
+        o_end = min(now, eff_end) if eff_end else now
         dur_sec = max(0, int((o_end - o_start) / 1000))
-        total_outage_ms += (o_end - o_start)
+        spans.append((o_start, max(o_start, o_end)))
         report.outages.append(OutageRecord(
             id=r["id"],
             start_ts=r["start_ts"],
-            end_ts=r["end_ts"],
+            end_ts=r["end_ts"] if r["end_ts"] else (eff_end if eff_end and eff_end < now else None),
             duration_sec=dur_sec,
             cause=r["cause"] or "Unreachable",
         ))
+    total_outage_ms = merged_length(spans)
 
     window_duration_ms = max(1, now - start)
     report.total_outage_sec = int(total_outage_ms / 1000)

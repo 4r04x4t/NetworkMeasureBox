@@ -105,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Availability and outage totals: outages left open by a probe that stopped (restart, update) counted until now and overlapping ones added up (the night's eight open rows showed 0 % availability in `/status`). Reports and the bot now end such an outage at the next one or at the first answered ping and count overlaps once; the stored rows are not changed. The bot's outage alert no longer stays "firing" on such a row, so a real outage alerts again.
 - The "iPerf3 server left out for up to 6 h" warning still came about 17 times an hour: a check without the test history cleared its once-per-rest mark.
 - Ping telemetry in router mode on PPPoE: the probe bound its socket once at start, to eth0 when the measuring link was not wired; under PPPoE eth0 has no address, so every ping was lost from 19:31 to 01:21 and each probe restart opened an outage that never closed, although the line worked (all speed tests over ppp0 passed). The probe now follows the line (the router's WAN in router mode, never a link without an address) and rebinds within 30 s; the Local Gateway target is switched off when the box has no gateway (PPPoE), and switched-off targets no longer show in the table. The false outages and lost-ping minutes of that night are still in the database (see TESTING.md, To fix).
 - Router mode: NetworkManager started DHCP on the PPPoE port every 45 s all night; the port is now released to the router while Mode A runs and given back afterwards.
