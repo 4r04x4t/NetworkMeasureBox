@@ -50,7 +50,7 @@ SPEED_FIELDS = (
     "server_location", "down_bps", "up_bps", "ping_us", "jitter_us", "loss_pct",
     "down_loaded_lat_ms", "up_loaded_lat_ms", "bufferbloat_grade", "connection_type",
     "client_ip", "client_ipv6", "result_url", "error", "bound_iface",
-    "cycle_ts", "duration_ms", "nmb_version", "box_mode", "client_ip_source",
+    "cycle_ts", "duration_ms", "nmb_version", "box_mode", "client_ip_source", "server_ip",
 )
 
 _UID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"  # no 0/o, 1/l/i: easy to read out on the phone

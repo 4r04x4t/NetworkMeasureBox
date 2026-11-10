@@ -471,11 +471,30 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 max_days = 31 if getattr(self, "_no_password", False) else 120
                 start_ms = max(start_ms, end_ms - max_days * 86_400_000)
             isp = self.server.cfg.isp
+            fmt_r = lambda t: datetime.datetime.fromtimestamp(t / 1000, datetime.timezone.utc).strftime("%Y%m%d-%H%M")
+            ranged = any(k in qs for k in ("from", "to", "hours", "days"))
+            if kind == "ping":
+                # Streamed in pieces: up to 120 days are about a million rows, never built in memory at once.
+                from nmb.report.csv_export import iter_ping_summary_csv
+                name = "ping_telemetry" + (f"_{fmt_r(start_ms)}_{fmt_r(end_ms)}" if ranged else "")
+                conn = db.connect(readonly=True)
+                try:
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "text/csv; charset=utf-8")
+                    self.send_header("Content-Disposition", f'attachment; filename="{name}.csv"')
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    self.close_connection = True
+                    for piece in iter_ping_summary_csv(conn, start_ms, end_ms):
+                        self.wfile.write(piece.encode("utf-8"))
+                except (BrokenPipeError, ConnectionResetError):
+                    log.debug("ping CSV download ended by the client")
+                finally:
+                    conn.close()
+                return
             conn = db.connect(readonly=True)
             try:
-                if kind == "ping":
-                    csv_data, name = export_ping_summary_csv(conn, start_ms, end_ms), "ping_telemetry"
-                elif kind == "speed":
+                if kind == "speed":
                     csv_data, name = export_speedtests_csv(
                         conn, start_ms, end_ms,
                         contract_down_mbps=isp.contract_down_mbps, contract_up_mbps=isp.contract_up_mbps,

@@ -57,6 +57,14 @@ def _rtr_env() -> Optional[dict]:
     return None
 
 
+def _ip_or_none(host: str) -> Optional[str]:
+    import ipaddress
+    try:
+        return str(ipaddress.ip_address(str(host).strip("[]")))
+    except ValueError:
+        return None
+
+
 def _client_ips(interface: Optional[str], bind_ip: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
     """The public address the test used: asked over the same link (by source address), not the default route.
 
@@ -176,8 +184,10 @@ def _run_native_rmbt_speedtest(
         loss_pct=None,          # RMBT does not measure packet loss
         client_ip=v4,
         client_ipv6=v6,
-        server_name="RTR-NetTest (Native C Open-RMBT)",
+        # The measurement server RTR assigned (its host name; RTR's client does not report a separate name)
+        server_name=f"RTR-NetTest ({measure_server.rsplit(':', 1)[0]})" if measure_server else "RTR-NetTest",
         server_host=measure_server or urlparse(host).netloc,
+        server_ip=_ip_or_none(measure_server.rsplit(':', 1)[0]) if measure_server else None,
         server_location=None,   # RTR does not say where its measurement server stands
         result_url=share_url,   # only a real result page, never the project's home page
         client_ip_source="lookup" if (v4 or v6) else None,
@@ -361,6 +371,7 @@ def execute_rtr_speedtest(
         server_id=None,
         server_name=f"RTR-NetTest ({params.server_addr})",
         server_host=f"{params.server_addr}:{params.server_port}",
+        server_ip=_ip_or_none(params.server_addr),
         server_location=None,
         client_ip_source="lookup" if (v4 or v6) else None,
         client_ip=v4,

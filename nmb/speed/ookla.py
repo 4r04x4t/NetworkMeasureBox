@@ -53,6 +53,8 @@ class SpeedtestResult:
     # over the same link after the test), "socket" (the test's own public source address), "local" (a
     # server on the local network: the box's own local address).
     client_ip_source: Optional[str] = None
+    # The address of the server the test actually talked to (the host name can stand for several).
+    server_ip: Optional[str] = None
 
 
 def calculate_bufferbloat(
@@ -467,6 +469,7 @@ def run_official_ookla(server_id: Optional[int] = None, interface: Optional[str]
             server_name=srv_name,
             server_host=srv_host,
             server_location=srv_loc,
+            server_ip=server_data.get("ip") or None,
             client_ip=client_ip,
             client_ipv6=client_ipv6,
             result_url=data.get("result", {}).get("url"),

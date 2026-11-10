@@ -257,6 +257,7 @@ def _run_single_engine(
                 client_ip=ip4,
                 client_ipv6=ip6,
                 client_ip_source=ip_source,
+                server_ip=raw_res.get("remote_host") or None,
                 raw_json=raw_res.get("raw_output"),
                 error=raw_res.get("error"),
                 engine="iperf3",
@@ -380,8 +381,8 @@ def _run_single_engine(
                 down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms,
                 connection_type, client_ip, client_ipv6, server_host, server_location, engine, colo,
                 bound_iface, bound_ip, retransmits, tcp_window,
-                cycle_ts, duration_ms, nmb_version, box_mode, client_ip_source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                cycle_ts, duration_ms, nmb_version, box_mode, client_ip_source, server_ip
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 started_ms,
                 trigger,
@@ -416,6 +417,7 @@ def _run_single_engine(
                 _nmb_version(),
                 _box_mode(conn),
                 _ip_source(res, engine),
+                getattr(res, "server_ip", None),
             )
         )
         # Texts say "--" for what was not measured; the numbers below are only for the log line.

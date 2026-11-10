@@ -42,7 +42,6 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "lbl_total_tests": "Összes rögzített mérés:",
         "lbl_gen_time": "Generálás időpontja:",
         "lbl_firmware": "Mérőfirmware:",
-        "firmware_desc": "NetworkMeasureBox v2.5 (RFC 2681 / BEREC kompatibilis)",
         "lbl_guaranteed_down": "Garantált Letöltés",
         "lbl_contract_down": "Kínált (Névleges) Letöltés",
         "lbl_guaranteed_up": "Garantált Feltöltés",
@@ -151,9 +150,8 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "legal_appendix_title": "Hivatalos Szolgáltatói Hibabejelentő és Hatósági Jogszabályi Záradék:",
         "legal_appendix_body": (
             "Ez a dokumentum a helyszínen üzemelő NetworkMeasureBox autonóm hálózati mérőhardver által függetlenül rögzített telemetriai adatokat tartalmazza. "
-            "A mérések az elektronikus hírközlésről szóló <b>2003. évi C. törvény (Eht.)</b>, "
-            "valamint az Európai Unió <b>2015/2120 rendelete (BEREC nyílt internet iránymutatások)</b> előírásainak figyelembevételével készültek. "
-            "A sebességmérések kizárólag alacsony helyi háttérforgalom mellett futnak le a vezetékes LAN-torzítások kizárása érdekében. "
+            "A mérések az Európai Unió <b>2015/2120 rendelete (BEREC nyílt internet iránymutatások)</b> előírásainak figyelembevételével készültek. "
+            "Minden sebességmérés előtt a mérőeszköz megvárja, hogy az általa látható egyéb forgalom alacsony legyen; az általa nem látható forgalmat, például egy másik router mögötti eszközökét, nem tudja kizárni. "
             "Amennyiben a mért letöltési vagy feltöltési sebesség nem éri el a szerződésben rögzített garantált minimumot, vagy a szolgáltatáskimaradások mértéke meghaladja a megengedett határértéket, "
             "az előfizető jogosult hivatalos szolgáltatói hibajegyet nyitni, kötbérre igényt tartani, vagy az illetékes hírközlési hatóságnál piacfelügyeleti eljárást kezdeményezni."
         ),
@@ -174,7 +172,6 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "lbl_total_tests": "Total Recorded Tests:",
         "lbl_gen_time": "Generated At:",
         "lbl_firmware": "Measurement Firmware:",
-        "firmware_desc": "NetworkMeasureBox v2.5 (RFC 2681 / BEREC compliant)",
         "lbl_guaranteed_down": "Guaranteed Download",
         "lbl_contract_down": "Advertised (Offered) Download",
         "lbl_guaranteed_up": "Guaranteed Upload",
@@ -285,7 +282,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
             "This document presents independent network telemetry recorded autonomously by an on-premises NetworkMeasureBox hardware probe. "
             "Measurements adhere to the core principles of <b>EU Regulation 2015/2120 (Open Internet Regulation)</b>, "
             "<b>BEREC Guidelines on Net Neutrality & QoS Measurement (BoR (20) 165)</b>, and <b>IETF RFC 2681</b>. "
-            "Throughput audits execute strictly under verified low background LAN traffic to eliminate local bottleneck distortions. "
+            "Before each throughput test the probe waits until the other traffic it can see is low; traffic it cannot see, such as devices behind another router, is not excluded. "
             "Should measured throughput persistently fail to achieve contracted minimum guaranteed speeds, or should outage frequencies exceed regulatory tolerances, "
             "the subscriber is entitled to raise a formal dispute with the Internet Service Provider, claim contractual compensation, or escalate the case to the competent national regulatory authority."
         ),
@@ -306,7 +303,6 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "lbl_total_tests": "Gesamte Messungen:",
         "lbl_gen_time": "Erstellungszeitpunkt:",
         "lbl_firmware": "Mess-Firmware:",
-        "firmware_desc": "NetworkMeasureBox v2.5 (RFC 2681 / BEREC-konform)",
         "lbl_guaranteed_down": "Garantierter Download",
         "lbl_contract_down": "Vertraglicher Download",
         "lbl_guaranteed_up": "Garantierter Upload",
@@ -417,7 +413,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
             "Dieses Dokument enthält unabhängige Netzwerktelemetriedaten, die von einer autonomen NetworkMeasureBox-Hardware vor Ort erfasst wurden. "
             "Die Prüfungen entsprechen den Vorgaben der <b>EU-Verordnung 2015/2120 (Open-Internet-Verordnung)</b>, "
             "den <b>BEREC-Leitlinien zur Messung der Dienstqualität (BoR (20) 165)</b> sowie <b>IETF RFC 2681</b>. "
-            "Bandbreitenprüfungen erfolgen ausschließlich bei verifiziert geringem lokalen Hintergrundverkehr, um Verzerrungen auszuschließen. "
+            "Vor jeder Durchsatzmessung wartet die Sonde, bis der für sie sichtbare übrige Verkehr gering ist; Verkehr, den sie nicht sieht, etwa von Geräten hinter einem anderen Router, kann sie nicht ausschließen. "
             "Sollten gemessene Werte wiederholt die vertraglich garantierte Mindestbandbreite unterschreiten oder Ausfallzeiten zulässige Grenzen übersteigen, "
             "ist der Kunde berechtigt, ein formelles Störungsticket zu eröffnen, Entschädigungsansprüche geltend zu machen oder die nationale Regulierungsbehörde einzuschalten."
         ),
@@ -438,7 +434,6 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "lbl_total_tests": "Total des mesures:",
         "lbl_gen_time": "Date de génération:",
         "lbl_firmware": "Firmware de mesure:",
-        "firmware_desc": "NetworkMeasureBox v2.5 (conforme RFC 2681 / BEREC)",
         "lbl_guaranteed_down": "Téléchargement garanti",
         "lbl_contract_down": "Téléchargement annoncé",
         "lbl_guaranteed_up": "Téléversement garanti",
@@ -549,7 +544,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
             "Ce document présente les données de télémétrie réseau enregistrées de manière autonome par une sonde matérielle NetworkMeasureBox sur site. "
             "Les mesures sont conformes aux dispositions du <b>Règlement européen 2015/2120 (Règlement sur l'Internet ouvert)</b>, "
             "aux <b>Lignes directrices du BEREC sur la qualité de service (BoR (20) 165)</b> et à la norme <b>IETF RFC 2681</b>. "
-            "Les tests de débit sont exécutés sous contrôle strict du trafic réseau local d'arrière-plan pour éviter toute distorsion. "
+            "Avant chaque mesure de débit, la sonde attend que l'autre trafic qu'elle voit soit faible ; le trafic qu'elle ne voit pas, par exemple celui d'appareils derrière un autre routeur, ne peut pas être exclu. "
             "En cas de non-respect persistant des vitesses minimales garanties ou en cas d'interruptions dépassant les tolérances, "
             "l'abonné est en droit d'ouvrir une réclamation officielle auprès du fournisseur d'accès, de demander des indemnités ou de saisir l'autorité nationale de régulation."
         ),
@@ -570,7 +565,6 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
         "lbl_total_tests": "Всього записано тестів:",
         "lbl_gen_time": "Час створення:",
         "lbl_firmware": "Прошивка вимірювача:",
-        "firmware_desc": "NetworkMeasureBox v2.5 (сумісна з RFC 2681 / BEREC)",
         "lbl_guaranteed_down": "Гарантоване завантаження",
         "lbl_contract_down": "Оголошене завантаження",
         "lbl_guaranteed_up": "Гарантоване вивантаження",
@@ -681,7 +675,7 @@ DOSSIER_I18N: Dict[str, Dict[str, Any]] = {
             "Цей документ містить дані незалежної телеметрії мережі, зафіксовані автономним апаратним пристроєм NetworkMeasureBox на місці підключення. "
             "Вимірювання відповідають вимогам <b>Регламенту ЄС 2015/2120 (Про відкритий інтернет)</b>, "
             "<b>Керівним принципам BEREC щодо якості послуг (BoR (20) 165)</b> та стандарту <b>IETF RFC 2681</b>. "
-            "Тести швидкості виконуються виключно за умови низького локального фонового трафіку для виключення спотворень з боку локальної мережі. "
+            "Перед кожним вимірюванням швидкості зонд чекає, доки інший видимий для нього трафік стане низьким; трафік, якого він не бачить, наприклад пристроїв за іншим роутером, виключити неможливо. "
             "Якщо виміряні швидкості стабільно не досягають гарантованих договором мінімумів або час простою перевищує допустимі норми, "
             "абонент має право відкрити офіційну заявку на усунення несправності, вимагати компенсації або звернутися до національного регулятора зв'язку."
         ),
@@ -714,6 +708,16 @@ for _code in ("ro", "it", "es", "pt", "pt-br", "zh"):
     except (OSError, ValueError):
         continue
     DOSSIER_I18N[_code] = {**DOSSIER_I18N["en"], **{k: v for k, v in _data.items() if k in DOSSIER_I18N["en"]}}
+
+
+def _installed_version() -> str:
+    """The installed version; it said "v2.5 (RFC 2681 / BEREC compliant)" on every box, a fixed number and a
+    claim of conformity nobody had checked (2026-11-10)."""
+    try:
+        from nmb.common.version import installed_version
+        return installed_version()
+    except Exception:
+        return "unknown"
 
 
 def _num(value, digits: int = 1, unit: str = "", plusminus: bool = False) -> str:
@@ -783,7 +787,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
         for o in sorted(list(report.outages) + own_outages, key=lambda x: x.start_ts, reverse=True):
             start_str = _format_datetime(o.start_ts)
             end_str = _format_datetime(o.end_ts) if o.end_ts else f"<span class='text-red'>{tr['outage_ongoing']}</span>"
-            cause = _html.escape(str(o.cause))
+            cause = str(o.cause)        # already escaped with the whole report
             if getattr(o, "cause_kind", "isp") == "own":
                 outage_rows_html.append(f"""<tr class="text-muted">
   <td>{start_str}</td>
@@ -871,7 +875,11 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
                 status_html = f"<span class='badge-status-err' title='{status_code}'>{status_code}</span>"
 
             ping_ms_val = f"{s['ping_us'] / 1000:.0f} ms" if s.get('ping_us') is not None else "-"
+            # The report was escaped as a whole at the top (_escape_value(report)): no second escape here.
             srv_desc = s.get('server_name') or '-'
+            srv_addr = s.get('server_ip') or s.get('server_host')
+            if srv_addr and srv_addr not in str(s.get('server_name') or ''):
+                srv_desc += f" &middot; <code>{srv_addr}</code>"
             engine_badge = (s.get('engine') or '-').upper()
             if s.get("scope") == "lan":
                 engine_badge += " · LAN"      # a server on the local network: not counted for the line
@@ -1256,7 +1264,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
         <div><strong>{tr['lbl_eval_window']}</strong> {_format_datetime(report.start_ms)} &rarr; {_format_datetime(report.end_ms)}</div>
         <div><strong>{tr['lbl_total_tests']}</strong> {len(report.speed_tests)} ({s_sum.successful_tests} ok)</div>
         <div><strong>{tr['lbl_gen_time']}</strong> {_format_datetime(db.now_ms())}</div>
-        <div><strong>{tr['lbl_firmware']}</strong> {tr['firmware_desc']}</div>
+        <div><strong>{tr['lbl_firmware']}</strong> NetworkMeasureBox {_installed_version()}</div>
       </div>
     </div>
 

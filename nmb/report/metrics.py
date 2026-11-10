@@ -455,7 +455,7 @@ def aggregate_report_data(
         """SELECT ts, trigger, status, server_name, server_host, server_location, client_ip, client_ipv6,
                   down_bps, up_bps, ping_us, jitter_us, loss_pct, result_url, error,
                   down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms, connection_type,
-                  engine, colo, bound_iface, client_ip_source
+                  engine, colo, bound_iface, client_ip_source, server_ip
            FROM speedtest
            WHERE ts >= ? AND ts <= ?
            ORDER BY ts DESC""",

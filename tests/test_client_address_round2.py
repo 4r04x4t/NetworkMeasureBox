@@ -99,8 +99,7 @@ class LanTestNotCountedTest(unittest.TestCase):
         conn = _db()
         conn.execute("INSERT INTO speedtest (ts, trigger, status, engine, client_ip_source) VALUES (1, 'manual', 'ok', 'iperf3', 'local')")
         head, row = [l.split(",") for l in export_speedtests_csv(conn, 0, 10).splitlines()]
-        self.assertEqual(head[-1], "client_ip_source")
-        self.assertEqual(row[-1], "local")
+        self.assertEqual(dict(zip(head, row))["client_ip_source"], "local")
 
 
 class BotCodeTest(unittest.TestCase):

@@ -251,3 +251,71 @@ class BotTestCommandTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ServerFactsTest(unittest.TestCase):
+    def test_server_address_and_all_fast_com_servers_in_the_csv(self):
+        from nmb.report.csv_export import export_detailed_speedtests_csv, export_speedtests_csv
+        conn = _db()
+        raw = json.dumps({"engine": "fastcom", "servers": [{"host": "203.0.113.1"}, {"host": "203.0.113.2"}]})
+        conn.execute("INSERT INTO speedtest (ts, trigger, status, engine, server_name, server_host, server_ip, raw_json) "
+                     "VALUES (1, 'manual', 'ok', 'fastcom', 'Fast.com (Netflix)', 'oca.example', '203.0.113.1', ?)", (raw,))
+        head, row = [l.split(",") for l in export_speedtests_csv(conn, 0, 10).splitlines()]
+        r = dict(zip(head, row))
+        self.assertEqual((r["server_ip"], r["servers_all"]), ("203.0.113.1", "203.0.113.1 203.0.113.2"))
+        d_head, d_row = [l.split(";") for l in export_detailed_speedtests_csv(conn, 0, 10).lstrip("﻿").splitlines()]
+        self.assertEqual(dict(zip(d_head, d_row))["Server address"], "203.0.113.1")
+
+    def test_rtr_names_its_measurement_server(self):
+        from nmb.speed import rtr
+        final = {"type": "FINAL_RESULT", "down": 80.0, "up": 9.0, "pingMedian": 10.0, "pingMin": 9.0, "pingJitter": 0.3, "pingCount": 10}
+        out = "Server:   vie2-httpv4.netztest.at:443 (TLS)\n" + json.dumps(final) + "\n"
+        with mock.patch.object(rtr, "find_native_rmbt_client", return_value="/x/rmbt"), \
+                mock.patch.object(rtr.cancel, "run", return_value=SimpleNamespace(stdout=out, stderr="", returncode=0)), \
+                mock.patch.object(rtr, "_client_ips", return_value=(None, None)):
+            res = rtr._run_native_rmbt_speedtest("https://c01v4.netztest.at", 7, 3, "eth0", "192.0.2.2")
+        self.assertEqual(res.server_name, "RTR-NetTest (vie2-httpv4.netztest.at)")
+        self.assertIsNone(res.server_ip)                    # a host name, no address was reported
+
+    def test_cloudflare_records_the_edge_address_it_used(self):
+        from nmb.speed import cloudflare
+        cloudflare._peer_ips.clear()
+        sock = SimpleNamespace(getpeername=lambda: ("198.51.100.20", 443))
+        cloudflare._note_peer(sock); cloudflare._note_peer(sock)
+        res = cloudflare.CloudflareSpeedResult(status="ok", server_ips=["198.51.100.20"]).to_speedtest_result()
+        self.assertEqual(res.server_ip, "198.51.100.20")
+
+    def test_ping_csv_is_streamed_in_pieces(self):
+        from nmb.report.csv_export import iter_ping_summary_csv
+        conn = _db()
+        conn.execute("INSERT INTO target (id, addr, label, role) VALUES (101, '192.0.2.1', 'x', 'Public DNS')")
+        for i in range(4500):
+            conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (101, ?, 120, 0)", (i * 60_000,))
+        conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (101, ?, 0, 0)", (5000 * 60_000,))
+        parts = list(iter_ping_summary_csv(conn, 0, 10 ** 12, batch=2000))
+        self.assertEqual(len(parts), 3)
+        self.assertEqual(sum(p.count("\n") for p in parts), 4502)
+        self.assertEqual(parts[-1].splitlines()[-1].split(",")[7], "")       # no pings: no loss figure
+
+    def test_dossier_states_no_unchecked_conformity(self):
+        from nmb.report.dossier import DOSSIER_I18N, generate_html_dossier
+        html = generate_html_dossier(_report(_db()), lang="en")
+        self.assertNotIn("BEREC compliant", html)
+        self.assertNotIn("v2.5", html)
+        for lang, tr in DOSSIER_I18N.items():
+            self.assertNotIn("strictly", tr["legal_appendix_body"])
+        self.assertNotIn("2003. évi C. törvény", DOSSIER_I18N["hu"]["legal_appendix_body"])
+
+
+class DossierEscapeTest(unittest.TestCase):
+    def test_values_are_escaped_once(self):
+        from nmb.report.dossier import generate_html_dossier
+        conn = _db()
+        conn.execute("INSERT INTO speedtest (ts, trigger, status, engine, down_bps, server_name, server_ip) "
+                     "VALUES (?, 'manual', 'ok', 'ookla', 1, 'A & B <x>', '203.0.113.9')", (T0 + H,))
+        conn.execute("INSERT INTO outage (start_ts, end_ts, cause) VALUES (?, ?, 'cut & <y>')", (T0 + 2 * H, T0 + 2 * H + 90_000))
+        html = generate_html_dossier(_report(conn), lang="en")
+        self.assertIn("A &amp; B &lt;x&gt;", html)
+        self.assertNotIn("&amp;amp;", html)
+        self.assertIn("cut &amp; &lt;y&gt;", html)
+        self.assertIn("<code>203.0.113.9</code>", html)

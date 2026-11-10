@@ -40,7 +40,7 @@ SPEED_COLS = (
     "server_location", "down_bps", "up_bps", "ping_us", "jitter_us", "loss_pct",
     "down_loaded_lat_ms", "up_loaded_lat_ms", "bufferbloat_grade", "connection_type",
     "client_ip", "client_ipv6", "result_url", "error", "bound_iface",
-    "cycle_ts", "duration_ms", "nmb_version", "box_mode", "client_ip_source",
+    "cycle_ts", "duration_ms", "nmb_version", "box_mode", "client_ip_source", "server_ip",
 )
 
 SCHEMA = """
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS speedtest (
     down_bps INTEGER, up_bps INTEGER, ping_us INTEGER, jitter_us INTEGER, loss_pct REAL,
     down_loaded_lat_ms REAL, up_loaded_lat_ms REAL, bufferbloat_grade TEXT, connection_type TEXT,
     client_ip TEXT, client_ipv6 TEXT, result_url TEXT, error TEXT, bound_iface TEXT,
-    cycle_ts INTEGER, duration_ms INTEGER, nmb_version TEXT, box_mode TEXT, client_ip_source TEXT,
+    cycle_ts INTEGER, duration_ms INTEGER, nmb_version TEXT, box_mode TEXT, client_ip_source TEXT, server_ip TEXT,
     PRIMARY KEY (box_uid, src_id)
 );
 CREATE INDEX IF NOT EXISTS ix_speed_ts ON speedtest(box_uid, ts);
@@ -169,7 +169,7 @@ def connect(data_dir: Path) -> sqlite3.Connection:
         conn.execute("ALTER TABLE box ADD COLUMN remote_allowed INTEGER DEFAULT 0")
     speed_cols = {r[1] for r in conn.execute("PRAGMA table_info(speedtest)")}
     for col, typ in (("cycle_ts", "INTEGER"), ("duration_ms", "INTEGER"), ("nmb_version", "TEXT"),
-                     ("box_mode", "TEXT"), ("client_ip_source", "TEXT")):
+                     ("box_mode", "TEXT"), ("client_ip_source", "TEXT"), ("server_ip", "TEXT")):
         if col not in speed_cols:
             conn.execute(f"ALTER TABLE speedtest ADD COLUMN {col} {typ}")
     return conn

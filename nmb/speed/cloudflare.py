@@ -39,6 +39,15 @@ READ_CHUNK_BYTES = 262_144
 SEND_CHUNK_BYTES = 65_536
 
 _bound_source_ip: Optional[str] = None
+_peer_ips: Dict[str, int] = {}     # Cloudflare edge addresses this test connected to (how often)
+
+
+def _note_peer(sock) -> None:
+    try:
+        ip = sock.getpeername()[0]
+        _peer_ips[ip] = _peer_ips.get(ip, 0) + 1
+    except (OSError, AttributeError, IndexError):
+        pass
 
 
 class BoundHTTPHandler(urllib.request.HTTPHandler):
@@ -112,6 +121,7 @@ class CloudflareSpeedResult:
     tier_downloads: Dict[str, float] = field(default_factory=dict)
     tier_uploads: Dict[str, float] = field(default_factory=dict)
     error: Optional[str] = None
+    server_ips: List[str] = field(default_factory=list)
 
     def to_speedtest_result(self, bound_iface: Optional[str] = None, bound_ip: Optional[str] = None) -> SpeedtestResult:
         """Convert to standard NMB SpeedtestResult for DB persistence."""
@@ -147,6 +157,7 @@ class CloudflareSpeedResult:
                 "client_country": self.meta.country,
                 "client_asn": self.meta.asn,
                 "recovered_tls_streams": self.recovered_streams,
+                "server_ips": self.server_ips,
                 "tier_downloads_mbps": self.tier_downloads,
                 "tier_uploads_mbps": self.tier_uploads,
                 "down_loaded_lat_ms": self.down_loaded_lat_ms,
@@ -161,6 +172,7 @@ class CloudflareSpeedResult:
             bufferbloat_delta_ms=self.bufferbloat_delta_ms,
             engine="cloudflare",
             colo=self.meta.colo or None,
+            server_ip=self.server_ips[0] if self.server_ips else None,
             bound_iface=bound_iface,
             bound_ip=bound_ip,
         )
@@ -215,6 +227,7 @@ def _new_connection(timeout: float = 15.0) -> http.client.HTTPSConnection:
     source = (_bound_source_ip, 0) if _bound_source_ip else None
     conn = http.client.HTTPSConnection(HOST, timeout=timeout, source_address=source)
     conn.connect()
+    _note_peer(conn.sock)
     return conn
 
 
@@ -222,8 +235,10 @@ def _tcp_connect_ms(timeout: float = 3.0) -> float:
     """Return the TCP handshake time in milliseconds; it excludes TLS and server processing."""
     source = (_bound_source_ip, 0) if _bound_source_ip else None
     t0 = time.monotonic()
-    with socket.create_connection((HOST, 443), timeout=timeout, source_address=source):
-        return (time.monotonic() - t0) * 1000.0
+    with socket.create_connection((HOST, 443), timeout=timeout, source_address=source) as sock:
+        ms = (time.monotonic() - t0) * 1000.0
+        _note_peer(sock)
+        return ms
 
 
 def measure_idle_latency(count: int = 8) -> Tuple[Optional[float], Optional[float], List[float]]:
@@ -408,6 +423,7 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
     """Execute complete Cloudflare Speed Test mirroring cloudflare-speed-cli with optional interface binding."""
     global _bound_source_ip
     _bound_source_ip = bind_ip
+    _peer_ips.clear()
     log.info("starting Cloudflare global edge network measurement cycle (iface=%s, bind_ip=%s)", interface, bind_ip)
     t_start = time.monotonic()
 
@@ -477,6 +493,7 @@ def execute_cloudflare_speedtest(interface: Optional[str] = None, bind_ip: Optio
         tier_downloads=tier_downloads,
         tier_uploads=tier_uploads,
         error="; ".join(transfer_errors[:3]) or None if not (mean_down_mbps and mean_up_mbps) else None,
+        server_ips=[ip for ip, _n in sorted(_peer_ips.items(), key=lambda kv: -kv[1])],
     )
     from nmb.common.memory import trim_process_memory
     trim_process_memory()

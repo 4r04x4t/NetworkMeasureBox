@@ -69,47 +69,63 @@ class _SafeWriter:
         self._w.writerow([_safe(v) for v in row])
 
 
+def _servers_all(row) -> str:
+    """Every server a multi-server test used (Fast.com measures to several at once), from its raw data."""
+    if (row["engine"] or "") != "fastcom" or not row["raw_json"]:
+        return ""
+    try:
+        import json as _json
+        servers = (_json.loads(row["raw_json"]) or {}).get("servers") or []
+        return " ".join(str(s.get("host")) for s in servers if isinstance(s, dict) and s.get("host"))
+    except (ValueError, TypeError, AttributeError):
+        return ""
+
+
 def _iso(ts_ms: int) -> str:
     return datetime.datetime.fromtimestamp(ts_ms / 1000.0, tz=datetime.timezone.utc).isoformat()
 
 
-def export_ping_summary_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int) -> str:
+PING_HEADER = [
+    "timestamp_iso", "timestamp_ms", "target_id", "target_addr", "target_label",
+    "sent", "lost", "loss_pct", "rtt_min_ms", "rtt_avg_ms", "rtt_p95_ms", "rtt_max_ms", "jitter_ms",
+    "target_role", "time_zone",
+]
+
+
+def iter_ping_summary_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, batch: int = 2000):
+    """The per-minute ping CSV in pieces (about 8,600 rows a day): rows are read and written in batches, so
+    a long range never sits in memory as a whole (the web route streams them)."""
     out = io.StringIO()
     writer = _SafeWriter(out)
-    writer.writerow([
-        "timestamp_iso", "timestamp_ms", "target_id", "target_addr", "target_label",
-        "sent", "lost", "loss_pct", "rtt_min_ms", "rtt_avg_ms", "rtt_p95_ms", "rtt_max_ms", "jitter_ms",
-        "target_role", "time_zone",
-    ])
-
+    writer.writerow(PING_HEADER)
     targets = {r["id"]: (r["addr"], r["label"], r["role"]) for r in conn.execute("SELECT id, addr, label, role FROM target").fetchall()}
-    rows = conn.execute(
+    cur = conn.execute(
         """SELECT ts, target_id, sent, lost, rtt_min, rtt_avg, rtt_p95, rtt_max, jitter_us
            FROM ping_minute WHERE ts >= ? AND ts <= ? ORDER BY ts ASC""",
-        (start_ms, end_ms)
-    ).fetchall()
+        (start_ms, end_ms))
+    ms = lambda us: round(us / 1000.0, 2) if us is not None else ""
+    while True:
+        rows = cur.fetchmany(batch)
+        if not rows:
+            break
+        for r in rows:
+            addr, label, role = targets.get(r["target_id"], ("", "", ""))
+            writer.writerow([
+                _iso(r["ts"]), r["ts"], r["target_id"], addr, label, r["sent"], r["lost"],
+                round(r["lost"] / r["sent"] * 100.0, 2) if r["sent"] else "",     # no pings sent: no loss figure
+                ms(r["rtt_min"]), ms(r["rtt_avg"]), ms(r["rtt_p95"]), ms(r["rtt_max"]), ms(r["jitter_us"]),
+                role or "", "UTC",
+            ])
+        yield out.getvalue()
+        out.seek(0)
+        out.truncate(0)
+    tail = out.getvalue()       # only the header when there were no rows
+    if tail:
+        yield tail
 
-    for r in rows:
-        addr, label, role = targets.get(r["target_id"], ("", "", ""))
-        loss_pct = round((r["lost"] / r["sent"] * 100.0) if r["sent"] > 0 else 0.0, 2)
-        writer.writerow([
-            _iso(r["ts"]),
-            r["ts"],
-            r["target_id"],
-            addr,
-            label,
-            r["sent"],
-            r["lost"],
-            loss_pct,
-            round(r["rtt_min"] / 1000.0, 2) if r["rtt_min"] is not None else "",
-            round(r["rtt_avg"] / 1000.0, 2) if r["rtt_avg"] is not None else "",
-            round(r["rtt_p95"] / 1000.0, 2) if r["rtt_p95"] is not None else "",
-            round(r["rtt_max"] / 1000.0, 2) if r["rtt_max"] is not None else "",
-            round(r["jitter_us"] / 1000.0, 2) if r["jitter_us"] is not None else "",
-            role or "",
-            "UTC",
-        ])
-    return out.getvalue()
+
+def export_ping_summary_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int) -> str:
+    return "".join(iter_ping_summary_csv(conn, start_ms, end_ms))
 
 
 def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, contract_down_mbps: float = 0.0,
@@ -124,7 +140,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
         "bufferbloat_grade", "bufferbloat_delta_ms", "down_loaded_lat_ms", "up_loaded_lat_ms",
         "server_id", "server_name", "server_host", "server_location", "result_url", "error",
         "row_id", "time_zone", "cycle_time_iso", "duration_s", "bound_iface", "bound_ip", "retransmits",
-        "tcp_window", "box_id", "nmb_version", "box_mode", "client_ip_source",
+        "tcp_window", "box_id", "nmb_version", "box_mode", "client_ip_source", "server_ip", "servers_all",
     ])
 
     rows = conn.execute(
@@ -132,7 +148,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
                   server_id, server_name, server_host, server_location, client_ip, client_ipv6, result_url, error,
                   down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms,
                   connection_type, engine, colo, id, cycle_ts, duration_ms, bound_iface, bound_ip,
-                  retransmits, tcp_window, nmb_version, box_mode, client_ip_source
+                  retransmits, tcp_window, nmb_version, box_mode, client_ip_source, server_ip, raw_json
            FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""",
         (start_ms, end_ms)
     ).fetchall()
@@ -193,6 +209,8 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
             r["nmb_version"] or "",
             r["box_mode"] or "",
             r["client_ip_source"] or "",
+            r["server_ip"] or "",
+            _servers_all(r),
         ])
     return out.getvalue()
 
@@ -220,12 +238,12 @@ def export_detailed_speedtests_csv(
     writer = _SafeWriter(out, delimiter=";")
     writer.writerow([
         "Time", "IP address", "ISP", "Download", "Download %", "Upload", "Upload %", "Latency", "Status",
-        "Time zone", "Status text", "Engine", "Interface",
+        "Time zone", "Status text", "Engine", "Interface", "Server", "Server address",
     ])
 
     rows = conn.execute(
         """SELECT ts, trigger, status, down_bps, up_bps, ping_us, jitter_us, client_ip, client_ipv6,
-                  connection_type, error, engine, bound_iface, client_ip_source, server_host
+                  connection_type, error, engine, bound_iface, client_ip_source, server_host, server_name, server_ip
            FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""",
         (start_ms, end_ms)
     ).fetchall()
@@ -262,6 +280,8 @@ def export_detailed_speedtests_csv(
             text,
             r["engine"] or "",
             r["bound_iface"] or "",
+            r["server_name"] or "",
+            r["server_ip"] or r["server_host"] or "",
         ])
 
     return out.getvalue()

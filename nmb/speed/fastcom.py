@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from nmb.speed import cancel
+from nmb.common.netaddr import split_global
 from nmb.speed.ookla import SpeedtestResult, calculate_bufferbloat
 
 log = logging.getLogger("nmb.speed.fastcom")
@@ -103,6 +104,14 @@ def fetch_token() -> str:
     token = token or FALLBACK_TOKEN
     _token_cache.update(token=token, ts=time.time())
     return token
+
+
+def _ip_or_none(host: str):
+    import ipaddress
+    try:
+        return str(ipaddress.ip_address(str(host).strip('[]')))
+    except ValueError:
+        return None
 
 
 @dataclass
@@ -445,9 +454,11 @@ def execute_fastcom_speedtest(interface: Optional[str] = None, bind_ip: Optional
         loss_pct=None,
         server_name=f"Fast.com (Netflix): {closest.label}",
         server_host=closest.name or closest.host,
+        server_ip=_ip_or_none(closest.host),
         server_location=f"{where} · {len(reachable)} servers" if where else f"{len(reachable)} servers",
-        client_ip=ip if ip and ":" not in ip else None,
-        client_ipv6=ip if ":" in ip else None,
+        # the address Fast.com's API saw, and only a public one
+        client_ip=split_global(ip)[0],
+        client_ipv6=split_global(ip)[1],
         result_url=None,  # Fast.com keeps no page for a result
         raw_json=json.dumps(raw),
         error=None if ok else ("; ".join(errors[:3]) or "no data transferred"),
