@@ -7,6 +7,8 @@
 
 ## 1. Executive Summary & Hardware Target Matrix
 
+**Order of work (owner, 2026-11-10):** first the generic x86-64 and ARM images and the complete native program (`DEPYTHONIZATION_ROADMAP.md`, *Order of Work*, step 1); the first router is then the **TP-Link TL-WR1043ND v1** (section 1.2), whose firmware is unpacked and analysed while it is being programmed; the other targets of this plan follow only after that, in an order the owner sets then. Everything in this plan is planned; no router port exists yet.
+
 This document is the architectural plan for porting **NetworkMeasureBox (NMB)** directly onto commercial router hardware with **100% de-pythonization** (zero Python runtime, zero external Python libraries, zero interpreted dependencies).
 
 The system is planned to be re-engineered as a **native, single-binary appliance (`nmbd`)** written in **Go (Tier 1)** and **C11 with Musl libc (Tier 2 & 3)**, targeting three distinct hardware tiers based on official WikiDevi / OpenWrt hardware profiles:
