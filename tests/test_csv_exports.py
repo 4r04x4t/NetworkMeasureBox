@@ -62,7 +62,8 @@ class SpeedCsvTest(unittest.TestCase):
         head, row = rows[0], dict(zip(rows[0], rows[1]))
         self.assertEqual(head[:27], OLD_SPEED_HEADER)
         self.assertEqual(head[27:], ["row_id", "time_zone", "cycle_time_iso", "duration_s", "bound_iface", "bound_ip",
-                                     "retransmits", "tcp_window", "box_id", "nmb_version", "box_mode"])
+                                     "retransmits", "tcp_window", "box_id", "nmb_version", "box_mode",
+                                     "client_ip_source"])
         self.assertEqual(row["cycle_time_iso"], "2026-11-09T11:15:00+00:00")
         self.assertEqual(row["timestamp_iso"], "2026-11-09T11:16:00+00:00")   # the engine's own start
         self.assertEqual((row["duration_s"], row["retransmits"], row["box_mode"]), ("31.5", "0", "standalone"))
