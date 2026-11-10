@@ -2416,5 +2416,12 @@
  "ui_syslog_src_network": "REDE E PHY (",
  "ui_sched_changes_immediate": "As alterações entram em vigor assim que forem salvas.",
  "ui_drv_all_loaded": "Drivers do kernel e firmware carregados para todos os controladores ativos.",
- "ui_runs": "execuções"
+ "ui_runs": "execuções",
+ "donate_btn": "Apoiar",
+ "donate_title": "Apoie o projeto",
+ "donate_text": "O NetworkMeasureBox é gratuito e de código aberto. Se ele for útil para você, uma doação ajuda a continuar o trabalho. Envie apenas a moeda da rede indicada e confira o endereço depois de colar.",
+ "donate_copy": "Copiar",
+ "donate_copied": "Endereço copiado",
+ "donate_footer": "Apoie o NMB",
+ "donate_close": "Fechar"
 }

@@ -952,7 +952,14 @@
   "ui_syslog_src_network": "NETWORK & PHY (",
   "ui_sched_changes_immediate": "Changes take effect immediately upon saving.",
   "ui_drv_all_loaded": "Kernel drivers and firmware blobs loaded for all active controllers.",
-  "ui_runs": "runs"
+  "ui_runs": "runs",
+  "donate_btn": "Support",
+  "donate_title": "Support the project",
+  "donate_text": "NetworkMeasureBox is free and open source. If it helps you, a donation keeps the work going. Send only the coin of the network shown, and check the address after pasting.",
+  "donate_copy": "Copy",
+  "donate_copied": "Address copied",
+  "donate_footer": "Support NMB",
+  "donate_close": "Close"
  },
  "hu": {
   "ui_ookla": "Ookla",
@@ -1907,7 +1914,14 @@
   "ui_syslog_src_network": "HÁLÓZAT ÉS PHY (",
   "ui_sched_changes_immediate": "A változások mentéskor azonnal érvénybe lépnek.",
   "ui_drv_all_loaded": "Minden aktív vezérlőhöz betöltődtek a kernel-illesztőprogramok és a firmware-fájlok.",
-  "ui_runs": "futás"
+  "ui_runs": "futás",
+  "donate_btn": "Támogatás",
+  "donate_title": "Támogasd a projektet",
+  "donate_text": "A NetworkMeasureBox ingyenes és nyílt forráskódú. Ha hasznos neked, egy adomány segít folytatni a munkát. Csak az adott hálózat érméjét küldd, és beillesztés után ellenőrizd a címet.",
+  "donate_copy": "Másolás",
+  "donate_copied": "Cím kimásolva",
+  "donate_footer": "Támogasd az NMB-t",
+  "donate_close": "Bezárás"
  },
  "de": {
   "ui_ookla": "Ookla",
@@ -2862,7 +2876,14 @@
   "ui_syslog_src_network": "NETZWERK & PHY (",
   "ui_sched_changes_immediate": "Änderungen werden beim Speichern sofort wirksam.",
   "ui_drv_all_loaded": "Kerneltreiber und Firmware für alle aktiven Controller geladen.",
-  "ui_runs": "Läufe"
+  "ui_runs": "Läufe",
+  "donate_btn": "Unterstützen",
+  "donate_title": "Das Projekt unterstützen",
+  "donate_text": "NetworkMeasureBox ist kostenlos und quelloffen. Wenn es Ihnen hilft, hält eine Spende die Arbeit am Laufen. Senden Sie nur die Münze des angegebenen Netzwerks und prüfen Sie die Adresse nach dem Einfügen.",
+  "donate_copy": "Kopieren",
+  "donate_copied": "Adresse kopiert",
+  "donate_footer": "NMB unterstützen",
+  "donate_close": "Schließen"
  },
  "fr": {
   "ui_ookla": "Ookla",
@@ -3817,7 +3838,14 @@
   "ui_syslog_src_network": "RÉSEAU & PHY (",
   "ui_sched_changes_immediate": "Les modifications prennent effet dès l'enregistrement.",
   "ui_drv_all_loaded": "Pilotes du noyau et micrologiciels chargés pour tous les contrôleurs actifs.",
-  "ui_runs": "exécutions"
+  "ui_runs": "exécutions",
+  "donate_btn": "Soutenir",
+  "donate_title": "Soutenir le projet",
+  "donate_text": "NetworkMeasureBox est gratuit et open source. S'il vous est utile, un don permet de poursuivre le travail. N'envoyez que la monnaie du réseau indiqué et vérifiez l'adresse après l'avoir collée.",
+  "donate_copy": "Copier",
+  "donate_copied": "Adresse copiée",
+  "donate_footer": "Soutenir NMB",
+  "donate_close": "Fermer"
  },
  "uk": {
   "ui_ookla": "Ookla",
@@ -4772,6 +4800,13 @@
   "ui_syslog_src_network": "МЕРЕЖА І PHY (",
   "ui_sched_changes_immediate": "Зміни набувають чинності одразу після збереження.",
   "ui_drv_all_loaded": "Драйвери ядра та мікропрограми завантажено для всіх активних контролерів.",
-  "ui_runs": "запусків"
+  "ui_runs": "запусків",
+  "donate_btn": "Підтримати",
+  "donate_title": "Підтримати проєкт",
+  "donate_text": "NetworkMeasureBox безкоштовний і з відкритим кодом. Якщо він вам корисний, пожертва допоможе продовжувати роботу. Надсилайте лише монету вказаної мережі та перевірте адресу після вставлення.",
+  "donate_copy": "Копіювати",
+  "donate_copied": "Адресу скопійовано",
+  "donate_footer": "Підтримати NMB",
+  "donate_close": "Закрити"
  }
 }

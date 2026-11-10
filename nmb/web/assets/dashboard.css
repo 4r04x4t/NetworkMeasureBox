@@ -2782,3 +2782,23 @@
     :focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
     @media (max-width: 768px) { table.data-table { display: block; overflow-x: auto; } }
   
+/* Donation addresses (header button, dialog, footer) — 2026-11-10 */
+.btn-donate { background: transparent; color: #f472b6; border: 1px solid rgba(244, 114, 182, 0.45); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+.btn-donate:hover { background: rgba(244, 114, 182, 0.12); }
+.donate-footer { margin: 24px auto 12px; max-width: 1400px; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: center; font-size: 11.5px; color: var(--text-muted, #8fa0ba); border-top: 1px solid rgba(148, 163, 184, 0.18); }
+.donate-footer-title { font-weight: 600; }
+.donate-footer-list { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; }
+.donate-footer-item { background: none; border: none; padding: 0; color: inherit; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; cursor: pointer; word-break: break-all; text-align: left; }
+.donate-footer-item:hover { color: #f472b6; }
+.donate-modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 16px; }
+.donate-modal[hidden] { display: none; }
+.donate-box { background: var(--card-bg, #121826); border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 12px; padding: 18px 20px; max-width: 640px; width: 100%; max-height: 90vh; overflow: auto; }
+.donate-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.donate-title { font-size: 16px; font-weight: 700; }
+.donate-close { background: none; border: none; color: inherit; font-size: 16px; cursor: pointer; }
+.donate-text { font-size: 12.5px; color: var(--text-muted, #8fa0ba); margin: 10px 0 14px; }
+.donate-list { display: flex; flex-direction: column; gap: 10px; }
+.donate-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 8px; }
+.donate-net { grid-column: 1 / -1; font-weight: 600; font-size: 12.5px; }
+.donate-addr { font-size: 12px; word-break: break-all; user-select: all; }
+.donate-copy { font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.35); background: transparent; color: inherit; cursor: pointer; }

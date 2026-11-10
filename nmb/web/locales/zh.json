@@ -2416,5 +2416,12 @@
  "ui_syslog_src_network": "网络与 PHY (",
  "ui_sched_changes_immediate": "保存后更改立即生效。",
  "ui_drv_all_loaded": "已为所有活动控制器加载内核驱动和固件。",
- "ui_runs": "次"
+ "ui_runs": "次",
+ "donate_btn": "支持",
+ "donate_title": "支持本项目",
+ "donate_text": "NetworkMeasureBox 免费且开源。如果它对您有帮助，捐赠可以让工作继续下去。请只发送所示网络的币种，并在粘贴后核对地址。",
+ "donate_copy": "复制",
+ "donate_copied": "地址已复制",
+ "donate_footer": "支持 NMB",
+ "donate_close": "关闭"
 }

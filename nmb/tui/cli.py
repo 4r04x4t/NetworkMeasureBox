@@ -22,7 +22,9 @@ EPILOG = """examples:
   nmb-cli update                         is a newer version on GitHub?
   nmb-cli update --apply --yes           download and install it, keeping settings and measurements
 
-Access: runs as root or a member of the nmb group, or set NMB_URL, NMB_USER and NMB_PASSWORD."""
+Access: runs as root or a member of the nmb group, or set NMB_URL, NMB_USER and NMB_PASSWORD.
+
+Support the project: nmb-cli donate (the donation addresses)."""
 
 
 def _menu_json(menu: List[catalog.Tab]) -> list:
@@ -128,11 +130,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     lat = sub.add_parser("latest", help="Show the newest speed test result, mixed or per engine")
     lat.add_argument("engine", nargs="?", default="all", choices=["all", "ookla", "cloudflare", "fastcom", "rtr", "iperf3"])
     lat.add_argument("--json", action="store_true")
+    sub.add_parser("donate", help="Show the project's donation addresses")
     upd = sub.add_parser("update", help="Check for a newer version on GitHub, or install it")
     upd.add_argument("--apply", action="store_true", help="Download and install the newest version")
     upd.add_argument("--yes", action="store_true", help="Confirm --apply")
     args = parser.parse_args(argv)
 
+    if args.command == "donate":
+        from nmb.common import donate
+        print("Support the project: NetworkMeasureBox is free and open source; a donation keeps the work going.")
+        print("Send only the coin of the network shown, and check the address after pasting.\n")
+        print(donate.plain_text())
+        return 0
     menu = catalog.read_menu()
     if args.command == "menu":
         _print(_menu_json(menu))

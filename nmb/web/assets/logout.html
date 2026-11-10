@@ -10,6 +10,7 @@
         document.documentElement.setAttribute('data-theme', t);
       } catch (e) {}
     })();
+    window.__NMB_DONATE__ = @@NMB_DONATE_JSON@@;
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NetworkMeasureBox - Logged Out</title>
@@ -148,6 +149,11 @@
       background: #0d1424;
       color: #f1f5f9;
     }
+    .donate-mini { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(148, 163, 184, 0.2); text-align: left; font-size: 11.5px; }
+    .donate-mini-title { font-weight: 600; margin-bottom: 8px; text-align: center; }
+    .donate-mini-row { margin: 6px 0; }
+    .donate-mini-net { opacity: 0.8; }
+    .donate-mini-row code { word-break: break-all; user-select: all; font-size: 11px; }
   </style>
 </head>
 <body>
@@ -163,6 +169,10 @@
       <span>🔑</span>
       <span data-i18n="logout_btn_login_again">Log In Again</span>
     </a>
+    <div class="donate-mini">
+      <div class="donate-mini-title">❤️ <span data-i18n="donate_title">Support the project</span></div>
+      <div id="donate-mini-list"></div>
+    </div>
     <div class="lang-wrap">
       <span>🌐</span>
       <select id="lang-select" onchange="switchLanguage(this.value)">
@@ -182,6 +192,20 @@
   </div>
 
   <script>
+    (function () {
+      const list = document.getElementById('donate-mini-list');
+      (Array.isArray(window.__NMB_DONATE__) ? window.__NMB_DONATE__ : []).forEach(function (a) {
+        const row = document.createElement('div');
+        row.className = 'donate-mini-row';
+        const net = document.createElement('div');
+        net.className = 'donate-mini-net';
+        net.textContent = a.network;
+        const addr = document.createElement('code');
+        addr.textContent = a.address;
+        row.append(net, addr);
+        list.appendChild(row);
+      });
+    })();
     let currentTranslations = {};
     try {
       const savedTheme = localStorage.getItem('nmb_theme');

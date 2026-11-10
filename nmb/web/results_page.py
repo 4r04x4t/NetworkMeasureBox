@@ -91,6 +91,16 @@ def allows_without_password(public_results: bool, method: str, path: str, client
     )
 
 
+def _donate_footer(lang: str) -> str:
+    """The project's donation addresses (nmb/common/donate.py), heading in the page's language."""
+    from nmb.common import donate
+    from nmb.web.i18n import get_translation
+    rows = "\n".join(f"    <div>{html.escape(a.network)}: <code style=\"word-break: break-all;\">{html.escape(a.address)}</code></div>"
+                     for a in donate.ADDRESSES)
+    return (f'  <footer class="note" style="border-top: 1px solid #334155; padding-top: 12px;">\n'
+            f'    <div>❤️ {html.escape(get_translation("donate_title", lang))}</div>\n{rows}\n  </footer>')
+
+
 def render_results_page(lang: str, box_id: str = "") -> str:
     """The landing page with the download links, in the box's language."""
     lang = lang if lang in TEXT else "en"
@@ -125,6 +135,7 @@ def render_results_page(lang: str, box_id: str = "") -> str:
 {items}
   </ul>
   <p class="note">{html.escape(t["note"])}</p>
+{_donate_footer(lang)}
 </body>
 </html>
 """

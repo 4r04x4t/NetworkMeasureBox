@@ -234,7 +234,10 @@
   "speed_already_running": "测速已在进行中；完成后会发送结果。",
   "data_used_tests": "自 {since} 起测试使用的流量",
   "wifi_ap_busy": "📶 在路由器模式下，Wi-Fi 无线电是本设备的接入点，因此现在无法连接其他网络。请先切换到独立模式（/mode standalone），或在网页界面中关闭接入点。",
-  "upd_started": "⏳ 正在后台更新到 <b>{ver}</b>：先在本设备上测试，再备份，然后安装。几分钟后用 /heal updates 查看（网页界面会显示每一步）。"
+  "upd_started": "⏳ 正在后台更新到 <b>{ver}</b>：先在本设备上测试，再备份，然后安装。几分钟后用 /heal updates 查看（网页界面会显示每一步）。",
+  "donate_title": "支持本项目",
+  "donate_text": "NetworkMeasureBox 免费且开源。如果它对您有帮助，捐赠可以让工作继续下去。请只发送所示网络的币种，并在粘贴后核对地址。点按地址即可复制。",
+  "donate_footer": "支持本项目"
  },
  "keyboard": [
   [

@@ -657,3 +657,8 @@ EOF
 )
 # The heredoc holds \033 colour codes; %b turns them into real escapes.
 printf '%b\n' "$BANNER"
+# The project's donation addresses (one list: nmb/common/donate.py), read from the installed code.
+DONATE="$(cd / && PYTHONPATH="$INSTALL_DIR" python3 -I -c "import sys; sys.path.insert(0, '$INSTALL_DIR'); from nmb.common.donate import plain_text; print(plain_text())" 2>/dev/null || true)"
+if [ -n "$DONATE" ]; then
+    printf '\n  Support the project (NetworkMeasureBox is free and open source; check an address after pasting):\n%s\n\n' "$DONATE"
+fi

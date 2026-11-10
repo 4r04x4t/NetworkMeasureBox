@@ -112,7 +112,69 @@
     sel.value = value;
   }
 
+  // Donation addresses (nmb/common/donate.py, injected by the server): the header button opens a dialog with
+  // copy buttons, and a small footer shows them on every page. Built with textContent only.
+  function donateList() {
+    return Array.isArray(window.__NMB_DONATE__) ? window.__NMB_DONATE__ : [];
+  }
+  function copyDonate(address) {
+    const done = () => showToast(t('donate_copied', 'Address copied') + ': ' + address);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(address).then(done).catch(() => showToast(t('js_clipboard_unavailable', 'Clipboard unavailable.')));
+    } else {
+      showToast(t('js_clipboard_unavailable', 'Clipboard unavailable.'));
+    }
+  }
+  function renderDonate() {
+    const modal = document.getElementById('donate-modal-list');
+    const footer = document.getElementById('donate-footer-list');
+    if (modal) {
+      modal.textContent = '';
+      donateList().forEach(a => {
+        const row = document.createElement('div');
+        row.className = 'donate-row';
+        const net = document.createElement('div');
+        net.className = 'donate-net';
+        net.textContent = a.network;
+        const addr = document.createElement('code');
+        addr.className = 'donate-addr';
+        addr.textContent = a.address;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'donate-copy';
+        btn.textContent = '📋 ' + t('donate_copy', 'Copy');
+        btn.addEventListener('click', () => copyDonate(a.address));
+        row.append(net, addr, btn);
+        modal.appendChild(row);
+      });
+    }
+    if (footer) {
+      footer.textContent = '';
+      donateList().forEach(a => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'donate-footer-item';
+        item.title = t('donate_copy', 'Copy');
+        item.textContent = a.network + ': ' + a.address;
+        item.addEventListener('click', () => copyDonate(a.address));
+        footer.appendChild(item);
+      });
+    }
+  }
+  function openDonate() {
+    renderDonate();
+    const m = document.getElementById('donate-modal');
+    if (m) m.hidden = false;
+  }
+  function closeDonate() {
+    const m = document.getElementById('donate-modal');
+    if (m) m.hidden = true;
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDonate(); });
+  document.addEventListener('DOMContentLoaded', renderDonate);
+
   function applyTranslations() {
+    renderDonate();
     if (wifiCountryList.length) fillWifiCountries();
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const k = el.getAttribute('data-i18n');

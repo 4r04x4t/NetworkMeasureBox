@@ -705,7 +705,7 @@ A NetworkMeasureBox szabadidőben készül, és MIT licenc alatt ingyenesen elé
 | Solana | `An7eoFNzfVwudvHJNte8pB2xRh85uP4CN18zERVNWAWj` |
 | Bitcoin (Native SegWit) | `bc1q6syess8m43gsw8zlykkvuvcg0qhxv8dmtvjehm` |
 | Bitcoin (Taproot) | `bc1pfwmanxzpa3d52trthxxvd70m9dmguwt09tzcwufdwptgjr23nevq6g7l9g` |
-| Ethereum, BNB, Polygon, other ERC-20 | `0x23B12da9f4a224e7Fad4CCa5B17Bb450F3d4ABC4` |
+| Ethereum / BNB / Polygon / ERC-20 (EVM) | `0x23B12da9f4a224e7Fad4CCa5B17Bb450F3d4ABC4` |
 
 Ugyanezek a címek láthatók a webes felületen (❤️ Támogatás), a Telegram-botban (`/donate`) és az `nmb-cli donate` parancsban.
 

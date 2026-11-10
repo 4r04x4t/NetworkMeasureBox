@@ -38,10 +38,18 @@ def get_dashboard_html(initial_theme: str = "default", initial_lang: str = "en")
         html.replace("__NMB_INITIAL_THEME__", initial_theme)
         .replace("__NMB_INITIAL_LANG__", initial_lang)
         .replace("__NMB_INITIAL_TRANSLATIONS__", initial_translations)
+        .replace("@@NMB_DONATE_JSON@@", donate_json())
     )
+
+
+def donate_json() -> str:
+    """The donation addresses for the page's script (nmb/common/donate.py), safe inside <script>."""
+    import json
+    from nmb.common import donate
+    return json.dumps(donate.as_dicts()).replace("</", "<\\/")
 
 
 def get_logout_html(initial_theme: str = "default") -> str:
     """Return standalone, responsive dark-mode Logout page."""
     html = _read_asset("logout.html")
-    return html.replace("__NMB_INITIAL_THEME__", initial_theme)
+    return html.replace("__NMB_INITIAL_THEME__", initial_theme).replace("@@NMB_DONATE_JSON@@", donate_json())

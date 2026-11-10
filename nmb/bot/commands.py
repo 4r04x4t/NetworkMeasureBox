@@ -150,6 +150,8 @@ class CommandHandler:
         # Dispatch table
         if cmd in ("/start", "/help", "/menu"):
             self._cmd_help(chat_id, lang)
+        elif cmd in ("/donate", "/support"):
+            self._cmd_donate(chat_id, lang)
         elif cmd == "/sla":
             self._say(chat_id, "sla_explain")
         elif cmd == "/purge":
@@ -205,8 +207,18 @@ class CommandHandler:
         if lang is None:
             lang = get_chat_lang(chat_id, self.cfg)
         box_id = html.escape(str(self.cfg.system.box_id))
-        msg = t("help_message", lang, box_id=box_id)
+        msg = t("help_message", lang, box_id=box_id) + f"\n\n❤️ {html.escape(t('donate_footer', lang))}: /donate"
         self.client.send_message(chat_id, msg, reply_markup=get_main_keyboard(lang))
+
+    def _cmd_donate(self, chat_id: int, lang: Optional[str] = None) -> None:
+        """The project's donation addresses (nmb/common/donate.py); each in <code> so a tap copies it."""
+        from nmb.common import donate
+        if lang is None:
+            lang = get_chat_lang(chat_id, self.cfg)
+        lines = [f"❤️ <b>{html.escape(t('donate_title', lang))}</b>", html.escape(t("donate_text", lang)), ""]
+        for a in donate.ADDRESSES:
+            lines.append(f"<b>{html.escape(a.network)}</b>\n<code>{html.escape(a.address)}</code>")
+        self.client.send_message(chat_id, "\n".join(lines), reply_markup=get_main_keyboard(lang))
 
     def _cmd_lang(self, chat_id: int, args: list[str], lang: Optional[str] = None) -> None:
         if lang is None:

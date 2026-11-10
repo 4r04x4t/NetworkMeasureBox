@@ -12,6 +12,7 @@
     })();
     window.__INITIAL_LANG__ = "__NMB_INITIAL_LANG__";
     window.__INITIAL_TRANSLATIONS__ = __NMB_INITIAL_TRANSLATIONS__;
+    window.__NMB_DONATE__ = @@NMB_DONATE_JSON@@;
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
   <title>NetworkMeasureBox - Universal Network Telemetry & Benchmark Probe</title>
@@ -70,6 +71,9 @@
         <span id="hdr-auth-badge" style="display: none; font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
           👤 <span id="hdr-auth-user">admin</span>
         </span>
+        <button type="button" id="btn-donate" class="btn-donate" onclick="openDonate()" title="Support the project" data-i18n-title="donate_title">
+          ❤️ <span data-i18n="donate_btn">Support</span>
+        </button>
         <button type="button" id="btn-logout" class="btn-logout" onclick="performLogout()" title="Logout" data-i18n-title="logout_btn">
           🚪 <span data-i18n="logout_btn">Logout</span>
         </button>
@@ -5182,5 +5186,19 @@
 <div id="toast-msg"></div>
 
 <script>@@NMB_JS@@</script>
+<footer id="nmb-donate-footer" class="donate-footer" aria-label="Support the project">
+  <span class="donate-footer-title">❤️ <span data-i18n="donate_footer">Support NMB</span></span>
+  <span id="donate-footer-list" class="donate-footer-list"></span>
+</footer>
+<div id="donate-modal" class="donate-modal" hidden onclick="if (event.target === this) closeDonate()">
+  <div class="donate-box" role="dialog" aria-modal="true" aria-labelledby="donate-modal-title">
+    <div class="donate-head">
+      <span id="donate-modal-title" class="donate-title">❤️ <span data-i18n="donate_title">Support the project</span></span>
+      <button type="button" class="donate-close" onclick="closeDonate()" title="Close" data-i18n-title="donate_close">✕</button>
+    </div>
+    <p class="donate-text" data-i18n="donate_text">NetworkMeasureBox is free and open source. If it helps you, a donation keeps the work going. Send only the coin of the network shown, and check the address after pasting.</p>
+    <div id="donate-modal-list" class="donate-list"></div>
+  </div>
+</div>
 </body>
 </html>

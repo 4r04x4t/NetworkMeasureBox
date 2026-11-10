@@ -234,7 +234,10 @@
   "speed_already_running": "Un test di velocità è già in corso; il risultato verrà inviato al termine.",
   "data_used_tests": "Dati usati dai test dal {since}",
   "wifi_ap_busy": "📶 In modalità router la radio Wi-Fi è il punto di accesso del box, quindi ora non può collegarsi a un'altra rete. Passa prima alla modalità autonoma (/mode standalone) o spegni il punto di accesso nell'interfaccia web.",
-  "upd_started": "⏳ L'aggiornamento a <b>{ver}</b> è in corso in background: test su questo box, un backup, poi l'installazione. Controlla tra qualche minuto con /heal updates (l'interfaccia web mostra ogni passo)."
+  "upd_started": "⏳ L'aggiornamento a <b>{ver}</b> è in corso in background: test su questo box, un backup, poi l'installazione. Controlla tra qualche minuto con /heal updates (l'interfaccia web mostra ogni passo).",
+  "donate_title": "Sostieni il progetto",
+  "donate_text": "NetworkMeasureBox è gratuito e open source. Se ti è utile, una donazione aiuta a portare avanti il lavoro. Invia solo la moneta della rete indicata e controlla l'indirizzo dopo averlo incollato. Tocca un indirizzo per copiarlo.",
+  "donate_footer": "Sostieni il progetto"
  },
  "keyboard": [
   [

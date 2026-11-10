@@ -234,7 +234,10 @@
   "speed_already_running": "Un test de viteză rulează deja; rezultatul va fi trimis când se termină.",
   "data_used_tests": "Date folosite de teste din {since}",
   "wifi_ap_busy": "📶 În modul router, radioul Wi-Fi este punctul de acces al cutiei, deci acum nu se poate conecta la altă rețea. Treceți mai întâi în modul autonom (/mode standalone) sau opriți punctul de acces din interfața web.",
-  "upd_started": "⏳ Actualizarea la <b>{ver}</b> rulează în fundal: teste pe această cutie, o copie de rezervă, apoi instalarea. Verificați peste câteva minute cu /heal updates (interfața web arată fiecare pas)."
+  "upd_started": "⏳ Actualizarea la <b>{ver}</b> rulează în fundal: teste pe această cutie, o copie de rezervă, apoi instalarea. Verificați peste câteva minute cu /heal updates (interfața web arată fiecare pas).",
+  "donate_title": "Susține proiectul",
+  "donate_text": "NetworkMeasureBox este gratuit și open source. Dacă îți este util, o donație ajută la continuarea muncii. Trimite doar moneda rețelei afișate și verifică adresa după lipire. Atinge o adresă pentru a o copia.",
+  "donate_footer": "Susține proiectul"
  },
  "keyboard": [
   [

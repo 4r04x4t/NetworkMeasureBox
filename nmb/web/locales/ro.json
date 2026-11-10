@@ -2416,5 +2416,12 @@
  "ui_syslog_src_network": "REȚEA ȘI PHY (",
  "ui_sched_changes_immediate": "Modificările intră în vigoare imediat după salvare.",
  "ui_drv_all_loaded": "Driverele de kernel și firmware-ul sunt încărcate pentru toate controlerele active.",
- "ui_runs": "rulări"
+ "ui_runs": "rulări",
+ "donate_btn": "Susține",
+ "donate_title": "Susține proiectul",
+ "donate_text": "NetworkMeasureBox este gratuit și open source. Dacă îți este util, o donație ajută la continuarea muncii. Trimite doar moneda rețelei afișate și verifică adresa după lipire.",
+ "donate_copy": "Copiază",
+ "donate_copied": "Adresă copiată",
+ "donate_footer": "Susține NMB",
+ "donate_close": "Închide"
 }

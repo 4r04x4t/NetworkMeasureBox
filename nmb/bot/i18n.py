@@ -1324,6 +1324,18 @@ for _lang, _texts in _ADMIN_STRINGS.items():
     STRINGS.setdefault(_lang, {}).update(_texts)
 
 
+# Donation addresses (/donate and the help footer), 2026-11-10.
+_DONATE_STRINGS = {
+    "en": {"donate_title": "Support the project", "donate_text": "NetworkMeasureBox is free and open source. If it helps you, a donation keeps the work going. Send only the coin of the network shown, and check the address after pasting. Tap an address to copy it.", "donate_footer": "Support the project"},
+    "hu": {"donate_title": "Támogasd a projektet", "donate_text": "A NetworkMeasureBox ingyenes és nyílt forráskódú. Ha hasznos neked, egy adomány segít folytatni a munkát. Csak az adott hálózat érméjét küldd, és beillesztés után ellenőrizd a címet. Koppints egy címre a másoláshoz.", "donate_footer": "Támogasd a projektet"},
+    "de": {"donate_title": "Das Projekt unterstützen", "donate_text": "NetworkMeasureBox ist kostenlos und quelloffen. Wenn es Ihnen hilft, hält eine Spende die Arbeit am Laufen. Senden Sie nur die Münze des angegebenen Netzwerks und prüfen Sie die Adresse nach dem Einfügen. Tippen Sie auf eine Adresse, um sie zu kopieren.", "donate_footer": "Das Projekt unterstützen"},
+    "fr": {"donate_title": "Soutenir le projet", "donate_text": "NetworkMeasureBox est gratuit et open source. S'il vous est utile, un don permet de poursuivre le travail. N'envoyez que la monnaie du réseau indiqué et vérifiez l'adresse après l'avoir collée. Touchez une adresse pour la copier.", "donate_footer": "Soutenir le projet"},
+    "uk": {"donate_title": "Підтримати проєкт", "donate_text": "NetworkMeasureBox безкоштовний і з відкритим кодом. Якщо він вам корисний, пожертва допоможе продовжувати роботу. Надсилайте лише монету вказаної мережі та перевірте адресу після вставлення. Торкніться адреси, щоб скопіювати її.", "donate_footer": "Підтримати проєкт"},
+}
+for _lang, _texts in _DONATE_STRINGS.items():
+    STRINGS.setdefault(_lang, {}).update(_texts)
+
+
 # =============================================================================
 # 6. More languages: one JSON file each in nmb/bot/locales/
 # =============================================================================

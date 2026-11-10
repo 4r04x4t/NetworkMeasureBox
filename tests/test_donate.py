@@ -86,3 +86,37 @@ class DonationAddressTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DonationShownEverywhereTest(unittest.TestCase):
+    """The owner asked for the addresses in almost every visible place (2026-11-10)."""
+
+    def test_surfaces(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        from nmb.web.templates import get_dashboard_html, get_logout_html
+        from nmb.web.results_page import render_results_page
+        for page in (get_dashboard_html(), get_logout_html(), render_results_page("en")):
+            for a in donate.ADDRESSES:
+                self.assertIn(a.address, page)
+        for readme in ("README.md", "README.hu.md"):
+            text = (root / readme).read_text(encoding="utf-8")
+            for a in donate.ADDRESSES:
+                self.assertIn(a.address, text, readme)
+        self.assertIn("plain_text()", (root / "setup.sh").read_text())
+        self.assertIn('"donate"', (root / "nmb/tui/cli.py").read_text())
+
+    def test_bot_command(self):
+        from unittest import mock
+        from nmb.config import Config
+        from nmb.bot.commands import CommandHandler
+        from nmb.bot import i18n
+        handler = CommandHandler(Config(), mock.MagicMock())
+        for lang in i18n.SUPPORTED_LANGUAGES:
+            with self.subTest(lang=lang), mock.patch("nmb.bot.commands.get_chat_lang", return_value=lang):
+                handler.client.send_message.reset_mock()
+                handler.handle_command(1, "/donate")
+                text = handler.client.send_message.call_args[0][1]
+                for a in donate.ADDRESSES:
+                    self.assertIn(a.address, text)
+                self.assertNotEqual(i18n.t("donate_title", lang), "donate_title")
