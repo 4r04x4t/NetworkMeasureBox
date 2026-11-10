@@ -977,7 +977,9 @@
   "telegram_backup_pass": "Backup passphrase (/backup send):",
   "telegram_backup_pass_hint": "The bot sends backups only encrypted with this passphrase (GnuPG, AES-256). Open them with gpg -d or Kleopatra. At least 12 characters; leave empty to keep the saved one.",
   "telegram_backup_pass_saved": "Passphrase saved",
-  "js_tg_pass_short": "The backup passphrase needs at least 12 characters."
+  "js_tg_pass_short": "The backup passphrase needs at least 12 characters.",
+  "btn_outages_export_csv": "⛔ Outages CSV (30 days)",
+  "btn_events_export_csv": "🗒️ Event log CSV (30 days)"
  },
  "hu": {
   "ui_ookla": "Ookla",
@@ -1957,7 +1959,9 @@
   "telegram_backup_pass": "Mentés jelmondata (/backup send):",
   "telegram_backup_pass_hint": "A bot a mentéseket csak ezzel a jelmondattal titkosítva küldi el (GnuPG, AES-256). Megnyitás: gpg -d vagy Kleopatra. Legalább 12 karakter; üresen hagyva a mentett marad.",
   "telegram_backup_pass_saved": "Jelmondat mentve",
-  "js_tg_pass_short": "A mentés jelmondata legalább 12 karakter legyen."
+  "js_tg_pass_short": "A mentés jelmondata legalább 12 karakter legyen.",
+  "btn_outages_export_csv": "⛔ Kiesések CSV (30 nap)",
+  "btn_events_export_csv": "🗒️ Eseménynapló CSV (30 nap)"
  },
  "de": {
   "ui_ookla": "Ookla",
@@ -2937,7 +2941,9 @@
   "telegram_backup_pass": "Passphrase für Sicherungen (/backup send):",
   "telegram_backup_pass_hint": "Der Bot sendet Sicherungen nur mit dieser Passphrase verschlüsselt (GnuPG, AES-256). Öffnen mit gpg -d oder Kleopatra. Mindestens 12 Zeichen; leer lassen, um die gespeicherte zu behalten.",
   "telegram_backup_pass_saved": "Passphrase gespeichert",
-  "js_tg_pass_short": "Die Passphrase muss mindestens 12 Zeichen haben."
+  "js_tg_pass_short": "Die Passphrase muss mindestens 12 Zeichen haben.",
+  "btn_outages_export_csv": "⛔ Ausfälle CSV (30 Tage)",
+  "btn_events_export_csv": "🗒️ Ereignisprotokoll CSV (30 Tage)"
  },
  "fr": {
   "ui_ookla": "Ookla",
@@ -3917,7 +3923,9 @@
   "telegram_backup_pass": "Phrase secrète des sauvegardes (/backup send) :",
   "telegram_backup_pass_hint": "Le bot n'envoie les sauvegardes que chiffrées avec cette phrase (GnuPG, AES-256). Ouvrez-les avec gpg -d ou Kleopatra. Au moins 12 caractères ; laissez vide pour garder celle enregistrée.",
   "telegram_backup_pass_saved": "Phrase enregistrée",
-  "js_tg_pass_short": "La phrase secrète doit compter au moins 12 caractères."
+  "js_tg_pass_short": "La phrase secrète doit compter au moins 12 caractères.",
+  "btn_outages_export_csv": "⛔ Coupures CSV (30 jours)",
+  "btn_events_export_csv": "🗒️ Journal des événements CSV (30 jours)"
  },
  "uk": {
   "ui_ookla": "Ookla",
@@ -4897,6 +4905,8 @@
   "telegram_backup_pass": "Парольна фраза резервних копій (/backup send):",
   "telegram_backup_pass_hint": "Бот надсилає резервні копії лише зашифрованими цією фразою (GnuPG, AES-256). Відкрити: gpg -d або Kleopatra. Щонайменше 12 символів; залиште порожнім, щоб зберегти поточну.",
   "telegram_backup_pass_saved": "Фразу збережено",
-  "js_tg_pass_short": "Парольна фраза має містити щонайменше 12 символів."
+  "js_tg_pass_short": "Парольна фраза має містити щонайменше 12 символів.",
+  "btn_outages_export_csv": "⛔ Перерви CSV (30 днів)",
+  "btn_events_export_csv": "🗒️ Журнал подій CSV (30 днів)"
  }
 }

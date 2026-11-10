@@ -2441,5 +2441,7 @@
  "telegram_backup_pass": "Frase secreta dos backups (/backup send):",
  "telegram_backup_pass_hint": "O bot só envia os backups criptografados com esta frase (GnuPG, AES-256). Abra-os com gpg -d ou Kleopatra. Pelo menos 12 caracteres; deixe vazio para manter a salva.",
  "telegram_backup_pass_saved": "Frase salva",
- "js_tg_pass_short": "A frase secreta precisa ter pelo menos 12 caracteres."
+ "js_tg_pass_short": "A frase secreta precisa ter pelo menos 12 caracteres.",
+ "btn_outages_export_csv": "⛔ Quedas CSV (30 dias)",
+ "btn_events_export_csv": "🗒️ Registro de eventos CSV (30 dias)"
 }

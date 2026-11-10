@@ -144,6 +144,12 @@ def ensure_schema_upgrades(conn: sqlite3.Connection) -> None:
             ("bound_ip", "TEXT"),
             ("retransmits", "INTEGER"),
             ("tcp_window", "TEXT"),
+            # 2026-11-10: when this engine itself started (ts) vs the run it belonged to, how long it ran,
+            # which NMB version measured, and the box's network mode at the time (old rows stay empty).
+            ("cycle_ts", "INTEGER"),
+            ("duration_ms", "INTEGER"),
+            ("nmb_version", "TEXT"),
+            ("box_mode", "TEXT"),
         ]
         for col_name, col_type in new_cols:
             if col_name not in existing_cols:

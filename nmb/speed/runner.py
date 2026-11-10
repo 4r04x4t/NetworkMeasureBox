@@ -133,8 +133,12 @@ def _run_single_engine(
     now_ms: int,
     target_iface: Optional[str] = None,
 ) -> SpeedtestResult:
-    """Execute a single measurement engine and persist results."""
+    """Execute a single measurement engine and persist results.
+
+    The row's ts is when THIS engine started; now_ms is the run's start, stored as cycle_ts (all engines
+    of a mixed run shared one ts until 2026-11-10, so it was not known when each one ran)."""
     t_start = time.monotonic()
+    started_ms = db.now_ms()
     log.info("launching speedtest engine=%s (target_server_id=%s, trigger=%s, target_iface=%s)", engine, target_server_id, trigger, target_iface)
 
     # Determine target interface (strictly prioritizing active wired Ethernet cable)
@@ -368,10 +372,11 @@ def _run_single_engine(
                 result_url, raw_json, error,
                 down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms,
                 connection_type, client_ip, client_ipv6, server_host, server_location, engine, colo,
-                bound_iface, bound_ip, retransmits, tcp_window
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                bound_iface, bound_ip, retransmits, tcp_window,
+                cycle_ts, duration_ms, nmb_version, box_mode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                now_ms,
+                started_ms,
                 trigger,
                 res.status,
                 res.server_id,
@@ -399,6 +404,10 @@ def _run_single_engine(
                 res.bound_ip,
                 getattr(res, "retransmits", None),
                 getattr(res, "tcp_window", None),
+                now_ms,
+                int((time.monotonic() - t_start) * 1000),
+                _nmb_version(),
+                _box_mode(conn),
             )
         )
         down_mbps = (res.down_bps or 0) / 1_000_000.0
@@ -595,6 +604,23 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
     from nmb.common.memory import trim_process_memory
     trim_process_memory()
     return res
+
+
+def _nmb_version() -> str:
+    try:
+        from nmb.common.version import installed_version
+        return installed_version()
+    except Exception:
+        return "unknown"
+
+
+def _box_mode(conn) -> Optional[str]:
+    """The network mode netd last switched to (kv active_mode), or None when unknown."""
+    try:
+        row = conn.execute("SELECT v FROM kv WHERE k = 'active_mode'").fetchone()
+        return (row[0] or None) if row else None
+    except Exception:
+        return None
 
 
 def _iperf_label(host: str, port: int) -> str:

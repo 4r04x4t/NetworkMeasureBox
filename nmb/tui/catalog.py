@@ -91,6 +91,9 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
     )),
     "tab-speed": (("/api/status", "/api/speed/anti-ban"), (
         A("speed.export", "Export speed tests", "/api/export/speedtests", method="GET", download=True),
+        A("speed.export_detailed", "Export speed tests (detailed)", "/api/export/speedtests_detailed", method="GET", download=True),
+        A("outages.export", "Export outages", "/api/export/outages", method="GET", download=True),
+        A("events.export", "Export event log", "/api/export/events", method="GET", download=True),
         A("antiban.clear", "Clear server quarantine", "/api/speed/anti-ban/clear"),
     )),
     "tab-iperf": (("/api/iperf/status", "/api/iperf/server", "/api/iperf/servers"), (

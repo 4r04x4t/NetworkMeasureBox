@@ -68,7 +68,11 @@ CREATE TABLE IF NOT EXISTS speedtest (
     bound_iface TEXT,
     bound_ip TEXT,
     retransmits INTEGER,
-    tcp_window TEXT
+    tcp_window TEXT,
+    cycle_ts    INTEGER,                 -- start of the run this engine belonged to (ts = the engine's own start)
+    duration_ms INTEGER,
+    nmb_version TEXT,
+    box_mode    TEXT                     -- standalone / mode_a / mode_b at the time
 );
 CREATE INDEX IF NOT EXISTS ix_speedtest_ts ON speedtest(ts);
 

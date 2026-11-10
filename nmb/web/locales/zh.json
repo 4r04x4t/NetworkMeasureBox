@@ -2441,5 +2441,7 @@
  "telegram_backup_pass": "备份口令（/backup send）：",
  "telegram_backup_pass_hint": "机器人只发送用此口令加密的备份（GnuPG，AES-256）。用 gpg -d 或 Kleopatra 打开。至少 12 个字符；留空则保留已保存的口令。",
  "telegram_backup_pass_saved": "口令已保存",
- "js_tg_pass_short": "备份口令至少需要 12 个字符。"
+ "js_tg_pass_short": "备份口令至少需要 12 个字符。",
+ "btn_outages_export_csv": "⛔ 中断 CSV（30 天）",
+ "btn_events_export_csv": "🗒️ 事件日志 CSV（30 天）"
 }

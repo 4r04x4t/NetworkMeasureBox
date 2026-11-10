@@ -2441,5 +2441,7 @@
  "telegram_backup_pass": "Frază de acces pentru copii de rezervă (/backup send):",
  "telegram_backup_pass_hint": "Botul trimite copiile de rezervă doar criptate cu această frază (GnuPG, AES-256). Deschideți-le cu gpg -d sau Kleopatra. Cel puțin 12 caractere; lăsați gol pentru a o păstra pe cea salvată.",
  "telegram_backup_pass_saved": "Fraza a fost salvată",
- "js_tg_pass_short": "Fraza de acces trebuie să aibă cel puțin 12 caractere."
+ "js_tg_pass_short": "Fraza de acces trebuie să aibă cel puțin 12 caractere.",
+ "btn_outages_export_csv": "⛔ Întreruperi CSV (30 de zile)",
+ "btn_events_export_csv": "🗒️ Jurnal de evenimente CSV (30 de zile)"
 }

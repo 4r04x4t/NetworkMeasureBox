@@ -174,12 +174,9 @@ SSH_KEYS_ONLY_DROPIN = "/etc/ssh/sshd_config.d/01-nmb-keys-only.conf"   # writte
 def _installed_version() -> str:
     """The installed NMB commit (short), or "dev" in a source checkout; never a made-up number (it showed
     "4047", the firmware number of the NMHH measuring box, until 2026-11-10)."""
-    try:
-        from nmb.common.updater import COMMIT_FILE
-        sha = COMMIT_FILE.read_text(encoding="utf-8").strip()
-        return sha[:7] if re.fullmatch(r"[0-9a-f]{7,40}", sha) else "dev"
-    except (OSError, ImportError):
-        return "dev"
+    from nmb.common.version import installed_version
+    v = installed_version()
+    return "dev" if v.startswith("dev-") or v == "unknown" else v
 
 class WebRequestHandler(BaseHTTPRequestHandler):
     server: NMBServer  # type hint
@@ -447,59 +444,58 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_html(html)
             return
 
-        # 8. CSV Export Download
-        if path in ("/export/csv", "/api/export/csv"):
-            conn = db.connect(readonly=True)
+        # 8. CSV exports. Every one takes from= / to= (YYYY-MM-DD, ISO time or epoch ms) or hours= / days=;
+        # without them: ping and outages the last 24 h, speed tests and events everything (as before).
+        csv_routes = {
+            "/export/csv": "ping", "/api/export/csv": "ping",
+            "/export/speedtests.csv": "speed", "/api/export/speedtests": "speed", "/export/speedtests": "speed",
+            "/export/speedtests_detailed.csv": "detailed", "/api/export/speedtests_detailed": "detailed",
+            "/export/outages.csv": "outages", "/api/export/outages": "outages",
+            "/export/events.csv": "events", "/api/export/events": "events",
+        }
+        if path in csv_routes:
+            kind = csv_routes[path]
+            from nmb.report.csv_export import (export_events_csv, export_outages_csv, parse_export_range)
+            qs = parse_qs(parsed.query) if parsed.query else {}
             now = db.now_ms()
-            csv_data = export_ping_summary_csv(conn, now - 86400000, now)
-            conn.close()
+            try:
+                start_ms, end_ms = parse_export_range(qs, now, 24.0 if kind in ("ping", "outages") else None)
+            except (ValueError, OverflowError):
+                self._send_json({"status": "error", "error": "from/to must be YYYY-MM-DD, an ISO time or epoch ms; hours/days a positive number"}, status=400)
+                return
+            isp = self.server.cfg.isp
+            conn = db.connect(readonly=True)
+            try:
+                if kind == "ping":
+                    csv_data, name = export_ping_summary_csv(conn, start_ms, end_ms), "ping_telemetry"
+                elif kind == "speed":
+                    csv_data, name = export_speedtests_csv(
+                        conn, start_ms, end_ms,
+                        contract_down_mbps=isp.contract_down_mbps, contract_up_mbps=isp.contract_up_mbps,
+                        default_isp=getattr(isp, "name", ""), box_id=self.server.cfg.system.box_id), "speedtests_history"
+                elif kind == "detailed":
+                    csv_data, name = export_detailed_speedtests_csv(
+                        conn, start_ms, end_ms,
+                        contract_down_mbps=float(isp.contract_down_mbps or 0.0),
+                        contract_up_mbps=float(isp.contract_up_mbps or 0.0),
+                        guaranteed_down_mbps=float(getattr(isp, "guaranteed_down_mbps", 0.0) or 0.0),
+                        guaranteed_up_mbps=float(getattr(isp, "guaranteed_up_mbps", 0.0) or 0.0),
+                        default_isp=getattr(isp, "name", ""),
+                    ), "nmb_speedtests_detailed_" + datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+                elif kind == "outages":
+                    csv_data, name = export_outages_csv(conn, start_ms, end_ms), "nmb_outages"
+                else:
+                    csv_data, name = export_events_csv(conn, start_ms, end_ms), "nmb_events"
+            finally:
+                conn.close()
+            # A neutral name in every language (the detailed one was Hungarian for everyone until 2026-11-10).
+            if any(k in qs for k in ("from", "to", "hours", "days")):
+                fmt = lambda t: datetime.datetime.fromtimestamp(t / 1000, datetime.timezone.utc).strftime("%Y%m%d-%H%M")
+                name += f"_{fmt(start_ms)}_{fmt(end_ms)}"
             body = csv_data.encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
-            self.send_header("Content-Disposition", 'attachment; filename="ping_telemetry.csv"')
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
-
-        # 8b. Speedtest CSV Export Download
-        if path in ("/export/speedtests.csv", "/api/export/speedtests", "/export/speedtests"):
-            conn = db.connect(readonly=True)
-            now = db.now_ms()
-            csv_data = export_speedtests_csv(
-                conn, 0, now,
-                contract_down_mbps=self.server.cfg.isp.contract_down_mbps,
-                contract_up_mbps=self.server.cfg.isp.contract_up_mbps,
-                default_isp=getattr(self.server.cfg.isp, "name", ""),
-            )
-            conn.close()
-            body = csv_data.encode("utf-8")
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/csv; charset=utf-8")
-            self.send_header("Content-Disposition", 'attachment; filename="speedtests_history.csv"')
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
-
-        if path == "/export/speedtests_detailed.csv":
-            conn = db.connect(readonly=True)
-            now = db.now_ms()
-            csv_data = export_detailed_speedtests_csv(
-                conn, 0, now,
-                contract_down_mbps=float(self.server.cfg.isp.contract_down_mbps or 0.0),
-                contract_up_mbps=float(self.server.cfg.isp.contract_up_mbps or 0.0),
-                guaranteed_down_mbps=float(getattr(self.server.cfg.isp, "guaranteed_down_mbps", 0.0) or 0.0),
-                guaranteed_up_mbps=float(getattr(self.server.cfg.isp, "guaranteed_up_mbps", 0.0) or 0.0),
-                default_isp=getattr(self.server.cfg.isp, "name", ""),
-            )
-            conn.close()
-            body = csv_data.encode("utf-8")
-            today_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/csv; charset=utf-8")
-            # A neutral name in every language (it was Hungarian for everyone).
-            self.send_header("Content-Disposition", f'attachment; filename="nmb_speedtests_detailed_{today_str}.csv"')
+            self.send_header("Content-Disposition", f'attachment; filename="{name}.csv"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)

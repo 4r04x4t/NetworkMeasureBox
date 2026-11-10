@@ -304,6 +304,7 @@ A beépített webes felület a **szabványos 80-as HTTP router porton** érhető
 
 1. **Irányítópult (Dashboard)**: Legutóbbi mérések összefoglalása, SLA státusz, egykattintásos mérésindítás, interfész-választó és élő végrehajtási terminál.
 2. **Ping Telemetria (ICMP Ping)**: Valós idejű vektoros SVG késleltetési grafikon, csomagvesztés, p95/p99 statisztikák, CSV export.
+   * **CSV-exportok** (gombok a webes felületen, `nmb-cli`, vagy a címek): `/export/csv` (ping percenként és célonként, a cél szerepével), `/export/speedtests.csv` (minden sebességmérési mező; az `error` utáni oszlopok 2026-11-10-én kerültek be: sorazonosító, időzóna, a futás kezdete, időtartam, interfész és helyi cím, újraküldések, TCP-ablak, doboz-azonosító, NMB-verzió, hálózati mód), `/export/speedtests_detailed.csv` (rövid táblázat, `;` és UTF-8 BOM), `/export/outages.csv` (`cause_kind`: `isp`, vagy `own`, ha a doboz maga okozta, és a beszámított másodpercek) és `/export/events.csv` (eseménynapló, csak jelszóval). Mindegyik elfogadja a `?from=ÉÉÉÉ-HH-NN&to=ÉÉÉÉ-HH-NN` (ISO idő vagy epoch ms is lehet), illetve a `?days=N` / `?hours=N` paramétert; az idők UTC-ben vannak. A nem mért érték üres (vagy `--`), soha nem 0.
 3. **Sebességteszt Eredmények**: Részletes audit napló letöltési/feltöltési sebességgel, bufferbloat pontszámmal és mérőmotor jelöléssel.
 4. **iPerf3 Hálózati Sebesség**: Helyi és távoli iPerf3 audit, beépített iPerf szerver indítása/leállítása.
 5. **Hálózati Kimaradások**: Minden egyes internetkiesés audit naplója (kezdet, vég, időtartam, kiesett csomagok).

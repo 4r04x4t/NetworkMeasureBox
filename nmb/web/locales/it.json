@@ -2441,5 +2441,7 @@
  "telegram_backup_pass": "Passphrase dei backup (/backup send):",
  "telegram_backup_pass_hint": "Il bot invia i backup solo cifrati con questa passphrase (GnuPG, AES-256). Aprili con gpg -d o Kleopatra. Almeno 12 caratteri; lascia vuoto per mantenere quella salvata.",
  "telegram_backup_pass_saved": "Passphrase salvata",
- "js_tg_pass_short": "La passphrase deve avere almeno 12 caratteri."
+ "js_tg_pass_short": "La passphrase deve avere almeno 12 caratteri.",
+ "btn_outages_export_csv": "⛔ Interruzioni CSV (30 giorni)",
+ "btn_events_export_csv": "🗒️ Registro eventi CSV (30 giorni)"
 }
