@@ -739,8 +739,8 @@ Replacing a Python component is done when it passes the Phase 0 checks and these
 **Open before rewriting**
 
 - Cloudflare downloads sometimes drop a TLS stream on the Raspberry Pi (`RECORD_LAYER_FAILURE`). The cause is unknown. Repeated tests ruled out GRO, receive checksums, read size, the latency probe and the TLS version, and results stayed in the same range. Native code using a different TLS library will show whether the cause is OpenSSL.
-- `iperf.schedule_cron` and `iperf.automated_enabled` exist in the settings, but nothing schedules iPerf3. Implement them or remove them.
-- Many endpoints report failure as HTTP 200 with `"status": "error"`, and the dashboard relies on this. Decide on the API contract before the rewrite.
+- `iperf.schedule_cron` and `iperf.automated_enabled` exist in the settings, but nothing schedules iPerf3. Implement them or remove them. **Decided (owner, 2026-11-10): implemented in the native build.**
+- Many endpoints report failure as HTTP 200 with `"status": "error"`, and the dashboard relies on this. Decide on the API contract before the rewrite. **Left to the developer by the owner (2026-11-10): the native API uses real HTTP status codes and one error body; see `NATIVE_WORK_PLAN.md` section 7.**
 
 ### Phase 1: High-ROI Micro-Engine Replacements
 - **Step 1.1**: Build `nmb-probe` in Go (`cmd/nmb-probe/main.go`). Communicates with existing Python `nmb-web` via SQLite WAL.

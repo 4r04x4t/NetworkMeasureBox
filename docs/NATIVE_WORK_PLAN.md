@@ -59,15 +59,16 @@ never accepted "for now" (Quality Bar points 2, 3 and 7).
 8. **Honest reports.** "Works" only for what was run and seen; otherwise "built", "unit-tested" or "not tested".
 9. **Limits of this PC:** 3.9 GB RAM, 4 threads, about 1.8 GB in WSL2. At most three building agents at once,
    one QEMU guest at a time (a lock file), guests with at most 512 MB.
-10. **The real box:** the Raspberry Pi 4 is the owner's working measuring box. Nothing native is installed on it,
-    and no image is written to its card, without the owner's go-ahead for that step; until then ARM64 is proved
-    by the cross build, the tests under `qemu-aarch64-static` and the `armsr/armv8` QEMU guest.
+10. **The real box:** the Raspberry Pi 4 is the owner's working measuring box. The owner allows every native test
+    on it (section 7, point 5), under that point's conditions: backup first, a tried way back, the time marked as
+    the box's own action. ARM64 is proved first by the cross build, the tests under `qemu-aarch64-static` and the
+    `armsr/armv8` QEMU guest, and on the Pi 4 after that.
 
 ### 2.3 Running by itself
 
 The orchestrator loops: read `WORK_STATUS.md` → start every package whose prerequisites are accepted (within the
 limits of 2.2 point 9) → gate → merge → update the status, the changelog and the manual → next. It stops only
-for: a question only the owner can answer (section 7), a step that needs real hardware or the owner's go-ahead,
+for: a question only the owner can answer (section 7), a step on real hardware whose backup or way back is not in place,
 or a gate that fails three times on the same package (then it reports what was tried). `WORK_STATUS.md` holds
 for each package: state (waiting, brief, code, verify, accepted, blocked), the commit, the gate's result and open
 questions, so the work continues after any interruption without redoing accepted packages.
@@ -267,7 +268,7 @@ from a maker's closed firmware (porting plan 7H point 3).
 | I-02 | OpenWrt 25.12.6 `armsr/armv8` with SDK, ImageBuilder, toolchain | ARM64 guest |
 | I-03 | OpenWrt 25.12.6 `armsr/armv7` with its tree | 32-bit ARM guest |
 | I-04 | OpenWrt 25.12.6 `x86/generic` tree | 32-bit x86, cross-check of I-01 |
-| I-05 | OpenWrt 25.12.6 Raspberry Pi 4 | Taken apart only; booting needs the owner's go-ahead |
+| I-05 | OpenWrt 25.12.6 Raspberry Pi 4 | Taken apart first; booted on the Pi 4 under section 7 point 5 (card image saved before) |
 | I-06 | Debian 13.7.0 amd64 and arm64 | Package index and kernel package; minimal installed system in QEMU |
 | I-07 | Alpine 3.24.4 x86-64 and Pi arm64 | `modloop`, `apks`, diskless mode |
 | I-08 | Fedora IoT 44 arm64 and x86-64 | Largest files; after the first three, as the roadmap orders |
@@ -280,16 +281,35 @@ from a maker's closed firmware (porting plan 7H point 3).
 records, and for each accepted package its evidence: tests, figures, faults found and fixed, what is better
 than the Python version (Quality Bar point 5).
 
-## 7. Decisions the owner must make before or early in the work (F-01)
+## 7. Owner's decisions (F-01)
 
-From the roadmap's own open points:
+Answered by the owner on 2026-11-10:
 
-1. The API contract: many Python endpoints answer a failure with HTTP 200 and `"status": "error"`.
-2. `iperf.schedule_cron` and `iperf.automated_enabled`: implement or remove.
-3. Ookla in the native build: the roadmap describes a native engine (4.3, porting plan 7.8) and also Ookla's own
-   program in a sandbox (6B.5); which one, given Ookla's licence terms.
-4. The base of the own distribution, its init system, the A/B update tool and image signing (6A), after I-09.
-5. The go-ahead and the time for native tests on the Raspberry Pi 4, the owner's working box.
-6. Update signing (6B.3): where the signing key is kept.
+1. **API contract: left to the developer** (the owner has no preference). Proposed, and used unless the owner says
+   otherwise: the native API answers with real HTTP status codes (2xx only for success; 4xx for a refused or invalid
+   request, 5xx for a failure of the box) and one error body (`code`, a translation key, detail). The native Web UI
+   and `nmb-cli` are written for this; the collector protocol and the `nmb-cli` JSON command names stay as they are.
+   The difference from the Python API is listed in the changelog under Changed.
+2. **iPerf3 schedule: implemented.** `iperf.schedule_cron` and `iperf.automated_enabled` work in the native build
+   (package M-04 with M-09), under the same traffic gate, data caps and hourly limit as the other engines.
+3. **Ookla: whichever works.** Package M-10 starts with Ookla's own program in the strict sandbox (it works today
+   and its licence is clear), only after the user has accepted Ookla's terms, and never working around a refusal. A
+   native engine replaces it only if it gives the same results on the same line and Ookla's terms allow it; the
+   analyst of M-10 reads those terms first and writes the finding into the brief.
+4. **Base of the own distribution: after the images are analysed.** The images are taken apart so that there is
+   material to work from (section 5); the base, the init system and the A/B update tool are chosen from I-09's
+   comparison.
+5. **Raspberry Pi 4: everything may be tested on it.** Native builds and images may be installed and tested on the
+   owner's box. It still measures a real line, so each time: a full backup first (settings, database, and the card's
+   image before another system is written to it), a way back that was tried, the time recorded as the box's own
+   action so that it is not counted against the ISP, and the Python version put back afterwards until the native
+   one has replaced it (Quality Bar point 5).
+6. **Signed updates: yes.** Updates and images are accepted only with a valid signature (package P-02). Proposed:
+   an Ed25519 key pair made on the development PC, the private key kept outside every repository and image (and a
+   copy kept offline by the owner), only the public key in the build; the release step signs, the box verifies
+   before anything is written.
+
+Still open:
+
 7. The wording of the disclaimer (6B.3A).
 8. `NetworkMeasureBox-DePyD/`: its version control (an own repository; private or public, the native builds probably being for sale; where it is pushed) and its licence. The agents' separate working copies (2.2 point 1) need it to be a repository before F-00.
