@@ -200,6 +200,41 @@ class NetworkDaemon:
             os.replace(tmp_file, self.state_file)
         except Exception as e:
             log.warning("could not write state file: %s", e)
+        self._record_setup(mode_status=mode_status if self.current_mode_inst else None)
+
+    def _measuring_iface(self) -> Optional[str]:
+        """The link the probe pings through (the same choice as nmb-probe makes)."""
+        from nmb.probe.engine import probe_device
+        return probe_device(self.cfg)
+
+    def _record_setup(self, stopped: bool = False, mode_status: Optional[dict] = None) -> None:
+        """How the box is connected now, into the network_state history when it changed (net_setup.py).
+
+        Every measurement is later read against this: the mode, the link towards the internet, its
+        kind and whether the box holds the ISP's address itself or sits behind another router.
+        """
+        try:
+            from nmb.common import net_setup
+            if stopped or not self.current_mode_inst or getattr(self, "_setup_unknown", False):
+                state = {"box_mode": None, "iface": None, "uplink_kind": None, "isp_path": None}
+                detail = "netd stopped" if stopped else "no mode set up (or the last switch failed)"
+            else:
+                details = mode_status if mode_status is not None else (self.current_mode_inst.get_status() or {})
+                iface = net_setup.netd_link(self.current_mode_name, details, self.cfg.network, self._measuring_iface)
+                state = dict(net_setup.describe_iface(iface, self.current_mode_name), box_mode=self.current_mode_name)
+                detail = ""
+            key = tuple(state.get(k) for k in ("box_mode", "iface", "uplink_kind", "isp_path"))
+            if key == getattr(self, "_last_setup", None):
+                return
+            conn = db.connect()
+            try:
+                with db.tx(conn):
+                    net_setup.record_state(conn, state, detail=detail)
+            finally:
+                conn.close()
+            self._last_setup = key
+        except Exception as e:
+            log.warning("network setup not recorded: %s", e)
 
     def switch_mode(self, new_mode: str, reason: str) -> bool:
         if new_mode == self.current_mode_name and self.current_mode_inst:
@@ -230,12 +265,15 @@ class NetworkDaemon:
             target_inst.setup()
             self.current_mode_name = new_mode
             self.current_mode_inst = target_inst
+            self._setup_unknown = False
             self._record_event("info", "mode_change", f"Switched from {old_mode} to {new_mode}: {reason}")
             self._dump_state()
             return True
         except Exception as e:
             log.critical("failed to setup %s: %s", new_mode, e)
             self._record_event("crit", "mode_change_failed", f"Failed switching to {new_mode}: {e}")
+            self._setup_unknown = True      # the old mode is torn down: the setup is unknown until one is set up
+            self._record_setup()
             return False
 
     def _apply_auto_details(self, override: Optional[str]) -> None:
@@ -406,6 +444,7 @@ class NetworkDaemon:
         # Teardown on exit: an open window, closed when netd starts again (a stop, an update or a reboot)
         log.info("cleaning up network interfaces before exit")
         own_action.begin("netd_stop", "netd", "netd stopped; the network is down until it starts again")
+        self._record_setup(stopped=True)
         if self.current_mode_inst:
             self.current_mode_inst.teardown()
         STATE_FILE.unlink(missing_ok=True)

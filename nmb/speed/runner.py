@@ -145,6 +145,7 @@ def _run_single_engine(
     chosen_iface, bound_ip, is_wired = find_preferred_measurement_interface(cfg, target_iface=target_iface)
     wan_iface = chosen_iface
     bound_iface = chosen_iface
+    setup = _capture_setup(conn, bound_iface, bound_ip)
     if is_wired:
         log.info("wired Ethernet cable active on %s (carrier=1, ip=%s) — STRICT WIRED PRIORITY applied for %s", bound_iface, bound_ip, engine)
     else:
@@ -337,7 +338,8 @@ def _run_single_engine(
         cpu_telemetry = sampler.stop()
 
     if res is None or cancel.is_requested():
-        return _record_aborted(conn, trigger, engine, now_ms, cancel.current_reason(), started_ms=started_ms)
+        return _record_aborted(conn, trigger, engine, now_ms, cancel.current_reason(), started_ms=started_ms,
+                               bound_iface=bound_iface, bound_ip=bound_ip, setup=setup)
     if (engine == "iperf3" and trigger == "schedule" and res.status != "ok"
             and any(m in (res.error or "").lower() for m in ("busy", "unable to connect", "connection refused", "timed out"))):
         # A busy or unreachable iPerf3 server is no measurement; the next run tries again.
@@ -372,6 +374,7 @@ def _run_single_engine(
             conn_type = "fwa"   # measured over a phone, hotspot or modem on USB: mobile, whatever the home line is
     except Exception:
         log.debug("connection type check failed", exc_info=True)
+    fin = _finish_setup(conn, setup, started_ms)
     with db.tx(conn):
         conn.execute(
             """INSERT INTO speedtest (
@@ -381,8 +384,9 @@ def _run_single_engine(
                 down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms,
                 connection_type, client_ip, client_ipv6, server_host, server_location, engine, colo,
                 bound_iface, bound_ip, retransmits, tcp_window,
-                cycle_ts, duration_ms, nmb_version, box_mode, client_ip_source, server_ip
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                cycle_ts, duration_ms, nmb_version, box_mode, client_ip_source, server_ip,
+                uplink_kind, isp_path, setup_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 started_ms,
                 trigger,
@@ -415,9 +419,12 @@ def _run_single_engine(
                 now_ms,
                 int((time.monotonic() - t_start) * 1000),
                 _nmb_version(),
-                _box_mode(conn),
+                fin["box_mode"],
                 _ip_source(res, engine),
                 getattr(res, "server_ip", None),
+                fin["uplink_kind"],
+                fin["isp_path"],
+                fin["setup_source"],
             )
         )
         # Texts say "--" for what was not measured; the numbers below are only for the log line.
@@ -649,6 +656,38 @@ def _nmb_version() -> str:
         return "unknown"
 
 
+def _capture_setup(conn, bound_iface: Optional[str], bound_ip: Optional[str]) -> dict:
+    """How the box is connected as this engine starts (nmb/common/net_setup.py); never raises."""
+    try:
+        from nmb.common import net_setup
+        return net_setup.capture(conn, bound_iface, bound_ip)
+    except Exception:
+        log.debug("measurement setup not captured", exc_info=True)
+        return {}
+
+
+def _finish_setup(conn, setup: Optional[dict], started_ms: int) -> dict:
+    """The setup facts to store: those of the start, 'changed' when the mode switched meanwhile."""
+    empty = {"box_mode": _box_mode(conn), "uplink_kind": None, "isp_path": None, "setup_source": None}
+    if not setup:
+        return empty
+    try:
+        from nmb.common import net_setup
+        return net_setup.finish(conn, setup, started_ms)
+    except Exception:
+        log.debug("measurement setup not finished", exc_info=True)
+        return empty
+
+
+def _skip_row(conn, ts: int, trigger: str, reason: str, engine: Optional[str]) -> None:
+    """A skipped run: no values, but the version and the box's mode at the time (inside the caller's tx)."""
+    mode = _box_mode(conn)
+    conn.execute(
+        "INSERT INTO speedtest (ts, trigger, status, error, engine, cycle_ts, nmb_version, box_mode, setup_source) "
+        "VALUES (?, ?, 'skipped_busy', ?, ?, ?, ?, ?, ?)",
+        (ts, trigger, reason, engine, ts, _nmb_version(), mode, "recorded" if mode else None))
+
+
 def _box_mode(conn) -> Optional[str]:
     """The network mode netd last switched to (kv active_mode), or None when unknown."""
     try:
@@ -781,15 +820,19 @@ def _engine_due(conn, cfg: Config, engine: str, now_ms: int) -> bool:
 
 
 def _record_aborted(conn, trigger: str, engine: str, now_ms: int, reason: str,
-                    started_ms: Optional[int] = None) -> SpeedtestResult:
+                    started_ms: Optional[int] = None, bound_iface: Optional[str] = None,
+                    bound_ip: Optional[str] = None, setup: Optional[dict] = None) -> SpeedtestResult:
     """Save an aborted run without values; a partial result would not be a valid measurement."""
     reason = reason or "aborted: user traffic detected during the measurement"
     log.warning("speed test %s", reason)
+    fin = _finish_setup(conn, setup, started_ms or now_ms)
     with db.tx(conn):
         conn.execute(
-            "INSERT INTO speedtest (ts, trigger, status, error, engine, cycle_ts, nmb_version, box_mode) "
-            "VALUES (?, ?, 'skipped_busy', ?, ?, ?, ?, ?)",
-            (started_ms or now_ms, trigger, reason, engine, now_ms, _nmb_version(), _box_mode(conn)),
+            "INSERT INTO speedtest (ts, trigger, status, error, engine, cycle_ts, nmb_version, box_mode, "
+            "bound_iface, bound_ip, uplink_kind, isp_path, setup_source) "
+            "VALUES (?, ?, 'skipped_busy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (started_ms or now_ms, trigger, reason, engine, now_ms, _nmb_version(), fin["box_mode"],
+             bound_iface, bound_ip, fin["uplink_kind"], fin["isp_path"], fin["setup_source"]),
         )
         conn.execute(
             "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warn', 'speed', 'speedtest_aborted', ?)",
@@ -904,8 +947,7 @@ def run_measurement_cycle(cfg: Config, trigger: str = "schedule", *args, **kwarg
             try:
                 conn = db.connect()
                 with db.tx(conn):
-                    conn.execute("INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
-                                 (db.now_ms(), trigger, reason, kwargs.get("engine") or "all"))
+                    _skip_row(conn, db.now_ms(), trigger, reason, kwargs.get("engine") or "all")
                 conn.close()
             except Exception as e:
                 log.debug("could not record the skip: %s", e)
@@ -963,11 +1005,7 @@ def _run_measurement_cycle(
         log.info("automated measurement mode is set to 'manual'; skipping scheduled test")
         conn = db.connect()
         with db.tx(conn):
-            conn.execute(
-                """INSERT INTO speedtest (ts, trigger, status, error, engine)
-                   VALUES (?, 'schedule', 'skipped_busy', 'skipped: automated speedtest is set to manual mode', ?)""",
-                (now_ms, engine)
-            )
+            _skip_row(conn, now_ms, "schedule", "skipped: automated speedtest is set to manual mode", engine)
             conn.execute(
                 "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'info', 'speed', 'speedtest_skipped', 'Scheduled test skipped: speed testing is set to manual mode')",
                 (now_ms,)
@@ -1001,10 +1039,7 @@ def _run_measurement_cycle(
                 if outcome is not None:
                     outcome["data_limit"] = True
                 with db.tx(budget_conn):
-                    budget_conn.execute(
-                        "INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
-                        (now_ms, trigger, reason, engine),
-                    )
+                    _skip_row(budget_conn, now_ms, trigger, reason, engine)
                 return False
         finally:
             budget_conn.close()
@@ -1028,10 +1063,7 @@ def _run_measurement_cycle(
                     if outcome is not None:
                         outcome["data_limit"] = True
                     with db.tx(budget_conn):
-                        budget_conn.execute(
-                            "INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
-                            (now_ms, trigger, reason, engine),
-                        )
+                        _skip_row(budget_conn, now_ms, trigger, reason, engine)
                     return False
             finally:
                 budget_conn.close()
@@ -1080,8 +1112,7 @@ def _run_measurement_cycle(
                     outcome["data_cap"] = why
                 if data_cap.note_skip_due(cap_conn, pref_gate_iface):
                     with db.tx(cap_conn):
-                        cap_conn.execute("INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
-                                         (now_ms, trigger, f"skipped: {why}", engine))
+                        _skip_row(cap_conn, now_ms, trigger, f"skipped: {why}", engine)
                 return False
         finally:
             cap_conn.close()
@@ -1101,10 +1132,7 @@ def _run_measurement_cycle(
             if record_skip:
                 conn = db.connect()
                 with db.tx(conn):
-                    conn.execute(
-                        "INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
-                        (now_ms, trigger, reason, engine),
-                    )
+                    _skip_row(conn, now_ms, trigger, reason, engine)
                     conn.execute(
                         "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warn', 'speed', 'speedtest_skipped', ?)",
                         (now_ms, f"Scheduled speed test {reason}"),
@@ -1142,11 +1170,7 @@ def _run_measurement_cycle(
                 return False
             conn = db.connect()
             with db.tx(conn):
-                conn.execute(
-                    """INSERT INTO speedtest (ts, trigger, status, error, engine)
-                       VALUES (?, ?, 'skipped_busy', ?, ?)""",
-                    (now_ms, trigger, reason, engine)
-                )
+                _skip_row(conn, now_ms, trigger, reason, engine)
                 conn.execute(
                     "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warn', 'speed', 'speedtest_skipped', ?)",
                     (now_ms, reason_hu)

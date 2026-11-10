@@ -15,10 +15,11 @@ import html as _html
 
 import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+from nmb.common import net_setup, setup_texts
 from nmb.db import database as db
-from nmb.report.metrics import ReportData
+from nmb.report.metrics import SETUP_COLS, ReportData
 from nmb.report.svg_charts import (
     render_compliance_chart,
     render_jitter_chart,
@@ -742,11 +743,109 @@ def _escape_value(value):
     return value
 
 
+SETUP_FACTS = ("box_mode", "uplink_kind", "isp_path")
+
+
+def setup_overview(periods: List[dict]) -> Tuple[List[tuple], bool]:
+    """The distinct setups of the periods (mode, link, path; in order of appearance) and whether any of
+    them was behind another router. A period where nothing is known counts as a setup of its own, so a
+    window that is partly unknown is never shown as one known setup."""
+    distinct: List[tuple] = []
+    for p in periods or ():
+        key = net_setup.label_codes(p)[:3]
+        if key not in distinct:
+            distinct.append(key)
+    return distinct, any(key[2] == "behind_router" for key in distinct)
+
+
+def setup_known(periods: List[dict]) -> bool:
+    """Whether anything about the setup is known in these periods."""
+    return any(any(net_setup.label_codes(p)[:3]) for p in periods or ())
+
+
+def setup_known_distinct(periods: List[dict]) -> Tuple[List[tuple], bool]:
+    """The distinct KNOWN setups and whether some stretch of the window is unknown. A restart or an
+    unrecorded stretch is not a change of setup: only two different known setups are."""
+    distinct, _ = setup_overview(periods)
+    known = [k for k in distinct if any(k)]
+    return known, len(known) != len(distinct)
+
+
+def setup_headline(periods: List[dict], lang: str) -> str:
+    """For the header: one setup's summary (with a note when part of the window is unknown), the "setup
+    changed" note when the window had more than one known setup, "unknown" when nothing is known."""
+    st = setup_texts.texts(lang)
+    known, partly = setup_known_distinct(periods)
+    if len(known) > 1:
+        return st["setup_mixed"]
+    if not known:
+        return st["setup_unknown"]
+    text = setup_texts.summary(dict(zip(SETUP_FACTS, known[0])), lang)
+    return f"{text} ({st['setup_partly_unknown']})" if partly else text
+
+
+def _setup_cell(row: Dict[str, Any], lang: str) -> str:
+    """The setup of one test or outage (short form); a changed or reconstructed one says so below it."""
+    text = setup_texts.summary(row, lang, short=True)
+    source = net_setup.label_codes(row)[3]
+    if source in ("changed", "derived"):
+        text += f"<br><small class='text-muted'>{setup_texts.source_label(source, lang)}</small>"
+    return text
+
+
+def _setup_section(periods: List[dict], lang: str) -> str:
+    """The "measurement setup" section: what it means, the periods of the window, the router warning."""
+    st = setup_texts.texts(lang)
+    _, behind = setup_overview(periods)
+    if not setup_known(periods):
+        body = f"<p class='text-muted' style='margin-top: 12px;'>{st['setup_none']}</p>"
+    else:
+        rows = []
+        for p in periods:
+            mode, kind, path, source = net_setup.label_codes(p)
+            rows.append(f"""<tr>
+  <td>{_format_datetime(p['start_ts'])}</td>
+  <td>{_format_datetime(p['end_ts'])}</td>
+  <td>{setup_texts.mode_label(mode, lang)}</td>
+  <td>{setup_texts.link_label(kind, lang)}</td>
+  <td>{setup_texts.path_label(path, lang)}</td>
+  <td class="text-muted">{setup_texts.source_label(source, lang)}</td>
+</tr>""")
+        body = f"""<div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>{st['setup_col_from']}</th>
+            <th>{st['setup_col_to']}</th>
+            <th>{st['setup_col_mode']}</th>
+            <th>{st['setup_col_link']}</th>
+            <th>{st['setup_col_path']}</th>
+            <th>{st['setup_col_source']}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {''.join(rows)}
+        </tbody>
+      </table>
+    </div>"""
+    warn = f"<div class='setup-warn'>&#9888; {st['setup_warn_behind']}</div>" if behind else ""
+    return f"""<div class="section">
+    <div class="section-title"><span>{st['setup_title']}</span></div>
+    <p class="text-muted" style="font-size: 12px; line-height: 1.6;">{st['setup_intro']}</p>
+    {warn}
+    {body}
+  </div>"""
+
+
 def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
     """Generate complete standalone localized HTML document string (neutralized regulatory branding)."""
     lang_key = lang if lang in DOSSIER_I18N else "en"
     tr = DOSSIER_I18N[lang_key]
     report = _escape_value(report)
+    # How the box was connected: codes from the report (escaped above, codes only), words from setup_texts
+    setup_periods = list(getattr(report, "setup_periods", []) or [])
+    st = setup_texts.texts(lang_key)
+    colon = tr["lbl_eval_window"][-1:] if tr["lbl_eval_window"][-1:] in (":", "\uff1a") else ":"
 
     has_contract_speeds = bool(report.contract_down_mbps > 0 or report.guaranteed_down_mbps > 0)
     has_guaranteed_down = bool(report.guaranteed_down_mbps > 0)
@@ -788,12 +887,14 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
             start_str = _format_datetime(o.start_ts)
             end_str = _format_datetime(o.end_ts) if o.end_ts else f"<span class='text-red'>{tr['outage_ongoing']}</span>"
             cause = str(o.cause)        # already escaped with the whole report
+            setup_html = _setup_cell({k: getattr(o, k, None) for k in SETUP_COLS}, lang_key)
             if getattr(o, "cause_kind", "isp") == "own":
                 outage_rows_html.append(f"""<tr class="text-muted">
   <td>{start_str}</td>
   <td>{end_str}</td>
   <td>({o.own_sec} {tr['unit_sec']})</td>
   <td>{cause} &mdash; <em>{tr['outage_own_tag']}</em></td>
+  <td class="setup-cell">{setup_html}</td>
 </tr>""")
                 continue
             part = f" <em>({tr['outage_part_own'].format(sec=o.own_sec)})</em>" if getattr(o, "own_sec", 0) else ""
@@ -802,9 +903,10 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
   <td>{end_str}</td>
   <td><strong>{o.duration_sec} {tr['unit_sec']}</strong></td>
   <td>{cause}{part}</td>
+  <td class="setup-cell">{setup_html}</td>
 </tr>""")
     else:
-        outage_rows_html.append(f"<tr><td colspan='4' class='text-center text-muted'>{tr['outage_empty']}</td></tr>")
+        outage_rows_html.append(f"<tr><td colspan='5' class='text-center text-muted'>{tr['outage_empty']}</td></tr>")
 
     target_rows_html = []
     for t in report.target_stats:
@@ -888,6 +990,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
             speed_rows_html.append(f"""<tr>
   <td>{ts_str}</td>
   <td>{client_ip_html}</td>
+  <td class="setup-cell">{_setup_cell(s, lang_key)}</td>
   <td>{d_val}</td>
   <td>{u_val}</td>
   <td>{ping_ms_val}</td>
@@ -897,7 +1000,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
   <td>{res_link}</td>
 </tr>""")
     else:
-        speed_rows_html.append(f"<tr><td colspan='9' class='text-center text-muted'>{tr['speed_empty']}</td></tr>")
+        speed_rows_html.append(f"<tr><td colspan='10' class='text-center text-muted'>{tr['speed_empty']}</td></tr>")
 
     port_rows_html = []
     if report.port_checks:
@@ -1172,6 +1275,16 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
     .text-red {{ color: var(--red); }}
     .text-muted {{ color: var(--text-muted); }}
     .text-center {{ text-align: center; }}
+    .setup-cell {{ white-space: normal; min-width: 150px; font-size: 11.5px; }}
+    .setup-warn {{
+      margin-top: 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--amber);
+      border-radius: 6px;
+      background: rgba(245, 158, 11, 0.1);
+      color: #fbbf24;
+      font-size: 12.5px;
+    }}
 
     /* Status Badges */
     .badge-status-1 {{
@@ -1233,6 +1346,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
     }}
 
     @media print {{
+      .setup-warn {{ color: #92400e !important; background: #ffffff !important; border-color: #92400e !important; }}
       body {{ background: #ffffff !important; color: #000000 !important; padding: 0 !important; font-size: 11px !important; }}
       .section, .kpi-card, .dossier-header, .contract-card, .verdict-banner {{ border-color: #cbd5e1 !important; background: #ffffff !important; color: #000000 !important; page-break-inside: avoid; }}
       .nmb-svg {{ background: #f8fafc !important; }}
@@ -1267,6 +1381,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
       </div>
       <div class="dossier-meta-box">
         <div><strong>{tr['lbl_eval_window']}</strong> {_format_datetime(report.start_ms)} &rarr; {_format_datetime(report.end_ms)}</div>
+        <div><strong>{st['setup_label']}{colon}</strong> {setup_headline(setup_periods, lang_key)}</div>
         <div><strong>{tr['lbl_total_tests']}</strong> {len(report.speed_tests)} ({s_sum.successful_tests} ok)</div>
         <div><strong>{tr['lbl_gen_time']}</strong> {_format_datetime(db.now_ms())}</div>
         <div><strong>{tr['lbl_firmware']}</strong> NetworkMeasureBox {_installed_version()}</div>
@@ -1311,6 +1426,9 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
       <div class="kpi-sub">{kpi_down_sub}</div>
     </div>
   </div>
+
+  <!-- Measurement setup: how the box was connected (nmb/common/net_setup.py) -->
+  {_setup_section(setup_periods, lang_key)}
 
   <!-- 1. GRAPH: Speed Values vs Guaranteed & Offered SLA -->
   <div class="section">
@@ -1438,6 +1556,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
             <th>{tr['th_outage_end']}</th>
             <th>{tr['th_outage_duration']}</th>
             <th>{tr['th_outage_cause']}</th>
+            <th>{st['setup_label']}</th>
           </tr>
         </thead>
         <tbody>
@@ -1459,6 +1578,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
           <tr>
             <th>{tr['th_date_time']}</th>
             <th>{tr['th_client_ip_isp']}</th>
+            <th>{st['setup_label']}</th>
             <th>{tr['th_down']}</th>
             <th>{tr['th_up']}</th>
             <th>{tr['th_lat']}</th>

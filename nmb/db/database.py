@@ -46,6 +46,7 @@ RETENTION = {
     "port_check": 730,
     "outage": 730,
     "own_action": 730,
+    "network_state": 730,
 }
 
 from nmb.common.memory import (
@@ -152,11 +153,28 @@ def ensure_schema_upgrades(conn: sqlite3.Connection) -> None:
             ("box_mode", "TEXT"),
             ("client_ip_source", "TEXT"),
             ("server_ip", "TEXT"),
+            # 2026-11-10 (owner): how the box was connected for this test (nmb/common/net_setup.py)
+            ("uplink_kind", "TEXT"),
+            ("isp_path", "TEXT"),
+            ("setup_source", "TEXT"),
         ]
         for col_name, col_type in new_cols:
             if col_name not in existing_cols:
                 log.info("migrating schema: adding column %s to speedtest", col_name)
                 cur.execute(f"ALTER TABLE speedtest ADD COLUMN {col_name} {col_type}")
+
+        # The setup when an outage began, and the network_state history (nmb/common/net_setup.py)
+        cur.execute("PRAGMA table_info(outage)")
+        outage_cols = {row[1] for row in cur.fetchall()}
+        for col_name in ("box_mode", "uplink_kind", "isp_path", "setup_source"):
+            if col_name not in outage_cols:
+                log.info("migrating schema: adding column %s to outage", col_name)
+                cur.execute(f"ALTER TABLE outage ADD COLUMN {col_name} TEXT")
+        try:
+            from nmb.common import net_setup
+            cur.executescript(net_setup.SCHEMA)
+        except Exception as e:
+            log.warning("network_state table not created: %s", e)
 
         # Separate IPv4 and IPv6 for legacy records that stored IPv6 in client_ip. The IPv4 of such a row
         # is unknown: it stays empty (it used to get today's address, one the test never had).
@@ -179,6 +197,13 @@ def ensure_schema_upgrades(conn: sqlite3.Connection) -> None:
             corrections.apply(conn)
         except Exception as e:
             log.warning("speed test data correction not applied: %s", e)
+
+        # The setup of rows measured before it was recorded, from the event log (once; nmb/db/setup_backfill.py)
+        try:
+            from nmb.db import setup_backfill
+            setup_backfill.apply(conn)
+        except Exception as e:
+            log.warning("measurement setup backfill not applied: %s", e)
     except Exception as e:
         log.debug("schema upgrade check exception: %s", e)
 
@@ -246,7 +271,7 @@ def rollup_minutes(conn: sqlite3.Connection, upto_ms: int | None = None) -> int:
 
 
 # --------------------------------------------------------------------------- pruning
-_TS_COL = {"outage": "start_ts", "own_action": "start_ts"}
+_TS_COL = {"outage": "start_ts", "own_action": "start_ts", "network_state": "ts"}
 
 
 def prune(conn: sqlite3.Connection) -> dict[str, int]:
@@ -256,6 +281,10 @@ def prune(conn: sqlite3.Connection) -> dict[str, int]:
     for table, days in RETENTION.items():
         col = _TS_COL.get(table, "ts")
         cutoff = now - days * 86_400_000
+        if table == "network_state":
+            # keep the newest row before the horizon: it is still the setup of everything after it
+            keep = conn.execute("SELECT MAX(ts) FROM network_state WHERE ts < ?", (cutoff,)).fetchone()[0]
+            cutoff = keep if keep is not None else cutoff
         total = 0
         while True:  # batch to keep write locks short for probe writers
             with tx(conn):

@@ -167,20 +167,25 @@ class TestTelegramI18n(unittest.TestCase):
             "parancsok", "súgó", "mentés", "kapcsolódva"
         ]
 
+        # plain substrings (Hungarian adds endings to words); only the short "nem " needs a word start,
+        # so that the German "einem " is not taken for it
+        import re
+        patterns = [re.compile(r"(?<!\w)nem " if m == "nem " else re.escape(m)) for m in hu_markers]
+
         for lang in ("en", "de", "fr", "uk"):
             for key, val in STRINGS[lang].items():
                 val_lower = str(val).lower()
-                for marker in hu_markers:
-                    self.assertNotIn(
-                        marker, val_lower,
+                for marker, pat in zip(hu_markers, patterns):
+                    self.assertIsNone(
+                        pat.search(val_lower),
                         f"Purity violation: Hungarian marker '{marker.strip()}' found in {lang}['{key}']: {val}"
                     )
 
             for key, val in ALERT_TEMPLATES[lang].items():
                 val_lower = str(val).lower()
-                for marker in hu_markers:
-                    self.assertNotIn(
-                        marker, val_lower,
+                for marker, pat in zip(hu_markers, patterns):
+                    self.assertIsNone(
+                        pat.search(val_lower),
                         f"Purity violation: Hungarian marker '{marker.strip()}' found in ALERT_TEMPLATES['{lang}']['{key}']: {val}"
                     )
 

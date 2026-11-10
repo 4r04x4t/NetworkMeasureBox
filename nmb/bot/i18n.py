@@ -1370,6 +1370,13 @@ for _code, _data in _BOT_LOCALES.items():
     if _code not in SUPPORTED_LANGUAGES:
         SUPPORTED_LANGUAGES.append(_code)
 
+# How the box was connected for a measurement: the same texts as the Web UI and the dossier, all 11
+# languages from one source (nmb/common/setup_texts.py), so these keys are not in the files above.
+from nmb.common import setup_texts as _setup_texts
+SHARED_KEYS = frozenset(_setup_texts.TEXTS["en"])
+for _code in SUPPORTED_LANGUAGES:
+    STRINGS.setdefault(_code, {}).update(_setup_texts.texts(_code))
+
 _base_main_keyboard = get_main_keyboard
 _base_measurement_status = get_measurement_status
 _base_menu_aliases = get_menu_aliases

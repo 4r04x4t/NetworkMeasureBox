@@ -142,6 +142,26 @@ def tests_for_display(tests: List[dict], measured: int = 25, skipped: int = 5) -
     other = [t for t in tests if t.get("status") == "skipped_busy"][:skipped]
     return sorted(done + other, key=lambda t: t.get("ts") or 0, reverse=True)
 
+SETUP_COLS = ("box_mode", "uplink_kind", "isp_path", "setup_source")
+SETUP_GAP_MS = 120_000      # a netd restart into the same setup is not shown as its own period
+
+
+def _columns(conn: sqlite3.Connection, table: str) -> set:
+    try:
+        return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    except sqlite3.Error:
+        return set()
+
+
+def _setup_of(row) -> dict:
+    """The stored setup codes of a row (only known codes; anything else is None = unknown)."""
+    from nmb.common import net_setup
+    keys = row.keys() if hasattr(row, "keys") else ()
+    data = {k: (row[k] if k in keys else None) for k in SETUP_COLS}
+    mode, kind, path, src = net_setup.label_codes(data)
+    return {"box_mode": mode, "uplink_kind": kind, "isp_path": path, "setup_source": src}
+
+
 @dataclass
 class OutageRecord:
     id: int
@@ -151,6 +171,11 @@ class OutageRecord:
     cause: str
     cause_kind: str = "isp"    # "isp" or "own" (the box's own mode change, update, restart)
     own_sec: int = 0           # the part that fell into the box's own windows
+    # how the box was connected when the outage began (nmb/common/net_setup.py); None = unknown
+    box_mode: Optional[str] = None
+    uplink_kind: Optional[str] = None
+    isp_path: Optional[str] = None
+    setup_source: Optional[str] = None
 
 
 @dataclass
@@ -248,6 +273,9 @@ class ReportData:
     # NMB's own evaluation against fixed thresholds; not a decision by any authority or ISP.
     sla_verdict: str = "COMPLIANT"  # COMPLIANT, DEGRADED, BREACHED
     sla_reasons: List[str] = field(default_factory=list)  # uptime, loss, speed, ports
+    # How the box was connected during the window (nmb/common/net_setup.py): periods of
+    # {start_ts, end_ts, box_mode, uplink_kind, isp_path, setup_source}; None values are unknown.
+    setup_periods: List[dict] = field(default_factory=list)
 
 
 def aggregate_report_data(
@@ -285,9 +313,15 @@ def aggregate_report_data(
         isp_connection_type=getattr(cfg.isp, "connection_type", "fiber"),
     )
 
+    # How the box was connected (a read-only connection on a database not migrated yet has no columns)
+    from nmb.common import net_setup
+    timeline = net_setup.Timeline.load(conn, end_ms=now)
+    report.setup_periods = timeline.periods(start, now, absorb_unknown_ms=SETUP_GAP_MS)
+    outage_setup = "".join(f", {c}" for c in SETUP_COLS if c in _columns(conn, "outage"))
+
     # 1. Outages
     outage_rows = conn.execute(
-        """SELECT id, start_ts, end_ts, cause FROM outage
+        f"""SELECT id, start_ts, end_ts, cause{outage_setup} FROM outage
            WHERE (end_ts IS NULL OR end_ts >= ?) AND start_ts <= ?
            ORDER BY start_ts DESC""",
         (start, now)
@@ -311,6 +345,7 @@ def aggregate_report_data(
             duration_sec=max(0, int(isp_ms / 1000)),
             cause=r["cause"] or "Unreachable",
             own_sec=max(0, int(own_ms / 1000)),
+            **_setup_of(r),
         )
         # The box's own only when it began while the box had its line down; one that began before (the
         # line failed first, the box reacted) stays the line's, for the part outside the windows.
@@ -464,11 +499,13 @@ def aggregate_report_data(
         ))
 
     # 3. Speedtest results
+    speed_cols = _columns(conn, "speedtest")     # each column only when this database has it
+    speed_setup = "".join(f", {c}" for c in ("bound_ip",) + SETUP_COLS if c in speed_cols)
     speed_rows = conn.execute(
-        """SELECT ts, trigger, status, server_name, server_host, server_location, client_ip, client_ipv6,
+        f"""SELECT ts, trigger, status, server_name, server_host, server_location, client_ip, client_ipv6,
                   down_bps, up_bps, ping_us, jitter_us, loss_pct, result_url, error,
                   down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms, connection_type,
-                  engine, colo, bound_iface, client_ip_source, server_ip
+                  engine, colo, bound_iface, client_ip_source, server_ip{speed_setup}
            FROM speedtest
            WHERE ts >= ? AND ts <= ?
            ORDER BY ts DESC""",
@@ -540,6 +577,7 @@ def aggregate_report_data(
         if d_dict["scope"] == "lan":
             for k in ("down_pct_of_offered", "up_pct_of_offered", "down_pct_of_guaranteed", "up_pct_of_guaranteed"):
                 d_dict[k] = None          # a LAN test is no share of the ISP's speed
+        d_dict.update(_setup_of(s))
         report.speed_tests.append(d_dict)
 
         if s["status"] == "ok" and d_dict["scope"] == "lan":

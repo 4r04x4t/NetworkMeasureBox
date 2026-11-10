@@ -86,6 +86,20 @@ def _netd_state() -> Dict[str, Any]:
     return {}
 
 
+def _newest_setup() -> Optional[Dict[str, Any]]:
+    """The newest network_state row netd recorded, or None (none yet, or no table)."""
+    try:
+        conn = _db()
+        try:
+            row = conn.execute("SELECT box_mode, iface, uplink_kind, isp_path FROM network_state "
+                               "WHERE source = 'recorded' ORDER BY ts DESC, id DESC LIMIT 1").fetchone()
+        finally:
+            conn.close()
+    except Exception:          # no database, or no network_state table yet
+        return None
+    return dict(zip(("box_mode", "iface", "uplink_kind", "isp_path"), tuple(row))) if row else None
+
+
 def _default_routes() -> List[List[str]]:
     out = run(["ip", "-4", "route", "show", "default"]).stdout
     return [line.split() for line in out.splitlines() if line.strip()]
@@ -129,15 +143,19 @@ def weak_psk(cfg) -> bool:
 
 def evaluate_engines(rows: List[Dict[str, Any]], min_rows: int = 5, ratio_hi: float = 1.35,
                      ratio_lo: float = 0.65, ip_missing_max: float = 0.2) -> List[Tuple[str, str, str]]:
-    """rows: ok speed tests with engine, iface, down_bps, up_bps, client_ip, ping_min, ping_median.
+    """rows: ok speed tests with engine, iface, down_bps, up_bps, client_ip, ping_min, ping_median
+    (and isp_path when stored).
 
     Returns (name, status, detail): per engine and link the share without a client IP, and each
     engine's median download compared with the reference engines (Ookla and Cloudflare) on the same link.
+    A link is the interface in one path to the ISP: eth0 behind another router and eth0 straight on the
+    ISP are not compared with each other.
     """
     out: List[Tuple[str, str, str]] = []
     groups: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
     for r in rows:
-        groups.setdefault((r.get("iface") or "?", r["engine"]), []).append(r)
+        link = (r.get("iface") or "?") + (f"/{r['isp_path']}" if r.get("isp_path") else "")
+        groups.setdefault((link, r["engine"]), []).append(r)
     for (iface, engine), rs in sorted(groups.items()):
         missing = sum(1 for r in rs if not r.get("client_ip"))
         share = missing / len(rs)
@@ -165,6 +183,39 @@ def evaluate_engines(rows: List[Dict[str, Any]], min_rows: int = 5, ratio_hi: fl
             out.append((f"download {engine}@{iface} vs reference", st,
                         f"median {statistics.median(vals)/1e6:.0f} vs {ref_med/1e6:.0f} Mbit/s (x{ratio:.2f}, n={len(vals)})"))
     return out
+
+
+def evaluate_setup(rows: List[Dict[str, Any]]) -> List[Tuple[str, str, str]]:
+    """rows: speed tests (not skipped), oldest first, with box_mode, uplink_kind, isp_path, setup_source.
+
+    Every test stores how the box was connected (nmb/common/net_setup.py): the newest one must carry
+    its mode and link as measured (the path stays unknown on a link without IPv4); older ones may be
+    reconstructed or unknown. The detail counts the tests per path to the ISP.
+    """
+    if not rows:
+        return []
+    last = rows[-1]
+    lacking = [k for k in ("box_mode", "uplink_kind") if not last.get(k)]
+    if last.get("setup_source") not in ("recorded", "changed"):
+        lacking.insert(0, f"source {last.get('setup_source') or 'none'}")
+    counts: Dict[str, int] = {}
+    for r in rows:
+        key = r.get("isp_path") or "unknown"
+        counts[key] = counts.get(key, 0) + 1
+    detail = ", ".join(f"{n}x {k}" for k, n in sorted(counts.items()))
+    if lacking:
+        detail = f"the newest test lacks its setup ({', '.join(lacking)}); {detail}"
+    return [("setup of the tests", WARN if lacking else PASS, detail)]
+
+
+def evaluate_setup_history(state: Optional[Dict[str, Any]], active: Optional[str]) -> Tuple[str, str, str]:
+    """The setup netd recorded last (network_state) against the mode it runs in now."""
+    if not state:
+        return ("setup history", WARN, "netd has recorded no setup yet")
+    detail = (f"{state.get('box_mode') or 'unknown'} on {state.get('iface') or '?'}: "
+              f"{state.get('uplink_kind') or 'unknown'}, {state.get('isp_path') or 'unknown'}")
+    ok = bool(active) and state.get("box_mode") == active
+    return ("setup history", PASS if ok else WARN, detail if ok else f"{detail}; running {active}")
 
 
 def parse_iw_phy(text: str) -> Dict[str, Dict[str, bool]]:
@@ -337,8 +388,38 @@ def g_cli(rep: Report, cfg) -> None:
         rep.add("cli", f"latest {eng}", PASS if r.returncode == 0 else WARN, (r.stderr.strip() or "ok")[:100])
 
 
+FAKE_CHAT_BASE = 990000100   # the bot check's fake chats (never a configured one)
+
+
+def fake_chat_ids(count: int, configured: Any = ()) -> List[int]:
+    """Chat ids for the bot check that no configured chat has, so its cleanup touches no real chat."""
+    taken = {str(c).strip() for c in (configured or ())}
+    out, chat = [], FAKE_CHAT_BASE
+    while len(out) < count:
+        if str(chat) not in taken:
+            out.append(chat)
+        chat += 1
+    return out
+
+
+def forget_chat_langs(chats: List[int]) -> int:
+    """Remove the language rows (kv telegram_lang_<id>) of exactly these chats; the number removed."""
+    from nmb.db import database as db
+    conn = db.connect()
+    try:
+        before = conn.total_changes
+        with db.tx(conn):
+            conn.executemany("DELETE FROM kv WHERE k = ?", [(f"telegram_lang_{int(c)}",) for c in chats])
+        return conn.total_changes - before
+    finally:
+        conn.close()
+
+
 def g_telegram(rep: Report, cfg) -> None:
-    """Every menu button and command in every language, through a fake Telegram client."""
+    """Every menu button and command in every language, through a fake Telegram client.
+
+    It sets a language for fake chats in the live database and removes those rows again at the end.
+    """
     import logging
     import signal
     import traceback
@@ -392,39 +473,47 @@ def g_telegram(rep: Report, cfg) -> None:
             "/drivers", "/reboot", "/foo"]
     f = Fake()
     h = CommandHandler(cfg, f)
-    for i, lang in enumerate(B.SUPPORTED_LANGUAGES):
-        chat = 990000100 + i
-        set_chat_lang(chat, lang)
-        labels = [b["text"] for row in B.get_main_keyboard(lang)["keyboard"] for b in row]
-        todo, seen, fails, ran = labels + base, set(), [], 0
-        while todo:
-            c = todo.pop(0)
-            cmd = B.get_menu_aliases().get(c.lower(), c)
-            if c in seen or skip.match(cmd):
-                continue
-            seen.add(c)
-            f.out.clear()
-            f.cb.clear()
-            ran += 1
-            signal.alarm(45)
-            try:
-                h.handle_command(chat, c)
-                err = ""
-            except _TO:
-                err = "no answer within 45 s"
-            except Exception:
-                err = traceback.format_exc(limit=1).strip().splitlines()[-1]
-            finally:
-                signal.alarm(0)
-            txt = " | ".join(f.out)
-            problem = err or ("no reply" if not f.out else "") or ("error text" if bad.search(txt) else "") or \
-                ("Hungarian text" if lang != "hu" and HU_LEAK.search(txt) else "")
-            if problem:
-                fails.append(f"{c}: {problem}")
-            todo += [x for x in f.cb if x not in seen]
-        rep.add("telegram", f"bot {lang}", PASS if not fails else FAIL,
-                f"{ran} commands and buttons" if not fails else f"{len(fails)}/{ran}: " + "; ".join(fails[:3]))
-    logging.disable(logging.NOTSET)
+    chats = fake_chat_ids(len(B.SUPPORTED_LANGUAGES), getattr(cfg.telegram, "allowed_chat_ids", ()))
+    try:
+        for chat, lang in zip(chats, B.SUPPORTED_LANGUAGES):
+            set_chat_lang(chat, lang)
+            labels = [b["text"] for row in B.get_main_keyboard(lang)["keyboard"] for b in row]
+            todo, seen, fails, ran = labels + base, set(), [], 0
+            while todo:
+                c = todo.pop(0)
+                cmd = B.get_menu_aliases().get(c.lower(), c)
+                if c in seen or skip.match(cmd):
+                    continue
+                seen.add(c)
+                f.out.clear()
+                f.cb.clear()
+                ran += 1
+                signal.alarm(45)
+                try:
+                    h.handle_command(chat, c)
+                    err = ""
+                except _TO:
+                    err = "no answer within 45 s"
+                except Exception:
+                    err = traceback.format_exc(limit=1).strip().splitlines()[-1]
+                finally:
+                    signal.alarm(0)
+                txt = " | ".join(f.out)
+                problem = err or ("no reply" if not f.out else "") or ("error text" if bad.search(txt) else "") or \
+                    ("Hungarian text" if lang != "hu" and HU_LEAK.search(txt) else "")
+                if problem:
+                    fails.append(f"{c}: {problem}")
+                todo += [x for x in f.cb if x not in seen]
+            rep.add("telegram", f"bot {lang}", PASS if not fails else FAIL,
+                    f"{ran} commands and buttons" if not fails else f"{len(fails)}/{ran}: " + "; ".join(fails[:3]))
+    finally:
+        # The test chats' language rows go again, also after an error (they piled up in the live kv table)
+        try:
+            removed = forget_chat_langs(chats)
+            rep.add("telegram", "test chats removed", PASS, f"{removed} language rows of the test chats")
+        except Exception as e:
+            rep.add("telegram", "test chats removed", FAIL, f"left in kv: {str(e)[:100]}")
+        logging.disable(logging.NOTSET)
 
 
 def g_usb(rep: Report, cfg) -> None:
@@ -1158,6 +1247,7 @@ def g_mode(rep: Report, cfg) -> None:
         override = None
     rep.add("mode", "network mode", PASS if active else FAIL,
             f"running {active}, configured {configured}" + (f", override {override}" if override and override != "auto" else ""))
+    rep.add("mode", *evaluate_setup_history(_newest_setup(), active))
     wanted = override if override in ("mode_a", "mode_b", "standalone") else (configured if configured != "auto" else None)
     d = st.get("auto_decision") or {}
     if wanted:
@@ -1200,8 +1290,12 @@ def g_speed(rep: Report, cfg, hours: Optional[int] = None) -> None:
     errors: Dict[str, List[int]] = {}
     messages: Dict[str, Dict[str, int]] = {}
     paused: Dict[str, int] = {}
-    for r in conn.execute("SELECT engine, status, bound_iface, down_bps, up_bps, client_ip, raw_json, error FROM speedtest "
-                          "WHERE ts > ?", (since,)):
+    from nmb.report.metrics import SETUP_COLS, _columns
+    have_setup = set(SETUP_COLS) <= _columns(conn, "speedtest")   # a read-only connection does not migrate
+    setups: List[Dict[str, Any]] = []
+    for r in conn.execute("SELECT engine, status, bound_iface, down_bps, up_bps, client_ip, raw_json, error"
+                          + (", " + ", ".join(SETUP_COLS) if have_setup else "") +
+                          " FROM speedtest WHERE ts > ? ORDER BY ts, id", (since,)):
         engine = r[0] or "ookla"
         if r[1] == "skipped_busy":
             continue
@@ -1211,6 +1305,9 @@ def g_speed(rep: Report, cfg, hours: Optional[int] = None) -> None:
             paused[engine] = paused.get(engine, 0) + 1   # the box waits on purpose; not a failed test
             continue
         errors[engine][1] += 1
+        setup = dict(zip(SETUP_COLS, tuple(r)[8:])) if have_setup else {}
+        if have_setup:
+            setups.append(setup)
         if r[1] == "error":
             errors[engine][0] += 1
             key = re.sub(r"\[[^\]]*\]|\d{4}-\d\d-\d\dT\S+", "", msg).strip()[:70]
@@ -1223,8 +1320,13 @@ def g_speed(rep: Report, cfg, hours: Optional[int] = None) -> None:
         except Exception:
             pass
         rows.append({"engine": engine, "iface": r[2], "down_bps": r[3], "up_bps": r[4], "client_ip": r[5],
-                     "ping_min": raw.get("ping_min_ms"), "ping_median": raw.get("ping_median_ms")})
+                     "ping_min": raw.get("ping_min_ms"), "ping_median": raw.get("ping_median_ms"),
+                     "isp_path": setup.get("isp_path")})
     conn.close()
+    if not have_setup:
+        rep.add("speed", "setup of the tests", WARN, "the database has no setup columns yet (not migrated)")
+    for name, st, detail in evaluate_setup(setups):
+        rep.add("speed", name, st, detail)
     if not rows:
         rep.add("speed", f"tests in the last {hours} h", WARN, "none")
         return

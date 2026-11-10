@@ -15,12 +15,14 @@ import platform
 import re
 import shutil
 import socket
+import sqlite3
 import struct
 import subprocess
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from nmb.common import net_setup, setup_texts
 from nmb.config import Config
 from nmb.db import database as db
 from nmb.netd.os_detector import detect_os_info, get_dynamic_interfaces
@@ -865,6 +867,86 @@ def _mask_sensitive(text: str, exact_values: List[str]) -> str:
     return re.sub(r"\bfd7a:115c:a1e0:[0-9a-fA-F:]+\b", "[TAILSCALE_IP]", text)
 
 
+# The mode the box runs in, in words. Standalone says nothing about the position: it also runs on an ISP
+# line that hands out a public address; whether a router stood in between is the "Path to the ISP".
+_MODE_WORDS = {
+    "standalone": "Standalone Probe (client on an existing network)",
+    "mode_a": "Active Gateway / Router (NAT & DHCP Master)",
+    "mode_b": "Passive Inline Transparent Bridge",
+}
+
+
+def _utc_minute(ts_ms: int) -> str:
+    return datetime.datetime.fromtimestamp(ts_ms / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M")
+
+
+def _deployment_mode_line(active: Optional[str], configured: Optional[str]) -> str:
+    """The mode the box runs in now (kv active_mode), the configured one beside it: "auto" resolves to
+    standalone or router mode, so the configured value alone does not say how the box measures."""
+    conf = str(configured or "").strip().lower() or "not set"
+    words = _MODE_WORDS.get(active or "")
+    head = f"{words} (active: `{active}`" if words else "unknown (no active mode recorded"
+    return f"- **Deployment Mode**: {head}; configured: `{conf}`)"
+
+
+def _current_setup(conn: Any) -> Optional[Dict[str, Any]]:
+    """The newest network_state row (how the box is connected now); None when there is none (or no table)."""
+    try:
+        row = conn.execute("SELECT ts, box_mode, iface, uplink_kind, isp_path, source FROM network_state "
+                           "ORDER BY ts DESC, id DESC LIMIT 1").fetchone()
+    except sqlite3.Error:
+        return None
+    keys = ("ts", "box_mode", "iface", "uplink_kind", "isp_path", "setup_source")
+    return dict(zip(keys, tuple(row))) if row else None
+
+
+def _current_setup_line(state: Optional[Dict[str, Any]]) -> str:
+    """The link the box measures through now and its path to the ISP, in words (never the box's address)."""
+    if not state:
+        return "- **Measuring Link**: unknown (no setup recorded yet) | **Path to the ISP**: unknown"
+    _, kind, path, source = net_setup.label_codes(state)
+    iface = re.sub(r"[^\w.:@-]", "", str(state.get("iface") or ""))[:32]     # an interface name, nothing else
+    via = f" via `{iface}`" if iface else ""
+    return (f"- **Measuring Link**: {setup_texts.link_label(kind, 'en')}{via} | **Path to the ISP**: "
+            f"{setup_texts.path_label(path, 'en')} (since {_utc_minute(state['ts'])} UTC, "
+            f"{setup_texts.source_label(source, 'en')})")
+
+
+def _setup_periods(conn: Any, start_ms: int, end_ms: int) -> List[Dict[str, Any]]:
+    """The setups of [start, end] from the network_state history (short netd restarts merged)."""
+    from nmb.report.metrics import SETUP_GAP_MS
+    return net_setup.Timeline.load(conn, end_ms=end_ms).periods(start_ms, end_ms, absorb_unknown_ms=SETUP_GAP_MS)
+
+
+def _setup_period_lines(periods: List[Dict[str, Any]]) -> List[str]:
+    """Subsection 1.1: the setup periods of the last 24 hours, and the warning when a router stood between."""
+    from nmb.report.dossier import setup_known, setup_overview
+    en = setup_texts.texts("en")
+    out = ["", "### 1.1 Measurement Setup Periods (Past 24 Hours)"]
+    if not setup_known(periods):
+        return out + [f"- {en['setup_none']}"]
+    out += [f"| {en['setup_col_from']} (UTC) | {en['setup_col_to']} (UTC) | {en['setup_col_mode']} | "
+            f"{en['setup_col_link']} | {en['setup_col_path']} | {en['setup_col_source']} |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- |"]
+    for p in periods:
+        mode, kind, path, source = net_setup.label_codes(p)
+        out.append(f"| `{_utc_minute(p['start_ts'])}` | `{_utc_minute(p['end_ts'])}` | {setup_texts.mode_label(mode, 'en')} "
+                   f"| {setup_texts.link_label(kind, 'en')} | {setup_texts.path_label(path, 'en')} "
+                   f"| {setup_texts.source_label(source, 'en')} |")
+    if setup_overview(periods)[1]:
+        out.append(f"> {en['setup_warn_behind']}")
+    return out
+
+
+def _run_setup_cells(row: Dict[str, Any]) -> str:
+    """The "Mode | Link | Path" cells of one speed test run in table 7.1; a changed or reconstructed one says so."""
+    mode, kind, path, source = net_setup.label_codes(row)
+    mode_txt = setup_texts.mode_label(mode, "en", short=True)
+    if source in ("changed", "derived"):
+        mode_txt += f" ({setup_texts.source_label(source, 'en')})"
+    return f"{mode_txt} | {setup_texts.link_label(kind, 'en')} | {setup_texts.path_label(path, 'en', short=True)}"
+
+
 _cached_llm_bundle: tuple[float, str] | None = None
 
 
@@ -1169,14 +1251,9 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     except Exception:
         log.debug("suppressed exception", exc_info=True)
 
-    # Deployment Mode
-    net_mode = getattr(cfg.network, "mode", "standalone")
-    if net_mode == "mode_a":
-        deploy_mode = "Active Gateway / Router (NAT & DHCP Master)"
-    elif net_mode == "mode_b":
-        deploy_mode = "Passive Inline Transparent Bridge"
-    else:
-        deploy_mode = "LAN Probe (Client behind NAT router)"
+    # Deployment Mode: the ACTIVE mode (it printed the configured one, so "auto" read as "behind a NAT
+    # router" also when auto had resolved to router mode, 2026-11-10)
+    deploy_mode_line = _deployment_mode_line(box_mode, getattr(cfg.network, "mode", None))
 
     # 8. Speedtest Results
     # The newest test of the line with a result: not a skipped or failed row (it has no speeds), not a test
@@ -1187,12 +1264,13 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         if speed_scope(dict(r)) != "lan"), {})
     visibility_row = conn.execute("SELECT v FROM kv WHERE k = 'traffic_visibility'").fetchone()
 
+    from nmb.report.csv_export import setup_select
     recent_speeds = conn.execute(
         """SELECT ts, engine, status, error, down_bps, up_bps, ping_us, jitter_us, bufferbloat_grade, bufferbloat_delta_ms,
-                  raw_json, client_ip_source, server_host
+                  raw_json, client_ip_source, server_host{setup}
            FROM speedtest
            ORDER BY ts DESC
-           LIMIT 5"""
+           LIMIT 5""".format(setup=setup_select(conn, "speedtest"))
     ).fetchall()
 
     # 9. Ping probe telemetry stats (last 24h) with role, min/max RTT, and loss patterns
@@ -1226,6 +1304,10 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     except Exception:
         _interval = 500
     loss_patterns = _get_loss_pattern_telemetry(conn, day_ago, probes, windows=explained_windows, interval_ms=_interval)
+
+    # How the box is connected now and was over the last 24 hours (nmb/common/net_setup.py)
+    setup_now = _current_setup(conn)
+    setup_periods = _setup_periods(conn, day_ago, now_ms)
 
     # 10. SQM Qdisc status & Kernel Mismatch Check
     sqm_status = "N/A"
@@ -1366,7 +1448,8 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         f"> Generated on: `{now_utc}` | Device ID: `{cfg.system.box_id}` | WAN Interface: `{wan_iface}` | Public IP: `{pub_ip_hdr}` {geo_loc_hdr}",
         "",
         "## 1. Operating System, Hardware & Thermal Telemetry",
-        f"- **Deployment Mode**: {deploy_mode}",
+        deploy_mode_line,
+        _current_setup_line(setup_now),
         f"- **TCP Congestion Control**: `{tcp_cc}`",
         f"- **OS / Distribution**: {os_info.get('distro_name')} ({os_info.get('distro_id')} {os_info.get('distro_version')})",
         f"- **Kernel Version**: `{platform.release()}` ({platform.version()})",
@@ -1386,8 +1469,9 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         status_note = "🟢 All Clear (No under-voltage or thermal throttling detected)" if not th_flags else "🔴 Throttling Detected: " + "; ".join(th_flags)
         lines.append(f"- **Raspberry Pi Throttling Register**: `{th_hex}` — **{status_note}**")
 
+    lines.append(f"- **Memory**: Total {mem_info.get('MemTotal', 'N/A')} | Available {mem_info.get('MemAvailable', 'N/A')}")
+    lines.extend(_setup_period_lines(setup_periods))
     lines.extend([
-        f"- **Memory**: Total {mem_info.get('MemTotal', 'N/A')} | Available {mem_info.get('MemAvailable', 'N/A')}",
         "",
         "## 2. Physical Link Layer & Interface Error Telemetry",
         f"### 2.1 Interface Link State & PHY Parameters (`{wan_iface}`)",
@@ -1698,8 +1782,9 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
     ])
     if recent_speeds:
         lines.extend([
-            "| Timestamp (UTC) | Engine | Status | Down (Mbps) | Up (Mbps) | Latency (RTT) | Bufferbloat | Single-Core Peak |",
-            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+            "| Timestamp (UTC) | Engine | Status | Down (Mbps) | Up (Mbps) | Latency (RTT) | Bufferbloat | Single-Core Peak "
+            "| Mode | Link | Path |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
         ])
         for s in recent_speeds:
             ts_str = datetime.datetime.fromtimestamp(s["ts"] / 1000, tz=datetime.timezone.utc).strftime("%m-%d %H:%M")
@@ -1718,7 +1803,8 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
                         cpu_peak_s = f"{mc.get('single_core_max_pct', 0)}% ({mc.get('single_core_name', 'CPU0')})"
                 except Exception:
                     log.debug("suppressed exception", exc_info=True)
-            lines.append(f"| `{ts_str}` | `{s['engine']}` | {st_s} | **{d_m}** | **{u_m}** | {lat_s} | {bb_s} | {cpu_peak_s} |")
+            lines.append(f"| `{ts_str}` | `{s['engine']}` | {st_s} | **{d_m}** | **{u_m}** | {lat_s} | {bb_s} | {cpu_peak_s} "
+                         f"| {_run_setup_cells(dict(s))} |")
     else:
         lines.append("- *No prior speedtest runs recorded.*")
 

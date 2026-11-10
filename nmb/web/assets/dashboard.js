@@ -2108,6 +2108,49 @@
     box.style.display = 'block';
   }
 
+  // setup-labels-begin: how the box was connected for a result (codes of nmb/common/net_setup.py; the words
+  // are the setup_* keys of nmb/common/setup_texts.py, the English below is only the fallback).
+  const SETUP_MODE_EN = { standalone: 'Standalone', mode_a: 'Router', mode_b: 'Bridge' };
+  const SETUP_LINK_EN = { ethernet: 'Ethernet', pppoe: 'PPPoE', wifi: 'Wi-Fi client', usb: 'USB tethering (mobile)',
+                          bridge: 'Inline bridge', passthrough: 'Ethernet with LAN passthrough', lag: 'Link aggregation' };
+  const SETUP_PATH_EN = { direct_pppoe: 'Direct to the ISP (own PPPoE session)', direct_public: 'Direct to the ISP (public address)',
+                          direct_cgnat: 'Direct to the ISP (carrier-grade NAT address)',
+                          behind_router: 'Behind another router (private address)' };
+  const SETUP_SRC_EN = { changed: 'changed during the test', derived: 'reconstructed from the event log' };
+
+  function setupCode(map, code) {
+    return (typeof code === 'string' && Object.prototype.hasOwnProperty.call(map, code)) ? code : null;
+  }
+
+  // "Router - PPPoE - direct to the ISP" (fullPath: the path's long label); an unknown part says so, never a guess.
+  function setupSummary(row, fullPath) {
+    const r = row || {};
+    const unknown = t('setup_unknown', 'unknown');
+    const mode = setupCode(SETUP_MODE_EN, r.box_mode);
+    const link = setupCode(SETUP_LINK_EN, r.uplink_kind);
+    const path = setupCode(SETUP_PATH_EN, r.isp_path);
+    if (!mode && !link && !path) return unknown;
+    let pathText = unknown;
+    if (path && fullPath) pathText = t('setup_path_' + path, SETUP_PATH_EN[path]);
+    else if (path === 'behind_router') pathText = t('setup_short_behind_router', 'behind another router');
+    else if (path) pathText = t('setup_short_direct', 'direct to the ISP');
+    return [mode ? t('setup_short_' + mode, SETUP_MODE_EN[mode]) : unknown,
+            link ? t('setup_link_' + link, SETUP_LINK_EN[link]) : unknown, pathText].join(' \u00b7 ');
+  }
+
+  // Said next to a setup that was not simply recorded: the mode changed during the test, or it was reconstructed later.
+  function setupSourceNote(row) {
+    const src = setupCode(SETUP_SRC_EN, row && row.setup_source);
+    return src ? t('setup_src_' + src, SETUP_SRC_EN[src]) : '';
+  }
+
+  // The small "Setup: ..." line of a history row or a chart tooltip (HTML, every value escaped).
+  function setupLineHtml(row) {
+    const note = setupSourceNote(row);
+    return escapeHtml(t('setup_label', 'Setup')) + ': ' + escapeHtml(setupSummary(row)) + (note ? ' (' + escapeHtml(note) + ')' : '');
+  }
+  // setup-labels-end
+
   function renderHomeEngineCard(engine, dataOverride) {
     const data = dataOverride || window.lastStatusData;
     if (!data) return;
@@ -2136,6 +2179,7 @@
     const elLatency = document.getElementById('home-latency');
     const elBufferbloat = document.getElementById('home-bufferbloat');
     const elServerLink = document.getElementById('home-server-link');
+    const elSetup = document.getElementById('home-setup');
     const elScriptBox = document.getElementById('home-script-box');
 
     const contractDown = (data.contract && data.contract.contract_down_mbps) ? parseFloat(data.contract.contract_down_mbps) : 0;
@@ -2156,6 +2200,23 @@
         ipDisplay = '--';
       }
       if (elPublicIp) elPublicIp.innerHTML = ipDisplay;
+
+      // How the box was connected for this result: behind another router may limit it, so that is said too.
+      if (elSetup) {
+        elSetup.textContent = setupSummary(latest, true);
+        const notes = [];
+        if (latest.isp_path === 'behind_router') {
+          notes.push(['#fbbf24', t('setup_warn_behind', 'Measured behind another router: that router may limit the speed and add delay or loss, and the ISP can point to it.')]);
+        }
+        const srcNote = setupSourceNote(latest);
+        if (srcNote) notes.push(['#94a3b8', srcNote]);
+        notes.forEach(([color, text]) => {
+          const n = document.createElement('div');
+          n.style.cssText = 'font-size: 11.5px; font-weight: 400; margin-top: 2px; white-space: normal; color: ' + color + ';';
+          n.textContent = text;
+          elSetup.appendChild(n);
+        });
+      }
 
       const engName = escapeHtml((latest.engine || targetEng).toUpperCase());
       const coloSafe = escapeHtml(latest.colo || '');
@@ -2241,8 +2302,9 @@
       renderFastcomDetail((latest.engine || '').toLowerCase() === 'fastcom' ? latest.fastcom_detail : null);
     } else {
       renderFastcomDetail(null);
-      const fallbackIp = escapeHtml((data.system_info && (data.system_info.public_ipv4 || data.system_info.wan_ip)) || data.public_ip || '--');
+      const fallbackIp = (data.system_info && data.system_info.public_ipv4) || data.public_ip || '--';
       if (elPublicIp) elPublicIp.innerText = fallbackIp;
+      if (elSetup) elSetup.innerHTML = '<span style="color:#94a3b8;">--</span>';
       if (elEngine) elEngine.innerHTML = `<span class="badge badge-ok">${targetEng.toUpperCase()}</span>`;
       if (elTimestamp) elTimestamp.innerHTML = `<span style="color:#94a3b8;">-- (${t('no_test_recorded', 'No measurement recorded yet with this engine')})</span>`;
       if (elDownload) elDownload.innerHTML = `<span style="color:#94a3b8;">-- Mbps</span>`;
@@ -2418,7 +2480,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
   async function refreshStatus() {
     try {
-      const res = await fetch('/api/status');
+      const res = await fetch('/api/status?lang=' + encodeURIComponent(currentLang));
       if (!res.ok) return;
       const data = await res.json();
       window.lastStatusData = data;
@@ -2432,19 +2494,25 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         const si = data.system_info;
         const modeKey = { mode_a: 'hdr_mode_router', mode_b: 'hdr_mode_bridge', standalone: 'hdr_mode_standalone' }[si.mode];
         const modeEn = { mode_a: 'Router', mode_b: 'Bridge', standalone: 'Standalone' }[si.mode];
-        let modeTxt = modeKey ? t(modeKey, modeEn) : (si.mode || '--');
-        if (si.mode === 'mode_a' && /^ppp/.test(si.wan_iface || '')) modeTxt += ' · PPPoE';
+        // The link and whether the box is directly on the ISP, as netd recorded it for the mode running now
+        // (an older record of another mode is not shown as the current setup).
+        const cur = (si.setup && modeKey && si.setup.box_mode === si.mode) ? si.setup : null;
+        let modeTxt = modeKey ? t(modeKey, modeEn) : t('setup_unknown', 'unknown');
+        if (cur && (cur.uplink_kind || cur.isp_path)) modeTxt = setupSummary(cur);
         if (si.configured_mode === 'auto') modeTxt += ' (' + t('hdr_mode_auto', 'auto') + ')';
         document.getElementById('hdr-mode').innerText = modeTxt;
-        const wanV4 = escapeHtml(data.system_info.public_ipv4 || data.system_info.wan_ip || '');
-        const wanV6 = escapeHtml(data.system_info.public_ipv6 || '');
+        const wanV4 = escapeHtml(si.public_ipv4 || '');
+        const wanV6 = escapeHtml(si.public_ipv6 || '');
         if (wanV4 && wanV6) {
           document.getElementById('hdr-wan-ip').innerHTML = `<span style="color:#38bdf8;">${wanV4}</span> <span style="font-size: 11px; color:#a78bfa;" title="${wanV6}">[v6]</span>`;
         } else {
-          document.getElementById('hdr-wan-ip').innerText = wanV4 || wanV6 || '--';
+          document.getElementById('hdr-wan-ip').innerText = si.public_ipv4 || si.public_ipv6 || '--';
         }
-        document.getElementById('hdr-wan-iface').innerText = data.system_info.wan_interface || 'eth0';
-        document.getElementById('hdr-uptime').innerText = data.system_info.uptime || '--';
+        document.getElementById('hdr-wan-iface').innerText = si.wan_iface || (cur && cur.iface) || '--';
+        const boxTime = (typeof si.system_time_ms === 'number') ? new Date(si.system_time_ms) : null;
+        document.getElementById('hdr-uptime').innerText = boxTime
+          ? boxTime.getFullYear() + '.' + String(boxTime.getMonth() + 1).padStart(2, '0') + '.' + String(boxTime.getDate()).padStart(2, '0') + ' ' + String(boxTime.getHours()).padStart(2, '0') + ':' + String(boxTime.getMinutes()).padStart(2, '0')
+          : '--';
       }
 
       // Terminal Box ID sync
@@ -2566,7 +2634,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
       // Contract information (Tab 9 & header - safe null checks)
       if (data.contract) {
-        const ispName = data.contract.isp_name || (data.system_info && data.system_info.wan_ip ? 'Internet (' + data.system_info.wan_ip + ')' : t('not_specified', 'Not specified'));
+        const ispName = data.contract.isp_name || t('not_specified', 'Not specified');
         const circuit = data.contract.circuit_id ? ' / ' + data.contract.circuit_id : '';
         const elIsp = document.getElementById('contract-isp-display');
         if (elIsp) elIsp.innerText = ispName + circuit;
@@ -2939,7 +3007,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
             <td style="white-space: nowrap;">${uMbps !== null ? `<b>${uMbps.toFixed(2)} Mbps</b> ${isLan ? '' : renderRowPctBadge(uPct)}` : '--'}</td>`}
             <td style="white-space: nowrap;">${st.status === 'ok' && lat !== null ? lat.toFixed(2) + ' ms' : '--'}</td>
             <td style="white-space: nowrap;">${bb}</td>
-            <td style="white-space: nowrap;">${clientIpCell}</td>
+            <td style="white-space: nowrap;">${clientIpCell}<div style="font-size: 10.5px; line-height: 1.3; color: var(--text-muted); margin-top: 2px; white-space: normal; max-width: 220px;">${setupLineHtml(st)}</div></td>
             <td style="white-space: nowrap;">${link}</td>
           </tr>`;
         });
@@ -3393,6 +3461,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     if (item.client_ip || item.client_ipv6) {
       content += `<div style="font-size: 11px; color:#64748b; font-family:monospace;">🌐 IP: ${escapeHtml(item.client_ip || '')} ${item.client_ipv6 ? '[' + escapeHtml(item.client_ipv6) + ']' : ''}</div>`;
     }
+    content += `<div style="font-size: 11px; color:#94a3b8;">${setupLineHtml(item)}</div>`;
 
     tooltip.innerHTML = content;
 

@@ -2,6 +2,13 @@
 
 Exports ping summaries, speedtests, outages, and port-throttling records
 in standard RFC 4180 format.
+
+Column policy: a column never moves or changes once published (scripts read them by position); a new
+fact is appended at the end. Since 2026-11-10 the speed, outage and ping exports end with how the box
+was connected (nmb/common/net_setup.py): ``box_mode``, ``uplink_kind``, ``isp_path``, ``setup_source``
+as codes (machine readable; empty = unknown, never a guess); the detailed CSV for people gets the same
+as words. A database not migrated yet (a read-only connection does not migrate) has no such columns:
+they are then empty, never filled with today's setup.
 """
 from __future__ import annotations
 
@@ -12,7 +19,12 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
+from nmb.common import net_setup, setup_texts
 from nmb.db import database as db
+
+SETUP_CODES = ("box_mode", "uplink_kind", "isp_path", "setup_source")
+MINUTE_MS = 60_000
+DETAILED_LANG = "en"        # the detailed CSV's headers are English; its setup words follow them
 
 
 def parse_export_range(qs: dict, now_ms: int, default_hours: Optional[float]) -> tuple:
@@ -81,6 +93,36 @@ def _servers_all(row) -> str:
         return ""
 
 
+def setup_select(conn: sqlite3.Connection, table: str, cols=SETUP_CODES) -> str:
+    """The SELECT list tail ", col, ..."; "NULL AS col" for a column this database does not have yet."""
+    from nmb.report.metrics import _columns
+    have = _columns(conn, table)
+    return "".join(f", {c}" if c in have else f", NULL AS {c}" for c in cols)
+
+
+def _setup_cells(row) -> list:
+    """The row's four setup codes for a CSV; "" for anything unknown (or not a known code)."""
+    data = {k: (row[k] if k in row.keys() else None) for k in SETUP_CODES}
+    return [code or "" for code in net_setup.label_codes(data)]
+
+
+def _setup_words(row) -> list:
+    """Mode, link and path to the ISP of a row in the detailed CSV's words (short forms)."""
+    mode, kind, path, _ = _setup_cells(row)
+    return [setup_texts.mode_label(mode, DETAILED_LANG, short=True), setup_texts.link_label(kind, DETAILED_LANG),
+            setup_texts.path_label(path, DETAILED_LANG, short=True)]
+
+
+def _minute_setup(timeline: "net_setup.Timeline", ts: int) -> list:
+    """The setup codes of the ping minute [ts, ts + 1 min); "changed" when the recorded setup changed in it."""
+    first = timeline.at(ts)
+    mode, kind, path, src = net_setup.label_codes(first)
+    later = net_setup.label_codes(timeline.at(ts + MINUTE_MS - 1))[:3]
+    if first["setup_source"] is not None and later != (mode, kind, path):
+        src = "changed"
+    return [mode or "", kind or "", path or "", src or ""]
+
+
 def _iso(ts_ms: int) -> str:
     return datetime.datetime.fromtimestamp(ts_ms / 1000.0, tz=datetime.timezone.utc).isoformat()
 
@@ -89,17 +131,22 @@ PING_HEADER = [
     "timestamp_iso", "timestamp_ms", "target_id", "target_addr", "target_label",
     "sent", "lost", "loss_pct", "rtt_min_ms", "rtt_avg_ms", "rtt_p95_ms", "rtt_max_ms", "jitter_ms",
     "target_role", "time_zone",
+    *SETUP_CODES,               # 2026-11-10: the setup of that minute, from the network_state history
 ]
 
 
 def iter_ping_summary_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, batch: int = 2000):
     """The per-minute ping CSV in pieces (about 8,600 rows a day): rows are read and written in batches, so
-    a long range never sits in memory as a whole (the web route streams them)."""
+    a long range never sits in memory as a whole (the web route streams them).
+
+    The last four columns are the setup of each minute, from the network_state history read once (a
+    lookup per row, not a query); empty before anything was recorded."""
     out = io.StringIO()
     writer = _SafeWriter(out)
     writer.writerow(PING_HEADER)
     targets = {r["id"]: (r["addr"], r["label"], r["role"]) for r in conn.execute("SELECT id, addr, label, role FROM target").fetchall()}
     ms = lambda us: round(us / 1000.0, 2) if us is not None else ""
+    timeline = net_setup.Timeline.load(conn, end_ms=min(end_ms + MINUTE_MS, 2 ** 63 - 1))
     # Keyset pages: each batch is a short query that is finished before its rows go to a slow client, so
     # no read transaction stays open (holding back the WAL checkpoint) for the whole download.
     last = (start_ms - 1, -1)
@@ -119,6 +166,7 @@ def iter_ping_summary_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
                 round(r["lost"] / r["sent"] * 100.0, 2) if r["sent"] else "",     # no pings sent: no loss figure
                 ms(r["rtt_min"]), ms(r["rtt_avg"]), ms(r["rtt_p95"]), ms(r["rtt_max"]), ms(r["jitter_us"]),
                 role or "", "UTC",
+                *_minute_setup(timeline, r["ts"]),
             ])
         yield out.getvalue()
         out.seek(0)
@@ -135,7 +183,8 @@ def export_ping_summary_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int
 def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, contract_down_mbps: float = 0.0,
                           contract_up_mbps: float = 0.0, default_isp: str = "", box_id: str = "") -> str:
     """All speed test fields. The first 27 columns keep their order (anyone reading them by position is
-    not broken); the columns after them were added on 2026-11-10. Times are UTC."""
+    not broken); the columns after them were added on 2026-11-10, the last three (uplink_kind, isp_path,
+    setup_source; box_mode is earlier) say how the box was connected. Times are UTC."""
     out = io.StringIO()
     writer = _SafeWriter(out)
     writer.writerow([
@@ -145,6 +194,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
         "server_id", "server_name", "server_host", "server_location", "result_url", "error",
         "row_id", "time_zone", "cycle_time_iso", "duration_s", "bound_iface", "bound_ip", "retransmits",
         "tcp_window", "box_id", "nmb_version", "box_mode", "client_ip_source", "server_ip", "servers_all",
+        "uplink_kind", "isp_path", "setup_source",
     ])
 
     rows = conn.execute(
@@ -152,8 +202,9 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
                   server_id, server_name, server_host, server_location, client_ip, client_ipv6, result_url, error,
                   down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms,
                   connection_type, engine, colo, id, cycle_ts, duration_ms, bound_iface, bound_ip,
-                  retransmits, tcp_window, nmb_version, box_mode, client_ip_source, server_ip, raw_json
-           FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""",
+                  retransmits, tcp_window, nmb_version, box_mode, client_ip_source, server_ip, raw_json{setup}
+           FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""".format(
+            setup=setup_select(conn, "speedtest", SETUP_CODES[1:])),
         (start_ms, end_ms)
     ).fetchall()
 
@@ -217,6 +268,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
             r["client_ip_source"] or "",
             r["server_ip"] or "",
             _servers_all(r),
+            *_setup_cells(r)[1:],
         ])
     return out.getvalue()
 
@@ -235,22 +287,26 @@ def export_detailed_speedtests_csv(
 
     Speeds that are not set are 0 and judge nothing: the export used to fill in 1000/200 and 300/50
     Mbit/s. A value that was not measured is "--", never "0 %" or "0 ms". Times are UTC (column
-    "Time zone" says so). The status code is the dossier's (nmb/report/status_codes.py).
+    "Time zone" says so). The status code is the dossier's (nmb/report/status_codes.py). The last three
+    columns say how the box was connected, in the words of nmb/common/setup_texts.py ("unknown" when it
+    is not known); the headers are English, so are these words.
     """
     from nmb.report.status_codes import classify
     out = io.StringIO()
     # Semicolon delimited with UTF-8 BOM
     out.write("\ufeff")
     writer = _SafeWriter(out, delimiter=";")
+    words = setup_texts.texts(DETAILED_LANG)
     writer.writerow([
         "Time", "IP address", "ISP", "Download", "Download %", "Upload", "Upload %", "Latency", "Status",
         "Time zone", "Status text", "Engine", "Interface", "Server", "Server address",
+        words["setup_col_mode"], words["setup_col_link"], words["setup_col_path"],
     ])
 
     rows = conn.execute(
         """SELECT ts, trigger, status, down_bps, up_bps, ping_us, jitter_us, client_ip, client_ipv6,
-                  connection_type, error, engine, bound_iface, client_ip_source, server_host, server_name, server_ip
-           FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""",
+                  connection_type, error, engine, bound_iface, client_ip_source, server_host, server_name, server_ip{setup}
+           FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""".format(setup=setup_select(conn, "speedtest")),
         (start_ms, end_ms)
     ).fetchall()
 
@@ -288,6 +344,7 @@ def export_detailed_speedtests_csv(
             r["bound_iface"] or "",
             r["server_name"] or "",
             r["server_ip"] or r["server_host"] or "",
+            *_setup_words(r),
         ])
 
     return out.getvalue()
@@ -295,17 +352,18 @@ def export_detailed_speedtests_csv(
 
 def export_outages_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int) -> str:
     """Outages with the part the box caused itself taken out (counted_sec) and their kind:
-    "isp" (counted against the line) or "own" (the box's own mode change, update or restart)."""
+    "isp" (counted against the line) or "own" (the box's own mode change, update or restart).
+    The last four columns are the setup when the outage began (codes; empty = unknown)."""
     from nmb.report.metrics import effective_outage_ends, own_action_windows, subtract_spans, MIN_ISP_OUTAGE_SEC
     out = io.StringIO()
     writer = _SafeWriter(out)
     writer.writerow(["outage_id", "start_time_iso", "end_time_iso", "start_ms", "end_ms", "duration_sec", "cause",
-                     "cause_kind", "counted_sec", "own_action_sec"])
+                     "cause_kind", "counted_sec", "own_action_sec", *SETUP_CODES])
 
     rows = conn.execute(
-        """SELECT id, start_ts, end_ts, cause FROM outage
+        """SELECT id, start_ts, end_ts, cause{setup} FROM outage
            WHERE (end_ts IS NULL OR end_ts >= ?) AND start_ts <= ?
-           ORDER BY start_ts DESC""",
+           ORDER BY start_ts DESC""".format(setup=setup_select(conn, "outage")),
         (start_ms, end_ms)
     ).fetchall()
     now = db.now_ms()
@@ -331,6 +389,7 @@ def export_outages_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int) -> 
             kind,
             0 if kind == "own" else int(counted_ms / 1000),
             int(own_ms / 1000),
+            *_setup_cells(r),
         ])
     return out.getvalue()
 

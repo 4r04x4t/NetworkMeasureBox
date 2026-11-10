@@ -74,7 +74,10 @@ CREATE TABLE IF NOT EXISTS speedtest (
     nmb_version TEXT,
     box_mode    TEXT,                    -- standalone / mode_a / mode_b at the time
     client_ip_source TEXT,               -- engine / lookup / socket / local (see SpeedtestResult)
-    server_ip   TEXT                     -- the address the test actually talked to
+    server_ip   TEXT,                    -- the address the test actually talked to
+    uplink_kind TEXT,                    -- ethernet / pppoe / wifi / usb / bridge / passthrough / lag (nmb/common/net_setup.py)
+    isp_path    TEXT,                    -- direct_pppoe / direct_public / direct_cgnat / behind_router; NULL = unknown
+    setup_source TEXT                    -- recorded / changed (mode switched during the test) / derived (afterwards)
 );
 CREATE INDEX IF NOT EXISTS ix_speedtest_ts ON speedtest(ts);
 
@@ -109,7 +112,11 @@ CREATE TABLE IF NOT EXISTS outage (
     id        INTEGER PRIMARY KEY,
     start_ts  INTEGER NOT NULL,
     end_ts    INTEGER,                    -- NULL = ongoing
-    cause     TEXT
+    cause     TEXT,
+    box_mode  TEXT,                       -- the setup when the outage began (nmb/common/net_setup.py)
+    uplink_kind TEXT,
+    isp_path  TEXT,
+    setup_source TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_outage_start ON outage(start_ts);
 
@@ -149,3 +156,16 @@ CREATE TABLE IF NOT EXISTS own_action (
     detail   TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_own_action_start ON own_action(start_ts);
+
+-- How the box was connected over time (netd writes a row when it changes; nmb/common/net_setup.py)
+CREATE TABLE IF NOT EXISTS network_state (
+    id          INTEGER PRIMARY KEY,
+    ts          INTEGER NOT NULL,       -- from this moment on (ms, UTC)
+    box_mode    TEXT,                   -- standalone / mode_a / mode_b; NULL = unknown (netd stopped, switching)
+    iface       TEXT,                   -- the box's link towards the internet
+    uplink_kind TEXT,
+    isp_path    TEXT,
+    source      TEXT NOT NULL,          -- recorded / derived
+    detail      TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_network_state_ts ON network_state(ts);

@@ -5,7 +5,7 @@ import unittest
 from collections import Counter
 from pathlib import Path
 
-from nmb.web.i18n import LOCALE_LANGUAGES, TRANSLATIONS
+from nmb.web.i18n import LOCALE_LANGUAGES, SHARED_KEYS, TRANSLATIONS
 
 LOCALES = Path(__file__).resolve().parent.parent / "nmb" / "web" / "locales"
 PLACEHOLDER = re.compile(r"\{[a-zA-Z_0-9]*\}|%[sd]")
@@ -19,7 +19,8 @@ def _load(code):
 
 class LocaleFilesTest(unittest.TestCase):
     def test_every_language_has_every_key(self):
-        en = set(TRANSLATIONS["en"])
+        # the setup texts come from nmb/common/setup_texts.py for every language (tests/test_measurement_setup.py)
+        en = set(TRANSLATIONS["en"]) - SHARED_KEYS
         for code in LOCALE_LANGUAGES:
             with self.subTest(lang=code):
                 data = _load(code)

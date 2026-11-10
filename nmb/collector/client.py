@@ -51,6 +51,8 @@ SPEED_FIELDS = (
     "down_loaded_lat_ms", "up_loaded_lat_ms", "bufferbloat_grade", "connection_type",
     "client_ip", "client_ipv6", "result_url", "error", "bound_iface",
     "cycle_ts", "duration_ms", "nmb_version", "box_mode", "client_ip_source", "server_ip",
+    # how the box was connected (nmb/common/net_setup.py); the box's address itself stays on the box
+    "uplink_kind", "isp_path", "setup_source",
 )
 
 _UID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"  # no 0/o, 1/l/i: easy to read out on the phone

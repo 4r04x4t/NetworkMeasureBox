@@ -12,6 +12,7 @@ Tracks active alert state in SQLite to eliminate alert spamming.
 """
 from __future__ import annotations
 
+import html
 import logging
 import os
 import shutil
@@ -19,10 +20,11 @@ import sqlite3
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from nmb.bot.client import TelegramClient
-from nmb.bot.i18n import ALERT_TEMPLATES, format_alert, get_chat_lang
+from nmb.bot.commands import setup_html, setup_select
+from nmb.bot.i18n import ALERT_TEMPLATES, format_alert, get_chat_lang, t
 from nmb.config import Config
 from nmb.db import database as db
 import nmb.common.heal as heal
@@ -36,12 +38,15 @@ class AlertMonitor:
         self.client = client
         self.recipients = cfg.telegram.allowed_chat_ids
 
-    def _broadcast(self, msg_or_key: str, **kwargs) -> None:
+    def _broadcast(self, msg_or_key: str, setup: Optional[Any] = None, **kwargs) -> None:
+        """setup: a row with the setup codes; adds "Setup: ..." in each chat's language."""
         for chat_id in self.recipients:
             try:
                 if kwargs or msg_or_key in ALERT_TEMPLATES.get("en", {}):
                     lang = get_chat_lang(chat_id, self.cfg)
                     msg = format_alert(msg_or_key, lang, **kwargs)
+                    if setup is not None:
+                        msg += f"\n{html.escape(t('setup_label', lang))}: {setup_html(setup, lang)}"
                 else:
                     msg = msg_or_key
                 self.client.send_message(chat_id, msg)
@@ -68,8 +73,10 @@ class AlertMonitor:
 
     def check_outages(self, conn: sqlite3.Connection) -> None:
         """Check for ongoing or recently resolved outages."""
+        setup_cols = setup_select(conn, "outage")      # how the box was connected when it began
         ongoing = conn.execute(
-            "SELECT id, start_ts, end_ts, cause FROM outage WHERE end_ts IS NULL ORDER BY start_ts DESC LIMIT 1"
+            f"SELECT id, start_ts, end_ts, cause{setup_cols} FROM outage WHERE end_ts IS NULL "
+            "ORDER BY start_ts DESC LIMIT 1"
         ).fetchone()
         if ongoing:
             # A row left open by a probe that stopped is over once pings are answered again; otherwise the alert
@@ -88,7 +95,8 @@ class AlertMonitor:
             if any(a <= now <= b for a, b in own_action_windows(conn, now - 3_600_000, now)):
                 return
             cause = ongoing["cause"] or "No probe targets reachable"
-            self._broadcast("outage_start", cause=cause, box_id=self.cfg.system.box_id)
+            self._broadcast("outage_start", setup=ongoing if setup_cols else None, cause=cause,
+                            box_id=self.cfg.system.box_id)
             self._set_alert_state(conn, "outage", "firing", f"Outage start: {cause}")
             log.warning("broadcast outage start alert")
 

@@ -15,7 +15,7 @@ from nmb.db import database as db
 log = logging.getLogger("nmb.common.purge")
 
 CATEGORY_TABLES = {
-    "measurements": ("ping_sample", "ping_minute", "speedtest", "port_check", "outage", "iface_stat"),
+    "measurements": ("ping_sample", "ping_minute", "speedtest", "port_check", "outage", "iface_stat", "network_state"),
     "events": ("event", "alert"),
 }
 CATEGORIES = ("measurements", "events", "reports", "backups", "logs")

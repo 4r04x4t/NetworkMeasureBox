@@ -7134,6 +7134,13 @@ for _code in LOCALE_LANGUAGES:
         _data = {}
     TRANSLATIONS[_code] = {k: v for k, v in _data.items() if isinstance(v, str) and k in TRANSLATIONS["en"]}
 
+# How the box was connected for a measurement: one source for the Web UI, the dossier and the bot, in all
+# 11 languages (nmb/common/setup_texts.py), so these keys are not in the files above.
+from nmb.common import setup_texts as _setup_texts
+SHARED_KEYS = frozenset(_setup_texts.TEXTS["en"])
+for _code in ("en", "hu", "de", "fr", "uk") + LOCALE_LANGUAGES:
+    TRANSLATIONS.setdefault(_code, {}).update(_setup_texts.texts(_code))
+
 # Native names for the language menus, in menu order.
 LANGUAGE_NAMES = {
     "en": "English", "hu": "Magyar", "de": "Deutsch", "fr": "Français", "uk": "Українська",

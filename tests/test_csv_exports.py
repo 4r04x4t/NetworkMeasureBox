@@ -63,7 +63,8 @@ class SpeedCsvTest(unittest.TestCase):
         self.assertEqual(head[:27], OLD_SPEED_HEADER)
         self.assertEqual(head[27:], ["row_id", "time_zone", "cycle_time_iso", "duration_s", "bound_iface", "bound_ip",
                                      "retransmits", "tcp_window", "box_id", "nmb_version", "box_mode",
-                                     "client_ip_source", "server_ip", "servers_all"])
+                                     "client_ip_source", "server_ip", "servers_all",
+                                     "uplink_kind", "isp_path", "setup_source"])
         self.assertEqual(row["cycle_time_iso"], "2026-11-09T11:15:00+00:00")
         self.assertEqual(row["timestamp_iso"], "2026-11-09T11:16:00+00:00")   # the engine's own start
         self.assertEqual((row["duration_s"], row["retransmits"], row["box_mode"]), ("31.5", "0", "standalone"))
@@ -91,8 +92,8 @@ class EventsAndPingTest(unittest.TestCase):
         conn.execute("INSERT INTO target (id, addr, label, role) VALUES (101, '192.0.2.1', 'GW', 'Local Gateway')")
         conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (101, 60000, 120, 0)")
         rows = _rows(ce.export_ping_summary_csv(conn, 0, 10 ** 6))
-        self.assertEqual(rows[0][-2:], ["target_role", "time_zone"])
-        self.assertEqual(rows[1][-2:], ["Local Gateway", "UTC"])
+        self.assertEqual(rows[0][13:15], ["target_role", "time_zone"])     # the setup columns follow them
+        self.assertEqual(rows[1][13:15], ["Local Gateway", "UTC"])
 
 
 class RunnerRowTest(unittest.TestCase):

@@ -596,6 +596,20 @@ NMB is developed the agile way: it keeps changing after it ships, and many bugs 
 - **Every session is recorded.** Who connected (key name: a person or an agent), when, and every command and file change, in an audit log the session itself cannot erase. The owner sees it in the Web UI and can end a session or turn maintenance mode off at any time.
 - **Time limit.** Maintenance mode turns itself off after a set time (for example 24 h) unless renewed.
 
+### Remote access without Tailscale on the device (owner, 2026-11-10)
+
+Tailscale exists only in Go and is too large for the small routers (32 MB RAM), so the C builds do not carry it. They are still reached, managed and programmed from anywhere, in this order of preference:
+
+1. **WireGuard to a hub, dialled outwards.** The kernel WireGuard (`kmod-wireguard`, C, small) connects the router as a client to a hub the owner chooses: the Raspberry Pi 4 box, a larger router with a WireGuard server, or a rented server. Because the router calls out, it works behind CGNAT and firewalls and needs no open port on its WAN. SSH (`dropbear`, keys only), the Web UI and `nmb-cli` run through the tunnel. `nmbd` sets the tunnel up itself (keys made on the device, the hub's public key and address entered once or scanned as a QR code) and keeps it alive.
+2. **A Go box as the door to the others.** A box that does run Tailscale (the Pi 4, or a Go-capable router) announces the hub's tunnel network, or the local network, into the owner's tailnet as a subnet router. The owner keeps using Tailscale on the phone and the PC and reaches the small routers through that box; nothing written in Go runs on them. On the same LAN as such a box no tunnel is needed at all.
+3. **Reverse SSH tunnel** to a jump host the owner names, when WireGuard cannot be used (no kernel module on the target, UDP blocked): `dropbear`'s client keeps an outgoing connection with a remote forward, keys only.
+4. **Control without a shell:** the collector's fixed commands (speed test, diagnostics, upload) and the Telegram bot already work over outgoing connections only; they stay available on every target and never give a shell.
+5. **Local recovery when the network is gone:** the serial console, OpenWrt failsafe and TFTP recovery of each target, written down before its port starts (see *Fixing without bricking* below).
+
+Rules for all of them: off until the owner switches it on; keys only, never a password; never listening on the WAN; the maintenance mode's time limit and audit log apply (above); the hub's address and keys are configuration, never built in (Quality Bar point 8); a lost tunnel never stops measuring. Programming over these paths is the same as on the Pi: a cross-built `nmbd` is uploaded through the tunnel or the Web UI, started beside the running one, and rolled back by itself when it does not report healthy; logs go to the collector or syslog instead of the flash.
+
+Per target: on 8 MiB flash WireGuard and `dropbear` fit; on the 4 MiB TL-WR740N the image may have room for only one of them, so path 2 over the LAN (or path 3) is the planned one there, to be confirmed when its image is built. Each target's table says which paths it has, and each is tested on the real device (connect from outside through CGNAT, upload a build, forced rollback, tunnel loss during a test).
+
 ### Detailed logging that stays useful in the field
 
 - **Structured logs** (one JSON object per line: time, level, component, event, values) from every component, so people and LLM agents can search and parse them.

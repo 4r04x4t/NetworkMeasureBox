@@ -25,11 +25,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from nmb.bot.client import TelegramClient
+from nmb.common import net_setup, setup_texts
 from nmb.config import Config
 from nmb.db import database as db
 from nmb.netd import interfaces
 from nmb.report.dossier import generate_html_dossier
-from nmb.report.metrics import aggregate_report_data
+from nmb.report.metrics import SETUP_COLS, _columns, _setup_of, aggregate_report_data
 from nmb.speed.runner import run_measurement_cycle
 
 # Modular subsystem imports
@@ -110,6 +111,48 @@ def _host_usage() -> tuple:
     except (OSError, ValueError):
         pass
     return cpu, mem, disk, temp
+
+
+# ------------------------------------------------------------------ how the box was connected
+def setup_select(conn: sqlite3.Connection, table: str = "speedtest") -> str:
+    """', box_mode, uplink_kind, isp_path, setup_source' when the table has them, else ''.
+
+    A read-only connection does not migrate, so a database not upgraded yet lacks the columns.
+    """
+    return ", " + ", ".join(SETUP_COLS) if set(SETUP_COLS) <= _columns(conn, table) else ""
+
+
+def setup_html(row: Any, lang: str) -> str:
+    """"Router · PPPoE · direct to the ISP" for Telegram HTML; a changed or reconstructed setup says so."""
+    codes = _setup_of(row)
+    text = html.escape(setup_texts.summary(codes, lang))
+    if codes["setup_source"] in ("changed", "derived"):
+        text += f" (<i>{html.escape(setup_texts.source_label(codes['setup_source'], lang))}</i>)"
+    return text
+
+
+def _current_link(conn: sqlite3.Connection) -> Dict[str, Optional[str]]:
+    """The link netd recorded last (network_state); every value None when nothing was recorded.
+
+    Only a recorded row tells the present: a reconstructed one describes the time before recording began.
+    """
+    try:
+        row = conn.execute("SELECT iface, uplink_kind, isp_path FROM network_state WHERE source = 'recorded' "
+                           "ORDER BY ts DESC, id DESC LIMIT 1").fetchone()
+    except sqlite3.Error:
+        row = None
+    iface, kind, path = tuple(row) if row else (None, None, None)
+    return {"iface": iface, "uplink_kind": kind if kind in net_setup.UPLINK_KINDS else None,
+            "isp_path": path if path in net_setup.ISP_PATHS else None}
+
+
+def _mode_words(code: Optional[str], lang: str) -> str:
+    """'Router mode (mode_a)'; the code stays beside it, since /mode takes the code."""
+    if code == "auto":
+        return code
+    if code in net_setup.MODES:
+        return f"{setup_texts.mode_label(code, lang)} ({code})"
+    return setup_texts.mode_label(None, lang)      # nothing recorded, or no mode code: unknown
 
 
 class CommandHandler:
@@ -254,14 +297,14 @@ class CommandHandler:
             lang = get_chat_lang(chat_id, self.cfg)
         try:
             conn = db.connect(readonly=True)
-            mode_row = conn.execute("SELECT v FROM kv WHERE k = 'active_mode'").fetchone()
-            wan_row = conn.execute("SELECT v FROM kv WHERE k = 'active_wan_iface'").fetchone()
-            active_mode = (mode_row["v"] if mode_row else "unknown").upper()
-            wan_iface = wan_row["v"] if wan_row else self.cfg.network.wan_interface
-
-            # 24h report summary
-            rep = aggregate_report_data(conn, self.cfg, window_hours=24.0)
-            conn.close()
+            try:
+                # The mode in words; no mode code recorded is unknown, never a raw value
+                mode_txt = html.escape(setup_texts.mode_label(net_setup.active_mode(conn)[0], lang, short=True))
+                link = _current_link(conn)
+                # 24h report summary
+                rep = aggregate_report_data(conn, self.cfg, window_hours=24.0)
+            finally:
+                conn.close()
 
             wan_carrier = "UP" if interfaces.get_carrier(self.cfg.network.wan_interface) else "DOWN"
             lan_carrier = "UP" if interfaces.get_carrier(self.cfg.network.lan_interface) else "DOWN"
@@ -302,6 +345,13 @@ class CommandHandler:
             latest_st = next((s for s in rep.speed_tests if s.get("status") == "ok" and s.get("scope") != "lan"), {})
             st_down = f"{latest_st['down_mbps']:.1f} Mb/s" if latest_st.get("down_mbps") is not None else "--"
             st_up = f"{latest_st['up_mbps']:.1f} Mb/s" if latest_st.get("up_mbps") is not None else "--"
+            # How that test was connected (its own stored setup, never today's), and the link now
+            st_setup = f"\n   ↳ {html.escape(t('setup_label', lang))}: {setup_html(latest_st, lang)}" if latest_st else ""
+            iface_txt = f" (<code>{html.escape(str(link['iface']))}</code>)" if link["iface"] else ""
+            link_line = (f"🔌 <b>{html.escape(t('setup_col_link', lang))}:</b> "
+                         f"{html.escape(setup_texts.link_label(link['uplink_kind'], lang))}{iface_txt} | "
+                         f"<b>{html.escape(t('setup_col_path', lang))}:</b> "
+                         f"{html.escape(setup_texts.path_label(link['isp_path'], lang))}")
             loss_txt = f"{rep.ping_summary.loss_pct:.2f}%" if rep.ping_summary.total_sent else "--"
             compliance_txt = f"{rep.speed_summary.sla_compliance_pct:.0f}%" if rep.speed_summary.judged_tests else "--"
 
@@ -336,13 +386,14 @@ class CommandHandler:
 
 🌐 <b>{t('public_ip', lang)}:</b> <code>{html.escape(client_ip)}</code>
 🏢 <b>{t('isp', lang)}:</b> <b>{html.escape(isp_name)}</b>
-⚙️ <b>{t('mode', lang)}:</b> <code>{active_mode}</code> (WAN: <b>{wan_carrier}</b> | LAN: <b>{lan_carrier}</b>)
+⚙️ <b>{t('mode', lang)}:</b> <b>{mode_txt}</b> (WAN: <b>{wan_carrier}</b> | LAN: <b>{lan_carrier}</b>)
+{link_line}
 
 📈 <b>{t('uptime_24h', lang)}:</b> <b>{f"{rep.uptime_pct:.2f}%" if rep.uptime_known else "--"}</b> ({outages_cnt} {outages_label})
 ⏱️ <b>{t('latency_rtt', lang)}:</b> {rtt_avg} ms (Jitter: {jitter_avg} ms)
 📉 <b>{t('packet_loss', lang)}:</b> <b>{loss_txt}</b>
 ⚖️ <b>{t('sla_verdict', lang)}:</b> <b>{html.escape(sla_verdict_str)}</b> ({t('compliance', lang)}: {compliance_txt}){sla_reason_line}
-🚀 <b>{t('latest_speed', lang)}:</b> ↓ <b>{st_down}</b> | ↑ <b>{st_up}</b>{dc_line}
+🚀 <b>{t('latest_speed', lang)}:</b> ↓ <b>{st_down}</b> | ↑ <b>{st_up}</b>{st_setup}{dc_line}
 
 🛡️ <b>{t('services_security', lang)}:</b>
 • Tailscale Mesh VPN: <b>{ts_badge}</b>
@@ -444,12 +495,15 @@ class CommandHandler:
 
             # Only this test's own rows: a scheduled test may have stored one meanwhile (2026-11-09).
             conn = db.connect(readonly=True)
-            rows = conn.execute(
-                """SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine, error, client_ip, client_ipv6,
-                          client_ip_source, server_host
-                   FROM speedtest WHERE ts >= ? AND trigger = 'telegram' ORDER BY id""", (t0 - 1000,)
-            ).fetchall()
-            conn.close()
+            try:
+                setup_cols = setup_select(conn)
+                rows = conn.execute(
+                    f"""SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine, error, client_ip,
+                              client_ipv6, client_ip_source, server_host{setup_cols}
+                       FROM speedtest WHERE ts >= ? AND trigger = 'telegram' ORDER BY id""", (t0 - 1000,)
+                ).fetchall()
+            finally:
+                conn.close()
             ok_rows = [r for r in rows if r["status"] == "ok"]
             row = ok_rows[-1] if ok_rows else (rows[-1] if rows else None)
 
@@ -513,6 +567,14 @@ class CommandHandler:
 
             title_str = t("speed_result_title", lang, engine=html.escape(str(active_engine)).upper())
 
+            # How the box was connected for this test: one line when every engine of it had the same setup,
+            # else each engine's own beside its result (the columns are missing on a database not migrated yet)
+            setup_label = html.escape(t("setup_label", lang))
+            per_engine_setup = bool(setup_cols) and len({tuple(_setup_of(r).values()) for r in rows}) > 1
+            setup_block = f"\n🔌 <b>{setup_label}:</b> {setup_html(row, lang)}" if setup_cols else ""
+            if setup_cols and any(_setup_of(r)["isp_path"] == "behind_router" for r in rows):
+                setup_block += f"\n<i>{html.escape(t('setup_warn_behind', lang))}</i>"
+
             msg = f"""{title_str}
 
 🌐 <b>{t('public_ip', lang)}:</b> <code>{html.escape(client_ip)}</code>
@@ -521,7 +583,7 @@ class CommandHandler:
 📥 <b>{t('download', lang)}:</b> <b>{f"{down_mbps:.1f} Mbps" if down_mbps is not None else "--"}</b>{down_share}
 📤 <b>{t('upload', lang)}:</b> <b>{f"{up_mbps:.1f} Mbps" if up_mbps is not None else "--"}</b>{up_share}
 ⏱️ <b>{t('latency_rtt', lang)}:</b> {ping_txt} (Jitter: {jitter_txt})
-🖥️ <b>{t('server', lang)}:</b> {html.escape(str(row['server_name'] or t('edge_server', lang)))}
+🖥️ <b>{t('server', lang)}:</b> {html.escape(str(row['server_name'] or t('edge_server', lang)))}{setup_block}
 
 ⚖️ <b>{t('speed_result_label', lang)}:</b> {status_badge}
 <i>{status_text if not lan else "LAN"}</i>
@@ -532,6 +594,7 @@ class CommandHandler:
                     + (" / ".join(f"{v / 1e6:.1f}" if v is not None else "--" for v in (r["down_bps"], r["up_bps"])) + " Mbps, "
                        + (f"{r['ping_us'] / 1000:.1f} ms" if r["ping_us"] is not None else "-- ms")
                        if r["status"] == "ok" else f"— {html.escape(str(r['error'] or r['status'])[:80])}")
+                    + (f" | {setup_label}: {setup_html(r, lang)}" if per_engine_setup else "")
                     for r in rows)
             inline_kb = {
                 "inline_keyboard": [
@@ -619,9 +682,9 @@ class CommandHandler:
             lang = get_chat_lang(chat_id, self.cfg)
         self._say(chat_id, "ai_generating")
         try:
-            conn = db.connect(readonly=True)
-            bundle_md = llm_bundle.generate_llm_diagnostic_bundle(self.cfg, conn)
-            conn.close()
+            # It reads the database itself; a connection passed here landed in force_refresh (always truthy),
+            # so every /ai rebuilt the bundle and never used its 60 s cache.
+            bundle_md = llm_bundle.generate_llm_diagnostic_bundle(self.cfg)
 
             filename = f"nmb_diagnostic_bundle_{self.cfg.system.box_id}_{int(time.time())}.md"
             caption = t("ai_caption", lang)
@@ -636,12 +699,13 @@ class CommandHandler:
             lang = get_chat_lang(chat_id, self.cfg)
         if not args:
             conn = db.connect(readonly=True)
-            row = conn.execute("SELECT v FROM kv WHERE k = 'active_mode'").fetchone()
-            ovr = conn.execute("SELECT v FROM kv WHERE k = 'override_mode'").fetchone()
-            conn.close()
-            cur_mode = row["v"] if row else "unknown"
+            try:
+                cur_mode = net_setup.active_mode(conn)[0]
+                ovr = conn.execute("SELECT v FROM kv WHERE k = 'override_mode'").fetchone()
+            finally:
+                conn.close()
             cur_ovr = ovr["v"] if ovr else "none"
-            msg = t("mode_current", lang, mode=html.escape(cur_mode), ovr=html.escape(cur_ovr))
+            msg = t("mode_current", lang, mode=html.escape(_mode_words(cur_mode, lang)), ovr=html.escape(cur_ovr))
             self.client.send_message(chat_id, msg)
             return
 
@@ -659,7 +723,7 @@ class CommandHandler:
             )
         conn.close()
 
-        upd_msg = t("mode_updated", lang, mode=html.escape(target_mode))
+        upd_msg = t("mode_updated", lang, mode=html.escape(_mode_words(target_mode, lang)))
         self.client.send_message(chat_id, upd_msg)
 
     # =========================================================================

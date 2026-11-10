@@ -17,7 +17,8 @@ class BotLocaleTest(unittest.TestCase):
         return {p.stem.replace("_", "-"): json.loads(p.read_text(encoding="utf-8")) for p in LOCALES.glob("*.json")}
 
     def test_every_language_is_complete(self):
-        en = set(B.STRINGS["en"])
+        # the setup texts come from nmb/common/setup_texts.py for every language (tests/test_measurement_setup.py)
+        en = set(B.STRINGS["en"]) - B.SHARED_KEYS
         for code, data in self._files().items():
             with self.subTest(lang=code):
                 self.assertEqual(sorted(en - set(data["strings"])), [])

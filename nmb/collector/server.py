@@ -31,6 +31,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, quote, urlparse
 
+from nmb.common import setup_texts
+
 log = logging.getLogger("nmb.collector.server")
 
 MAX_BODY = 8 * 1024 * 1024
@@ -41,6 +43,8 @@ SPEED_COLS = (
     "down_loaded_lat_ms", "up_loaded_lat_ms", "bufferbloat_grade", "connection_type",
     "client_ip", "client_ipv6", "result_url", "error", "bound_iface",
     "cycle_ts", "duration_ms", "nmb_version", "box_mode", "client_ip_source", "server_ip",
+    # how the box was connected (nmb/common/net_setup.py); the box's address itself stays on the box
+    "uplink_kind", "isp_path", "setup_source",
 )
 
 SCHEMA = """
@@ -61,6 +65,7 @@ CREATE TABLE IF NOT EXISTS speedtest (
     down_loaded_lat_ms REAL, up_loaded_lat_ms REAL, bufferbloat_grade TEXT, connection_type TEXT,
     client_ip TEXT, client_ipv6 TEXT, result_url TEXT, error TEXT, bound_iface TEXT,
     cycle_ts INTEGER, duration_ms INTEGER, nmb_version TEXT, box_mode TEXT, client_ip_source TEXT, server_ip TEXT,
+    uplink_kind TEXT, isp_path TEXT, setup_source TEXT,
     PRIMARY KEY (box_uid, src_id)
 );
 CREATE INDEX IF NOT EXISTS ix_speed_ts ON speedtest(box_uid, ts);
@@ -180,7 +185,8 @@ def connect(data_dir: Path) -> sqlite3.Connection:
         conn.execute("ALTER TABLE box ADD COLUMN remote_allowed INTEGER DEFAULT 0")
     speed_cols = {r[1] for r in conn.execute("PRAGMA table_info(speedtest)")}
     for col, typ in (("cycle_ts", "INTEGER"), ("duration_ms", "INTEGER"), ("nmb_version", "TEXT"),
-                     ("box_mode", "TEXT"), ("client_ip_source", "TEXT"), ("server_ip", "TEXT")):
+                     ("box_mode", "TEXT"), ("client_ip_source", "TEXT"), ("server_ip", "TEXT"),
+                     ("uplink_kind", "TEXT"), ("isp_path", "TEXT"), ("setup_source", "TEXT")):
         if col not in speed_cols:
             conn.execute(f"ALTER TABLE speedtest ADD COLUMN {col} {typ}")
     return conn
@@ -211,7 +217,16 @@ _INT_COLS = ("ts", "server_id", "down_bps", "up_bps", "ping_us", "jitter_us", "c
 _NUM_COLS = ("loss_pct", "down_loaded_lat_ms", "up_loaded_lat_ms")
 
 
+def _setup_codes() -> dict:
+    from nmb.common import net_setup
+    return {"box_mode": net_setup.MODES, "uplink_kind": net_setup.UPLINK_KINDS,
+            "isp_path": net_setup.ISP_PATHS, "setup_source": net_setup.SOURCES}
+
+
 def _speed_value(col: str, v: Any) -> Any:
+    codes = _setup_codes().get(col)
+    if codes is not None:
+        return v if isinstance(v, str) and v in codes else None   # only the known setup codes are stored
     if col in _INT_COLS:
         return _int(v)
     if col in _NUM_COLS:
@@ -511,6 +526,19 @@ def _when(ms: Any) -> str:
     return time.strftime("%Y-%m-%d %H:%M", time.localtime(ms / 1000)) if ms else "--"
 
 
+def _setup_cell(r: Any, lang: str) -> str:
+    """"Router · PPPoE · direct to the ISP" for a speed test row, HTML-escaped.
+
+    The words are the box's own (nmb/common/setup_texts.py). The box sent the values: only the known
+    codes count, anything else shows as unknown.
+    """
+    data = {k: r[k] for k in ("box_mode", "uplink_kind", "isp_path", "setup_source")}
+    cell = html.escape(setup_texts.summary(data, lang))
+    if data["setup_source"] in ("changed", "derived"):
+        cell += f' <span class="muted">({html.escape(setup_texts.source_label(data["setup_source"], lang))})</span>'
+    return cell
+
+
 def _page(lang: str, title: str, body: str) -> str:
     return (f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width, initial-scale=1"><title>{html.escape(title)}</title>'
@@ -555,11 +583,13 @@ def render_box(conn: sqlite3.Connection, uid: str, lang: str) -> Optional[str]:
         for r in s["ping"])
     cases = ", ".join(e(c["case_id"]) for c in s["cases"]) or "--"
     recent = conn.execute(
-        "SELECT ts, engine, status, down_bps, up_bps, ping_us, server_name, error FROM speedtest WHERE box_uid = ? ORDER BY ts DESC LIMIT 50",
+        "SELECT ts, engine, status, down_bps, up_bps, ping_us, server_name, error, "
+        "box_mode, uplink_kind, isp_path, setup_source FROM speedtest WHERE box_uid = ? ORDER BY ts DESC LIMIT 50",
         (uid,)).fetchall()
     rec = "".join(
         f'<tr><td>{_when(r["ts"])}</td><td>{e(r["engine"] or "")}</td><td>{e(r["status"] or "")}</td><td>{_mbps(r["down_bps"])}</td>'
-        f'<td>{_mbps(r["up_bps"])}</td><td>{_ms(r["ping_us"])}</td><td>{e(r["server_name"] or r["error"] or "")}</td></tr>'
+        f'<td>{_mbps(r["up_bps"])}</td><td>{_ms(r["ping_us"])}</td><td>{e(r["server_name"] or r["error"] or "")}</td>'
+        f'<td>{_setup_cell(r, lang)}</td></tr>'
         for r in recent)
     events = conn.execute(
         "SELECT ts, severity, source, kind, detail FROM event WHERE box_uid = ? ORDER BY ts DESC LIMIT 100", (uid,)).fetchall()
@@ -605,7 +635,8 @@ def render_box(conn: sqlite3.Connection, uid: str, lang: str) -> Optional[str]:
                f'<th>{t["detail"]}</th></tr>{ev}</table></div>' if ev else "")
             + f'<h2>{t["recent"]}</h2><p><a href="/box/{quote(uid)}/speedtests.csv">{t["csv"]}</a></p>'
             f'<div class="wrap"><table><tr><th>{t["time"]}</th><th>{t["engine"]}</th><th>{t["status"]}</th><th>{t["down"]}</th>'
-            f'<th>{t["up"]}</th><th>Ping</th><th>{t["server"]}</th></tr>{rec}</table></div>')
+            f'<th>{t["up"]}</th><th>Ping</th><th>{t["server"]}</th><th>{e(setup_texts.texts(lang)["setup_label"])}</th></tr>'
+            f'{rec}</table></div>')
     return _page(lang, f'{t["box"]} {uid}', body)
 
 

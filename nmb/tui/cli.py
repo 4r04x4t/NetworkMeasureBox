@@ -7,6 +7,7 @@ import sys
 from dataclasses import asdict
 from typing import List, Optional
 
+from nmb.common import net_setup, setup_texts
 from nmb.tui import catalog, logs
 from nmb.tui.client import ApiClient, ApiError
 
@@ -37,6 +38,13 @@ def _print(data) -> None:
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
+def setup_text(row: dict) -> str:
+    """The setup a result was measured in, short and in English ("Router · PPPoE · direct to the ISP"); "--" unknown."""
+    if not any(net_setup.label_codes(row)[:3]):
+        return "--"
+    return setup_texts.summary(row, "en", short=True)
+
+
 def _latest(client: ApiClient, engine: str, as_json: bool) -> int:
     import time
     st = client.call("GET", "/api/status", timeout=30)
@@ -49,7 +57,9 @@ def _latest(client: ApiClient, engine: str, as_json: bool) -> int:
 
     def mbps(v):
         return f"{v / 1e6:.1f}" if v else "--"
-    print(f"{'engine':<11} {'time':<16} {'down Mbps':>9} {'up Mbps':>8} {'ping ms':>8}  server")
+    setups = {n: setup_text(r) for n, r in rows.items() if r}
+    width = max([len("setup")] + [len(s) for s in setups.values()])
+    print(f"{'engine':<11} {'time':<16} {'down Mbps':>9} {'up Mbps':>8} {'ping ms':>8}  {'setup':<{width}}  server")
     for n in names:
         r = rows.get(n)
         if not r:
@@ -57,7 +67,11 @@ def _latest(client: ApiClient, engine: str, as_json: bool) -> int:
             continue
         when = time.strftime("%Y-%m-%d %H:%M", time.localtime((r.get("ts") or 0) / 1000))
         ping = f"{r['ping_us'] / 1000:.1f}" if r.get("ping_us") else "--"
-        print(f"{n:<11} {when:<16} {mbps(r.get('down_bps')):>9} {mbps(r.get('up_bps')):>8} {ping:>8}  {r.get('server_name') or ''}")
+        print(f"{n:<11} {when:<16} {mbps(r.get('down_bps')):>9} {mbps(r.get('up_bps')):>8} {ping:>8}  "
+              f"{setups[n]:<{width}}  {r.get('server_name') or ''}")
+        source = net_setup.label_codes(r)[3]
+        if source in ("changed", "derived"):
+            print(f"{'':<11} setup {setup_texts.source_label(source, 'en')}")
         if r.get("newer_failure"):
             print(f"{'':<11} newer attempt gave no result: {r['newer_failure'].get('error', '')}")
         if r.get("next_possible_ts"):

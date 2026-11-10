@@ -64,6 +64,23 @@ def probe_device(cfg) -> Optional[str]:
     return None
 
 
+def _setup_at(conn, now_ms: int) -> dict:
+    """The setup in which the line failed: netd's last record before it (nmb/common/net_setup.py).
+
+    Not read live: at the start of an outage the link may already be gone (ppp0 removed, no route).
+    """
+    try:
+        from nmb.common import net_setup
+        state = net_setup.Timeline.load(conn, end_ms=now_ms).at(now_ms)
+        if state["setup_source"] == "recorded":
+            return state
+        mode, _ = net_setup.active_mode(conn)
+        return {"box_mode": mode, "uplink_kind": None, "isp_path": None, "setup_source": "recorded" if mode else None}
+    except Exception:
+        log.debug("outage setup not read", exc_info=True)
+        return {"box_mode": None, "uplink_kind": None, "isp_path": None, "setup_source": None}
+
+
 class ProbeEngine:
     def __init__(self, cfg: Config):
         self.cfg = cfg
@@ -342,8 +359,12 @@ class ProbeEngine:
         if all_down and self.active_outage_id is None:
             # Outage started
             log.warning("OUTAGE DETECTED: all targets unreachable")
+            setup = _setup_at(conn, now_ms)
             with db.tx(conn):
-                cur = conn.execute("INSERT INTO outage (start_ts, cause) VALUES (?, ?)", (now_ms, cause))
+                cur = conn.execute(
+                    "INSERT INTO outage (start_ts, cause, box_mode, uplink_kind, isp_path, setup_source) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (now_ms, cause, setup["box_mode"], setup["uplink_kind"], setup["isp_path"], setup["setup_source"]))
                 self.active_outage_id = cur.lastrowid
                 conn.execute(
                     "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'crit', 'probe', 'outage_start', 'Total connectivity loss detected')",

@@ -59,6 +59,7 @@ never accepted "for now" (Quality Bar points 2, 3 and 7).
 8. **Honest reports.** "Works" only for what was run and seen; otherwise "built", "unit-tested" or "not tested".
 9. **Limits of this PC:** 3.9 GB RAM, 4 threads, about 1.8 GB in WSL2. At most three building agents at once,
    one QEMU guest at a time (a lock file), guests with at most 512 MB.
+11. **Behaviour is changed in `spec/` first** (roadmap 6B.8): a package that changes what the box does updates the specification and its vectors in the same change; a bug fix adds a vector that fails without the fix, and the fault register records for which code bases it is fixed.
 10. **The real box:** the Raspberry Pi 4 is the owner's working measuring box. The owner allows every native test
     on it (section 7, point 5), under that point's conditions: backup first, a tried way back, the time marked as
     the box's own action. ARM64 is proved first by the cross build, the tests under `qemu-aarch64-static` and the
@@ -72,6 +73,18 @@ for: a question only the owner can answer (section 7), a step on real hardware w
 or a gate that fails three times on the same package (then it reports what was tried). `WORK_STATUS.md` holds
 for each package: state (waiting, brief, code, verify, accepted, blocked), the commit, the gate's result and open
 questions, so the work continues after any interruption without redoing accepted packages.
+
+### 2.3A Where the development runs: this PC or a rented server (owner, 2026-11-10)
+
+The work can run on the development PC or, for work that should not stop when the PC is off, on a rented server; the status file (2.3) makes it continue wherever the repositories are.
+
+- **What a server gives:** it runs without interruption; with 16 GB of RAM or more the limits of 2.2 point 9 are raised (more building agents, several QEMU guests); an ARM64 server runs the arm64 tests natively. Before renting: check that nested virtualisation (KVM) is available, otherwise the guests run slowly.
+- **What is brought over:** both repositories (from their remotes), the downloaded images and firmware (roadmap 6B.4, checked against their checksums after the copy), the tools of `DEV_SETUP_WINDOWS.md` section 5A, and the agents' skills and notes. The skills and notes live outside the repositories on the PC, so they are copied on purpose and kept in step; whatever of them holds nothing private is better kept in the native repository, so that every place of work has the same.
+- **What never goes to a rented server:** the measuring box's password and the owner's own keys; the signing key (section 7, point 6: signing stays on the owner's PC); the private logs and audit notes; copies of the box's real database (public address, devices on the LAN); the private list of the owner's values used by the build scan. Tests there use the made-up data of the test bed (F-06) only.
+- **The real box from a server:** building, tests and QEMU run on the server; steps on the owner's box stay with the owner's PC. If the server must reach the box, it gets its own key that can be withdrawn at any time, only through the tunnel or Tailscale and only while the maintenance mode is on (porting plan 7D), never the owner's key or the password.
+- **The server itself:** key-only SSH, no service open to the internet besides it, automatic security updates, the disk wiped when the rental ends; the session is kept in a persistent terminal and followed from the owner's devices. The orchestrator still stops for the owner's decisions and for real hardware (2.3), wherever it runs.
+- **Costs** (server rent and model use) are the owner's to weigh; the plan does not assume a server.
+- **Decided for now (owner, 2026-11-10): the development stays on this one Windows PC** (WSL2), with the limits of 2.2 point 9. The points above apply only if the owner later rents a server.
 
 ### 2.4 The gate of every package
 
@@ -98,6 +111,7 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 | F-04 | Contracts | Configuration format (`nmb.conf` compatible, `%` plain, `__KEEP_CURRENT__`), database schema and on-disk formats (same on every architecture), event and log record, platform interfaces (routes/links, Wi-Fi, firewall, service control, hardware), API contract and route table, translation keys, status file formats |
 | F-05 | Phase 0 reference | Golden files and checks captured from the Python version, each reviewed against F-03 before use; the comparison harness (Python and native, same input) |
 | F-06 | Test bed | Hermetic helpers: fake clock, network namespaces with virtual cables, `mac80211_hwsim` where the kernel has it, fake servers for every engine and protocol, the QEMU guest runner with its lock |
+| F-07 | Shared specification and conformance vectors | `spec/` (configuration, schema, API, CSV columns, codes, protocol details, limits, texts) and `spec/vectors/` run by every code base; the fault register with a status per code base; the parity table per target (roadmap 6B.8). Built in step 1 for the Go build, so the C build of step 2 starts from it |
 
 ### 3.1 Core (parallel after F)
 
@@ -110,6 +124,7 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 | C-05 | Addresses, version, user agent, monotonic time helpers | `common/netaddr.py`, `version.py`, `user_agent.py` | QB 6 |
 | C-06 | Translations: keys, 11 languages, build checks | `web/i18n.py`, `bot/i18n.py`, the `locales/` folders | 4.26, 4.4A point 6 |
 | C-07 | Events and own-action windows | `common/own_action.py` | register |
+| C-11 | Measurement setup: classification, history, the words in 11 languages | `common/net_setup.py`, `common/setup_texts.py`, `db/setup_backfill.py` | 4.29 |
 | C-08 | Storage guard, purge, memory and flash health | `common/storage_guard.py`, `purge.py`, `memory.py` | 4.23, 4.26 |
 | C-09 | Tasks and load from `/proc`, IRQ and offload telemetry | `common/tasks.py` | 4.13, 4.22 |
 | C-10 | Country data files and location | (new) | QB 9 |
@@ -152,6 +167,7 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 | N-13 | WireGuard and QR codes | `netd/wireguard.py` | 4.10 |
 | N-14 | OpenVPN | `netd/openvpn.py` | 4.10 |
 | N-15 | Tailscale | `netd/tailscale.py` | 4.10 |
+| N-18 | Remote access without Tailscale on the device: WireGuard to a hub, subnet router on a Go box, reverse SSH | (new) | porting plan 7D |
 | N-16 | DynDNS | `netd/duckdns.py` | porting plan 7.10 |
 | N-17 | Hardware and driver finder, system detection, device explorer | `netd/drivers.py`, `os_detector.py`, `explorer.py` | 4.11 |
 
@@ -195,6 +211,8 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 | P-11 | Packages and images for amd64 and arm64; evaluation of the bases | `setup.sh` | 6A |
 | P-12 | User manual and command reference, with their build checks | (new) | 6B.7 |
 | P-13 | Release proof: release checklist, Python against native on the same box and day, outside scan | `docs/TESTING.md` | QB 1, 4, 5, 7 |
+
+The setup of roadmap 4.29 is not only C-11: M-01, M-02, M-04, N-01, N-03, R-01 to R-05, S-02, U-02, S-10, S-11 and S-12/S-13 each show or store it, and their briefs list it as a requirement.
 
 F-02 may add, split or merge packages; every Python file, every roadmap section and every `TESTING.md` row
 must end up in exactly one package, and the register's check fails otherwise.

@@ -14,10 +14,11 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import List, Optional
 
+from nmb.common import net_setup, setup_texts
 from nmb.config import Config
 from nmb.db import database as db
 from nmb.report.csv_export import export_ping_summary_csv
-from nmb.report.dossier import generate_html_dossier
+from nmb.report.dossier import generate_html_dossier, setup_known, setup_known_distinct, setup_overview
 from nmb.report.metrics import ReportData
 
 log = logging.getLogger("nmb.report.smtp")
@@ -43,6 +44,45 @@ def _gate_text(cfg) -> str:
             "such as devices behind another router, is not excluded.")
 
 
+MAX_SETUP_PERIODS = 12     # the e-mail lists at most this many; the attached dossier has them all
+
+
+def _utc_minute(ts_ms: int) -> str:
+    return datetime.datetime.fromtimestamp(ts_ms / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+def _setup_words(period: dict) -> str:
+    """One period's setup in words; a reconstructed one says so."""
+    text = setup_texts.summary(period, "en", short=False)
+    if period.get("setup_source") == "derived":
+        text += f" ({setup_texts.source_label('derived', 'en')})"
+    return text
+
+
+def _setup_text(report: ReportData) -> str:
+    """How the box was connected in the window: one setup, or its periods when it changed; the warning
+    when the box measured behind another router (English, like the rest of the e-mail)."""
+    en = setup_texts.texts("en")
+    periods = list(getattr(report, "setup_periods", []) or [])
+    _, behind = setup_overview(periods)
+    known, partly = setup_known_distinct(periods)
+    if not setup_known(periods):
+        lines = [f"Measurement Setup   : {en['setup_none']}"]
+    elif len(known) == 1:
+        # a restart or an unrecorded stretch is not a change of setup
+        first = next(p for p in periods if any(net_setup.label_codes(p)[:3]))
+        lines = [f"Measurement Setup   : {_setup_words(first)}" + (f" ({en['setup_partly_unknown']})" if partly else "")]
+    else:
+        lines = ["Measurement Setup   : changed during the period:"]
+        if len(periods) > MAX_SETUP_PERIODS:
+            lines.append(f"  - ... {len(periods) - MAX_SETUP_PERIODS} earlier periods in the attached dossier")
+        lines += [f"  - {_utc_minute(p['start_ts'])} -> {_utc_minute(p['end_ts'])}: {_setup_words(p)}"
+                  for p in periods[-MAX_SETUP_PERIODS:]]       # the newest ones, the current setup included
+    if behind:
+        lines.append(f"WARNING             : {en['setup_warn_behind']}")
+    return "\n".join(lines)
+
+
 def format_plain_text_summary(report: ReportData, cfg=None) -> str:
     """Format technical plain-text message for ISP ticket systems."""
     now_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -59,6 +99,7 @@ Subscribed SLA Plan : {_mbps_or_unset(report.contract_down_mbps)} Down / {_mbps_
 Measurement Window  : Past {(report.end_ms - report.start_ms) // 3600000} Hours
 Telemetry Timestamp : {now_str}
 Hardware Unit ID    : {report.box_id}
+{_setup_text(report)}
 
 ================================================================================
 EXECUTIVE TELEMETRY VERDICT: {report.sla_verdict}

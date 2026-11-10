@@ -100,7 +100,7 @@ class ClassifyTest(_Db):
         self.outage(T0 + H + 20_000, T0 + H + 100_000)
         self.outage(T0 + 5 * H, T0 + 5 * H + 300_000)
         lines = csv_export.export_outages_csv(self.conn, T0, T0 + 24 * H).splitlines()
-        self.assertTrue(lines[0].endswith("cause,cause_kind,counted_sec,own_action_sec"))
+        self.assertEqual(lines[0].split(",")[6:10], ["cause", "cause_kind", "counted_sec", "own_action_sec"])
         kinds = sorted(l.split(",")[7] for l in lines[1:])
         self.assertEqual(kinds, ["isp", "own"])
 

@@ -34,7 +34,7 @@ from urllib.parse import parse_qs, urlparse
 from nmb.config import Config, load_config, save_config, CONNECTION_TYPES, find_drive_config_path, get_writable_drive_config_target, DEFAULT_CONFIG_PATH
 from nmb.db import database as db
 from nmb.netd import interfaces, dns
-from nmb.report.metrics import latest_measured_test, tests_for_display
+from nmb.report.metrics import latest_measured_test, tests_for_display, SETUP_COLS, _columns as _table_columns, _setup_of
 from nmb.netd.drivers import get_full_driver_status, trigger_driver_install, get_driver_install_status, get_interfaces_matrix
 from nmb.netd.adblock import (
     get_full_adblock_status,
@@ -165,6 +165,59 @@ def _fastcom_detail(conn, ts: int) -> Optional[Dict[str, Any]]:
         "loaded_latency_down_ms": raw.get("loaded_latency_down_ms"),
         "loaded_latency_up_ms": raw.get("loaded_latency_up_ms"),
     }
+
+
+def _speed_setup_select(conn) -> str:
+    """", box_mode, ..." for the setup columns speedtest has (a read-only database not migrated yet lacks some)."""
+    have = _table_columns(conn, "speedtest")
+    return "".join(f", {c}" for c in SETUP_COLS if c in have)
+
+
+def _latest_ok_test(conn, engine: str, setup_select: str) -> Optional[Dict[str, Any]]:
+    """The newest successful test of an engine, with how the box was connected (known codes; None = unknown)."""
+    row = conn.execute(
+        f"""SELECT ts, trigger, status, server_id, server_name, server_host, server_location, client_ip, client_ipv6,
+                  down_bps, up_bps, ping_us, jitter_us, loss_pct, result_url, error,
+                  down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms, connection_type,
+                  engine, colo, client_ip_source, server_ip{setup_select}
+           FROM speedtest
+           WHERE LOWER(engine) = ? AND status = 'ok'
+           ORDER BY ts DESC LIMIT 1""",
+        (engine,)
+    ).fetchone()
+    if row is None:
+        return None
+    test = dict(row)
+    test.update(_setup_of(row))
+    return test
+
+
+def _current_setup(conn) -> Dict[str, Any]:
+    """How netd last recorded the box's connection (nmb/common/net_setup.py); None = unknown.
+
+    Only netd's own record counts ('derived' rows are history reconstructed afterwards); a database
+    without the network_state table yet gives unknown, never a guess from today's interfaces.
+    """
+    from nmb.common.net_setup import label_codes
+    setup: Dict[str, Any] = {"box_mode": None, "uplink_kind": None, "isp_path": None, "iface": None, "ts": None}
+    try:
+        row = conn.execute("SELECT ts, box_mode, iface, uplink_kind, isp_path FROM network_state "
+                           "WHERE source = 'recorded' ORDER BY ts DESC, id DESC LIMIT 1").fetchone()
+    except sqlite3.Error:
+        return setup
+    if row is None:
+        return setup
+    mode, kind, path, _ = label_codes({"box_mode": row[1], "uplink_kind": row[3], "isp_path": row[4]})
+    setup.update(box_mode=mode, uplink_kind=kind, isp_path=path, iface=row[2] or None, ts=row[0])
+    return setup
+
+
+def _ui_language(query: str, configured: Optional[str]) -> str:
+    """The page's own language (?lang=, the one the browser shows) when supported, else the configured one."""
+    lang = (parse_qs(query or "").get("lang") or [""])[0]
+    if lang in SUPPORTED_LANGUAGES:
+        return lang
+    return configured if configured in SUPPORTED_LANGUAGES else "en"
 
 
 
@@ -3392,9 +3445,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         active_mode = mode_row["v"] if mode_row else "unknown"
         wan_row = conn.execute("SELECT v FROM kv WHERE k = 'active_wan_iface'").fetchone()
         active_wan_iface = wan_row["v"] if wan_row else ""
+        current_setup = _current_setup(conn)
+        # The chart's words in the page's language (they were Hungarian in every language until 2026-11-10)
+        lang = _ui_language(urlparse(self.path).query, getattr(self.server.cfg.web, "language", "en"))
 
         report = aggregate_report_data(conn, self.server.cfg, window_hours=24.0)
-        svg = render_latency_chart(report.timeseries, report.outages, width=800, height=220)
+        svg = render_latency_chart(report.timeseries, report.outages, width=800, height=220, lang=lang)
 
         # Port check results
         port_rows = conn.execute("SELECT proto, port, endpoint, bps, baseline_bps, ratio, verdict, ts FROM port_check ORDER BY ts DESC LIMIT 25").fetchall()
@@ -3428,30 +3484,21 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # Latest speedtest per engine for instantaneous dashboard switching
         latest_per_engine = {}
+        setup_select = _speed_setup_select(conn)
         for eng in ("ookla", "cloudflare", "fastcom", "rtr", "iperf3"):
-            row = conn.execute(
-                """SELECT ts, trigger, status, server_id, server_name, server_host, server_location, client_ip, client_ipv6,
-                          down_bps, up_bps, ping_us, jitter_us, loss_pct, result_url, error,
-                          down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms, connection_type,
-                          engine, colo, client_ip_source, server_ip
-                   FROM speedtest
-                   WHERE LOWER(engine) = ? AND status = 'ok'
-                   ORDER BY ts DESC LIMIT 1""",
-                (eng,)
-            ).fetchone()
-            if row:
-                d = dict(row)
+            d = _latest_ok_test(conn, eng, setup_select)
+            if d:
                 from nmb.report.status_codes import speed_scope
                 d["scope"] = speed_scope(d)      # a LAN server's test: no share of the ISP's speed on the card
                 if eng == "iperf3":
                     from nmb.speed.iperf_directory import label_iperf_row
                     label_iperf_row(d)
                 if eng == "fastcom":
-                    d["fastcom_detail"] = _fastcom_detail(conn, row["ts"])
+                    d["fastcom_detail"] = _fastcom_detail(conn, d["ts"])
                 # A failed run after the last result is mentioned, not shown as a result.
                 fail = conn.execute(
                     "SELECT ts, error FROM speedtest WHERE LOWER(engine) = ? AND status = 'error' AND ts > ? ORDER BY ts DESC LIMIT 1",
-                    (eng, row["ts"])).fetchone()
+                    (eng, d["ts"])).fetchone()
                 if fail:
                     d["newer_failure"] = {"ts": fail["ts"], "error": fail["error"] or ""}
                 if eng == "ookla":
@@ -3460,8 +3507,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                                scheduled_wait_remaining(60 * self.server.cfg.speedtest.ookla_interval_min))
                     d["next_possible_ts"] = int((time.time() + wait) * 1000) if wait > 0 else None
                     d["selected_server_id"] = self.server.cfg.speedtest.server_id
-                d_mbps = (row["down_bps"] or 0) / 1_000_000.0 if row["down_bps"] else None
-                u_mbps = (row["up_bps"] or 0) / 1_000_000.0 if row["up_bps"] else None
+                d_mbps = d["down_bps"] / 1_000_000.0 if d["down_bps"] else None
+                u_mbps = d["up_bps"] / 1_000_000.0 if d["up_bps"] else None
                 d["down_mbps"] = round(d_mbps, 2) if d_mbps is not None else None
                 d["up_mbps"] = round(u_mbps, 2) if u_mbps is not None else None
                 latest_per_engine[eng] = d
@@ -3570,6 +3617,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "mode": active_mode,
                 "configured_mode": getattr(self.server.cfg.network, "mode", ""),
                 "wan_iface": active_wan_iface,
+                # How the box is connected now, as netd recorded it (link kind, directly on the ISP or not)
+                "setup": current_setup,
+                "system_time_ms": int(time.time() * 1000),   # the box's own clock for the header
             },
             "public_ipv4": dual_v4,
             "public_ipv6": dual_v6,
@@ -3633,7 +3683,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "latest_speedtest": latest_measured_test(report.speed_tests),
             "schedule_mode": getattr(self.server.cfg.speedtest, "schedule_mode", "scheduled"),
             "schedule_cron": getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"),
-            "schedule_cron_desc": get_cron_description(getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"), getattr(self.server.cfg.web, "language", "en")),
+            "schedule_cron_desc": get_cron_description(getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"), lang),
             "automated_engine": getattr(self.server.cfg.speedtest, "automated_engine", "ookla"),
             "mixed_engines": list(getattr(self.server.cfg.speedtest, "mixed_engines", [])),
             "engine_intervals": {
