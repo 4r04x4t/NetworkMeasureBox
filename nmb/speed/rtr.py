@@ -61,24 +61,11 @@ def _client_ips(interface: Optional[str], bind_ip: Optional[str]) -> Tuple[Optio
     """The public address the test used: asked over the same link (by source address), not the default route.
 
     2026-11-08: the native client's rows had no client IP at all (2512 of 2522), and the generic lookup
-    would give the home line's address for a test over USB.
+    would give the home line's address for a test over USB. No cached or LAN address instead (2026-11-10).
     """
-    if bind_ip and ":" not in bind_ip:
-        try:
-            import http.client
-            import ssl
-            conn = http.client.HTTPSConnection("www.cloudflare.com", 443, timeout=6,
-                                               source_address=(bind_ip, 0), context=ssl.create_default_context())
-            conn.request("GET", "/cdn-cgi/trace", headers={"User-Agent": "NetworkMeasureBox"})
-            body = conn.getresponse().read(4096).decode("utf-8", "replace")
-            conn.close()
-            for line in body.splitlines():
-                if line.startswith("ip="):
-                    from nmb.common.netaddr import split_global
-                    return split_global(line[3:].strip())
-        except Exception:
-            log.debug("client IP over %s failed", bind_ip, exc_info=True)
-    # No cached or LAN address instead: an address this test did not use is not its client IP.
+    from nmb.common.netaddr import lookup_public_ip, split_global
+    if bind_ip:
+        return split_global(lookup_public_ip(bind_ip))
     return None, None
 
 
@@ -193,6 +180,7 @@ def _run_native_rmbt_speedtest(
         server_host=measure_server or urlparse(host).netloc,
         server_location=None,   # RTR does not say where its measurement server stands
         result_url=share_url,   # only a real result page, never the project's home page
+        client_ip_source="lookup" if (v4 or v6) else None,
         raw_json=raw_json,
         down_loaded_lat_ms=loaded_down_lat,
         up_loaded_lat_ms=loaded_up_lat,

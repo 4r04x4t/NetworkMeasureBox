@@ -16,7 +16,6 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from nmb.common.netaddr import global_ip
 from nmb.config import Config, load_config
 from nmb.db import database as db
 from nmb.probe import cross_traffic
@@ -201,6 +200,8 @@ def _run_single_engine(
                             break
                     raw_res = dict(up_raw)
                     raw_res.update({
+                        "local_host": up_raw.get("local_host") or down_raw.get("local_host"),
+                        "remote_host": up_raw.get("remote_host") or down_raw.get("remote_host"),
                         "is_bidirectional": True,
                         "download_bps": down_raw.get("bps"),
                         "upload_bps": up_raw.get("bps") if up_raw.get("status") == "ok" else None,
@@ -228,6 +229,13 @@ def _run_single_engine(
             retransmits = raw_res.get("retransmits")
             tcp_window = raw_res.get("tcp_window")
 
+            # The client address: the box's local one against a server on the local network, the public one
+            # (asked over the same source address when behind NAT) against a server on the internet.
+            ip4 = ip6 = ip_source = None
+            if status == "ok":
+                from nmb.common.netaddr import client_address_for_test
+                ip4, ip6, ip_source = client_address_for_test(raw_res.get("local_host"), raw_res.get("remote_host"))
+
             # In iPerf, reverse=True indicates download stream; reverse=False indicates upload stream; bidir provides both
             if raw_res.get("is_bidirectional"):
                 down_bps = int(raw_res["download_bps"]) if raw_res.get("download_bps") else None
@@ -246,10 +254,9 @@ def _run_single_engine(
                 server_name=_iperf_label(target_host, target_port),
                 server_host=target_host,
                 server_location=_iperf_location(target_host, target_port, protocol, parallel),
-                # The local socket address is the box's own (usually a LAN) address: it is the client
-                # IP only when it is a public one; otherwise it stays in bound_ip.
-                client_ip=global_ip(raw_res.get("local_host")) if ":" not in str(raw_res.get("local_host") or "") else None,
-                client_ipv6=global_ip(raw_res.get("local_host")) if ":" in str(raw_res.get("local_host") or "") else None,
+                client_ip=ip4,
+                client_ipv6=ip6,
+                client_ip_source=ip_source,
                 raw_json=raw_res.get("raw_output"),
                 error=raw_res.get("error"),
                 engine="iperf3",
@@ -373,8 +380,8 @@ def _run_single_engine(
                 down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms,
                 connection_type, client_ip, client_ipv6, server_host, server_location, engine, colo,
                 bound_iface, bound_ip, retransmits, tcp_window,
-                cycle_ts, duration_ms, nmb_version, box_mode
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                cycle_ts, duration_ms, nmb_version, box_mode, client_ip_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 started_ms,
                 trigger,
@@ -408,6 +415,7 @@ def _run_single_engine(
                 int((time.monotonic() - t_start) * 1000),
                 _nmb_version(),
                 _box_mode(conn),
+                _ip_source(res, engine),
             )
         )
         down_mbps = (res.down_bps or 0) / 1_000_000.0
@@ -604,6 +612,15 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
     from nmb.common.memory import trim_process_memory
     trim_process_memory()
     return res
+
+
+def _ip_source(res: SpeedtestResult, engine: str) -> Optional[str]:
+    """How the row's client address was found; Ookla, Cloudflare and Fast.com report it themselves."""
+    if getattr(res, "client_ip_source", None):
+        return res.client_ip_source
+    if res.client_ip or getattr(res, "client_ipv6", None):
+        return "engine" if (getattr(res, "engine", None) or engine) in ("ookla", "cloudflare", "fastcom") else None
+    return None
 
 
 def _nmb_version() -> str:

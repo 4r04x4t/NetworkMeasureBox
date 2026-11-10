@@ -277,13 +277,13 @@
    "🔴 NO CUMPLE",
    "6: Descarga y subida por debajo de los umbrales garantizados"
   ],
-  "14": [
+  "6d": [
    "🟡 DÉFICIT DE DESCARGA",
-   "14: Descarga por debajo del umbral garantizado"
+   "6: Descarga por debajo del umbral garantizado"
   ],
-  "15": [
+  "6u": [
    "🟡 DÉFICIT DE SUBIDA",
-   "15: Subida por debajo del umbral garantizado"
+   "6: Subida por debajo del umbral garantizado"
   ]
  },
  "verdict": {

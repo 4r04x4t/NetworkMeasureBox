@@ -40,6 +40,7 @@ KV_LAST_PING = "collector_last_ping_hour"
 KV_STATUS = "collector_status"
 KV_LAST_EVENT = "collector_last_event_id"
 KV_LAST_DIAG = "collector_last_diag_ts"
+KV_LAST_CORRECTION = "collector_last_correction_id"
 DIAG_INTERVAL_SEC = 3600
 BATCH = 500
 PROTOCOL = 1
@@ -93,6 +94,22 @@ def build_payload(conn, cfg) -> Dict[str, Any]:
     cur = conn.execute(f"SELECT {cols} FROM speedtest WHERE id > ? ORDER BY id LIMIT ?", (last_speed, BATCH))
     speed = [dict(zip(SPEED_FIELDS, row)) for row in cur.fetchall()]
 
+    # Corrections of rows already sent (values NMB had filled in instead of measuring; the box keeps
+    # them in speedtest_correction): the collector clears them too. Rows not sent yet go with the
+    # corrected values anyway.
+    corrections: List[Dict[str, Any]] = []
+    try:
+        last_corr = int(_kv_get(conn, KV_LAST_CORRECTION, "0") or 0)
+        for cid, sid, field, value in conn.execute(
+                "SELECT id, speedtest_id, field, new_value FROM speedtest_correction WHERE id > ? ORDER BY id LIMIT ?",
+                (last_corr, BATCH * 8)).fetchall():
+            if field in SPEED_FIELDS and field not in ("id", "ts") and sid <= last_speed:
+                corrections.append({"cid": cid, "id": sid, "field": field, "value": value})
+            elif sid <= last_speed or field not in SPEED_FIELDS:
+                corrections.append({"cid": cid, "skip": True})   # nothing to send, but move past it
+    except Exception:
+        log.debug("no corrections to send", exc_info=True)
+
     # Whole hours only: the current hour is sent once it is over.
     this_hour = int(time.time() // 3600) * 3600 * 1000
     rows = conn.execute(
@@ -143,6 +160,8 @@ def build_payload(conn, cfg) -> Dict[str, Any]:
         },
         "speedtests": speed,
         "ping_hours": ping,
+        "corrections": [c for c in corrections if not c.get("skip")],
+        "_correction_cursor": corrections[-1]["cid"] if corrections else None,
         "share_diagnostics": bool(cfg.collector.share_diagnostics),
         "allow_remote_control": bool(cfg.collector.allow_remote_control),
         **extra,
@@ -175,8 +194,9 @@ def send_now(cfg, conn=None) -> Dict[str, Any]:
         for _ in range(20):  # catch up in batches after a long offline time
             payload = build_payload(conn, cfg)
             if not payload["speedtests"] and not payload["ping_hours"] and not payload.get("events") \
-                    and "diagnostics" not in payload and sent_speed + sent_ping > 0:
+                    and not payload.get("corrections") and "diagnostics" not in payload and sent_speed + sent_ping > 0:
                 break
+            cursor = payload.pop("_correction_cursor", None)
             answer = _post(co.url, co.token, payload)
             if not answer.get("ok"):
                 raise ValueError(answer.get("error") or "the collector refused the upload")
@@ -186,11 +206,14 @@ def send_now(cfg, conn=None) -> Dict[str, Any]:
                 _kv_set(conn, KV_LAST_PING, str(payload["ping_hours"][-1]["hour"] + 3600 * 1000))
             if payload.get("events"):
                 _kv_set(conn, KV_LAST_EVENT, str(payload["events"][-1]["id"]))
+            if cursor:
+                _kv_set(conn, KV_LAST_CORRECTION, str(cursor))
             if "diagnostics" in payload:
                 _kv_set(conn, KV_LAST_DIAG, str(int(time.time())))
             sent_speed += len(payload["speedtests"])
             sent_ping += len(payload["ping_hours"])
-            if len(payload["speedtests"]) < BATCH and len(payload["ping_hours"]) < BATCH and len(payload.get("events") or []) < BATCH:
+            if len(payload["speedtests"]) < BATCH and len(payload["ping_hours"]) < BATCH and len(payload.get("events") or []) < BATCH \
+                    and len(payload.get("corrections") or []) < BATCH * 8:
                 break
         status = {"ok": True, "ts": int(time.time()), "speedtests": sent_speed, "ping_hours": sent_ping,
                   "message": f"Sent {sent_speed} speed test(s) and {sent_ping} ping hour(s)."}

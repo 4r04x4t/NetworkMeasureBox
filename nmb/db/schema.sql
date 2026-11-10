@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS speedtest (
     cycle_ts    INTEGER,                 -- start of the run this engine belonged to (ts = the engine's own start)
     duration_ms INTEGER,
     nmb_version TEXT,
-    box_mode    TEXT                     -- standalone / mode_a / mode_b at the time
+    box_mode    TEXT,                    -- standalone / mode_a / mode_b at the time
+    client_ip_source TEXT                -- engine / lookup / socket / local (see SpeedtestResult)
 );
 CREATE INDEX IF NOT EXISTS ix_speedtest_ts ON speedtest(ts);
 

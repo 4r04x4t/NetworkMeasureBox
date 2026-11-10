@@ -860,8 +860,10 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
                 status_html = f"<span class='badge-status-err' title='{status_code}'>{status_code}</span>"
 
             ping_ms_val = f"{(s['ping_us'] // 1000):.0f} ms" if s.get('ping_us') else "-"
-            srv_desc = s.get('server_name') or 'Default Edge Server'
-            engine_badge = (s.get('engine') or 'ookla').upper()
+            srv_desc = s.get('server_name') or '-'
+            engine_badge = (s.get('engine') or '-').upper()
+            if s.get("scope") == "lan":
+                engine_badge += " · LAN"      # a server on the local network: not counted for the line
             res_link = f"<a href='{s.get('result_url')}' target='_blank' style='color:#38bdf8; font-weight:600; text-decoration:none;'>🔗 {tr['link_open']} ↗</a>" if s.get('result_url') else "<span class='text-muted'>-</span>"
 
             speed_rows_html.append(f"""<tr>

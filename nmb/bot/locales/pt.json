@@ -277,13 +277,13 @@
    "🔴 NÃO CONFORME",
    "6: Download e upload abaixo dos limiares garantidos"
   ],
-  "14": [
+  "6d": [
    "🟡 DÉFICE DE DOWNLOAD",
-   "14: Download abaixo do limiar garantido"
+   "6: Download abaixo do limiar garantido"
   ],
-  "15": [
+  "6u": [
    "🟡 DÉFICE DE UPLOAD",
-   "15: Upload abaixo do limiar garantido"
+   "6: Upload abaixo do limiar garantido"
   ]
  },
  "verdict": {

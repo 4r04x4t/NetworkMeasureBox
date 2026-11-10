@@ -448,7 +448,7 @@ def aggregate_report_data(
         """SELECT ts, trigger, status, server_name, server_host, server_location, client_ip, client_ipv6,
                   down_bps, up_bps, ping_us, jitter_us, loss_pct, result_url, error,
                   down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms, connection_type,
-                  engine, colo, bound_iface
+                  engine, colo, bound_iface, client_ip_source
            FROM speedtest
            WHERE ts >= ? AND ts <= ?
            ORDER BY ts DESC""",
@@ -507,8 +507,13 @@ def aggregate_report_data(
         d_dict["status_code"] = status_code
         d_dict["status_desc"] = status_desc
 
+        # A test against a server on the local network measured the LAN, not the ISP's line: listed,
+        # but left out of the line's figures.
+        d_dict["scope"] = "lan" if d_dict.get("client_ip_source") == "local" else "internet"
         report.speed_tests.append(d_dict)
 
+        if s["status"] == "ok" and d_dict["scope"] == "lan":
+            continue
         if s["status"] == "ok":
             report.speed_summary.successful_tests += 1
             if d_mbps is not None:
@@ -516,10 +521,12 @@ def aggregate_report_data(
             if u_mbps is not None:
                 up_mbps_list.append(u_mbps)
 
-            # SLA compliance: 80% of promised speed
-            down_target = contract_down * 0.80
-            up_target = contract_up * 0.80
-            if (d_mbps or 0) >= down_target and (u_mbps or 0) >= up_target:
+            # Required speed: the guaranteed speed when one is set, otherwise NMB's rule of 80 % of the
+            # offered speed (the guaranteed speed was ignored even when set, until 2026-11-10). A direction
+            # that was not measured is not judged.
+            down_target = guar_down if guar_down > 0 else contract_down * 0.80
+            up_target = guar_up if guar_up > 0 else contract_up * 0.80
+            if (d_mbps is None or d_mbps >= down_target) and (u_mbps is None or u_mbps >= up_target):
                 compliant_tests += 1
 
         elif s["status"] == "skipped_busy":

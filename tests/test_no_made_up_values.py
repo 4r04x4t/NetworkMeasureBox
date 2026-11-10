@@ -127,10 +127,11 @@ class IperfRowTest(unittest.TestCase):
         fake = {"status": "ok", "bps": 300_000_000, "rtt_ms": 22.5, "local_host": "192.168.8.218",
                 "tcp_window": None, "retransmits": 3}
         with mock.patch("nmb.speed.iperf.run_iperf_client_test", return_value=fake), \
+                mock.patch("nmb.common.netaddr.lookup_public_ip", return_value=None), \
                 mock.patch("nmb.netd.interfaces.find_preferred_measurement_interface", return_value=("eth0", None, True)):
             runner._run_single_engine("iperf3", cfg, "schedule", None, conn, 1, target_iface=None)
         row = conn.execute("SELECT client_ip, ping_us, up_loaded_lat_ms, colo, bound_ip FROM speedtest").fetchone()
-        self.assertIsNone(row["client_ip"])
+        self.assertIsNone(row["client_ip"])          # the lookup gave nothing: empty, never the LAN address
         self.assertIsNone(row["ping_us"])
         self.assertEqual(row["up_loaded_lat_ms"], 22.5)
         self.assertIsNone(row["colo"])

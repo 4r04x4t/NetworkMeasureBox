@@ -150,6 +150,7 @@ def ensure_schema_upgrades(conn: sqlite3.Connection) -> None:
             ("duration_ms", "INTEGER"),
             ("nmb_version", "TEXT"),
             ("box_mode", "TEXT"),
+            ("client_ip_source", "TEXT"),
         ]
         for col_name, col_type in new_cols:
             if col_name not in existing_cols:

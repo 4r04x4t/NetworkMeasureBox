@@ -277,13 +277,13 @@
    "🔴 NON CONFORME",
    "6: Download e upload sotto le soglie garantite"
   ],
-  "14": [
+  "6d": [
    "🟡 DEFICIT IN DOWNLOAD",
-   "14: Download sotto la soglia garantita"
+   "6: Download sotto la soglia garantita"
   ],
-  "15": [
+  "6u": [
    "🟡 DEFICIT IN UPLOAD",
-   "15: Upload sotto la soglia garantita"
+   "6: Upload sotto la soglia garantita"
   ]
  },
  "verdict": {

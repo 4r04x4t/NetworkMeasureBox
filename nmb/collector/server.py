@@ -188,11 +188,33 @@ def _int(v: Any) -> Optional[int]:
     return int(n) if n is not None else None
 
 
-def ingest(conn: sqlite3.Connection, payload: Dict[str, Any], token_name: str, source_ip: str) -> Dict[str, int]:
-    """Store one upload; repeated uploads of the same rows are ignored."""
+CORRECTABLE = tuple(c for c in SPEED_COLS if c not in ("src_id", "ts"))
+_INT_COLS = ("ts", "server_id", "down_bps", "up_bps", "ping_us", "jitter_us")
+_NUM_COLS = ("loss_pct", "down_loaded_lat_ms", "up_loaded_lat_ms")
+
+
+def _speed_value(col: str, v: Any) -> Any:
+    if col in _INT_COLS:
+        return _int(v)
+    if col in _NUM_COLS:
+        return _num(v)
+    return _text(v, 512)
+
+
+def ingest(conn: sqlite3.Connection, payload: Dict[str, Any], token_name: str, source_ip: str,
+           active_tokens: Optional[set] = None) -> Dict[str, int]:
+    """Store one upload; repeated uploads of the same rows are ignored.
+
+    A box belongs to the token it first uploaded with: another token cannot write into it while that
+    token is still valid (it could before: any token could write into any box, audit H3). Only then
+    are the box's own corrections of rows it sent earlier applied ("corrections": values that NMB had
+    filled in instead of measuring, cleared on the box on 2026-11-10)."""
     uid = str(payload.get("box_uid", ""))
     if not uid.startswith("nmb-") or not 10 <= len(uid) <= 40 or not all(c.isalnum() or c == "-" for c in uid):
         raise ValueError("invalid box_uid")
+    owner = conn.execute("SELECT token_name FROM box WHERE box_uid = ?", (uid,)).fetchone()
+    if owner and owner[0] and owner[0] != token_name and (active_tokens is None or owner[0] in active_tokens):
+        raise PermissionError("this box uploads with another token")
     now = int(time.time() * 1000)
     isp = payload.get("isp") if isinstance(payload.get("isp"), dict) else {}
     case_id = _text(payload.get("case_id"), 80) or ""
@@ -201,9 +223,10 @@ def ingest(conn: sqlite3.Connection, payload: Dict[str, Any], token_name: str, s
     events = payload.get("events") if isinstance(payload.get("events"), list) else []
     diag = payload.get("diagnostics") if isinstance(payload.get("diagnostics"), dict) else None
     shared = 1 if payload.get("share_diagnostics") else 0
-    if len(speed) > 2000 or len(ping) > 5000 or len(events) > 2000:
+    corrections = payload.get("corrections") if isinstance(payload.get("corrections"), list) else []
+    if len(speed) > 2000 or len(ping) > 5000 or len(events) > 2000 or len(corrections) > 20000:
         raise ValueError("too many rows in one upload")
-    added_speed = added_ping = added_events = 0
+    added_speed = added_ping = added_events = corrected = 0
     with conn:
         conn.execute(
             """INSERT INTO box (box_uid, box_name, case_id, isp_name, account_id, contract_down_mbps,
@@ -232,13 +255,7 @@ def ingest(conn: sqlite3.Connection, payload: Dict[str, Any], token_name: str, s
                 continue
             vals = [uid, _int(row.get("id"))]
             for col in SPEED_COLS[1:]:
-                v = row.get(col)
-                if col in ("ts", "server_id", "down_bps", "up_bps", "ping_us", "jitter_us"):
-                    vals.append(_int(v))
-                elif col in ("loss_pct", "down_loaded_lat_ms", "up_loaded_lat_ms"):
-                    vals.append(_num(v))
-                else:
-                    vals.append(_text(v, 512))
+                vals.append(_speed_value(col, row.get(col)))
             cur = conn.execute(
                 f"INSERT OR IGNORE INTO speedtest (box_uid, {', '.join(SPEED_COLS)}) VALUES ({', '.join('?' * (len(SPEED_COLS) + 1))})",
                 vals,
@@ -264,13 +281,21 @@ def ingest(conn: sqlite3.Connection, payload: Dict[str, Any], token_name: str, s
                  _text(row.get("kind"), 80), _text(row.get("detail"), 2000)),
             )
             added_events += cur.rowcount
+        for fix in corrections:
+            if not isinstance(fix, dict) or fix.get("field") not in CORRECTABLE or _int(fix.get("id")) is None:
+                continue
+            col = fix["field"]
+            cur = conn.execute(f"UPDATE speedtest SET {col} = ? WHERE box_uid = ? AND src_id = ?",
+                               (_speed_value(col, fix.get("value")), uid, _int(fix["id"])))
+            corrected += cur.rowcount
         if diag and isinstance(diag.get("markdown"), str) and _int(diag.get("ts")) is not None:
             conn.execute("INSERT OR REPLACE INTO diagnostics (box_uid, ts, markdown) VALUES (?,?,?)",
                          (uid, _int(diag["ts"]), diag["markdown"][:2_000_000]))
             conn.execute(
                 """DELETE FROM diagnostics WHERE box_uid = ? AND ts NOT IN
                    (SELECT ts FROM diagnostics WHERE box_uid = ? ORDER BY ts DESC LIMIT ?)""", (uid, uid, DIAG_KEEP))
-    return {"speedtests": added_speed, "ping_hours": added_ping, "events": added_events, "diagnostics": 1 if diag else 0}
+    return {"speedtests": added_speed, "ping_hours": added_ping, "events": added_events,
+            "diagnostics": 1 if diag else 0, "corrected": corrected}
 
 
 # Remote control: the box asks for work (no connection into the box), and runs only these.
@@ -639,7 +664,11 @@ class Handler(BaseHTTPRequestHandler):
                 if path == "/api/poll":
                     self._json(200, {"ok": True, "commands": poll(self.server.conn, payload)})  # type: ignore[attr-defined]
                     return
-                added = ingest(self.server.conn, payload, name, self.client_address[0])  # type: ignore[attr-defined]
+                active = set((self.server.settings.data.get("tokens") or {}).keys())  # type: ignore[attr-defined]
+                added = ingest(self.server.conn, payload, name, self.client_address[0], active_tokens=active)  # type: ignore[attr-defined]
+        except PermissionError as e:
+            self._json(403, {"ok": False, "error": str(e)})
+            return
         except (ValueError, json.JSONDecodeError) as e:
             self._json(400, {"ok": False, "error": str(e)})
             return

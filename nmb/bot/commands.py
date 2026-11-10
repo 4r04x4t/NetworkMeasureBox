@@ -486,9 +486,9 @@ class CommandHandler:
             elif down_low and up_low:
                 status_code = 6
             elif down_low:
-                status_code = 14
+                status_code = "6d"
             elif up_low:
-                status_code = 15
+                status_code = "6u"
             else:
                 status_code = 1
 

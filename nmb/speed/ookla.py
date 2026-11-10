@@ -49,6 +49,10 @@ class SpeedtestResult:
     bound_ip: Optional[str] = None
     retransmits: Optional[int] = None
     tcp_window: Optional[str] = None
+    # Where client_ip/client_ipv6 came from: "engine" (the measuring server reported it), "lookup" (asked
+    # over the same link after the test), "socket" (the test's own public source address), "local" (a
+    # server on the local network: the box's own local address).
+    client_ip_source: Optional[str] = None
 
 
 def calculate_bufferbloat(

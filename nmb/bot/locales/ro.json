@@ -277,13 +277,13 @@
    "🔴 NECONFORM",
    "6: Descărcarea și încărcarea sunt sub pragurile garantate"
   ],
-  "14": [
+  "6d": [
    "🟡 DEFICIT LA DESCĂRCARE",
-   "14: Descărcarea este sub pragul garantat"
+   "6: Descărcarea este sub pragul garantat"
   ],
-  "15": [
+  "6u": [
    "🟡 DEFICIT LA ÎNCĂRCARE",
-   "15: Încărcarea este sub pragul garantat"
+   "6: Încărcarea este sub pragul garantat"
   ]
  },
  "verdict": {

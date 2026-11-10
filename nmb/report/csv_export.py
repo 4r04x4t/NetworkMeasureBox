@@ -124,7 +124,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
         "bufferbloat_grade", "bufferbloat_delta_ms", "down_loaded_lat_ms", "up_loaded_lat_ms",
         "server_id", "server_name", "server_host", "server_location", "result_url", "error",
         "row_id", "time_zone", "cycle_time_iso", "duration_s", "bound_iface", "bound_ip", "retransmits",
-        "tcp_window", "box_id", "nmb_version", "box_mode",
+        "tcp_window", "box_id", "nmb_version", "box_mode", "client_ip_source",
     ])
 
     rows = conn.execute(
@@ -132,7 +132,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
                   server_id, server_name, server_host, server_location, client_ip, client_ipv6, result_url, error,
                   down_loaded_lat_ms, up_loaded_lat_ms, bufferbloat_grade, bufferbloat_delta_ms,
                   connection_type, engine, colo, id, cycle_ts, duration_ms, bound_iface, bound_ip,
-                  retransmits, tcp_window, nmb_version, box_mode
+                  retransmits, tcp_window, nmb_version, box_mode, client_ip_source
            FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""",
         (start_ms, end_ms)
     ).fetchall()
@@ -192,6 +192,7 @@ def export_speedtests_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int, 
             box_id or "",
             r["nmb_version"] or "",
             r["box_mode"] or "",
+            r["client_ip_source"] or "",
         ])
     return out.getvalue()
 
