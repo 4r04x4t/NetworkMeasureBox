@@ -921,6 +921,12 @@ def load_config(path: Path | None = None) -> Config:
         cfg.network.wifi_country_code = n.get("wifi_country_code", getattr(cfg.network, "wifi_country_code", "auto")).strip().upper()
         if not cfg.network.wifi_country_code:
             cfg.network.wifi_country_code = "AUTO"
+        else:
+            from nmb.netd.regdomains import normalize_country
+            if normalize_country(cfg.network.wifi_country_code) is None:
+                # hostapd refuses an unknown country and the access point would not start at all
+                log.warning("unknown wifi_country_code %r in nmb.conf; using auto", cfg.network.wifi_country_code)
+                cfg.network.wifi_country_code = "AUTO"
         cfg.network.wifi_security = n.get("wifi_security", getattr(cfg.network, "wifi_security", "wpa2")).strip()
 
         cfg.network.check_interval_sec = n.getfloat("check_interval_sec", fallback=cfg.network.check_interval_sec)

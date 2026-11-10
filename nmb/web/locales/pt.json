@@ -1384,6 +1384,8 @@
  "uu_used": "Usado hoje pelos testes por USB: {used} MB",
  "uu_no_limit": "sem limite",
  "rt_country_auto": "Automático (pela localização da caixa)",
+ "rt_country_hint": "Escolha o país onde a caixa está: dele dependem os canais e a potência de emissão permitidos.",
+ "rt_country_world": "00 – Mundial (o mais restritivo, qualquer país)",
  "rt_dhcp_off": "Desativado",
  "rt_dhcp_on": "Ativado",
  "rt_dhcp_title": "📡 Servidor DHCP interno e intervalo de endereços",

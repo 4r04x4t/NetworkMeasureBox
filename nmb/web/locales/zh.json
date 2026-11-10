@@ -1384,6 +1384,8 @@
  "uu_used": "今天 USB 测速已用：{used} MB",
  "uu_no_limit": "不限",
  "rt_country_auto": "自动（根据本设备位置）",
+ "rt_country_hint": "请选择盒子所在的国家：它决定允许使用的信道和发射功率。",
+ "rt_country_world": "00 – 全球（最严格，适用于任何国家）",
  "rt_dhcp_off": "已禁用",
  "rt_dhcp_on": "已启用",
  "rt_dhcp_title": "📡 内部 DHCP 服务器与地址池",

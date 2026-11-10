@@ -73,7 +73,47 @@
     box.textContent = text ? '⚠️ ' + text : '';
   }
 
+  // Wi-Fi regulatory countries: the codes come from the box (wireless-regdb), the names from the browser in the
+  // page's language, so no language ever shows another one's names.
+  let wifiCountryList = [];
+  function wifiCountryNamer(lang) {
+    try {
+      const names = new Intl.DisplayNames([lang, 'en'], { type: 'region' });
+      return code => { try { return names.of(code) || code; } catch (e) { return code; } };
+    } catch (e) {
+      return code => code;                                  // a browser without Intl.DisplayNames: codes only
+    }
+  }
+  function fillWifiCountries(selected) {
+    const sel = document.getElementById('cfg-wifi-country');
+    if (!sel) return;
+    const want = String(selected || sel.value || 'auto');
+    const value = want.toLowerCase() === 'auto' ? 'auto' : want.toUpperCase();
+    if (wifiCountryList.length) {
+      Array.from(sel.options).forEach(o => { if (o.value !== 'auto' && o.value !== '00') o.remove(); });
+      const lang = String(currentLang || 'en').replace('_', '-');
+      const nameOf = wifiCountryNamer(lang);
+      wifiCountryList
+        .map(([code, dfs]) => ({ code, dfs, name: nameOf(code) }))
+        .sort((a, b) => a.name.localeCompare(b.name, lang))
+        .forEach(c => {
+          const o = document.createElement('option');
+          o.value = c.code;
+          o.textContent = c.name + ' (' + c.code + ')' + (c.dfs ? ' · ' + c.dfs : '');
+          sel.appendChild(o);
+        });
+    }
+    if (!Array.from(sel.options).some(o => o.value === value)) {
+      const o = document.createElement('option');       // a code the list does not have yet: keep it visible
+      o.value = value;
+      o.textContent = value;
+      sel.appendChild(o);
+    }
+    sel.value = value;
+  }
+
   function applyTranslations() {
+    if (wifiCountryList.length) fillWifiCountries();
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const k = el.getAttribute('data-i18n');
       if (currentTranslations[k]) {
@@ -4776,7 +4816,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           ? t('wifi_psk_set', 'Set. Leave empty to keep it.')
           : t('wifi_psk_unset', 'Not set: the access point stays off until you set a password (8-63 characters).');
       }
-      if (document.getElementById('cfg-wifi-country')) document.getElementById('cfg-wifi-country').value = d.wifi_country_code || 'auto';
+      if (Array.isArray(d.wifi_countries)) wifiCountryList = d.wifi_countries;
+      fillWifiCountries(d.wifi_country_code || 'auto');
       if (document.getElementById('cfg-wifi-band')) document.getElementById('cfg-wifi-band').value = d.wifi_band || 'auto';
       if (document.getElementById('cfg-wifi-standard')) document.getElementById('cfg-wifi-standard').value = d.wifi_standard || 'auto';
       if (document.getElementById('cfg-wifi-channel-width')) document.getElementById('cfg-wifi-channel-width').value = d.wifi_channel_width || 'auto';

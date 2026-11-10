@@ -3674,6 +3674,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "wifi_channel": cfg.network.wifi_channel,
             "wifi_channel_width": getattr(cfg.network, "wifi_channel_width", "auto"),
             "wifi_country_code": getattr(cfg.network, "wifi_country_code", "auto"),
+            "wifi_countries": __import__("nmb.netd.regdomains", fromlist=["x"]).country_choices(),
             "wifi_security": getattr(cfg.network, "wifi_security", "wpa2"),
             "wifi_capabilities": detect_wifi_capabilities(cfg.network.wlan_interface),
             "guest_wifi_enabled": getattr(cfg.guest_wifi, "enabled", False),
@@ -3743,6 +3744,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from nmb.netd.wifi import weak_wifi_password
             if weak_wifi_password(str(body["wifi_psk"]).strip()):
                 self._send_json({"status": "error", "message": "The Wi-Fi password must be 8 to 63 characters and not the old factory password."}, status=400)
+                return
+        if "wifi_country_code" in body or "wifi_country" in body:
+            from nmb.netd.regdomains import normalize_country
+            if normalize_country(body.get("wifi_country_code") or body.get("wifi_country")) is None:
+                self._send_json({"status": "error", "message": "Unknown Wi-Fi country: use auto, 00 or a country code of the regulatory database (for example HU)."}, status=400)
                 return
         if "contract" in body and isinstance(body["contract"], dict):
             for k, v in body["contract"].items():
@@ -3856,7 +3862,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if "wifi_channel_width" in body:
             cfg.network.wifi_channel_width = str(body["wifi_channel_width"]).strip().lower()
         if "wifi_country_code" in body or "wifi_country" in body:
-            cfg.network.wifi_country_code = str(body.get("wifi_country_code") or body.get("wifi_country")).strip().upper()
+            from nmb.netd.regdomains import normalize_country
+            cfg.network.wifi_country_code = normalize_country(body.get("wifi_country_code") or body.get("wifi_country")) or "auto"
         if "wifi_security" in body:
             cfg.network.wifi_security = str(body["wifi_security"]).strip().lower()
 

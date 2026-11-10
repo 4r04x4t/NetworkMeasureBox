@@ -6641,7 +6641,9 @@ _ROUTER_TEXTS = {
         "rt_dhcp_off": "Disabled (Inactive)",
         "rt_wifi_on": "Enabled (Active Broadcast)",
         "rt_wifi_off": "Disabled (Radio Off)",
-        "rt_country_auto": "Automatic (from the location of this box)"
+        "rt_country_auto": "Automatic (from the location of this box)",
+        "rt_country_world": "00 – World (most restrictive, any country)",
+        "rt_country_hint": "Set the country the box is in: it decides which channels and transmit power are allowed."
     },
     "hu": {
         "rt_save": "💾 Router beállítások mentése és alkalmazása",
@@ -6663,7 +6665,9 @@ _ROUTER_TEXTS = {
         "rt_dhcp_off": "Kikapcsolva",
         "rt_wifi_on": "Bekapcsolva (sugároz)",
         "rt_wifi_off": "Kikapcsolva (rádió ki)",
-        "rt_country_auto": "Automatikus (a doboz helye alapján)"
+        "rt_country_auto": "Automatikus (a doboz helye alapján)",
+        "rt_country_world": "00 – Világ (a legszigorúbb, bármely országban)",
+        "rt_country_hint": "Azt az országot állítsd be, ahol a doboz van: ettől függ, mely csatornák és milyen adóteljesítmény engedélyezett."
     },
     "de": {
         "rt_save": "💾 Router-Einstellungen speichern & anwenden",
@@ -6685,7 +6689,9 @@ _ROUTER_TEXTS = {
         "rt_dhcp_off": "Deaktiviert",
         "rt_wifi_on": "Aktiviert (sendet)",
         "rt_wifi_off": "Deaktiviert (Funk aus)",
-        "rt_country_auto": "Automatisch (aus dem Standort der Box)"
+        "rt_country_auto": "Automatisch (aus dem Standort der Box)",
+        "rt_country_world": "00 – Welt (am strengsten, in jedem Land)",
+        "rt_country_hint": "Stelle das Land ein, in dem die Box steht: davon hängen die erlaubten Kanäle und die Sendeleistung ab."
     },
     "fr": {
         "rt_save": "💾 Enregistrer & appliquer les réglages du routeur",
@@ -6707,7 +6713,9 @@ _ROUTER_TEXTS = {
         "rt_dhcp_off": "Désactivé",
         "rt_wifi_on": "Activé (diffusion)",
         "rt_wifi_off": "Désactivé (radio coupée)",
-        "rt_country_auto": "Automatique (selon l'emplacement du boîtier)"
+        "rt_country_auto": "Automatique (selon l'emplacement du boîtier)",
+        "rt_country_world": "00 – Monde (le plus restrictif, tout pays)",
+        "rt_country_hint": "Choisissez le pays où se trouve le boîtier : il détermine les canaux et la puissance d'émission autorisés."
     },
     "uk": {
         "rt_save": "💾 Зберегти й застосувати налаштування роутера",
@@ -6729,7 +6737,9 @@ _ROUTER_TEXTS = {
         "rt_dhcp_off": "Вимкнено",
         "rt_wifi_on": "Увімкнено (мовлення)",
         "rt_wifi_off": "Вимкнено (радіо вимкнене)",
-        "rt_country_auto": "Автоматично (за розташуванням пристрою)"
+        "rt_country_auto": "Автоматично (за розташуванням пристрою)",
+        "rt_country_world": "00 – Світ (найсуворіші правила, будь-яка країна)",
+        "rt_country_hint": "Вкажіть країну, де стоїть пристрій: від неї залежать дозволені канали та потужність передавача."
     }
 }
 for _lang, _texts in _ROUTER_TEXTS.items():

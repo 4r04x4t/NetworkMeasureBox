@@ -3206,15 +3206,10 @@
               <label class="form-label">Regulatory Domain (Country):</label>
               <select id="cfg-wifi-country" class="form-input">
                 <option value="auto" selected data-i18n="rt_country_auto">Automatic (from the location of this box)</option>
-                <option value="00">00 - World Wide Default</option>
-                <option value="AT">AT - Austria (ETSI / EU)</option>
-                <option value="DE">DE - Germany (ETSI / EU)</option>
-                <option value="FR">FR - France (ETSI / EU)</option>
-                <option value="GB">GB - United Kingdom</option>
-                <option value="HU">HU - Hungary (ETSI / EU)</option>
-                <option value="UA">UA - Ukraine</option>
-                <option value="US">US - United States (FCC)</option>
+                <option value="00" data-i18n="rt_country_world">00 – World (most restrictive, any country)</option>
+                <option value="HU">HU</option>
               </select>
+              <div class="form-hint" data-i18n="rt_country_hint">Set the country the box is in: it decides which channels and transmit power are allowed.</div>
             </div>
           </div>
 

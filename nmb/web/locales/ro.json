@@ -1384,6 +1384,8 @@
  "uu_used": "Folosit azi de testele prin USB: {used} MB",
  "uu_no_limit": "fără limită",
  "rt_country_auto": "Automat (după locația cutiei)",
+ "rt_country_hint": "Alege țara în care se află cutia: de ea depind canalele și puterea de emisie permise.",
+ "rt_country_world": "00 – Mondial (cel mai restrictiv, orice țară)",
  "rt_dhcp_off": "Dezactivat",
  "rt_dhcp_on": "Activat",
  "rt_dhcp_title": "📡 Server DHCP intern și plaja de adrese",
