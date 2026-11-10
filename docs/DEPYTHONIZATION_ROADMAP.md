@@ -744,6 +744,44 @@ Evaluation plan: for each remaining candidate, build a minimal image for the Pi 
 
 Testing plan (to be added to `docs/TESTING.md` when it starts): image builds reproducibly; the kernel in the image is byte-identical to the base's package; first boot on the Pi 4 and in QEMU; every feature row of the testing record again on the image; an A/B update and a forced rollback; power cut during an update; a full data partition.
 
+
+---
+
+## 6B. Product Decisions for the Native Build (Owner, 2026-11-10; Planned)
+
+The Python version stays a development and reference build and **is never meant for sale**. The native (de-Pythonized) builds probably will be. These decisions apply to the native builds only; the Python version keeps its current behaviour.
+
+### 6B.1 Look: AMOLED black by default, other themes only as add-ons
+
+- **One built-in look: AMOLED black.** Pure black background (`#000000`), no grey panels behind cards, light text with enough contrast (WCAG AA at least), one accent colour. It is the default of every native image and the only theme the image contains.
+- **Other themes are add-ons, never shipped in the image.** A theme is a separate file the user adds by hand (Web UI upload, or a file on a USB stick / in the data partition), the same way on every target. The box lists the themes it has, lets the user choose one and remove it, and always falls back to AMOLED black when a theme file is missing, broken or from another version.
+- **A theme can only change the look:** colours, fonts from the image, spacing. It carries no scripts and no remote resources (no web fonts, no images from the internet), is checked against a fixed schema, and has a size limit, so it cannot break the UI or leak anything.
+- Router images with little flash keep only the built-in look; the add-on mechanism is the same where it fits.
+
+### 6B.2 CLI: no colour by default, colour as an add-on
+
+- `nmbd` and every CLI command print **plain text without colour codes** by default, on a terminal too.
+- Colour is an add-on the user switches on (a setting, or a small colour scheme file added like a theme); `NO_COLOR` always wins, and output that is not a terminal (pipes, logs, the bot, scripts) never gets colour codes.
+- The meaning never depends on colour: every state is also in words (`OK`, `WARN`, `FAIL`), so the monochrome output says everything.
+
+### 6B.3 Firmware and software from a file, and back to the maker's firmware
+
+- **Update or replace from a computer by file upload:** the Web UI (and the CLI, with a file path) takes an NMB image or package uploaded from a computer, as well as the online update channel. Before anything is written: format and size checked, checksum and NMB's signature verified, the image must be made for this exact model and hardware revision (board name, flash layout), and there must be room for it. Then it goes to the inactive A/B slot (or the target's own upgrade method, for example OpenWrt `sysupgrade`), boots once, and is kept only if the self-test passes; otherwise the box returns to the previous slot.
+- **Going back to the maker's original firmware** is supported wherever the target allows it: the user uploads the maker's file (for example TP-Link or ASUS stock firmware), the box checks that it is for this model and revision (the maker's own header or a known checksum), says plainly that NMB and its settings will be gone and how to come back, and then writes it with the method the maker's firmware needs (on OpenWrt devices, for example, the stock image often has to be converted or written to a different offset; such steps come from the device's documentation and are tested on the real device first).
+- **Online download of the original firmware, when nothing technical stands in the way:** the box may fetch the maker's firmware for its model straight from the maker's official download address, verify it (the maker's published checksum or signature, or a checksum NMB recorded from that address), and offer it for the step above. NMB does not host or redistribute the makers' files itself (their licences may not allow it); it only downloads from the maker. Where there is a technical obstacle (no stable download address, a login or captcha, no way to verify the file, not enough RAM or flash for the download, a model with several hardware revisions that cannot be told apart), the box says so and asks for a manual upload instead.
+- **Safety rules for all of the above:** never write an image for another model or revision; never start when the power or the update file is uncertain (a battery-backed or low-power warning where the hardware can tell); keep the bootloader untouched; log every step to the persistent log; keep a recovery path per target (TFTP / recovery mode / serial) documented in the porting plan before the feature is offered on that target.
+- Testing (to add to `docs/TESTING.md` when it starts): an NMB image by upload, a damaged file, a file for another model, a power cut while writing, a forced rollback, the maker's firmware and back to NMB on each supported router.
+
+### 6B.4 Downloaded images and firmware to work with
+
+The owner downloaded the base images and router firmware for this work on 2026-11-10 (outside the repository, about 7 GB): `%USERPROFILE%\Downloads\NMB-depythonization-firmwares` on the development PC (under `/mnt/c/Users/<user>/Downloads/` in WSL2). Its `README.md` lists every file, its source and how it was checked. It holds:
+
+- **platforms/**: candidate bases for section 6A — OpenWrt 25.12.6, Alpine 3.24.4, Fedora IoT 44 and Debian 13.7.0 for the Raspberry Pi 4 (arm64) and x86-64;
+- **routers/**: OpenWrt images and the makers' stock firmware for the targets of the porting plan (ASUS RT-AXE7800 stock Asuswrt, RT-N12+ OpenWrt 22.03.7 and stock B1, RT-AC57U v1, TP-Link Archer C6 v2, TL-WR1043ND v1, TL-WR740N v4 community build and stock firmware);
+- **openwrt-target-trees/**: full OpenWrt 25.12.6 target folders (SDK, ImageBuilder, toolchain, packages) for x86/generic, armsr/armv8 and armsr/armv7, for the C11/musl cross builds.
+
+They are working material for the 6A evaluation, the cross builds and the 6B.3 tests (stock firmware round trips). They are not committed; checksums stay with them in that folder.
+
 ---
 
 ## 7. Component Language & Dependency Elimination Matrix

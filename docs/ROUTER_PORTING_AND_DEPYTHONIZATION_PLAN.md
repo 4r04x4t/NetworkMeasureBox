@@ -602,6 +602,8 @@ Before a port counts as done, on the real device: turn maintenance mode on and o
 
 ## 7C. NMB's Own Linux Distribution (Planned)
 
+Product decisions for the native builds (AMOLED black as the only built-in look with other themes as hand-added add-ons, a CLI without colour by default, firmware and software by file upload, going back to the maker's firmware and downloading it from the maker when possible) are in `DEPYTHONIZATION_ROADMAP.md` section 6B; every router target must document its recovery path and its stock-firmware method before that feature is offered on it. The downloaded router firmware and OpenWrt images for these targets are listed in section 6B.4.
+
 Moved to `DEPYTHONIZATION_ROADMAP.md` (section 6A, *NMB's Own Linux Distribution: Python-Free*): stock kernel, NMB's own Python-free distribution, the comparison of candidate bases (Debian, Raspberry Pi OS Lite, OpenWrt, Alpine, VyOS, IPFire) and the evaluation plan. No device runs Python.
 ## 8. Cross-Compilation Matrix & Toolchain Setup
 
