@@ -6,10 +6,33 @@ set -eu
 # wg-quick and OpenVPN run commands from these lines as root, and the files are written by the nmb user.
 reject_unsafe_vpn_config() {
     if grep -Eiq '^[[:space:]]*(PreUp|PostUp|PreDown|PostDown)[[:space:]]*=' "$1" 2>/dev/null ||
-       grep -Eiq '^[[:space:]]*(up|down|script-security|plugin|client-connect|client-disconnect|learn-address|auth-user-pass-verify|tls-verify|ipchange|route-up|route-pre-down|iproute)([[:space:]]|$)' "$1" 2>/dev/null; then
-        echo "Refusing VPN config with command lines: $1" >&2
+       grep -Eiq '^[[:space:]]*(up|down|script-security|plugin|client-connect|client-disconnect|learn-address|auth-user-pass-verify|tls-verify|ipchange|route-up|route-pre-down|iproute|config|management|management-client-user|log|log-append|writepid|cd|chroot)([[:space:]]|$)' "$1" 2>/dev/null; then
+        echo "Refusing VPN config with command lines or extra files: $1" >&2
         exit 1
     fi
+    # The client allow-list is NMB's own folder only (see nmb/netd/openvpn.py CCD_DIR).
+    if grep -Eiq '^[[:space:]]*client-config-dir[[:space:]]' "$1" 2>/dev/null &&
+       grep -Ei '^[[:space:]]*client-config-dir[[:space:]]' "$1" | grep -Evq '^[[:space:]]*client-config-dir[[:space:]]+/etc/openvpn/nmb-ccd[[:space:]]*$'; then
+        echo "Refusing VPN config with a foreign client-config-dir: $1" >&2
+        exit 1
+    fi
+}
+
+# Root code runs from / with an isolated interpreter and only the root-owned install on its path.
+nmb_root_python() {
+    ( cd / && /usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/opt/nmb'); $1" )
+}
+
+# Rebuild /etc/openvpn/nmb-ccd from the recorded clients; make sure the server config enforces it.
+openvpn_ccd_sync() {
+    install -d -m 0755 -o root -g root /etc/openvpn/nmb-ccd
+    nmb_root_python "from nmb.netd.openvpn import write_ccd_allowlist; write_ccd_allowlist()" || return 1
+    chown -R root:root /etc/openvpn/nmb-ccd
+    for f in /etc/openvpn/server.conf /etc/openvpn/server/server.conf; do
+        [ -f "$f" ] || continue
+        grep -Eq '^[[:space:]]*client-config-dir[[:space:]]' "$f" || printf 'client-config-dir /etc/openvpn/nmb-ccd\n' >> "$f"
+        grep -Eq '^[[:space:]]*ccd-exclusive([[:space:]]|$)' "$f" || printf 'ccd-exclusive\n' >> "$f"
+    done
 }
 
 case "${1:-}" in
@@ -101,11 +124,25 @@ case "${1:-}" in
         fi
         chown -R nmb:nmb /var/lib/nmb/openvpn /var/lib/nmb/wireguard 2>/dev/null || true
         chmod 644 /var/lib/nmb/openvpn/ipp.txt 2>/dev/null || true
+        openvpn_ccd_sync || { echo "OpenVPN client allow-list not written; server not started" >&2; exit 1; }
         sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
         sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
         sysctl -w net.ipv6.conf.default.forwarding=1 >/dev/null 2>&1 || true
         systemctl stop openvpn@server 2>/dev/null || true
         systemctl restart openvpn-server@server 2>/dev/null || systemctl restart openvpn@server
+        ;;
+    openvpn-ccd-sync)
+        # A new client may connect; the running server keeps its other sessions (ccd is read per connection).
+        openvpn_ccd_sync
+        ;;
+    openvpn-ccd-revoke)
+        # A deleted client: off the allow-list, and its running session ends with the restart.
+        openvpn_ccd_sync || exit 1
+        if systemctl is-active --quiet openvpn-server@server 2>/dev/null; then
+            systemctl restart openvpn-server@server
+        elif systemctl is-active --quiet openvpn@server 2>/dev/null; then
+            systemctl restart openvpn@server
+        fi
         ;;
     openvpn-start)
         mkdir -p /etc/openvpn/server /etc/openvpn
@@ -120,6 +157,7 @@ case "${1:-}" in
         fi
         chown -R nmb:nmb /var/lib/nmb/openvpn /var/lib/nmb/wireguard 2>/dev/null || true
         chmod 644 /var/lib/nmb/openvpn/ipp.txt 2>/dev/null || true
+        openvpn_ccd_sync || { echo "OpenVPN client allow-list not written; server not started" >&2; exit 1; }
         sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
         sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1 || true
         sysctl -w net.ipv6.conf.default.forwarding=1 >/dev/null 2>&1 || true
@@ -408,7 +446,7 @@ case "${1:-}" in
         esac
         ;;
     *)
-        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|usb-import <dev>|invasive-log|diagnostic-bundle|crashes-list|crashes-clear|heal-symlink|heal-permissions|heal-restore-config|heal-install-file|heal-dpkg-repair|heal-pkg-install|heal-audit|heal-fix|self-update}" >&2
+        echo "Usage: nmb-helper {upgrade|check-updates|tune|wireguard-apply|wireguard-start|wireguard-stop|wireguard-status|openvpn-apply|openvpn-ccd-sync|openvpn-ccd-revoke|openvpn-start|openvpn-stop|openvpn-status|vpn-nat|logs-purge|wifi-reg-set <CC>|install-drivers [PKG]|backup-create|backup-restore <path>|backup-list|backup-delete <file>|factory-reset|sync-drive-config|usb-import <dev>|invasive-log|diagnostic-bundle|crashes-list|crashes-clear|heal-symlink|heal-permissions|heal-restore-config|heal-install-file|heal-dpkg-repair|heal-pkg-install|heal-audit|heal-fix|self-update}" >&2
         exit 1
         ;;
 esac

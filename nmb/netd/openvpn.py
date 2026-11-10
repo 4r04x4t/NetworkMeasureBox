@@ -7,6 +7,7 @@ unified standalone .ovpn client profile generation, and real-time client connect
 from __future__ import annotations
 
 import json
+import re
 import logging
 import os
 import shutil
@@ -22,6 +23,11 @@ PKI_DIR = OV_DIR / "pki"
 OV_CONF = OV_DIR / "server.conf"
 CLIENTS_FILE = OV_DIR / "clients.json"
 STATUS_LOG = Path("/var/log/nmb/openvpn-status.log")
+# Clients allowed to connect: one empty file per client name, read by OpenVPN after it has dropped to
+# "nobody" (ccd-exclusive). Kept by root (nmb-helper openvpn-ccd-sync) where nobody can read it; a deleted
+# client loses its file and cannot connect again even with its old certificate (2026-11-10: deleting a
+# client only removed the files on the box and the certificate kept working).
+CCD_DIR = Path(os.environ.get("NMB_OV_CCD_DIR", "/etc/openvpn/nmb-ccd"))
 
 
 def _ensure_dir() -> None:
@@ -241,6 +247,8 @@ def generate_server_config(
         f"server {clean_subnet} 255.255.255.0",
         f"server-ipv6 {subnet_ipv6}",
         f"ifconfig-pool-persist {OV_DIR / 'ipp.txt'}",
+        f"client-config-dir {CCD_DIR}",
+        "ccd-exclusive",
         'push "redirect-gateway def1 bypass-dhcp"',
         'push "route-ipv6 2000::/3"',
         'push "route-ipv6 ::/0"',
@@ -377,12 +385,53 @@ def get_openvpn_status(
     }
 
 
+# Client names become file names in the PKI folder next to the CA and server keys: only plain names, and
+# never the name of one of the PKI's own files (2026-11-10: a profile download could be asked for "ca").
+_CLIENT_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_RESERVED_NAMES = {"ca", "server", "tls-crypt", "tls_crypt", "dh", "crl", "index", "serial", "ta"}
+
+
+def valid_client_name(name: str) -> bool:
+    name = str(name or "")
+    return bool(_CLIENT_NAME.match(name)) and name.lower() not in _RESERVED_NAMES
+
+
+def known_client(name: str) -> bool:
+    """A name that is valid and belongs to a recorded client."""
+    return valid_client_name(name) and any(c.get("name") == name for c in load_clients())
+
+
+def write_ccd_allowlist(target: Optional[Path] = None) -> int:
+    """Rebuild the allow-list of connecting clients (run as root by nmb-helper). Returns the client count.
+
+    The client list is written by the web user, so every name is checked again here; only valid names of
+    recorded clients get a file, everything else in the folder is removed.
+    """
+    target = Path(target or CCD_DIR)
+    target.mkdir(parents=True, exist_ok=True)
+    os.chmod(target, 0o755)
+    names = {c.get("name") for c in load_clients() if valid_client_name(c.get("name"))}
+    for entry in target.iterdir():
+        if entry.name not in names and (entry.is_file() or entry.is_symlink()):
+            entry.unlink()
+    for name in names:
+        path = target / name
+        if path.is_symlink():
+            path.unlink()
+        if not path.exists():
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o644)
+            os.close(fd)
+    return len(names)
+
+
 def add_client(name: str) -> Dict[str, Any]:
     """Create a new OpenVPN client certificate and record."""
     init_pki()
-    clean_name = "".join(c for c in name if c.isalnum() or c in "-_").strip()
+    clean_name = "".join(c for c in name if c.isalnum() or c in "-_").strip()[:64]
     if not clean_name:
         clean_name = f"client-{int(time.time())}"
+    if not valid_client_name(clean_name):
+        return {"status": "error", "message": f"'{clean_name}' cannot be used as a client name."}
 
     clients = load_clients()
     if any(c.get("name") == clean_name for c in clients):
@@ -410,12 +459,15 @@ def add_client(name: str) -> Dict[str, Any]:
     }
     clients.append(new_client)
     save_clients(clients)
+    run_helper("openvpn-ccd-sync")              # allowed to connect; no restart, other clients stay connected
 
     return {"status": "ok", "client": new_client, "message": f"Client '{clean_name}' created successfully."}
 
 
 def delete_client(name: str) -> bool:
     """Delete an OpenVPN client certificate and record."""
+    if not known_client(name):
+        return False
     clients = load_clients()
     initial_len = len(clients)
     clients = [c for c in clients if c.get("name") != name]
@@ -430,6 +482,10 @@ def delete_client(name: str) -> bool:
                 f.unlink()
             except Exception:
                 log.debug("suppressed exception", exc_info=True)
+    # Off the allow-list, and the server restarted so a running session of this client ends now.
+    rc, out = run_helper("openvpn-ccd-revoke")
+    if rc != 0:
+        log.error("OpenVPN client %s deleted, but the server could not be updated: %s", name, out)
     return True
 
 
@@ -441,6 +497,8 @@ def get_unified_ovpn_profile(
     dns_servers: str = "",
 ) -> Optional[str]:
     """Generate complete, standalone unified .ovpn profile with inline certificates and dual-stack support."""
+    if not known_client(name):
+        return None
     init_pki()
     ca_crt = PKI_DIR / "ca.crt"
     tls_crypt = PKI_DIR / "tls-crypt.key"

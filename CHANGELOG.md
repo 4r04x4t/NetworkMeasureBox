@@ -256,6 +256,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- OpenVPN: a client profile could be asked for under a name that is not a client, which could hand out the server's own keys; only recorded client names are accepted now, and names of the server's own files can no longer be used for new clients. A deleted OpenVPN client could keep connecting with its old certificate; the server now accepts only clients on an allow-list kept by root, and deleting a client removes it from the list and ends its session. Existing installations get the allow-list on the next start of the OpenVPN server (found in the 2026-11-10 code review; made on the development PC, Windows + WSL2 Ubuntu 24.04).
 - Router mode with a public address (PPPoE): only the Web UI was closed to the internet; SSH (with a password), DNS (an open resolver), iperf3, mDNS and the rest were reachable on IPv4 and IPv6. The WAN now lets in only answers to the box's own traffic, ICMP, DHCP renewals, private sources (a home router in front keeps full access for the owner and the developer) and the VPN ports that are on (Tailscale, WireGuard, OpenVPN); WAN-to-LAN traffic only for answers and forwarded ports. Checked from another network on the real line: SSH, DNS, Web UI and iperf3 closed on IPv4 and IPv6, ping answers.
 - Removed a way for local users to gain root: self-repair and speed test code could run files from `/tmp`.
 - The `nmb` user can no longer run `ip` through sudo, which allowed root access.
