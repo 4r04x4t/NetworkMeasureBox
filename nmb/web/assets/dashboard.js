@@ -4170,6 +4170,18 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
   }
 
   // Router Subtab Switching
+  // The "Change password" button of the default-password notice: Settings > Firewall & System, at the
+  // credentials card. It opened a tab ('tab-config') that no longer exists, so nothing happened (2026-11-10).
+  function openPasswordSettings() {
+    switchTab('tab-info');
+    switchRouterSubtab('rsub-system');
+    const field = document.getElementById('cfg-admin-pass');
+    if (field) {
+      field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => field.focus({ preventScroll: true }), 300);
+    }
+  }
+
   function switchRouterSubtab(subtabId) {
     document.querySelectorAll('.router-subtab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.router-subtab-btn').forEach(el => el.classList.remove('active'));

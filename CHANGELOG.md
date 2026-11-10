@@ -121,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Web UI: the "Change password / Settings" button of the default-password notice did nothing (it opened a tab that no longer exists); it now opens Settings > Firewall & System at the administrator credentials and puts the cursor in the password field. A test checks that every tab and subtab button points to one that exists.
 - SLA dossier: the line "Measurement firmware: NetworkMeasureBox v2.5 (RFC 2681 / BEREC compliant)" was a fixed number and a claim of conformity nobody had checked; it now shows the installed version only. The appendix no longer says that throughput tests run "strictly under verified low background traffic": in all 11 languages it now says what the box does (it waits until the other traffic it can see is low; traffic it cannot see, such as devices behind another router, is not excluded). The Hungarian appendix no longer cites a Hungarian act (the report is not tied to one country); the EU regulation stays.
 - The dossier escaped server names and outage causes twice (they showed `&amp;amp;`).
 - The per-minute ping CSV is streamed in pieces instead of being built in memory (up to 120 days are about a million rows); a minute without pings has no loss figure instead of 0.
