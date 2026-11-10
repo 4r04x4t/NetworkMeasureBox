@@ -91,6 +91,16 @@ Reached only over Tailscale (the developer PC was on another network, the Nighth
 | Speed tests in router mode bind to the router's WAN | ✅ | After the fixes; before them they bound to eth0 (only a link-local address), and with the WAN down or during an nmb-netd restart to the USB hotspot (mobile data). At the 21:10 update the guard skipped a test ("no test over the USB hotspot"), 0 tests over USB since 21:00 |
 | nmb-netd restart while PPPoE is up | ✅ after a fix | First (20:31) the stop timeout killed pppd before PADT; DIGI kept the old session, refused the next login ("Too many sessions"), did not answer PADI, and let the session go after about 6 minutes. Fixed (pppd hung up first, 45 s stop timeout); re-tested at 20:40:09 and 20:40:39: "Sent PADT" within a second, the next login accepted at once |
 
+### Data caps, mixed run and ping telemetry (Box on PPPoE, 2026-11-10 night)
+
+| Feature | Result | How |
+|---|---|---|
+| Data used by the owner's schedule | — (a figure, not a test) | ppp0 moved 556 GB down and 244 GB up in about 4 hours (21:10-01:06) with every engine every 2-5 minutes; about 25 GB in 10 minutes with iPerf3 against four servers |
+| Data caps | ✅ | `nmb-selftest datacap` 5/5: usage counted per link since the period start, a cap set to the used amount was seen as reached, a scheduled cycle was skipped without running an engine, the owner's caps put back |
+| Mixed run without iPerf3 and Ookla | ✅ | Set to Cloudflare, Fast.com and RTR on the box; the next scheduled cycles ran only those |
+| Ping telemetry on PPPoE | ✅ after a fix | Before: 100 % loss on every target from 19:31 to 01:21 (probe bound to eth0, no address) and 8 outages left open. After: the probe moved to ppp0 within 30 s, no loss, 1.1.1.1 about 8 ms; the Local Gateway (no gateway on PPPoE) and the ISP First Hop (the PPP peer 10.0.0.1, which does not answer pings) switched off |
+| NetworkManager on the PPPoE port | ✅ (unit), live: to watch | The port is set unmanaged in router mode; the night's log showed "Activation: failed for connection 'netplan-eth0'" every 45 s before the fix |
+
 ### Wi-Fi access point (VM-D13, simulated radios)
 
 | Case | Result | How |
@@ -306,6 +316,7 @@ Run before every release on the Box (and, for installer changes, on one VM). Eac
 | Wi-Fi sharing on the LAN port with USB as the upstream | Box on Wi-Fi, cable from the router to a laptop, then the box leaves its Wi-Fi: the laptop must keep browsing over USB (scenario steps `wifi-share`, `usb-fallback`; the client's packets out of `eth1` are counted) |
 | Router mode drops the LAN ports' link after setup | Laptop on the cable with an address from before (for example 192.168.77.x): without replugging it must get 192.168.100.x and browse within a minute |
 | Dead default routes are removed | Cable from the router to a laptop: within one netd loop no default route may stay on `eth0`; Wi-Fi or USB carries the box's traffic and Tailscale stays up (`nmb-selftest internet`: "no dead default route") |
+| Wired route priority through NetworkManager | Back behind the home router: the eth0 profile gets `ipv4.route-metric 50`, no `proto boot` default route stays; the cable moved to a laptop must leave no default route on eth0 |
 | Access point on 5 GHz with a client | 802.11ac at 80 MHz starts with the default settings (2026-11-09); a phone or laptop on it and a speed test over it are still to do |
 | Unplugging the USB device in router mode and in standalone | Scenario step `unplug`: no USB route or rule left, the mode rebuilds with `eth0` |
 | Secrets restore | Clear the Telegram token by hand in `nmb.conf`: `nmb-selftest config` must fail with its name, `sudo nmb-selftest secrets-restore` must bring it back and the bot must answer |
@@ -356,9 +367,8 @@ Found in the code or in the box's logs and not fixed yet (the log review of 2026
 | What | Detail |
 |---|---|
 | Ookla rate limits at an hourly schedule | Ookla still refused the box every few hours (2026-11-08 17:20, 20:22-22:24, 11-09 01:27, 06:37, 07:41). One cause is fixed (the bot ran Ookla as a new client each time); watch whether it stops, and count manual and Telegram runs against the hour too |
-| RTR rows without the client IP | About 8 % since the fix (16 of 208): the address lookup over the measured link sometimes fails |
+| False outages and lost pings of 2026-11-09/10 | 8 outages (19:12-21:10 starts, never closed) and the 100 %-loss minutes from 19:12 to 01:22 came from the probe fault and the test cabling, not from the line. They are still in the database and would show in the reports; a read-only copy is in the private log folder. To remove or mark them, the owner decides |
 | SD card writes | The developer log grows about 10 MB a day on the SD card (the boot-partition copy of the diagnostic snapshot is already limited to once an hour) |
-| Wired route outside NetworkManager | The Web UI adds a static `eth0` default route (metric 50) itself; it should set the metric in the NetworkManager profile instead |
 | Data used by the owner's schedule | The box runs every engine every 2-5 minutes (the owner's setting): on a 1000 Mbit/s line that is many GB an hour. USB has no daily limit set (0); since 2026-11-09 router mode does not fall back to USB for tests, but a limit for USB is still advisable |
 | `nmcli device reapply` | Putting IPv4 DNS first reapplies the profile once; that reset an open connection of the bot once (it reconnected) |
 | Leftovers on the test box | 22 old `/tmp/nmb-install-*` folders from 2026-11-07 deploys |

@@ -91,6 +91,16 @@ Csak Tailscale-en keresztül elérve (a fejlesztői gép másik hálózaton, a N
 | A sebességmérések router módban a router WAN-jához kötődnek | ✅ | A javítások után; előttük az eth0-hoz (csak link-local cím), a WAN kiesésekor vagy az nmb-netd újraindításakor pedig a USB-s hotspothoz kötődtek (mobiladat). A 21:10-es frissítéskor a védelem kihagyott egy mérést („no test over the USB hotspot”), 21:00 óta 0 mérés USB-n |
 | nmb-netd újraindítása élő PPPoE mellett | ✅ javítás után | Először (20:31) a leállítási időkorlát a PADT előtt kilőtte a pppd-t; a DIGI megtartotta a régi munkamenetet, a következő belépést elutasította („Too many sessions”), a PADI-ra nem válaszolt, és kb. 6 perc után engedte el. Javítva (a pppd bont elsőként, 45 s-os leállítási idő); újratesztelve 20:40:09-kor és 20:40:39-kor: „Sent PADT” egy másodpercen belül, a következő belépés azonnal elfogadva |
 
+### Adatkorlát, vegyes kör és ping-telemetria (a doboz PPPoE-n, 2026-11-10 éjjel)
+
+| Funkció | Eredmény | Hogyan |
+|---|---|---|
+| A tulajdonos ütemezésének adatforgalma | — (adat, nem teszt) | A ppp0-n kb. 4 óra alatt (21:10-01:06) 556 GB le és 244 GB fel ment, minden motorral 2-5 percenként; négy szerveres iPerf3-mal kb. 25 GB 10 perc alatt |
+| Adatkorlát | ✅ | `nmb-selftest datacap` 5/5: a felhasználás linkenként az időszak kezdete óta számolva, a felhasznált mennyiségre állított korlát elértnek látszott, egy ütemezett kör motor futtatása nélkül kimaradt, a tulajdonos korlátai visszaálltak |
+| Vegyes kör iPerf3 és Ookla nélkül | ✅ | A dobozon Cloudflare, Fast.com és RTR beállítva; a következő ütemezett körök csak ezeket futtatták |
+| Ping-telemetria PPPoE-n | ✅ javítás után | Előtte: 100% veszteség minden célpontra 19:31 és 01:21 között (a szonda az eth0-hoz volt kötve, cím nélkül) és 8 nyitva maradt kiesés. Utána: a szonda 30 s-on belül a ppp0-ra költözött, veszteség nincs, 1.1.1.1 kb. 8 ms; a Local Gateway (PPPoE-n nincs átjáró) és az ISP First Hop (a PPP peer 10.0.0.1, amely pingre nem válaszol) kikapcsolva |
+| NetworkManager a PPPoE-porton | ✅ (egység), élesben: figyelendő | Router módban a port nem kezelt; az éjszakai naplóban a javítás előtt 45 s-onként „Activation: failed for connection 'netplan-eth0'” állt |
+
 ### Wi-Fi hozzáférési pont (VM-D13, szimulált rádiók)
 
 | Eset | Eredmény | Hogyan |
@@ -306,6 +316,7 @@ Minden kiadás előtt a Boxon (a telepítő változásainál egy VM-en is). Mind
 | Wi-Fi megosztás a LAN porton, USB-ről jövő internettel | A box Wi-Fin, a kábel a routerből a laptopba, majd a box lecsatlakozik a Wi-Firől: a laptopnak tovább kell böngésznie az USB-n át (`wifi-share`, `usb-fallback` lépések; a kliens `eth1`-en kimenő csomagjait számolja) |
 | Router módban a LAN portok linkje beállítás után leesik | Laptop a kábelen egy korábbi címmel (pl. 192.168.77.x): újradugás nélkül egy percen belül 192.168.100.x címet kell kapnia és böngésznie kell |
 | A halott alapútvonalak eltűnnek | Kábel a routerből a laptopba: egy netd körön belül nem maradhat alapútvonal az `eth0`-n; a box forgalma Wi-Fin vagy USB-n megy, a Tailscale nem szakad meg (`nmb-selftest internet`: „no dead default route”) |
+| Vezetékes útvonal-prioritás NetworkManagerrel | Újra az otthoni router mögött: az eth0 profilja `ipv4.route-metric 50`-et kap, nem marad `proto boot` alapútvonal; laptopra áttett kábel után az eth0-n nem maradhat alapútvonal |
 | Hozzáférési pont 5 GHz-en klienssel | A 802.11ac 80 MHz-en elindul alapbeállítással (2026-11-09); telefon vagy laptop rajta és egy sebességmérés rajta még hátravan |
 | USB eszköz kihúzása router módban és standalone-ban | A forgatókönyv `unplug` lépése: nem marad USB útvonal vagy szabály, a mód `eth0`-val épül újra |
 | Titkok visszaállítása | A Telegram token kézi törlése az `nmb.conf`-ból: az `nmb-selftest config` a nevével bukjon el, a `sudo nmb-selftest secrets-restore` hozza vissza, és a bot válaszoljon |
@@ -356,9 +367,8 @@ A kódban vagy a box naplóiban talált, még nem javított hibák (a 2026-11-09
 | Mi | Részlet |
 |---|---|
 | Ookla rate limit óránkénti ütemezésnél | Az Ookla néhány óránként még elutasította a boxot (2026-11-08 17:20, 20:22-22:24, 11-09 01:27, 06:37, 07:41). Egy ok javítva (a bot minden alkalommal új kliensként futtatta az Ooklát); figyelni kell, megszűnik-e, és a kézi és Telegramos futásokat is bele kell számolni az órába |
-| RTR sorok kliens IP nélkül | A javítás óta kb. 8% (208-ból 16): a cím lekérdezése a mért linken néha nem sikerül |
+| Hamis kiesések és elveszett pingek, 2026-11-09/10 | 8 kiesés (kezdetük 19:12 és 21:10 között, egyik sem zárult le) és a 100%-os veszteségű percek 19:12 és 01:22 között a szonda hibájából és a teszt kábelezéséből jöttek, nem a vonaltól. Még az adatbázisban vannak és a jelentésekben megjelennének; olvasási célú másolatuk a privát naplómappában van. A törlésükről vagy megjelölésükről a tulajdonos dönt |
 | SD-kártya írások | A fejlesztői napló kb. 10 MB-ot nő naponta az SD-kártyán (a diagnosztikai pillanatkép boot partíciós másolata már óránként legfeljebb egyszer készül) |
-| Vezetékes útvonal a NetworkManageren kívül | A webes felület maga tesz fel egy statikus `eth0` alapútvonalat (50-es metrika); helyette a NetworkManager profil metrikáját kellene állítani |
 | A tulajdonos ütemezése által használt adat | A doboz 2-5 percenként minden motort futtat (a tulajdonos beállítása): egy 1000 Mbit/s-os vonalon ez óránként sok GB. A USB-nek nincs napi korlátja (0); 2026-11-09 óta a router mód nem vált USB-re méréshez, de USB-korlát beállítása így is ajánlott |
 | `nmcli device reapply` | Az IPv4 DNS előresorolása egyszer újraalkalmazza a profilt; ez egyszer megszakította a bot egy nyitott kapcsolatát (újracsatlakozott) |
 | Maradékok a teszt-boxon | 22 régi `/tmp/nmb-install-*` mappa a 2026-11-07-i telepítésekből |
