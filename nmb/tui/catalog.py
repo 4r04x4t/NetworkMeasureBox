@@ -193,6 +193,9 @@ CONTENT: Dict[str, Tuple[Tuple[str, ...], Tuple[Action, ...]]] = {
         A("server.default", "Set scheduled server", "/api/speedtest/scheduled-server", "server_id:int server_name server_host"),
         A("schedule.set", "Change schedule", "/api/speedtest/schedule", SCHEDULE),
         A("engine.set", "Set engine", "/api/speedtest/engine", "engine:choice(ookla|cloudflare|fastcom|rtr|iperf3|all)"),
+        A("ookla.terms", "Accept (true) or withdraw (false) Ookla's licence and privacy terms; read "
+          "https://www.speedtest.net/about/eula and https://www.speedtest.net/about/privacy first",
+          "/api/speedtest/ookla/terms", "accept:bool", confirm="ACCEPT"),
         A("iperf.auto", "iPerf3 servers and settings for automatic tests", "/api/speedtest/schedule", IPERF_AUTO),
         A("servers.refresh", "Refresh the Ookla server list from Ookla", "/api/speedtest/servers", "refresh:choice(1)", method="GET"),
         A("ua.save", "Set User-Agent", "/api/user-agent", "user_agent user_agent_mode"),
