@@ -881,6 +881,23 @@ When the box joins a Wi-Fi network as a client (hotel, café, campus, hotspot) a
 - **After the portal.** The box checks the internet again, records when the portal was passed and how long it took, and starts measuring. When the portal's session runs out (time limit, daily re-acceptance), the box notices it the same way, marks the link again, and tells the user (Web UI, bot) instead of recording a fake outage.
 - **Where it fits.** The same for the Raspberry Pi and the router targets; a router target without enough flash for the relay shows the portal's address and lets the user open it from a device on the same Wi-Fi instead, with the box's own MAC address written on the screen to give to the portal's staff if needed. Tested on a real portal (accept-only, voucher, and paid) before it is offered; results in `docs/TESTING.md`.
 
+### 6B.7 Full user manual and command-line reference (owner, 2026-11-10)
+
+The native build ships with a complete user manual and a complete list of its command-line commands. Both are part of the deliverable: a release is not done until they cover everything the release does.
+
+- **User manual (`DePythonized/docs/manual/`), for the owner and for someone who has never seen the box:**
+  - getting started: what is in the box, first start, first-start setup (the device's unique password, language, country), reaching the Web UI over LAN, Wi-Fi and Tailscale;
+  - every operating mode (standalone, router, bridge, auto) and every uplink (Ethernet, PPPoE, Wi-Fi client with captive portals, USB tethering and mobile modems, link aggregation): when to use it, how to set it up, how to get back;
+  - measuring: every engine (what it measures and what it does not, which server it uses, its data use), schedules, the traffic gate, data caps, LAN versus internet tests, and how to read each result, status code and verdict;
+  - reports and exports: the SLA dossier, the CSV files column by column, the outage and event exports, the LLM bundle, and how to hand them to the ISP or the authority (what they prove and what they do not);
+  - every other function: Telegram bot, VPN (WireGuard, OpenVPN), Tailscale, DynDNS, DNS blocker, Wi-Fi access point, firewall, backups and restore, updates, sandboxing levels (6B.5), add-ons (themes, colour schemes), firmware upload and going back to the maker's firmware (6B.3);
+  - troubleshooting: what each warning means and what to do, logs and where they are, safe recovery when the box cannot be reached, factory reset;
+  - security and privacy: what data the box stores and sends, how long it keeps it, how to delete it; licences (6B.3A).
+  Written in plain language with real screens and examples that use reserved values only (Quality Bar point 8); available in all 11 UI languages, from one source so no language falls behind; installed on the box and opened from the Web UI (a help link on every page goes to the matching chapter), also as a printable PDF.
+- **Command-line reference (`DePythonized/docs/cli/`):** every command, subcommand and option of `nmbd` and its multi-call tools (`nmb-cli` and the rest), with what it does, whether it changes anything, whether it needs root, its exit codes, its output (plain text and machine-readable form) and at least one example. It is generated from the commands' own definitions, so the list, `--help` (which prints usage and changes nothing, Phase 0) and the man pages (`man nmbd`, `man nmb-cli`) can never disagree; shell completion comes from the same source. Bot commands and their arguments get the same kind of list.
+- **Checked, not trusted:** a build fails if a command, option, setting, Web UI page or bot command has no entry in the reference or the manual, if an entry describes something that no longer exists, or if a language is missing a chapter; every example command in the manual is run by the tests against a test box, so an example that no longer works fails the build.
+- **Kept current:** each change that users can see updates the manual, the reference and `CHANGELOG.md` in the same commit; the manual names the version it describes.
+
 ### 6B.4 Downloaded images and firmware to work with
 
 The owner downloaded the base images and router firmware for this work on 2026-11-10 (outside the repository, about 7 GB): `%USERPROFILE%\Downloads\NMB-depythonization-firmwares` on the development PC (under `/mnt/c/Users/<user>/Downloads/` in WSL2). Its `README.md` lists every file, its source and how it was checked. It holds:
