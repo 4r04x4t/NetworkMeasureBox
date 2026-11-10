@@ -826,7 +826,7 @@ Testing plan (to be added to `docs/TESTING.md` when it starts): image builds rep
 
 ## 6B. Product Decisions for the Native Build (Owner, 2026-11-10; Planned)
 
-The Python version stays a development and reference build and **is never meant for sale**. The native (de-Pythonized) builds probably will be. These decisions apply to the native builds only; the Python version keeps its current behaviour.
+The Python version stays a development and reference build. The native (de-Pythonized) build is the version meant for everyone: it must look good and make a good first impression, and it **stays open, like the Python version** (owner, 2026-11-10 evening; this corrects the earlier wording that the native builds would probably be sold). These decisions apply to the native builds only; the Python version keeps its current behaviour.
 
 ### 6B.1 Look: AMOLED black by default, other themes only as add-ons
 

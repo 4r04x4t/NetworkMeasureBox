@@ -104,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The native build stays open, like the Python version (owner, 2026-11-10): the roadmap no longer says it would probably be sold; it is the version meant for everyone, with a look that gives a good first impression. It gets its own repository in `NetworkMeasureBox-DePyD/` with every native file in it, and its licence is fixed from the licences of the components it ends up using (`docs/NATIVE_WORK_PLAN.md` section 7).
 - `docs/NATIVE_WORK_PLAN.md` section 7: the owner's decisions for the native build (2026-11-10): the iPerf3 schedule settings are implemented; Ookla starts with Ookla's own program in a sandbox and a native engine only if it works as well and the terms allow it; the base of the own distribution is chosen after the images are analysed; every native test may run on the Raspberry Pi 4 (with a backup and a way back); updates are signed; the API contract is left to the developer (real HTTP status codes proposed).
 - The native (de-Pythonized) build is developed in its own folder next to the Python version, `NetworkMeasureBox-DePyD/`, instead of a `DePythonized/` folder inside this tree (owner, 2026-11-10); the roadmap, the porting plan and the work plan name the new place.
 - The default contracted speed is now 0 (not set) instead of 1000/300 Mbit/s, and the settings form no longer fills in 1000: nothing is judged against a plan the owner never entered. A configuration that names its speeds (as the owner's 1000/300) is not affected.

@@ -20,7 +20,7 @@ ARM) runs through by itself; and the images and firmware files are taken apart, 
   router tiers and starts with step 2.
 - **Done** when the whole native program (every component of section 5, not a subset) passes the Quality Bar,
   points 1 to 9, on these targets (roadmap, *Order of Work* step 1). Nothing router-specific is written before that.
-- **Everything native lives in `NetworkMeasureBox-DePyD/`**, the folder next to the Python version's folder (owner, 2026-11-10); its first commit creates `NetworkMeasureBox-DePyD/CHANGELOG.md` before any code. The folder is empty and not under version control yet (section 7, point 8).
+- **Everything native lives in `NetworkMeasureBox-DePyD/`**, the folder next to the Python version's folder (owner, 2026-11-10); its first commit creates `NetworkMeasureBox-DePyD/CHANGELOG.md` before any code. Package F-00 makes it a repository of its own (section 7, point 8).
 
 ## 2. How the work is organised
 
@@ -312,4 +312,13 @@ Answered by the owner on 2026-11-10:
 Still open:
 
 7. The wording of the disclaimer (6B.3A).
-8. `NetworkMeasureBox-DePyD/`: its version control (an own repository; private or public, the native builds probably being for sale; where it is pushed) and its licence. The agents' separate working copies (2.2 point 1) need it to be a repository before F-00.
+8. **The native folder: answered (owner, 2026-11-10).** `NetworkMeasureBox-DePyD/` is its own repository and holds
+   every native file, without exception. It is **open, like the Python version** (public; "for everyone" means a
+   build whose look pleases and gives a good first impression, not a closed product). Package F-00 makes the
+   repository in that folder with its first commit. Publishing it (the address it is pushed to) is done once,
+   with the owner, since making a public repository cannot be taken back.
+9. **Licence of the native build: follows from the development.** It is fixed when the components are known:
+   F-00 starts a list of every dependency with its licence (6B.3A), each analyst adds to it, and the licence of
+   the whole is proposed from what those licences require and allow (for example a copyleft part that is built
+   in decides more than a part that is only run). Until it is fixed, no dependency is taken whose licence would
+   rule out an open licence, and the repository says that the licence is not decided yet.
