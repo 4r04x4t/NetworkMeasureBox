@@ -110,6 +110,8 @@ Reached only over Tailscale (the developer PC was on another network, the Nighth
 | `/kill` | ✅ after a fix | On two `sleep` processes: the bot's own stopped with TERM, a root one refused (the bot has no sudo for kill), PID 1 refused, a missing PID reported; signal 19 is now refused (it sent TERM before while naming 19) |
 | `/purge logs confirm` | ✅ after a fix | In an isolated mount namespace (log directories on throwaway RAM disks there, `journalctl` and `dmesg` replaced by a recorder): NMB logs emptied, rotated copies deleted, other files kept, the helper called `journalctl --rotate`, `--vacuum-time=1s` and `dmesg -c`; the logs kept on the SD card are now cleared too (they stayed before). The box's real journal, kernel buffer and logs unchanged |
 | Storage guard on the /var/log RAM disk | ✅ after a fix | A 45 MB test file left 3 MB of the 48 MB free: the guard deleted it (oldest rotated log first) and stopped at 47 MB free; the real developer log untouched. Before, only the data disk was checked |
+| Bot start after a reboot in router mode | ✅ after a fix | Before: 2 minutes after the other services (it waited for NetworkManager-wait-online, which fails on the ONT). After (04:02 reboot): together with netd, web and probe; one failed poll before PPPoE was up, then working |
+| `setup.sh` on a nearly full /var/log | ✅ | /var/log at 91 %: the installer removed the old rotated log first, finished, and moved the old default developer log (6 x 10 MB) to 3 x 5 MB; the factory Web UI login warned about |
 | Wired WAN cable out for 3 s | ✅ | 02:28, by accident: the PPPoE session stayed up (no redial, no outage, no ping lost) |
 | False outage rows of 2026-11-09 removed | ✅ | Owner's decision: database backed up first (box and PC), then outages 18-25 deleted, outage 17 (18:56, the cable move) ended at 19:00:49 when the box was online again over USB, the lost samples and fully lost minutes between 19:00:49 and 01:20:58 deleted, two edge minutes corrected. Availability in the last 24 h: 99.55 % (was 73.22 %) |
 
@@ -381,7 +383,6 @@ Found in the code or in the box's logs and not fixed yet (the log review of 2026
 | SD card writes | The developer log grows about 10 MB a day (since 2026-11-10 its rotation fits 40 % of /var/log) (the boot-partition copy of the diagnostic snapshot is already limited to once an hour) |
 | Data used by the owner's schedule | The box runs every engine every 2-5 minutes (the owner's setting): on a 1000 Mbit/s line that is many GB an hour. USB has no daily limit set (0); since 2026-11-09 router mode does not fall back to USB for tests, but a limit for USB is still advisable |
 | `nmcli device reapply` | Putting IPv4 DNS first reapplies the profile once; that reset an open connection of the bot once (it reconnected) |
-| Slow bot start after a reboot in router mode | The bot waits for `network-online.target`; NetworkManager-wait-online fails after its timeout because eth0 is not managed in router mode, so the bot starts about 2 minutes after boot (2026-11-10: boot 03:38:05, bot 03:40:05) |
 | pppd warning on every dial | "can't open options file /root/.ppprc: Permission denied" (netd runs with limited rights); harmless |
 
 ## Known limits
