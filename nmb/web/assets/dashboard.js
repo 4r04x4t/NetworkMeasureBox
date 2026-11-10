@@ -2334,7 +2334,10 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
     if (activeBadge) {
       const labels = { ookla: 'Ookla', cloudflare: 'Cloudflare', fastcom: 'Fast.com', rtr: 'RTR-NetTest', iperf3: 'iPerf3',
                        all: t('home_view_mixed_short', 'Mixed') };
-      activeBadge.innerText = labels[selectedEngine] || selectedEngine;
+      let text = labels[selectedEngine] || selectedEngine;
+      const mixed = Array.isArray(window.currentMixedEngines) ? window.currentMixedEngines : [];
+      if (selectedEngine === 'all' && mixed.length) text += ': ' + mixed.map(e => labels[e] || e).join(', ');
+      activeBadge.innerText = text;
       if (selectedEngine === 'ookla') {
         activeBadge.style.background = 'rgba(2,132,199,0.25)';
         activeBadge.style.color = '#38bdf8';
@@ -2711,12 +2714,15 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         if (Array.isArray(data.mixed_engines) && !schedFormDirty && !isScheduleInputActive()) {
           document.querySelectorAll('.sched-mix').forEach(cb => { cb.checked = data.mixed_engines.includes(cb.dataset.engine); });
         }
+        if (Array.isArray(data.mixed_engines)) window.currentMixedEngines = data.mixed_engines;
         if (data.automated_engine) {
           window.currentAutomatedEngine = data.automated_engine;
-          if (document.getElementById('sched-engine-select')) {
+          if (document.getElementById('sched-engine-select') && !schedFormDirty) {
             document.getElementById('sched-engine-select').value = data.automated_engine;
           }
-          if (!selectedEngine) {
+          // Follow the saved setting (2026-11-10: the badge stayed on "Ookla", the start value, because it
+          // was only set while no engine was known).
+          if (!schedFormDirty && (data.automated_engine !== selectedEngine || data.automated_engine === 'all')) {
             selectEngine(data.automated_engine, true);
           }
         }

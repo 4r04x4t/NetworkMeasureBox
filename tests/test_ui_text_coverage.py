@@ -87,3 +87,10 @@ class NoMadeUpStatusTest(unittest.TestCase):
             self.assertEqual(server._installed_version(), "b624b96")
         with mock.patch.object(updater, "COMMIT_FILE", tmp.with_name("missing")):
             self.assertEqual(server._installed_version(), "dev")
+
+
+class EngineBadgeFollowsSettingTest(unittest.TestCase):
+    def test_badge_is_not_stuck_on_the_start_value(self):
+        js = (ASSETS / "dashboard.js").read_text(encoding="utf-8")
+        self.assertNotIn("if (!selectedEngine) {\n            selectEngine(data.automated_engine, true);", js)
+        self.assertIn("data.automated_engine !== selectedEngine", js)
