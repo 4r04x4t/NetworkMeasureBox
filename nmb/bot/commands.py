@@ -985,6 +985,8 @@ class CommandHandler:
                 token=d_cfg.token,
                 ip=d_cfg.custom_ip if d_cfg.custom_ip else None,
                 ipv6=detected_v6,
+                provider=getattr(d_cfg, "provider", "duckdns") or "duckdns",
+                ipv6_mode=getattr(d_cfg, "ipv6_mode", "auto") or "auto",
             )
             dd.wake_duckdns_daemon()
 
@@ -1017,16 +1019,14 @@ class CommandHandler:
 
         if subcmd in ("on", "enable", "start"):
             d_cfg.enabled = True
-            save_config(self.cfg)
-            dd.start_duckdns_service(lambda: self.cfg)
-            dd.wake_duckdns_daemon()
+            save_config(self.cfg)       # the updater in the web server follows the saved settings
+
             self._say(chat_id, "dd_enabled", host=html.escape(dd.clean_domain(d_cfg.domain)), min=d_cfg.update_interval_min)
             return
 
         if subcmd in ("off", "disable", "stop"):
             d_cfg.enabled = False
-            save_config(self.cfg)
-            dd.stop_duckdns_service()
+            save_config(self.cfg)       # the updater in the web server stops within 30 s
             self._say(chat_id, "dd_disabled")
             return
 

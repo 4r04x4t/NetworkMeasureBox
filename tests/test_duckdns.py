@@ -224,3 +224,59 @@ class TestDuckDNSTelegram(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDynDnsAcrossProcesses(unittest.TestCase):
+    """The updater runs in the web server; the bot is another process (2026-11-10)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.state = patch.object(dd, "STATE_FILE", __import__("pathlib").Path(self.tmp.name) / "state.json")
+        self.state.start()
+        dd.stop_duckdns_service()
+        with dd._duckdns_lock:
+            dd._duckdns_state["last_update_ts"] = 0.0
+            dd._duckdns_state["last_status"] = "never_run"
+
+    def tearDown(self):
+        self.state.stop()
+        self.tmp.cleanup()
+
+    def test_other_process_sees_the_updaters_state(self):
+        ts = time.time() - 60
+        dd.STATE_FILE.write_text(__import__("json").dumps(
+            {"pid": os.getpid(), "running": True, "last_update_ts": ts, "last_status": "OK", "last_ip": "198.51.100.7"}))
+        cfg = Config()
+        cfg.duckdns = DuckDNSConfig(enabled=True, provider="dynv6", domain="box.example.net", token="t", update_interval_min=10)
+        st = dd.get_duckdns_status(cfg)
+        self.assertEqual((st["last_status"], st["last_ip"], st["running"]), ("OK", "198.51.100.7", True))
+        self.assertTrue(st["last_update"])
+        dd.STATE_FILE.write_text(__import__("json").dumps({"pid": 99999999, "running": True, "last_update_ts": ts}))
+        self.assertFalse(dd.get_duckdns_status(cfg)["running"])      # that process is gone
+
+    def test_bot_on_and_off_only_save_the_setting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = Config()
+            cfg.system.config_path = os.path.join(tmp, "nmb.conf")
+            cfg.duckdns = DuckDNSConfig(enabled=True, domain="tg-box", token="t", update_interval_min=10)
+            handler = CommandHandler(cfg, MagicMock())
+            with patch("nmb.bot.commands.save_config", create=True), \
+                 patch("nmb.config.save_config") as save, \
+                 patch.object(dd, "start_duckdns_service") as start, \
+                 patch.object(dd, "stop_duckdns_service") as stop:
+                handler.handle_command(1, "/dyndns off")
+                self.assertFalse(cfg.duckdns.enabled)
+                handler.handle_command(1, "/dyndns on")
+                self.assertTrue(cfg.duckdns.enabled)
+            self.assertEqual(save.call_count, 2)
+            start.assert_not_called()       # no second updater inside the bot
+            stop.assert_not_called()
+
+    def test_bot_update_uses_the_configured_provider(self):
+        cfg = Config()
+        cfg.duckdns = DuckDNSConfig(enabled=True, provider="dynv6", domain="box.example.net", token="t", update_interval_min=10)
+        handler = CommandHandler(cfg, MagicMock())
+        with patch.object(dd, "update_duckdns", return_value={"status": "ok", "ip": "198.51.100.7"}) as upd, \
+             patch("nmb.netd.wireguard.get_device_addresses", return_value=([], [])):
+            handler.handle_command(1, "/dyndns update")
+        self.assertEqual(upd.call_args.kwargs["provider"], "dynv6")

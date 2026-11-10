@@ -7,7 +7,9 @@ independent of operational network mode (standalone, active gateway, or passive 
 from __future__ import annotations
 
 import datetime
+import json
 import logging
+import os
 import re
 import socket
 import subprocess
@@ -16,6 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 log = logging.getLogger("nmb.netd.duckdns")
@@ -49,6 +52,49 @@ _duckdns_state: Dict[str, Any] = {
     "consecutive_failures": 0,
     "last_saved_ts": 0.0,
 }
+
+# The updater runs in the web server; the bot and the CLI are other processes. They see its state through
+# this file, and the updater follows nmb.conf when another process saves it (2026-11-10: the bot's
+# /dyndns off was saved but the web server's updater kept running, /dyndns on started a second updater in
+# the bot, and the bot showed "last update: never" from its own empty state).
+STATE_FILE = Path(os.environ.get("NMB_DYNDNS_STATE", "/run/nmb/dyndns_state.json"))
+_SHARED_KEYS = ("last_update_ts", "last_status", "last_ip", "last_ipv6", "last_message", "next_update_ts",
+                "consecutive_failures", "running", "detected_ipv6")
+
+
+def _save_state() -> None:
+    try:
+        with _duckdns_lock:
+            data = {k: _duckdns_state.get(k) for k in _SHARED_KEYS}
+        data["pid"] = os.getpid()
+        data["running"] = bool(_duckdns_thread and _duckdns_thread.is_alive())
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = STATE_FILE.with_name(f".{STATE_FILE.name}.{os.getpid()}")
+        tmp.write_text(json.dumps(data))
+        os.replace(tmp, STATE_FILE)
+    except OSError:
+        log.debug("DynDNS state not saved", exc_info=True)
+
+
+def _shared_state() -> Dict[str, Any]:
+    """The updater's state as the web server's process last saved it ({} when there is none)."""
+    try:
+        data = json.loads(STATE_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+    pid = data.get("pid")
+    if not (isinstance(pid, int) and Path(f"/proc/{pid}").exists()):
+        data["running"] = False
+    return {k: data[k] for k in _SHARED_KEYS if k in data}
+
+
+def _config_mtime() -> float:
+    try:
+        from nmb.config import DEFAULT_CONFIG_PATH
+        return DEFAULT_CONFIG_PATH.stat().st_mtime
+    except (OSError, ImportError):
+        return 0.0
+
 
 IP_DETECTORS_V4 = [
     "https://api.ipify.org",
@@ -147,7 +193,7 @@ def detect_public_ip(timeout: float = 4.0) -> Optional[str]:
     return None
 
 
-def update_duckdns(
+def _update_duckdns(
     domain: str,
     token: str,
     ip: Optional[str] = None,
@@ -373,6 +419,14 @@ def update_duckdns(
         }
 
 
+def update_duckdns(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    """Execute a DynDNS update (DuckDNS.org or dynv6.com); the result is shared with the other processes."""
+    try:
+        return _update_duckdns(*args, **kwargs)
+    finally:
+        _save_state()
+
+
 update_dyndns = update_duckdns
 
 
@@ -400,6 +454,11 @@ def get_duckdns_status(cfg: Optional[Any] = None) -> Dict[str, Any]:
 
     with _duckdns_lock:
         state = dict(_duckdns_state)
+    here = bool(_duckdns_thread and _duckdns_thread.is_alive())
+    if not here:
+        shared = _shared_state()
+        if shared.get("last_update_ts", 0) >= state.get("last_update_ts", 0):
+            state.update(shared)
 
     if cfg is not None and getattr(cfg, "duckdns", None):
         d_cfg = cfg.duckdns
@@ -432,7 +491,7 @@ def get_duckdns_status(cfg: Optional[Any] = None) -> Dict[str, Any]:
             state["next_update_ts"] = next_ts
 
     state["detected_ip"] = state.get("last_ip", "")
-    state["running"] = bool(_duckdns_thread and _duckdns_thread.is_alive())
+    state["running"] = True if here else bool(state.get("running"))
 
     if last_ts > 0:
         state["last_update"] = datetime.datetime.fromtimestamp(last_ts).isoformat(timespec="seconds")
@@ -473,10 +532,20 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
     """
     log.info("DynDNS updater background loop started")
     last_sig = None
+    seen_mtime = _config_mtime()
+    disk_cfg = None
     while not stop_event.is_set():
         try:
             _duckdns_wake_event.clear()
             cfg = cfg_getter()
+            mtime = _config_mtime()
+            if mtime != seen_mtime or disk_cfg is not None:
+                # Another process (the bot, the CLI) saved nmb.conf: its DynDNS settings count from now on.
+                if mtime != seen_mtime or disk_cfg is None:
+                    from nmb.config import load_config
+                    disk_cfg = load_config()
+                    seen_mtime = mtime
+                cfg = disk_cfg
             duck_cfg = getattr(cfg, "duckdns", None)
             if not duck_cfg or not duck_cfg.enabled or not duck_cfg.token or not duck_cfg.domain:
                 missing = [n for n, v in (("token", getattr(duck_cfg, "token", "")), ("domain", getattr(duck_cfg, "domain", ""))) if not v]
@@ -565,6 +634,7 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
 
             with _duckdns_lock:
                 _duckdns_state["next_update_ts"] = time.time() + remaining
+            _save_state()
 
             # Sleep for remaining seconds, or wake instantly on config change, shutdown or a new route
             deadline = time.time() + remaining
@@ -572,6 +642,8 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
                 left = deadline - time.time()
                 if left <= 0 or _duckdns_wake_event.wait(timeout=min(ROUTE_CHECK_SEC, left)):
                     break
+                if _config_mtime() != seen_mtime:
+                    break                     # settings saved elsewhere (for example /dyndns off): read them now
                 sig = _route_signature()
                 if sig and last_sig is not None and sig != last_sig and not duck_cfg.custom_ip:
                     log.info("the box's way to the internet changed (now via %s): updating DynDNS now", sig.split()[0])
@@ -585,6 +657,7 @@ def run_duckdns_daemon(cfg_getter: Callable[[], Any], stop_event: threading.Even
 
     with _duckdns_lock:
         _duckdns_state["running"] = False
+    _save_state()
     log.info("DynDNS updater background loop stopped")
 
 
@@ -617,3 +690,4 @@ def stop_duckdns_service() -> None:
         _duckdns_state["enabled"] = False
         _duckdns_state["running"] = False
         _duckdns_state["next_update_ts"] = 0.0
+    _save_state()
