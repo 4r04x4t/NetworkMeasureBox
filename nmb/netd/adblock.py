@@ -33,6 +33,7 @@ import os
 import re
 import select
 import shutil
+import secrets
 import socket
 import struct
 import subprocess
@@ -246,41 +247,49 @@ class AdblockConfig:
             log.error("failed to save adblock config: %s", e)
 
 
-def parse_dns_qname(data: bytes, offset: int = 12) -> Tuple[str, int]:
-    """Decode a DNS question QNAME from raw packet bytes, supporting compression pointers."""
-    labels = []
+def parse_dns_qname(data: bytes, offset: int = 12, allow_pointers: bool = True) -> Tuple[str, int]:
+    """Decode a DNS name. Returns ("", -1) for anything malformed: an out-of-range or looping pointer,
+    a label over 63 bytes, a name over 255 bytes, or a byte that is not printable ASCII or is a dot.
+    The old parser skipped bad bytes and stopped silently, so different names (or a broken one) ended up
+    as the same text: a crafted query could poison or block another domain (audit netd M2). Iterative,
+    at most 64 pointer jumps: a pointer loop cost ~1.7 ms per packet before.
+    """
+    labels: List[str] = []
     curr = offset
-    visited_pointers = set()
-    packet_len = len(data)
-
-    while curr < packet_len:
+    end = -1
+    jumps = 0
+    total = 0
+    n = len(data)
+    while True:
+        if curr >= n:
+            return "", -1
         length = data[curr]
         if length == 0:
-            curr += 1
+            if end < 0:
+                end = curr + 1
             break
-        # RFC 1035 pointer
         if (length & 0xC0) == 0xC0:
-            if curr + 1 >= packet_len:
-                break
+            if not allow_pointers or curr + 1 >= n:
+                return "", -1
             pointer = ((length & 0x3F) << 8) | data[curr + 1]
-            if pointer in visited_pointers or pointer >= packet_len:
-                # Loop detected or out-of-bounds pointer
-                break
-            visited_pointers.add(pointer)
-            sub, _ = parse_dns_qname(data, pointer)
-            if sub:
-                labels.append(sub)
-            curr += 2
-            break
-        curr += 1
-        if curr + length > packet_len:
-            break
-        label = data[curr : curr + length].decode("ascii", errors="ignore")
-        labels.append(label)
-        curr += length
-
-    domain = ".".join(labels).strip(".").lower()
-    return domain, curr
+            jumps += 1
+            if pointer >= n or pointer >= curr or jumps > 64:
+                return "", -1
+            if end < 0:
+                end = curr + 2
+            curr = pointer
+            continue
+        if length & 0xC0 or curr + 1 + length > n:
+            return "", -1
+        raw = data[curr + 1: curr + 1 + length]
+        if any(c < 0x21 or c > 0x7E or c == 0x2E for c in raw):
+            return "", -1
+        total += length + 1
+        if total > 255:
+            return "", -1
+        labels.append(raw.decode("ascii").lower())
+        curr += 1 + length
+    return ".".join(labels), end
 
 
 def parse_dns_query(data: bytes) -> Optional[Tuple[int, str, int, int, bytes]]:
@@ -288,18 +297,20 @@ def parse_dns_query(data: bytes) -> Optional[Tuple[int, str, int, int, bytes]]:
 
     Returns: (txid, domain, qtype, qclass, question_slice) or None
     """
-    if len(data) < 16:
+    if len(data) < 17:
         return None
     try:
         txid, flags, qdcount, ancount, nscount, arcount = struct.unpack("!HHHHHH", data[:12])
         # If QR bit is 1, this is an answer, not a query
         if (flags & 0x8000) != 0:
             return None
-        if qdcount < 1:
+        # Exactly one question, a standard query (opcode 0): what every resolver client sends.
+        if qdcount != 1 or (flags >> 11) & 0xF:
             return None
 
-        domain, end_q = parse_dns_qname(data, 12)
-        if end_q + 4 > len(data):
+        # A question has no compression pointers (nothing comes before it to point at).
+        domain, end_q = parse_dns_qname(data, 12, allow_pointers=False)
+        if end_q < 0 or end_q + 4 > len(data):
             return None
         qtype, qclass = struct.unpack("!HH", data[end_q : end_q + 4])
         question_slice = data[12 : end_q + 4]
@@ -712,41 +723,90 @@ class AdblockEngine:
             if self.config.query_logging:
                 self.query_log.append(entry)
 
-    def get_cached_response(self, domain: str, qtype: int, txid: int) -> Optional[bytes]:
+    @staticmethod
+    def cache_key(data: bytes, domain: str, qtype: int, qclass: int, question_len: int) -> tuple:
+        """What the answer depends on, not only the name and type: the class, the RD and CD flags and
+        whether the client sent EDNS with the DNSSEC OK bit (audit netd M2)."""
+        flags = struct.unpack("!H", data[2:4])[0] & 0x0110
+        tail = data[12 + question_len:]
+        has_opt = len(tail) >= 11 and tail[0] == 0 and tail[1:3] == b"\x00\x29"
+        dnssec_ok = bool(has_opt and tail[7] & 0x80)
+        return (domain, qtype, qclass, flags, has_opt, dnssec_ok)
+
+    def get_cached_response(self, key, qtype: int, txid: int) -> Optional[bytes]:
+        if not isinstance(key, tuple):
+            key = (key, qtype)
         now = time.time()
         with self.cache_lock:
-            entry = self.cache.get((domain, qtype))
+            entry = self.cache.get(key)
             if entry:
                 resp_bytes, expire_time = entry
                 if expire_time > now:
                     # Update transaction ID in the first 2 bytes
                     return struct.pack("!H", txid) + resp_bytes[2:]
                 else:
-                    del self.cache[(domain, qtype)]
+                    del self.cache[key]
         return None
 
-    def store_cache_response(self, domain: str, qtype: int, resp_bytes: bytes, ttl: int = 60) -> None:
+    def store_cache_response(self, key, qtype: int, resp_bytes: bytes, ttl: int = 60) -> None:
+        if not isinstance(key, tuple):
+            key = (key, qtype)
+        # Only complete NOERROR / NXDOMAIN answers: a SERVFAIL or REFUSED (or a truncated reply) is
+        # passed on but not kept for every client.
+        if len(resp_bytes) < 12:
+            return
+        flags = struct.unpack("!H", resp_bytes[2:4])[0]
+        if flags & 0x0200 or (flags & 0x000F) not in (0, 3):
+            return
         now = time.time()
         eff_ttl = max(10, min(ttl, self.config.cache_ttl_max))
         with self.cache_lock:
             if len(self.cache) > 5000:
                 self.cache.clear()
-            self.cache[(domain, qtype)] = (resp_bytes, now + eff_ttl)
+            self.cache[key] = (resp_bytes, now + eff_ttl)
+
+    @staticmethod
+    def _is_answer_to(resp: bytes, txid: int, question: bytes) -> bool:
+        """A reply is accepted only if it answers our query: same random ID, the QR bit, one question
+        that is ours (names compared without case)."""
+        if len(resp) < 12 + len(question):
+            return False
+        r_id, r_flags, r_qd = struct.unpack("!HHH", resp[:6])
+        if r_id != txid or not r_flags & 0x8000 or r_qd != 1:
+            return False
+        return resp[12:12 + len(question)].lower() == question.lower()
 
     def forward_upstream(self, query_packet: bytes) -> Tuple[Optional[bytes], str]:
         """Forward DNS query to upstream DNS servers with failover.
 
+        Each upstream query gets a fresh random ID and a connected socket, so only datagrams from that
+        server arrive, and only a reply to this very question is used. Before, any datagram that reached
+        the port first was taken and cached for every client: a LAN client could poison the cache
+        (audit netd H4). The client's own ID is put back into the reply.
+
         Returns: (response_bytes, answering_upstream_ip)
         """
+        parsed = parse_dns_query(query_packet)
+        if not parsed:
+            return None, ""
+        client_txid, _domain, _qt, _qc, question = parsed
         for upstream in self.config.upstreams:
             s = None
             try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.settimeout(1.5)
-                s.sendto(query_packet, (upstream, DNS_PORT))
-                resp, _ = s.recvfrom(4096)
-                if resp:
-                    return resp, upstream
+                family = socket.AF_INET6 if ":" in upstream else socket.AF_INET
+                txid = secrets.randbits(16)
+                s = socket.socket(family, socket.SOCK_DGRAM)
+                s.connect((upstream, DNS_PORT))
+                s.send(struct.pack("!H", txid) + query_packet[2:])
+                deadline = time.monotonic() + 1.5
+                while True:
+                    left = deadline - time.monotonic()
+                    if left <= 0:
+                        break
+                    s.settimeout(left)
+                    resp = s.recv(4096)
+                    if self._is_answer_to(resp, txid, question):
+                        return struct.pack("!H", client_txid) + resp[2:], upstream
             except Exception:
                 log.debug("suppressed exception", exc_info=True)
                 continue
@@ -793,7 +853,8 @@ class AdblockEngine:
             return resp
 
         # 4. Check in-memory DNS cache
-        cached = self.get_cached_response(domain, qtype, txid)
+        key = self.cache_key(data, domain, qtype, qclass, len(question_slice))
+        cached = self.get_cached_response(key, qtype, txid)
         if cached:
             duration = (time.perf_counter() - start_t) * 1000.0
             self.record_query(client_ip, domain, qtype, "CACHED", "cache", duration, upstream="cache")
@@ -804,7 +865,7 @@ class AdblockEngine:
         duration = (time.perf_counter() - start_t) * 1000.0
 
         if upstream_resp:
-            self.store_cache_response(domain, qtype, upstream_resp, ttl=120)
+            self.store_cache_response(key, qtype, upstream_resp, ttl=120)
             self.record_query(client_ip, domain, qtype, "ALLOWED", "upstream", duration, upstream=upstream_ip or "upstream")
             return upstream_resp
         else:
@@ -1462,6 +1523,11 @@ class AdblockDNSServer:
         self.tcp_sockets: List[socket.socket] = []
         self.threads: List[threading.Thread] = []
         self.engine = get_adblock_engine()
+        # Queries are answered by a small pool, so one slow upstream answer no longer holds up every
+        # other client (audit netd M3). Over the limits a query is dropped; the client asks again.
+        self._udp_slots = threading.BoundedSemaphore(256)
+        self._tcp_slots = threading.BoundedSemaphore(64)
+        self._pool = None
 
     def start(self) -> bool:
         if self.running:
@@ -1577,6 +1643,9 @@ class AdblockDNSServer:
         self.udp_sockets.clear()
         self.tcp_sockets.clear()
         self.threads.clear()
+        if self._pool is not None:
+            self._pool.shutdown(wait=False, cancel_futures=True)
+            self._pool = None
         log.info("AdblockDNSServer stopped.")
 
     def _ipc_worker(self) -> None:
@@ -1713,6 +1782,32 @@ class AdblockDNSServer:
             except Exception:
                 log.debug("suppressed exception", exc_info=True)
 
+    def _executor(self):
+        if self._pool is None:
+            from concurrent.futures import ThreadPoolExecutor
+            self._pool = ThreadPoolExecutor(max_workers=32, thread_name_prefix="nmb-dns-q")
+        return self._pool
+
+    def _keep_going(self, sock: socket.socket, err: Exception) -> bool:
+        """An OSError used to end the worker for good, so one bad datagram (EMSGSIZE, a send to port 0)
+        or a moment without free file descriptors stopped DNS for the whole network until a restart
+        (audit netd H5). Now only a closed socket or a stop ends it."""
+        if not self.running or sock.fileno() < 0:
+            return False
+        log.debug("DNS socket error (continuing): %s", err)
+        time.sleep(0.05)
+        return True
+
+    def _answer_udp(self, sock: socket.socket, data: bytes, addr) -> None:
+        try:
+            resp = self.engine.handle_dns_request(data, addr)
+            if resp:
+                sock.sendto(resp, addr)
+        except Exception as e:
+            log.debug("UDP query error: %s", e)
+        finally:
+            self._udp_slots.release()
+
     def _udp_worker(self, sock: socket.socket) -> None:
         while self.running:
             try:
@@ -1720,15 +1815,26 @@ class AdblockDNSServer:
                 if not r:
                     continue
                 data, addr = sock.recvfrom(4096)
-                if not data:
+                if not data or not addr or not addr[1]:
                     continue
-                resp = self.engine.handle_dns_request(data, addr)
-                if resp:
-                    sock.sendto(resp, addr)
-            except OSError:
-                break
+                if not self._udp_slots.acquire(blocking=False):
+                    continue
+                try:
+                    self._executor().submit(self._answer_udp, sock, data, addr)
+                except Exception:
+                    self._udp_slots.release()
+                    raise
+            except (OSError, ValueError) as e:
+                if not self._keep_going(sock, e):
+                    break
             except Exception as e:
                 log.debug("UDP worker error: %s", e)
+
+    def _tcp_client_slot(self, client_sock: socket.socket, client_addr) -> None:
+        try:
+            self._handle_tcp_client(client_sock, client_addr)
+        finally:
+            self._tcp_slots.release()
 
     def _tcp_worker(self, server_sock: socket.socket) -> None:
         while self.running:
@@ -1737,10 +1843,14 @@ class AdblockDNSServer:
                 if not r:
                     continue
                 client_sock, client_addr = server_sock.accept()
+                if not self._tcp_slots.acquire(blocking=False):
+                    client_sock.close()
+                    continue
                 client_sock.settimeout(2.5)
-                threading.Thread(target=self._handle_tcp_client, args=(client_sock, client_addr), daemon=True).start()
-            except OSError:
-                break
+                threading.Thread(target=self._tcp_client_slot, args=(client_sock, client_addr), daemon=True).start()
+            except (OSError, ValueError) as e:
+                if not self._keep_going(server_sock, e):
+                    break
             except Exception as e:
                 log.debug("TCP accept error: %s", e)
 
