@@ -108,6 +108,18 @@ python3 -m unittest discover -s tests
 
 Minden commit előtt mindnek át kell mennie. Nem kell hozzájuk hálózat és root jog sem. Az élő ellenőrzések (`nmb-selftest`) a dobozon futnak, nem a PC-n.
 
+**Ha egy teszt csak néha bukik el:** először a WSL óráját nézd meg. 2026-11-10-én a WSL2 virtuális gép órája 5 másodpercenként kb. 0,1 másodpercre egy órát előreugrott (két WSL-disztribúció futott; a Windows órájának újbóli beállítása után megszűnt), és egy DynDNS-teszt nagyjából minden 20. futásnál elbukott. Ez kiírja, hány ugrás volt 30 másodperc alatt; 0-nak kell lennie:
+
+```bash
+python3 -c 'import time
+p=time.time(); pm=time.monotonic(); j=0
+while time.monotonic()<pm+30:
+    t=time.time(); m=time.monotonic(); j+=abs((t-p)-(m-pm))>0.5; p,pm=t,m; time.sleep(0.01)
+print("clock jumps in 30 s:", j)'
+```
+
+Ugyanezt jelzi, ha a `journalctl` néhány másodpercenként „Clock change detected” sort ír.
+
 ## 6. Egy változtatás telepítése a dobozra
 
 > **A tesztkészletet soha ne futtasd rootként (vagy `nmb`-ként) egy működő dobozon.** Néhány teszt útvonal nélkül menti a beállításokat és listákat, ami a dobozon a valódi `/etc/nmb/nmb.conf` (2026-11-10: felülírta a PPPoE-belépést, a Telegram-csevegést és mást). Úgy futtasd, ahogy a frissítő: `nobody`-ként egy másolaton: `python3 -c "from pathlib import Path; import tempfile; from nmb.common import updater; t = tempfile.mkdtemp(); print(updater.run_tests_sandboxed(Path('.'), t))"` a kicsomagolt forrásból, rootként (magától átvált nobody-ra). A kimenet a `/var/log/nmb/update.log`-ba kerül.

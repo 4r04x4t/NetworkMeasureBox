@@ -15,13 +15,20 @@ def _cfg(link, enabled=True):
 
 class MeasurementLinkTest(unittest.TestCase):
     def _pick(self, link, wired):
-        with mock.patch.object(interfaces, "find_active_wired_interface", return_value=wired), \
+        # router_wan_interface reads the real /run/nmb/netd_state.json; on a box in PPPoE router mode it
+        # returns ppp0 and "auto" picks that over the cable (found 2026-11-10). These tests are about the
+        # standalone choice, so pin "not in router mode".
+        with mock.patch.object(interfaces, "router_wan_interface", return_value=None), \
+             mock.patch.object(interfaces, "find_active_wired_interface", return_value=wired), \
              mock.patch.object(interfaces, "interface_exists", return_value=True), \
              mock.patch.object(interfaces, "get_ip_addresses", side_effect=lambda i: ["192.168.1.30/24"] if i == "wlan0" else ["192.168.1.20/24"]):
             return interfaces.find_preferred_measurement_interface(_cfg(link))
 
     def test_auto_prefers_a_cable(self):
         self.assertEqual(self._pick("auto", ("eth0", "192.168.1.20")), ("eth0", "192.168.1.20", True))
+        # A cable on another port than the configured WAN: only the cable rule picks it (the WAN fallback
+        # would return eth0), so this catches "auto" no longer preferring the active cable.
+        self.assertEqual(self._pick("auto", ("eth1", "192.168.1.21")), ("eth1", "192.168.1.21", True))
 
     def test_wifi_only_uses_wifi_even_with_a_cable(self):
         self.assertEqual(self._pick("wifi", ("eth0", "192.168.1.20")), ("wlan0", "192.168.1.30", False))

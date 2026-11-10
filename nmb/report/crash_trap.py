@@ -28,6 +28,12 @@ CRASH_DIR = Path(os.environ.get("NMB_CRASH_DIR", "/var/log/nmb/crashes"))
 _SECRET_KEY = re.compile(r"(password|psk|token|auth_key|secret|pppoe_user)", re.I)
 FALLBACK_CRASH_DIR = Path.home() / ".local/share/nmb/crashes"
 MAX_CRASH_REPORTS = 15
+# The diagnostic snapshots a bundle carries (written by nmb.report.invasive_logger).
+BUNDLE_SNAPSHOT_PATHS = (
+    Path("/var/log/nmb/invasive_dev_snapshot.md"),
+    Path("/var/log/nmb/invasive_dev_snapshot.json"),
+    Path.home() / ".local/share/nmb/invasive_dev_snapshot.md",
+)
 
 _orig_sys_excepthook = sys.excepthook
 _orig_threading_excepthook = getattr(threading, "excepthook", None)
@@ -399,11 +405,7 @@ def create_diagnostic_bundle() -> Path:
 
     with tarfile.open(bundle_path, mode="w:gz") as tar:
         # 1. Invasive Snapshots
-        for snap_p in (
-            Path("/var/log/nmb/invasive_dev_snapshot.md"),
-            Path("/var/log/nmb/invasive_dev_snapshot.json"),
-            Path.home() / ".local/share/nmb/invasive_dev_snapshot.md",
-        ):
+        for snap_p in BUNDLE_SNAPSHOT_PATHS:
             _add(tar, snap_p, f"diagnostics/{snap_p.name}")
 
         # 2. Crash Reports

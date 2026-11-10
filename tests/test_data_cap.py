@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from nmb.config import Config, DataCapConfig, load_config, save_config
+from nmb.probe.traffic_gate import IdleCheckResult
 from nmb.speed import data_cap, runner
 
 SCHEMA = (Path(runner.__file__).resolve().parent.parent / "db" / "schema.sql").read_text()
@@ -141,13 +142,24 @@ class RunnerTest(unittest.TestCase):
     def _cycle(self, trigger):
         cfg = Config()
         outcome = {}
-        with mock.patch("nmb.netd.interfaces.router_wan_interface", return_value=None), \
+        # Host dependence found 2026-11-10: past the cap check a manual cycle ran the real traffic gate
+        # (1 s sleeps reading /proc/net/dev for ppp0, deferring the test when the box's line was busy, which
+        # refused an update) and the real DNS fallback check (real queries, a possible resolv.conf rewrite).
+        # Both are stubbed here: the gate reports an idle line, the DNS check does nothing, and the byte
+        # counters read nothing from /sys. The cap decision under test is untouched.
+        idle = IdleCheckResult(True, 0.0, 0.0, 500.0, 1000.0)
+        with mock.patch.object(runner, "TrafficGate") as gate_cls, \
+             mock.patch("nmb.netd.dns.ensure_dns_fallback", return_value=(True, "ok")), \
+             mock.patch.object(runner.data_budget, "interface_bytes", return_value=0), \
+             mock.patch("nmb.netd.interfaces.router_wan_interface", return_value=None), \
              mock.patch("nmb.netd.interfaces.find_preferred_measurement_interface", return_value=("ppp0", "198.51.100.7", True)), \
              mock.patch.object(runner, "_usb_test_not_allowed", return_value=False), \
              mock.patch.object(data_cap, "check", return_value=(True, "data cap for wired reached (2000 of 1000 MB used by tests since 2026-11-01)")), \
              mock.patch.object(data_cap, "note_skip_due", return_value=False), \
              mock.patch.object(runner.db, "connect", side_effect=lambda *a, **k: _conn()), \
              mock.patch.object(runner, "_run_single_engine", side_effect=AssertionError("no test may run")) as eng:
+            gate_cls.return_value.get_interface_capacity_mbps.return_value = 1000.0
+            gate_cls.return_value.wait_for_idle.return_value = idle
             try:
                 ok = runner._run_measurement_cycle(cfg, trigger=trigger, engine="cloudflare", outcome=outcome)
             except AssertionError:

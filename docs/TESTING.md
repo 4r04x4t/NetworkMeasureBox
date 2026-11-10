@@ -4,6 +4,8 @@ What has been tested, where, how, and with what result. Update this file wheneve
 
 Last full sweep: 2026-11-07. Last update: 2026-11-10 (night: data caps, the mixed run, ping telemetry on PPPoE, a client on the 5 GHz access point; before that the real PPPoE line, port forwarding, UPnP, IPv6 for the LAN).
 
+**Environment of the 2026-11-10 morning work (test isolation):** made and tested on the developer PC, now **Windows + WSL2 Ubuntu 24.04** (Python 3.12), the first batch after the move. Unit tests only: 558 tests, all passing in three full runs in a row, the first with an empty home folder. Nothing was installed on or run on the box; it was only read (services, mode, installed commit 538da91).
+
 **Environment of the 2026-11-09 work:** all fixes, tests and extensions of that day were made and tested on the box under **Debian GNU/Linux 13 (trixie)** on the Raspberry Pi 4, from a development PC with Garuda Linux (Arch-based) over Tailscale. The move of development to Windows (WSL2, see `DEV_SETUP_WINDOWS.md`) comes after this.
 
 ## Where the tests ran

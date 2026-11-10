@@ -151,6 +151,28 @@ class TestHeadlessFeatures(unittest.TestCase):
         self.assertGreater(len(cached_md), 100)
 
     def test_crash_trap_and_diagnostic_bundle(self):
+        # Own throwaway paths: the result must not depend on the order of the tests or on what an earlier run
+        # left in the home folder (on a fresh machine the snapshot did not exist yet, 2026-11-10, WSL2), and the
+        # test must not write into the real crash and bundle folders.
+        import os
+        import shutil
+        import tempfile
+        from nmb.report import crash_trap
+        tmp = Path(tempfile.mkdtemp(prefix="nmb-test-bundle-"))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)   # the bundle holds copies of real logs
+        snapshot = tmp / "invasive_dev_snapshot.md"
+        snapshot.write_text("# snapshot for the bundle test\n", encoding="utf-8")
+        with mock.patch.object(crash_trap, "CRASH_DIR", tmp / "crashes"), \
+             mock.patch.object(crash_trap, "FALLBACK_CRASH_DIR", tmp / "crashes-fallback"), \
+             mock.patch.object(crash_trap, "BUNDLE_SNAPSHOT_PATHS", (snapshot,)), \
+             mock.patch.object(crash_trap, "get_boot_drive_crashes_target", return_value=None), \
+             mock.patch.dict(os.environ, {"NMB_BUNDLE_DIR": str(tmp / "bundles"),
+                                          "NMB_CONFIG": str(tmp / "missing-nmb.conf"),
+                                          # the crash is also logged as an event: never in the real database
+                                          "NMB_LIVE_DB": str(tmp / "live.db")}):
+            self._crash_trap_and_bundle()
+
+    def _crash_trap_and_bundle(self):
         from nmb.report.crash_trap import (
             format_crash_report,
             save_crash_report,
@@ -317,11 +339,77 @@ class TestHeadlessFeatures(unittest.TestCase):
         self.assertTrue(native is None or isinstance(native, str))
 
         # 2. iPerf3 public directory
+        # The directory used to be downloaded for real from iperf3serverlist.net / iperf.fr and
+        # cached under fixed host paths (/var/lib/nmb, /run/nmb, /tmp), so the test passed offline
+        # only while a fresh cache happened to exist (found 2026-11-10). The download is faked with
+        # small payloads in each site's format and the cache lives in a temp dir.
+        import io
+        import json
+        import tempfile
+        from nmb.speed import iperf_directory
         from nmb.speed.iperf_directory import fetch_public_iperf_servers
-        res = fetch_public_iperf_servers()
-        servers = res.get("servers", [])
-        self.assertGreater(len(servers), 0)
-        self.assertIn("host", servers[0])
+
+        primary_json = json.dumps([
+            {"IP/HOST": "speedtest.example-dc.net", "PORT": "5202-5210", "CONTINENT": "Europe",
+             "COUNTRY": "AT", "SITE": "Vienna", "PROVIDER": "ExampleDC", "GB/S": "10",
+             "OPTIONS": "-R"},
+            {"IP/HOST": "", "PORT": "5201"},  # no host: must be skipped
+            {"IP/HOST": "iperf.example.org", "CONTINENT": "Europe", "COUNTRY": "DE",
+             "SITE": "Frankfurt", "PROVIDER": "ExampleNet", "GB/S": "1"},
+        ]).encode("utf-8")
+        fallback_html = (
+            "<table><tr><th colspan='7'>Europe</th></tr>"
+            "<tr><td>iperf -c ping.example.fr</td><td>Paris</td><td>10 Gbit/s</td>"
+            "<td>ExampleFR</td><td>IPv4</td><td>-</td><td>5200-5209</td></tr></table>"
+        ).encode("utf-8")
+        calls: list = []
+        primary_up = [True]
+
+        def fake_urlopen(req, timeout=None):
+            url = req.full_url
+            calls.append(url)
+            if "iperf3serverlist.net" in url:
+                if not primary_up[0]:
+                    raise OSError("primary site down")
+                return io.BytesIO(primary_json)
+            if "iperf.fr" in url:
+                return io.BytesIO(fallback_html)
+            raise AssertionError(f"unexpected fetch: {url}")
+
+        with tempfile.TemporaryDirectory(prefix="nmb-iperf-") as td, \
+                mock.patch.object(iperf_directory, "CACHE_PATHS",
+                                  [Path(td) / "iperf_public_servers.json"]), \
+                mock.patch.object(iperf_directory.urllib.request, "urlopen", fake_urlopen):
+            # Primary source: parsed and normalised, host-less rows dropped, then cached.
+            res = fetch_public_iperf_servers()
+            self.assertEqual(res["status"], "ok")
+            self.assertFalse(res["cached"])
+            self.assertEqual(res["source"], "iperf3serverlist.net")
+            servers = res.get("servers", [])
+            self.assertEqual([s["host"] for s in servers],
+                             ["speedtest.example-dc.net", "iperf.example.org"])
+            self.assertEqual(servers[0]["port"], 5202)      # the range's first port, not the default 5201
+            self.assertEqual(servers[0]["port_range"], "5202-5210")
+            self.assertEqual(servers[0]["speed"], "10G")
+            self.assertEqual(servers[1]["port"], 5201)
+            self.assertTrue((Path(td) / "iperf_public_servers.json").exists())
+
+            # Second call is served from the fresh cache without any fetch.
+            n = len(calls)
+            res2 = fetch_public_iperf_servers()
+            self.assertTrue(res2["cached"])
+            self.assertEqual(len(calls), n)
+            self.assertEqual(res2["servers"][0]["host"], "speedtest.example-dc.net")
+
+            # Primary down on a forced refresh: falls back to the iperf.fr page.
+            primary_up[0] = False
+            res3 = fetch_public_iperf_servers(force_refresh=True)
+            self.assertEqual(res3["source"], "iperf.fr")
+            self.assertEqual(len(res3["servers"]), 1)
+            self.assertEqual(res3["servers"][0]["host"], "ping.example.fr")
+            self.assertEqual(res3["servers"][0]["port"], 5200)
+            self.assertEqual(res3["servers"][0]["continent"], "Europe")
+            self.assertIn("host", res3["servers"][0])
 
         # 3. OONI Probe detection and status
         from nmb.probe.ooni import is_ooni_installed, get_ooni_status

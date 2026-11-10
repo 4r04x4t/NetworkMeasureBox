@@ -1,6 +1,7 @@
 """Wi-Fi shared on the LAN port: DHCP probe packets and when sharing may run."""
 import socket
 import struct
+import itertools
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -59,7 +60,13 @@ class SyncTest(unittest.TestCase):
              mock.patch("nmb.netd.wifi_uplink._ipv4_and_gateway", return_value=("192.168.8.219", "192.168.8.1")),
              mock.patch.object(wifi_share.Path, "exists", return_value=True),
              mock.patch.object(wifi_share, "_has_carrier", return_value=True),
-             mock.patch.object(wifi_share, "_dnsmasq_running", return_value=False)]
+             mock.patch.object(wifi_share, "_dnsmasq_running", return_value=False),
+             # sync() probes only when time.monotonic() - _last_probe >= PROBE_EVERY_SEC, and both
+             # setUp and a cable plug-in set _last_probe to 0.0. CLOCK_MONOTONIC counts from boot, so
+             # within 60 s of a WSL VM or Pi boot no probe ran and sync() went on to run the real ip/nft
+             # commands on the host (found 2026-11-10). A fixed clock well past boot keeps it hermetic.
+             # (a clock that moves on, so a loop that waits on it can never hang)
+             mock.patch.object(wifi_share.time, "monotonic", side_effect=itertools.count(10_000.0, 0.01))]
         for x in p:
             x.start()
             self.addCleanup(x.stop)
@@ -100,6 +107,7 @@ class SyncTest(unittest.TestCase):
 
     def test_cable_plugged_in_stops_dhcp_before_probing(self):
         wifi_share._last_carrier = False
+        wifi_share._last_probe = 10_000.0      # a probe just ran: only the plug-in itself may make the next one due
         order = []
         with mock.patch.object(wifi_share, "_default_route_dev", return_value=False), \
              mock.patch.object(wifi_share, "_stop_dnsmasq", side_effect=lambda: order.append("stop")), \

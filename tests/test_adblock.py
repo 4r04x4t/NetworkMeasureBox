@@ -235,25 +235,54 @@ class TestAdblock(unittest.TestCase):
         self.assertFalse(any(a["url"] == test_url for a in adlists))
 
     def test_timeline_and_charts_telemetry(self):
+        import time as real_time
+        from unittest import mock
+
+        import nmb.netd.adblock as adblock_mod
         from nmb.netd.adblock import get_charts_telemetry
 
-        # Record some queries
-        self.engine.record_query("192.168.1.10", "ad1.com", QTYPE_A, "BLOCKED", "gravity", 0.2, upstream="blocked")
-        self.engine.record_query("192.168.1.10", "safe.com", QTYPE_AAAA, "ALLOWED", "upstream", 18.4, upstream="1.1.1.1")
-        self.engine.record_query("192.168.1.20", "safe.com", QTYPE_A, "CACHED", "cache", 0.05, upstream="cache")
+        # Host dependence found 2026-11-10: record_query files each query in
+        # a 10-minute wall-clock bucket and get_timeline recomputes the
+        # current bucket from a fresh time.time(). If a :x0 minute boundary
+        # passed (or the host clock stepped, as on the WSL dev PC) between
+        # the two calls, timeline[-1] was a different, empty slot. Pin the
+        # adblock module's clock to the middle of the current bucket, so the
+        # record and the read always see the same bucket. Only time.time is
+        # replaced, and only inside nmb.netd.adblock.
+        fixed_now = (int(real_time.time() // 600) * 600) + 300.0
 
-        timeline = self.engine.get_timeline(24)
-        self.assertEqual(len(timeline), 144)
-        last_slot = timeline[-1]
-        self.assertGreaterEqual(last_slot["total"], 3)
-        self.assertGreaterEqual(last_slot["blocked"], 1)
+        class _FixedClock:
+            def __getattr__(self, name):
+                return getattr(real_time, name)
 
-        charts = get_charts_telemetry()
-        self.assertIn("timeline", charts)
-        self.assertIn("query_types", charts)
-        self.assertIn("upstreams", charts)
-        self.assertIn("clients", charts)
-        self.assertGreaterEqual(len(charts["clients"]), 2)
+            @staticmethod
+            def time():
+                return fixed_now
+
+        # Host dependence found 2026-11-10: get_charts_telemetry first asks
+        # the live adblock daemon over /run/nmb/adblock.sock. On the box that
+        # daemon is running, so the test would check the box's real traffic
+        # instead of this engine. Force the in-process fallback.
+        with mock.patch.object(adblock_mod, "time", _FixedClock()), \
+                mock.patch.object(adblock_mod, "query_adblock_ipc", return_value=None):
+            # Record some queries
+            self.engine.record_query("192.168.1.10", "ad1.com", QTYPE_A, "BLOCKED", "gravity", 0.2, upstream="blocked")
+            self.engine.record_query("192.168.1.10", "safe.com", QTYPE_AAAA, "ALLOWED", "upstream", 18.4, upstream="1.1.1.1")
+            self.engine.record_query("192.168.1.20", "safe.com", QTYPE_A, "CACHED", "cache", 0.05, upstream="cache")
+
+            timeline = self.engine.get_timeline(24)
+            self.assertEqual(len(timeline), 144)
+            last_slot = timeline[-1]
+            self.assertEqual(last_slot["timestamp"], fixed_now - 300.0)
+            self.assertGreaterEqual(last_slot["total"], 3)
+            self.assertGreaterEqual(last_slot["blocked"], 1)
+
+            charts = get_charts_telemetry()
+            self.assertIn("timeline", charts)
+            self.assertIn("query_types", charts)
+            self.assertIn("upstreams", charts)
+            self.assertIn("clients", charts)
+            self.assertGreaterEqual(len(charts["clients"]), 2)
 
 
 

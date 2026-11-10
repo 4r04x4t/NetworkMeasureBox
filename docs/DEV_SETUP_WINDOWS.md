@@ -106,6 +106,18 @@ python3 -m unittest discover -s tests
 
 They must all pass before every commit. They need no network and no root. The live checks (`nmb-selftest`) run on the box, not on the PC.
 
+**If a test fails only now and then:** check the WSL clock first. On 2026-11-10 the wall clock of the WSL2 VM jumped forward one hour for about 0.1 s every 5 s (two WSL distributions were running; it stopped after the Windows clock was set again), and a DynDNS test failed in about 1 run out of 20. This prints the number of jumps in 30 s; it must be 0:
+
+```bash
+python3 -c 'import time
+p=time.time(); pm=time.monotonic(); j=0
+while time.monotonic()<pm+30:
+    t=time.time(); m=time.monotonic(); j+=abs((t-p)-(m-pm))>0.5; p,pm=t,m; time.sleep(0.01)
+print("clock jumps in 30 s:", j)'
+```
+
+`journalctl` showing "Clock change detected" every few seconds means the same.
+
 ## 6. Installing a change on the box
 
 > **Never run the test suite as root (or as `nmb`) on a working box.** Some tests save settings and lists without a path, and on the box that is the real `/etc/nmb/nmb.conf` (2026-11-10: the PPPoE login, the Telegram chat and more were overwritten). Run it the way the updater does, as `nobody` on a copy: `python3 -c "from pathlib import Path; import tempfile; from nmb.common import updater; t = tempfile.mkdtemp(); print(updater.run_tests_sandboxed(Path('.'), t))"` from the unpacked source, as root (it drops to nobody itself). The output goes to `/var/log/nmb/update.log`.
