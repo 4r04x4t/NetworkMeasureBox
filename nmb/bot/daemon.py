@@ -18,6 +18,14 @@ from nmb.config import Config, load_config
 
 log = logging.getLogger("nmb.bot.daemon")
 
+# Every command one of the bot's own inline buttons carries (commands.py, i18n.py). A callback with
+# anything else is ignored: the client can put any text in callback_data.
+CALLBACK_COMMANDS = frozenset({
+    "/menu", "/status", "/test", "/test rtr", "/test ookla", "/test cloudflare", "/test fastcom",
+    "/report", "/ping", "/tasks", "/tailscale", "/adblock", "/adblock on", "/adblock off",
+    "/adblock update", "/vpn", "/vpn clients", "/wifi", "/wifi scan",
+})
+
 
 class TelegramDaemon:
     def __init__(self, cfg: Config):
@@ -27,6 +35,7 @@ class TelegramDaemon:
         self.commands = CommandHandler(cfg, self.client)
         self.alerts = AlertMonitor(cfg, self.client)
         self.last_update_id: Optional[int] = None
+        self._denied_at: dict = {}
 
     def handle_signal(self, signum: int, frame) -> None:
         if signum in (signal.SIGTERM, signal.SIGINT):
@@ -40,6 +49,7 @@ class TelegramDaemon:
             self.client.token = new_cfg.telegram.token
             self.commands.cfg = new_cfg
             self.alerts.cfg = new_cfg
+            self.alerts.recipients = new_cfg.telegram.allowed_chat_ids
 
     def _alert_loop(self) -> None:
         """Background thread executing periodic alert rule checks."""
@@ -53,6 +63,86 @@ class TelegramDaemon:
                 if not self.running:
                     break
                 time.sleep(1.0)
+
+    # Updates older than this are dropped: after a reboot or an outage Telegram hands back the queued
+    # commands (/kill <pid>, /reboot, /mode ...), and running them minutes or hours later is wrong.
+    STALE_SEC = 120
+
+    def _callback_allowed(self, data: str) -> bool:
+        """Only the exact commands the bot's own buttons carry; callback_data is client-supplied."""
+        from nmb.bot.i18n import LANG_INFO
+        if data in CALLBACK_COMMANDS:
+            return True
+        parts = data.split()
+        return len(parts) == 2 and parts[0] == "/lang" and parts[1] in LANG_INFO
+
+    def is_authorized(self, chat: dict, sender: dict) -> bool:
+        """The person, not just the chat. A private chat must be the listed user's own chat. A listed
+        group needs the sender's own user id in the list too; otherwise every member was an admin."""
+        allowed = set(self.cfg.telegram.allowed_chat_ids or [])
+        chat_id = chat.get("id")
+        user_id = sender.get("id") if isinstance(sender, dict) else None
+        if not isinstance(chat_id, int) or not isinstance(user_id, int) or sender.get("is_bot"):
+            return False
+        if chat_id not in allowed or user_id not in allowed:
+            return False
+        if chat.get("type", "private") == "private":
+            return chat_id == user_id
+        return True
+
+    def _deny(self, chat: dict, what: str) -> None:
+        chat_id = chat.get("id")
+        log.warning("rejected unauthorized %s from chat %s", what, chat_id)
+        # Only a private chat is told its id (that is the setup hint), and at most every 10 minutes:
+        # an allowed group's other members are ignored silently, and nobody can make the bot spam.
+        if chat.get("type", "private") != "private" or not isinstance(chat_id, int):
+            return
+        now = time.monotonic()
+        last = self._denied_at.get(chat_id)
+        if last is not None and now - last < 600:
+            return
+        if len(self._denied_at) > 1000:
+            self._denied_at.clear()
+        self._denied_at[chat_id] = now
+        self.client.send_message(
+            chat_id,
+            f"⛔ <b>Access Denied</b>: Chat ID <code>{chat_id}</code> is not authorized in /etc/nmb/nmb.conf."
+        )
+
+    def handle_update(self, u: dict) -> None:
+        cb = u.get("callback_query")
+        if cb:
+            cb_id = cb.get("id")
+            if cb_id:
+                self.client.answer_callback_query(cb_id)
+            sender = cb.get("from") or {}
+            chat = (cb.get("message") or {}).get("chat") or {"id": sender.get("id"), "type": "private"}
+            if not self.is_authorized(chat, sender):
+                self._deny(chat, "callback")
+                return
+            data = cb.get("data") or ""
+            if not self._callback_allowed(data):
+                log.warning("ignored unknown button data %r", data[:64])
+                return
+            self._dispatch(chat["id"], data)
+            return
+
+        # Edited messages are not commands: editing an old message must not run it again.
+        msg = u.get("message")
+        if not msg:
+            return
+        chat = msg.get("chat") or {}
+        text = msg.get("text", "")
+        if not chat.get("id") or not text:
+            return
+        if not self.is_authorized(chat, msg.get("from") or {}):
+            self._deny(chat, "message")
+            return
+        date = msg.get("date")
+        if isinstance(date, (int, float)) and time.time() - date > self.STALE_SEC:
+            log.warning("ignored a command sent %.0f s ago (queued while the bot was down)", time.time() - date)
+            return
+        self._dispatch(chat["id"], text)
 
     _LONG = ("/test", "/speedtest", "/speed")
 
@@ -122,46 +212,7 @@ class TelegramDaemon:
                     up_id = u.get("update_id")
                     if up_id is not None:
                         self.last_update_id = up_id + 1
-
-                    cb = u.get("callback_query")
-                    if cb:
-                        cb_id = cb.get("id")
-                        cb_user_id = cb.get("from", {}).get("id")
-                        cb_msg = cb.get("message", {})
-                        chat_id = cb_msg.get("chat", {}).get("id") or cb_user_id
-                        data = cb.get("data", "")
-                        if cb_id:
-                            self.client.answer_callback_query(cb_id)
-                        if chat_id not in self.cfg.telegram.allowed_chat_ids:
-                            log.warning("rejected unauthorized callback from chat_id %s", chat_id)
-                            self.client.send_message(
-                                chat_id,
-                                f"⛔ <b>Access Denied</b>: Chat ID <code>{chat_id}</code> is not authorized in /etc/nmb/nmb.conf."
-                            )
-                            continue
-                        if data:
-                            self._dispatch(chat_id, data)
-                        continue
-
-                    msg = u.get("message") or u.get("edited_message")
-                    if not msg:
-                        continue
-
-                    chat_id = msg.get("chat", {}).get("id")
-                    text = msg.get("text", "")
-                    if not chat_id or not text:
-                        continue
-
-                    # Strict Access Control
-                    if chat_id not in self.cfg.telegram.allowed_chat_ids:
-                        log.warning("rejected unauthorized message from chat_id %d", chat_id)
-                        self.client.send_message(
-                            chat_id,
-                            f"⛔ <b>Access Denied</b>: Chat ID <code>{chat_id}</code> is not authorized in /etc/nmb/nmb.conf."
-                        )
-                        continue
-
-                    self._dispatch(chat_id, text)
+                    self.handle_update(u)
 
             except Exception as e:
                 if self.running:

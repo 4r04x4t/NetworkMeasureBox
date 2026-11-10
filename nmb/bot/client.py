@@ -30,8 +30,12 @@ class TelegramUnavailable(Exception):
 class TelegramClient:
     def __init__(self, token: str):
         self.token = token
-        self.endpoint = f"{API_BASE}{token}/"
         self._tls = threading.local()   # the last error per thread: the alert and speed-test threads share the client
+
+    @property
+    def endpoint(self) -> str:
+        # Built from the current token: a SIGHUP reload that sets a new token used the old URL before.
+        return f"{API_BASE}{self.token}/"
 
     def _request(self, method: str, data: Optional[Dict[str, Any]] = None, timeout: float = 35.0) -> Optional[Dict[str, Any]]:
         url = self.endpoint + method

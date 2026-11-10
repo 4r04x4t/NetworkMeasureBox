@@ -567,7 +567,10 @@ sudo journalctl -u nmb-web -f
 
 ## 19. Interaktív Telegram Távvezérlő Parancsok
 
-Ha beállította az `nmb-telegram` szolgáltatást, a dobozt közvetlenül a Telegramból is irányíthatja érintőgombokkal:
+Ha beállította az `nmb-telegram` szolgáltatást, a dobozt közvetlenül a Telegramból is irányíthatja érintőgombokkal.
+
+Ki használhatja: a `[telegram] allowed_chat_ids` Telegram-azonosítókat sorol fel. Privát beszélgetésben akkor működik, ha az egy felsorolt felhasználó saját beszélgetése. Csoportban a csoport azonosítóját **és** minden olyan tag felhasználói azonosítóját fel kell sorolni, aki parancsot adhat; a többi tagot figyelmen kívül hagyja. A szerkesztett üzeneteket és a 2 percnél régebbi parancsokat (amelyek a doboz kikapcsolt állapotában gyűltek össze) nem futtatja.
+
 
 | Parancs | Leírás |
 |---|---|

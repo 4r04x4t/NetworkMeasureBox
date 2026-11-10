@@ -381,7 +381,10 @@ http://<appliance-ip>/
 
 ## Interactive Telegram Bot Commands
 
-When `nmb-telegram` is configured, you can manage the entire appliance directly from Telegram with interactive touch menus:
+When `nmb-telegram` is configured, you can manage the entire appliance directly from Telegram with interactive touch menus.
+
+Who may use it: `[telegram] allowed_chat_ids` lists Telegram ids. A private chat works when it is a listed user's own chat. To use the bot in a group, list the group's id **and** the user id of every member who may give commands; other members are ignored. Edited messages and commands older than 2 minutes (queued while the box was off) are not run.
+
 
 | Command | Description |
 |---|---|
