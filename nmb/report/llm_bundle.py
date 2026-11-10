@@ -1208,7 +1208,7 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
     conf_text = _sanitize_config_text(conf_path)
 
     # Resolve GeoIP and Wi-Fi Regulatory Context
-    from nmb.netd.geoip import get_public_geoip, get_wifi_regulatory_domain, set_wifi_regulatory_domain
+    from nmb.netd.geoip import get_public_geoip, get_wifi_regulatory_domain
     pub_ip = (last_speed_dict.get("client_ip") if last_speed_dict else None) or dual_ips.get("public_ipv4") or dual_ips.get("ipv4")
     geoip_data = get_public_geoip(pub_ip)
     pub_ip_hdr = geoip_data.get("ip") or dual_ips.get("public_ipv4") or "N/A"
@@ -1397,9 +1397,10 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
     else:
         geo_cc = geoip_data.get("country_code", "--")
         if geo_cc and geo_cc != "--" and kernel_reg.get("is_unset"):
-            set_wifi_regulatory_domain(geo_cc)
+            # A report only reads: it used to set the kernel's regulatory domain here (2026-11-10). The
+            # access point sets it when it starts (nmb/netd/wifi.py).
             eff_reg_cc = geo_cc
-            reg_origin = "Auto-detected via GeoIP"
+            reg_origin = "Auto-detected via GeoIP (set when the access point starts)"
         elif not kernel_reg.get("is_unset"):
             eff_reg_cc = kernel_reg.get("country_code", "00")
             reg_origin = "Kernel active domain"

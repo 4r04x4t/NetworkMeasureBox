@@ -123,8 +123,13 @@ class TestLLMBundle(unittest.TestCase):
         finally:
             f_path.unlink(missing_ok=True)
 
+    # No GeoIP lookup over the internet and no real regulatory domain read (2026-11-10); the bundle must only
+    # read, never set the domain.
+    @patch("nmb.netd.geoip.set_wifi_regulatory_domain", side_effect=AssertionError("a report must not change the radio"))
+    @patch("nmb.netd.geoip.get_wifi_regulatory_domain", return_value={"country_code": "00", "is_unset": True})
+    @patch("nmb.netd.geoip.get_public_geoip", return_value={"country_code": "HU", "city": "Budapest", "isp": "Example ISP"})
     @patch("nmb.report.llm_bundle._get_detailed_mtr")
-    def test_generate_llm_bundle_markdown(self, mock_mtr):
+    def test_generate_llm_bundle_markdown(self, mock_mtr, _geo, _reg, _set_reg):
         mock_mtr.return_value = {
             "hubs": [
                 {"count": 1, "host": "192.168.1.1", "Loss%": 0.0, "Snt": 30, "Last": 0.8, "Avg": 0.9, "Best": 0.6, "Wrst": 2.1, "StDev": 0.3},

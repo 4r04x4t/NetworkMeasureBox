@@ -25,7 +25,7 @@ CAPS = {"supported_bands": ["2.4ghz", "5ghz"], "supported_standards": ["b", "g",
 
 def _cfg(**kw):
     base = dict(wifi_band="2.4ghz", wifi_standard="auto", wifi_channel_width="auto", wifi_channel=0, wifi_ssid="T",
-                wifi_psk="Long-enough-1", wifi_security="wpa2", wifi_country="HU", wifi_hidden=False)
+                wifi_psk="Long-enough-1", wifi_security="wpa2", wifi_country_code="HU", wifi_hidden=False)
     base.update(kw)
     return SimpleNamespace(**base)
 
@@ -36,12 +36,17 @@ class BandCapsTest(unittest.TestCase):
         self.assertIsNone(wifi.band_ht40("no bands here"))
 
     def _gen(self, **kw):
+        # The config key is wifi_country_code: with the old wifi_country the code fell back to "auto", asked a
+        # public GeoIP service and ran the real `iw reg set` (seen in the box's update test run, 2026-11-10).
         with patch.object(wifi, "detect_wifi_capabilities", return_value=dict(CAPS)), \
-             patch.object(wifi, "get_effective_country", create=True, return_value="HU"):
+             patch("nmb.netd.geoip.get_public_geoip", side_effect=AssertionError("no GeoIP lookup in a unit test")), \
+             patch("nmb.netd.geoip.set_wifi_regulatory_domain", return_value=True) as set_reg:
             try:
                 text, info = wifi.generate_hostapd_config(_cfg(**kw), "wlan0", Path(tempfile.mkdtemp()))
             except TypeError:
                 self.skipTest("generate_hostapd_config signature differs")
+        set_reg.assert_called_with("HU")                 # the configured country, never a GeoIP guess
+        self.assertIn("country_code=HU", text)
         return text
 
     def test_24ghz_n_is_20_mhz_on_the_pi(self):

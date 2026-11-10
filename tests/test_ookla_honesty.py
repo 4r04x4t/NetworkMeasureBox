@@ -113,7 +113,8 @@ class ServerMismatchTest(unittest.TestCase):
 
 
 class ErrorRowReportTest(unittest.TestCase):
-    def test_report_accepts_failed_speed_tests(self):
+    @mock.patch("nmb.netd.geoip.get_public_geoip", return_value={"country_code": "--"})   # no internet lookup
+    def test_report_accepts_failed_speed_tests(self, _geo):
         import sqlite3
         import tempfile
         import time
