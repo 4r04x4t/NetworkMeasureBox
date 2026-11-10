@@ -231,7 +231,8 @@
   "drivers_none": "<i>未登记物理控制器。</i>",
   "drivers_fw_missing": "检测到缺少固件",
   "drivers_recommended": "推荐的软件包",
-  "speed_already_running": "测速已在进行中；完成后会发送结果。"
+  "speed_already_running": "测速已在进行中；完成后会发送结果。",
+  "data_used_tests": "自 {since} 起测试使用的流量"
  },
  "keyboard": [
   [

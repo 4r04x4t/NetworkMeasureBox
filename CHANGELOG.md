@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Development note for this batch (2026-11-10 night): made and tested on the box under Debian GNU/Linux 13 (trixie) on the Raspberry Pi 4, in router mode on the real DIGI PPPoE line, from a development PC with Garuda Linux, over Tailscale.
 - Data caps for automatic speed tests (`[data_cap]`, Web UI card under the schedule in 11 languages, `nmb-cli datacap.save`): a cap per link (Ethernet/PPPoE, Wi-Fi, USB, link aggregation) and per connection type (fiber, cable, DSL, mobile/FWA, dial-up, satellite, leased line, other; USB counts as mobile), per day or per month with a reset day. Counted from the data the tests themselves move on the measured interface; at 80 % an event, at 100 % automatic tests on that link stop until the period ends, while tests started by hand still run and count. Tested live: `nmb-selftest datacap` (a reached cap skipped a scheduled cycle without running an engine; the counters were not touched).
+- The bot's `/status` shows the data the tests used per link in the current data cap period, with the cap when one is set.
 - Telegram alert when a data cap stops the automatic tests on a link (which link, how much, when they start again) and when they run again, in all 11 languages.
 - The engines of the scheduled mixed run can be picked (`[speedtest] mixed_engines`, a tick per engine next to its interval, 11 languages, `nmb-cli`): for example Cloudflare, Fast.com and RTR, with iPerf3 and Ookla left out for a while; tests started by hand still run them all.
 - `[probe] isp_first_hop = false` leaves the ISP's first hop out of the ping telemetry; the PPP peer placeholder (for example 10.0.0.1 on DIGI, which never answers a ping) is never taken as the first hop.
@@ -104,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The "iPerf3 server left out for up to 6 h" warning still came about 17 times an hour: a check without the test history cleared its once-per-rest mark.
 - Ping telemetry in router mode on PPPoE: the probe bound its socket once at start, to eth0 when the measuring link was not wired; under PPPoE eth0 has no address, so every ping was lost from 19:31 to 01:21 and each probe restart opened an outage that never closed, although the line worked (all speed tests over ppp0 passed). The probe now follows the line (the router's WAN in router mode, never a link without an address) and rebinds within 30 s; the Local Gateway target is switched off when the box has no gateway (PPPoE), and switched-off targets no longer show in the table. The false outages and lost-ping minutes of that night are still in the database (see TESTING.md, To fix).
 - Router mode: NetworkManager started DHCP on the PPPoE port every 45 s all night; the port is now released to the router while Mode A runs and given back afterwards.
 - Wired route priority: the Web UI set metric 50 with a route of its own outside NetworkManager, which stayed after the cable moved; it now sets the metric in the NetworkManager profile and removes the old route.

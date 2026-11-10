@@ -231,7 +231,8 @@
   "drivers_none": "<i>Niciun controler fizic înregistrat.</i>",
   "drivers_fw_missing": "Firmware lipsă detectat",
   "drivers_recommended": "Pachete recomandate",
-  "speed_already_running": "Un test de viteză rulează deja; rezultatul va fi trimis când se termină."
+  "speed_already_running": "Un test de viteză rulează deja; rezultatul va fi trimis când se termină.",
+  "data_used_tests": "Date folosite de teste din {since}"
  },
  "keyboard": [
   [

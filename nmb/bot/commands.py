@@ -298,6 +298,22 @@ class CommandHandler:
                 reasons = "; ".join(t(f"sla_reason_{r}", lang) for r in rep.sla_reasons)
                 sla_reason_line = "\n<i>" + t("sla_reasons_line", lang, reasons=reasons) + " (/sla)</i>"
 
+            dc_line = ""
+            try:
+                # What the speed tests used in the current data cap period, per link (and the cap when set).
+                from nmb.speed import data_cap
+                dconn = db.connect(readonly=True)
+                try:
+                    u = data_cap.usage(dconn, self.cfg)
+                finally:
+                    dconn.close()
+                parts = [f"{l['link']} {l['used_mb'] / 1000:.1f} GB" + (f" / {l['cap_mb'] / 1000:.0f} GB" if l["cap_mb"] else "")
+                         + (" ⛔" if l["reached"] else "") for l in u["links"] if l["used_mb"] or l["cap_mb"]]
+                if parts:
+                    dc_line = f"\n📦 <b>{t('data_used_tests', lang, since=u['period_start'])}:</b> " + ", ".join(parts)
+            except Exception:
+                log.debug("data cap line not built", exc_info=True)
+
             msg = f"""<b>{t('status_title', lang)}</b> [<code>{html.escape(self.cfg.system.box_id)}</code>]
 
 🌐 <b>{t('public_ip', lang)}:</b> <code>{html.escape(client_ip)}</code>
@@ -308,7 +324,7 @@ class CommandHandler:
 ⏱️ <b>{t('latency_rtt', lang)}:</b> {rtt_avg} ms (Jitter: {jitter_avg} ms)
 📉 <b>{t('packet_loss', lang)}:</b> <b>{rep.ping_summary.loss_pct:.2f}%</b>
 ⚖️ <b>{t('sla_verdict', lang)}:</b> <b>{html.escape(sla_verdict_str)}</b> ({t('compliance', lang)}: {rep.speed_summary.sla_compliance_pct:.0f}%){sla_reason_line}
-🚀 <b>{t('latest_speed', lang)}:</b> ↓ <b>{st_down}</b> | ↑ <b>{st_up}</b>
+🚀 <b>{t('latest_speed', lang)}:</b> ↓ <b>{st_down}</b> | ↑ <b>{st_up}</b>{dc_line}
 
 🛡️ <b>{t('services_security', lang)}:</b>
 • Tailscale Mesh VPN: <b>{ts_badge}</b>

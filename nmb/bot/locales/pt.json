@@ -231,7 +231,8 @@
   "drivers_none": "<i>Não há controladores físicos registados.</i>",
   "drivers_fw_missing": "Falta firmware",
   "drivers_recommended": "Pacotes recomendados",
-  "speed_already_running": "Já está a decorrer um teste de velocidade; o resultado será enviado quando terminar."
+  "speed_already_running": "Já está a decorrer um teste de velocidade; o resultado será enviado quando terminar.",
+  "data_used_tests": "Dados usados pelos testes desde {since}"
  },
  "keyboard": [
   [

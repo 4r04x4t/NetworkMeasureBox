@@ -153,3 +153,19 @@ class UsbTestGuardTest(unittest.TestCase):
         self.assertTrue(self._allowed({"active_mode": "standalone"}))
         self.assertTrue(self._allowed(None, link="usb"))
         self.assertTrue(self._allowed(None, iface="eth0"))                                       # not USB at all
+
+
+class IperfRestWarningOnceTest(unittest.TestCase):
+    def test_warning_once_also_with_the_usable_check_in_between(self):
+        cfg = mock.MagicMock()
+        runner._IPERF3_REST_LOGGED.clear()
+        self.addCleanup(runner._IPERF3_REST_LOGGED.clear)
+        conn = object()
+        with mock.patch.object(runner, "iperf3_servers", return_value=[("iperf.example", 5201)]), \
+             mock.patch.object(runner, "_iperf3_failing", side_effect=lambda c, h, now_ms=None: c is not None), \
+             mock.patch.object(runner, "_answers", return_value=True), \
+             mock.patch.object(runner.log, "warning") as warn:
+            for _ in range(5):
+                runner._iperf3_usable(cfg)               # no history: says nothing about failing
+                runner._usable_iperf3_servers(cfg, conn)  # with history: failing, left out
+        self.assertEqual(warn.call_count, 1)

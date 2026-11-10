@@ -668,7 +668,10 @@ def _usable_iperf3_servers(cfg: Config, conn=None) -> List[tuple]:
                             hp[0], hp[1], IPERF3_FAIL_STREAK)
                 _IPERF3_REST_LOGGED[hp] = time.time()
             continue
-        _IPERF3_REST_LOGGED.pop(hp, None)
+        if conn is not None:
+            # Only a check with the history can say the server is fine again; _iperf3_usable() asks without it,
+            # and clearing the mark there made the warning come back at every cycle (17 an hour, 2026-11-10).
+            _IPERF3_REST_LOGGED.pop(hp, None)
         if _answers(*hp):
             out.append(hp)
     return out

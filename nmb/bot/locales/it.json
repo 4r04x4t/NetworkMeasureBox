@@ -231,7 +231,8 @@
   "drivers_none": "<i>Nessun controller fisico registrato.</i>",
   "drivers_fw_missing": "Firmware mancante rilevato",
   "drivers_recommended": "Pacchetti consigliati",
-  "speed_already_running": "Un test di velocità è già in corso; il risultato verrà inviato al termine."
+  "speed_already_running": "Un test di velocità è già in corso; il risultato verrà inviato al termine.",
+  "data_used_tests": "Dati usati dai test dal {since}"
  },
  "keyboard": [
   [
