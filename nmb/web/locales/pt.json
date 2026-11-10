@@ -1455,5 +1455,7 @@
  "dc_save": "💾 Guardar limites de dados",
  "dc_saved": "Guardado.",
  "dc_reached": "limite atingido: os testes automáticos param",
- "dc_current": "Os testes usam agora {link} ({iface}). Período desde {start}, próxima reposição {next}."
+ "dc_current": "Os testes usam agora {link} ({iface}). Período desde {start}, próxima reposição {next}.",
+ "mix_in_run": "na ronda mista",
+ "mix_hint": "Ronda mista (motor \"all\"): nos testes agendados só correm os motores marcados; desmarque um para o deixar de fora durante algum tempo. Os testes que inicia usam todos."
 }

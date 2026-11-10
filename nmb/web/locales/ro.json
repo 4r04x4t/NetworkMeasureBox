@@ -1455,5 +1455,7 @@
  "dc_save": "💾 Salvează limitele de date",
  "dc_saved": "Salvat.",
  "dc_reached": "limită atinsă: testele automate se opresc",
- "dc_current": "Testele folosesc acum {link} ({iface}). Perioadă din {start}, următoarea resetare {next}."
+ "dc_current": "Testele folosesc acum {link} ({iface}). Perioadă din {start}, următoarea resetare {next}.",
+ "mix_in_run": "în rularea mixtă",
+ "mix_hint": "Rulare mixtă (motorul „all”): în testele programate rulează doar motoarele bifate; debifează unul ca să-l lași deoparte o vreme. Testele pornite de tine le folosesc pe toate."
 }

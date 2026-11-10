@@ -2606,20 +2606,26 @@
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
               <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">Ookla
                 <input type="number" id="sched-int-ookla" class="form-input" min="60" max="10080" value="60" style="width: 110px;" oninput="markSchedDirty()">
+                <span style="display: flex; align-items: center; gap: 4px; font-weight: 400;"><input type="checkbox" id="sched-mix-ookla" class="sched-mix" data-engine="ookla" checked onchange="markSchedDirty()"> <span data-i18n="mix_in_run">in the mixed run</span></span>
               </label>
               <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">RTR-NetTest
                 <input type="number" id="sched-int-rtr" class="form-input" min="0" max="10080" value="0" style="width: 110px;" oninput="markSchedDirty()">
+                <span style="display: flex; align-items: center; gap: 4px; font-weight: 400;"><input type="checkbox" id="sched-mix-rtr" class="sched-mix" data-engine="rtr" checked onchange="markSchedDirty()"> <span data-i18n="mix_in_run">in the mixed run</span></span>
               </label>
               <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">Cloudflare
                 <input type="number" id="sched-int-cloudflare" class="form-input" min="0" max="10080" value="0" style="width: 110px;" oninput="markSchedDirty()">
+                <span style="display: flex; align-items: center; gap: 4px; font-weight: 400;"><input type="checkbox" id="sched-mix-cloudflare" class="sched-mix" data-engine="cloudflare" checked onchange="markSchedDirty()"> <span data-i18n="mix_in_run">in the mixed run</span></span>
               </label>
               <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">Fast.com
                 <input type="number" id="sched-int-fastcom" class="form-input" min="0" max="10080" value="0" style="width: 110px;" oninput="markSchedDirty()">
+                <span style="display: flex; align-items: center; gap: 4px; font-weight: 400;"><input type="checkbox" id="sched-mix-fastcom" class="sched-mix" data-engine="fastcom" checked onchange="markSchedDirty()"> <span data-i18n="mix_in_run">in the mixed run</span></span>
               </label>
               <label style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">iPerf3
                 <input type="number" id="sched-int-iperf3" class="form-input" min="0" max="10080" value="60" style="width: 110px;" oninput="markSchedDirty()">
+                <span style="display: flex; align-items: center; gap: 4px; font-weight: 400;"><input type="checkbox" id="sched-mix-iperf3" class="sched-mix" data-engine="iperf3" checked onchange="markSchedDirty()"> <span data-i18n="mix_in_run">in the mixed run</span></span>
               </label>
             </div>
+            <div class="form-hint" data-i18n="mix_hint">Mixed run (engine "all"): only the ticked engines run in scheduled tests; untick one to leave it out for a while. Tests you start yourself run them all.</div>
             <div class="form-hint" data-i18n="engine_intervals_hint">The schedule above sets how often the box checks; each engine then runs only when its own interval is over. Ookla runs at most hourly. iPerf3 joins the mixed run when an iPerf3 server is set and answers.</div>
           </div>
 

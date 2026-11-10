@@ -1455,5 +1455,7 @@
  "dc_save": "💾 Guardar límites de datos",
  "dc_saved": "Guardado.",
  "dc_reached": "límite alcanzado: las pruebas automáticas se detienen",
- "dc_current": "Las pruebas usan ahora {link} ({iface}). Periodo desde {start}, próximo reinicio {next}."
+ "dc_current": "Las pruebas usan ahora {link} ({iface}). Periodo desde {start}, próximo reinicio {next}.",
+ "mix_in_run": "en la ronda mixta",
+ "mix_hint": "Ronda mixta (motor \"all\"): en las pruebas programadas solo se ejecutan los motores marcados; desmarca uno para dejarlo fuera un tiempo. Las pruebas que inicias tú los usan todos."
 }

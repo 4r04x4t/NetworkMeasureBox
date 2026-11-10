@@ -7065,6 +7065,31 @@ _DATA_CAP_TEXTS = {
 for _lang, _texts in _DATA_CAP_TEXTS.items():
     TRANSLATIONS.setdefault(_lang, {}).update(_texts)
 
+_MIX_TEXTS = {
+    "en": {
+        "mix_in_run": "in the mixed run",
+        "mix_hint": "Mixed run (engine \"all\"): only the ticked engines run in scheduled tests; untick one to leave it out for a while. Tests you start yourself run them all."
+    },
+    "hu": {
+        "mix_in_run": "a vegyes körben",
+        "mix_hint": "Vegyes kör („all” motor): az ütemezett mérésekben csak a bejelölt motorok futnak; vedd ki a jelölést, ha egy motort egy ideig ki akarsz hagyni. Az általad indított mérések mindet futtatják."
+    },
+    "de": {
+        "mix_in_run": "im gemischten Lauf",
+        "mix_hint": "Gemischter Lauf (Engine „all“): in geplanten Tests laufen nur die angehakten Engines; Haken entfernen, um eine eine Zeit lang auszulassen. Selbst gestartete Tests nutzen alle."
+    },
+    "fr": {
+        "mix_in_run": "dans la série mixte",
+        "mix_hint": "Série mixte (moteur « all ») : seuls les moteurs cochés tournent dans les tests planifiés ; décochez-en un pour l'écarter un temps. Les tests que vous lancez vous-même les utilisent tous."
+    },
+    "uk": {
+        "mix_in_run": "у змішаному циклі",
+        "mix_hint": "Змішаний цикл (рушій «all»): у запланованих тестах працюють лише позначені рушії; зніміть позначку, щоб на деякий час пропустити рушій. Тести, які ви запускаєте самі, використовують усі."
+    }
+}
+for _lang, _texts in _MIX_TEXTS.items():
+    TRANSLATIONS.setdefault(_lang, {}).update(_texts)
+
 # More languages, one JSON file each in nmb/web/locales/ (key -> text). A key missing there is shown
 # in English, never in another language.
 LOCALE_LANGUAGES = ("ro", "it", "es", "pt", "pt-br", "zh")

@@ -1077,9 +1077,17 @@ def _run_measurement_cycle(
         log.info("scheduled iPerf3 test skipped: no iPerf3 server is set, or it does not answer")
         conn.close()
         return True
-    if mixed and _iperf3_usable(cfg):
+    chosen = list(getattr(cfg.speedtest, "mixed_engines", None) or [])
+    if trigger == "schedule" and engine == "all":
+        # The owner may leave engines out of the scheduled mixed run for a while ([speedtest] mixed_engines).
+        engines_to_run = [e for e in engines_to_run if e in chosen]
+    if mixed and _iperf3_usable(cfg) and (trigger != "schedule" or engine != "all" or "iperf3" in chosen):
         # A mixed run includes iPerf3 when an iPerf3 server is set and answers.
         engines_to_run.append("iperf3")
+    if trigger == "schedule" and engine == "all" and not engines_to_run:
+        log.info("scheduled mixed run skipped: no engine is ticked for it")
+        conn.close()
+        return True
     if trigger == "schedule":
         # Each engine keeps its own minimum interval (Ookla's is checked in _run_single_engine).
         engines_to_run = [e for e in engines_to_run if e == "ookla" or _engine_due(conn, cfg, e, now_ms)]

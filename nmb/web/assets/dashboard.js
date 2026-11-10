@@ -2539,6 +2539,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
             if (el && document.activeElement !== el && data.engine_intervals[k] !== undefined) el.value = data.engine_intervals[k];
           }
         }
+        if (Array.isArray(data.mixed_engines) && !schedFormDirty && !isScheduleInputActive()) {
+          document.querySelectorAll('.sched-mix').forEach(cb => { cb.checked = data.mixed_engines.includes(cb.dataset.engine); });
+        }
         if (data.automated_engine) {
           window.currentAutomatedEngine = data.automated_engine;
           if (document.getElementById('sched-engine-select')) {
@@ -4664,6 +4667,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           cloudflare_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-cloudflare') || {}).value || '0', 10) || 0),
           fastcom_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-fastcom') || {}).value || '0', 10) || 0),
           iperf3_interval_min: Math.max(0, parseInt((document.getElementById('sched-int-iperf3') || {}).value || '0', 10) || 0),
+          mixed_engines: Array.from(document.querySelectorAll('.sched-mix')).filter(cb => cb.checked).map(cb => cb.dataset.engine),
           iperf_target_host: (document.getElementById('sched-iperf-host') ? document.getElementById('sched-iperf-host').value : '').trim(),
           iperf_port: (document.getElementById('sched-iperf-port') ? parseInt(document.getElementById('sched-iperf-port').value) : 5201) || 5201
         })

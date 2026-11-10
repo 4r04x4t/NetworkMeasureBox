@@ -1455,5 +1455,7 @@
  "dc_save": "💾 Salva i limiti di dati",
  "dc_saved": "Salvato.",
  "dc_reached": "limite raggiunto: i test automatici si fermano",
- "dc_current": "I test ora usano {link} ({iface}). Periodo dal {start}, prossimo azzeramento {next}."
+ "dc_current": "I test ora usano {link} ({iface}). Periodo dal {start}, prossimo azzeramento {next}.",
+ "mix_in_run": "nel giro misto",
+ "mix_hint": "Giro misto (motore \"all\"): nei test pianificati girano solo i motori spuntati; togli la spunta per escluderne uno per un po'. I test che avvii tu li usano tutti."
 }

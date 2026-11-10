@@ -568,6 +568,8 @@ class SpeedtestConfig:
     schedule_mode: str = "scheduled"          # "scheduled" (periodic automation) or "manual" (disabled / on-demand only)
     schedule_cron: str = "0 * * * *"
     automated_engine: str = "ookla"           # "ookla", "cloudflare", "fastcom", "rtr", "all"
+    # Engines of a scheduled mixed run (automated_engine = all); untick one to leave it out for a while.
+    mixed_engines: List[str] = field(default_factory=lambda: ["ookla", "cloudflare", "fastcom", "rtr", "iperf3"])
     # Per-engine minimum minutes between scheduled tests (0 = every scheduled run).
     # Ookla never runs more often than hourly, since it blocks boxes that test more often.
     ookla_interval_min: int = 60
@@ -643,6 +645,17 @@ class WifiShareConfig:
     enabled: bool = False
     lan_interface: str = "eth0"
     address: str = "192.168.77.1/24"
+
+
+MIXED_ENGINES = ("ookla", "cloudflare", "fastcom", "rtr", "iperf3")
+
+
+def parse_mixed_engines(value) -> List[str]:
+    """The engines of a scheduled mixed run, from "cloudflare,fastcom,rtr" or a list; unknown names left out,
+    the order kept as in MIXED_ENGINES. An empty value means none (the mixed run then measures nothing)."""
+    items = value.split(",") if isinstance(value, str) else list(value or [])
+    wanted = {str(x).strip().lower() for x in items}
+    return [e for e in MIXED_ENGINES if e in wanted]
 
 
 @dataclass
@@ -945,6 +958,8 @@ def load_config(path: Path | None = None) -> Config:
         cfg.speedtest.schedule_cron = st.get("schedule_cron", cfg.speedtest.schedule_cron)
         cfg.speedtest.daily_data_limit_mb = st.getfloat("daily_data_limit_mb", fallback=cfg.speedtest.daily_data_limit_mb)
         cfg.speedtest.automated_engine = st.get("automated_engine", getattr(cfg.speedtest, "automated_engine", "ookla")).lower().strip()
+        if st.get("mixed_engines") is not None:
+            cfg.speedtest.mixed_engines = parse_mixed_engines(st.get("mixed_engines"))
         cfg.speedtest.ookla_interval_min = max(60, min(10080, st.getint("ookla_interval_min", fallback=60)))
         cfg.speedtest.rtr_interval_min = max(0, min(10080, st.getint("rtr_interval_min", fallback=0)))
         cfg.speedtest.cloudflare_interval_min = max(0, min(10080, st.getint("cloudflare_interval_min", fallback=0)))
@@ -1322,6 +1337,7 @@ def _fill_parser(cfg: "Config", parser) -> None:
     parser["speedtest"]["schedule_cron"] = str(cfg.speedtest.schedule_cron)
     parser["speedtest"]["daily_data_limit_mb"] = str(cfg.speedtest.daily_data_limit_mb)
     parser["speedtest"]["automated_engine"] = str(getattr(cfg.speedtest, "automated_engine", "ookla")).lower()
+    parser["speedtest"]["mixed_engines"] = ",".join(getattr(cfg.speedtest, "mixed_engines", MIXED_ENGINES))
     parser["speedtest"]["ookla_interval_min"] = str(max(60, int(cfg.speedtest.ookla_interval_min)))
     parser["speedtest"]["rtr_interval_min"] = str(int(cfg.speedtest.rtr_interval_min))
     parser["speedtest"]["cloudflare_interval_min"] = str(int(cfg.speedtest.cloudflare_interval_min))

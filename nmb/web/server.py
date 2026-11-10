@@ -1479,6 +1479,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self.server.cfg.speedtest.schedule_cron = norm_cron
             if auto_eng and str(auto_eng).strip():
                 self.server.cfg.speedtest.automated_engine = str(auto_eng).strip().lower()
+            if "mixed_engines" in body_json:
+                from nmb.config import parse_mixed_engines
+                self.server.cfg.speedtest.mixed_engines = parse_mixed_engines(body_json["mixed_engines"])
             for key, floor in (("ookla_interval_min", 60), ("rtr_interval_min", 0), ("cloudflare_interval_min", 0), ("fastcom_interval_min", 0), ("iperf3_interval_min", 0)):
                 if key in body_json:
                     try:
@@ -1583,6 +1586,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "schedule_mode": self.server.cfg.speedtest.schedule_mode,
                 "schedule_cron": self.server.cfg.speedtest.schedule_cron,
                 "automated_engine": self.server.cfg.speedtest.automated_engine,
+                "mixed_engines": list(self.server.cfg.speedtest.mixed_engines),
                 "ookla_interval_min": self.server.cfg.speedtest.ookla_interval_min,
                 "rtr_interval_min": self.server.cfg.speedtest.rtr_interval_min,
                 "cloudflare_interval_min": self.server.cfg.speedtest.cloudflare_interval_min,
@@ -3524,6 +3528,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "schedule_cron": getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"),
             "schedule_cron_desc": get_cron_description(getattr(self.server.cfg.speedtest, "schedule_cron", "0 * * * *"), getattr(self.server.cfg.web, "language", "en")),
             "automated_engine": getattr(self.server.cfg.speedtest, "automated_engine", "ookla"),
+            "mixed_engines": list(getattr(self.server.cfg.speedtest, "mixed_engines", [])),
             "engine_intervals": {
                 "ookla": self.server.cfg.speedtest.ookla_interval_min,
                 "rtr": self.server.cfg.speedtest.rtr_interval_min,

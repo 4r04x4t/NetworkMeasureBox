@@ -70,7 +70,7 @@ def A(action_id: str, label: str, path: str, fields: str = "", method: str = "PO
 
 
 NET_ADDR = "wan_proto:choice(dhcp|static|pppoe) wan_ip wan_netmask wan_gateway wan_mac dns_mode dns_primary dns_secondary"
-SCHEDULE = ("schedule_mode:choice(scheduled|manual) schedule_cron daily_data_limit_mb:float automated_engine:choice(ookla|cloudflare|fastcom|rtr|iperf3|all) "
+SCHEDULE = ("schedule_mode:choice(scheduled|manual) schedule_cron daily_data_limit_mb:float automated_engine:choice(ookla|cloudflare|fastcom|rtr|iperf3|all) mixed_engines "
             "ookla_interval_min:int rtr_interval_min:int cloudflare_interval_min:int fastcom_interval_min:int iperf3_interval_min:int "
             "idle_threshold_mode:choice(percent|fixed) idle_threshold_percent:float idle_threshold_kbps:int")
 IPERF_AUTO = ("iperf_target_host iperf_port:int iperf_duration:int iperf_protocol:choice(tcp|udp) iperf_parallel:int "
