@@ -335,8 +335,14 @@ def describe_server(host: str, port: int = 5201) -> Dict[str, str]:
     if not out["name"]:
         try:
             import socket
+            from nmb.common.netaddr import is_local_ip
             from nmb.netd.geoip import get_public_geoip
             ip = socket.gethostbyname(host)
+            if is_local_ip(ip):
+                # GeoIP of a private address answers with the box's own public address: the server would be
+                # named after the box's town and ISP. A server on the local network is just that.
+                out.update({"name": "local network server", "country": "", "isp": "", "source": "lan"})
+                return out
             geo = get_public_geoip(ip)
             isp = str(geo.get("isp") or "")
             if isp in ("Unknown ISP", "Unknown"):

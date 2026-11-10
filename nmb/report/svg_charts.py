@@ -348,7 +348,10 @@ def render_compliance_chart(
     lang: str = "hu",
 ) -> str:
     """Generate SVG timeline of speed compliance ratio (% of offered/contracted speed)."""
-    valid_tests = [t for t in reversed(speed_tests) if t.get("status") == "ok" and (t.get("down_mbps") or t.get("up_mbps"))]
+    # Tests of the line only (a LAN server's test measured the home network); an unmeasured direction is
+    # left out of its line, never drawn as 0 %.
+    valid_tests = [t for t in reversed(speed_tests) if t.get("status") == "ok" and t.get("scope") != "lan"
+                   and (t.get("down_mbps") is not None or t.get("up_mbps") is not None)]
     if not valid_tests or contract_down <= 0:
         return f'<svg viewBox="0 0 {width} {height}" class="nmb-svg"><text x="{width//2}" y="{height//2}" fill="#94a3b8" text-anchor="middle" font-size="14">{_t("no_compliance_data", lang)}</text></svg>'
 
@@ -378,16 +381,15 @@ def render_compliance_chart(
 
     for i, t_point in enumerate(valid_tests):
         x = x_coord(i)
-        d_m = t_point.get("down_mbps") or 0.0
-        u_m = t_point.get("up_mbps") or 0.0
-        d_pct = (d_m / contract_down) * 100.0
-        u_pct = (u_m / contract_up) * 100.0 if contract_up > 0 else 0.0
-
-        pts_d.append((x, y_coord(d_pct)))
-        pts_u.append((x, y_coord(u_pct)))
-
-        d_col = "#10b981" if d_pct >= 80 else ("#f59e0b" if d_pct >= 60 else "#ef4444")
-        circles.append(f'<circle cx="{x:.1f}" cy="{y_coord(d_pct):.1f}" r="4" fill="{d_col}"><title>{_t("download", lang)}: {d_pct:.1f}% ({d_m:.1f} Mbps)</title></circle>')
+        d_m = t_point.get("down_mbps")
+        u_m = t_point.get("up_mbps")
+        if d_m is not None and contract_down > 0:
+            d_pct = (d_m / contract_down) * 100.0
+            pts_d.append((x, y_coord(d_pct)))
+            d_col = "#10b981" if d_pct >= 80 else ("#f59e0b" if d_pct >= 60 else "#ef4444")
+            circles.append(f'<circle cx="{x:.1f}" cy="{y_coord(d_pct):.1f}" r="4" fill="{d_col}"><title>{_t("download", lang)}: {d_pct:.1f}% ({d_m:.1f} Mbps)</title></circle>')
+        if u_m is not None and contract_up > 0:
+            pts_u.append((x, y_coord((u_m / contract_up) * 100.0)))
 
     path_d = "M " + " L ".join(f"{x:.1f},{y:.1f}" for x, y in pts_d) if pts_d else ""
     path_u = "M " + " L ".join(f"{x:.1f},{y:.1f}" for x, y in pts_u) if pts_u else ""
@@ -420,7 +422,8 @@ def render_speedtest_chart(
     
     If contract or guaranteed values are 0 (unconfigured), no misleading 0 Mbps lines are drawn.
     """
-    valid_tests = [t for t in reversed(speed_tests) if t.get("status") == "ok" and t.get("down_mbps")]
+    valid_tests = [t for t in reversed(speed_tests) if t.get("status") == "ok" and t.get("scope") != "lan"
+                   and t.get("down_mbps") is not None]
     if not valid_tests:
         return f'<svg viewBox="0 0 {width} {height}" class="nmb-svg"><text x="{width//2}" y="{height//2}" fill="#94a3b8" text-anchor="middle" font-size="14">{_t("no_speed_data", lang)}</text></svg>'
 
@@ -470,6 +473,7 @@ def render_speedtest_chart(
     for i, t_point in enumerate(valid_tests):
         center_x = pad_left + (i + 0.5) * group_w
         down_mbps = t_point.get("down_mbps") or 0.0
+        up_measured = t_point.get("up_mbps") is not None
         up_mbps = t_point.get("up_mbps") or 0.0
 
         # Downlink bar
@@ -489,7 +493,8 @@ def render_speedtest_chart(
         y_up = pad_top + plot_h - h_up
         x_up = center_x + 1.5
         up_color = ("#34d399" if up_mbps >= contract_up * 0.8 else "#f59e0b") if contract_up > 0 else "#34d399"
-        bars_markup.append(f'<rect x="{x_up:.1f}" y="{y_up:.1f}" width="{bar_w:.1f}" height="{h_up:.1f}" fill="{up_color}" rx="2"><title>{_t("upload", lang)}: {up_mbps:.1f} Mbps</title></rect>')
+        if up_measured:
+            bars_markup.append(f'<rect x="{x_up:.1f}" y="{y_up:.1f}" width="{bar_w:.1f}" height="{h_up:.1f}" fill="{up_color}" rx="2"><title>{_t("upload", lang)}: {up_mbps:.1f} Mbps</title></rect>')
 
         # Timestamp label
         ts_label = _fmt_time(t_point["ts"])

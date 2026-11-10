@@ -716,6 +716,13 @@ for _code in ("ro", "it", "es", "pt", "pt-br", "zh"):
     DOSSIER_I18N[_code] = {**DOSSIER_I18N["en"], **{k: v for k, v in _data.items() if k in DOSSIER_I18N["en"]}}
 
 
+def _num(value, digits: int = 1, unit: str = "", plusminus: bool = False) -> str:
+    """A measured number, or "-" when it was not measured (never 0 in its place)."""
+    if value is None:
+        return "-"
+    return f"{'&plusmn;' if plusminus else ''}{value:.{digits}f}{unit}"
+
+
 def _escape_value(value):
     """Escape strings inside stored measurement data before they are placed into HTML."""
     if isinstance(value, str):
@@ -802,8 +809,8 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
   <td>{t.sent:,}</td>
   <td>{t.lost:,}</td>
   <td class="{ 'text-red' if t.loss_pct > 1.0 else 'text-green' }">{t.loss_pct:.2f}%</td>
-  <td>{t.avg_rtt_ms or '-'} ms</td>
-  <td>{t.p95_rtt_ms or '-'} ms</td>
+  <td>{_num(t.avg_rtt_ms, 2, " ms")}</td>
+  <td>{_num(t.p95_rtt_ms, 2, " ms")}</td>
 </tr>""")
 
     speed_rows_html = []
@@ -813,9 +820,10 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
             d_pct_off = s.get("down_pct_of_offered")
             u_pct_off = s.get("up_pct_of_offered")
 
-            if d_pct_off is None and s.get("down_mbps") and report.contract_down_mbps > 0:
+            lan_row = s.get("scope") == "lan"     # a LAN test is no share of the ISP's speed
+            if d_pct_off is None and s.get("down_mbps") and report.contract_down_mbps > 0 and not lan_row:
                 d_pct_off = round((s["down_mbps"] / report.contract_down_mbps) * 100.0, 1)
-            if u_pct_off is None and s.get("up_mbps") and report.contract_up_mbps > 0:
+            if u_pct_off is None and s.get("up_mbps") and report.contract_up_mbps > 0 and not lan_row:
                 u_pct_off = round((s["up_mbps"] / report.contract_up_mbps) * 100.0, 1)
 
             d_val_mbps = s.get("down_mbps") or 0.0
@@ -829,12 +837,13 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
 
             d_val = f"<strong>{d_val_mbps:.2f} Mb/s</strong>{d_pct_badge}" if s.get("down_mbps") else "-"
             u_val = f"<strong>{u_val_mbps:.2f} Mb/s</strong>{u_pct_badge}" if s.get("up_mbps") else "-"
-            bb_val = f"{s.get('bufferbloat_grade') or '-'} (+{s.get('bufferbloat_delta_ms') or 0:.1f} ms)" if s.get('bufferbloat_grade') else "-"
+            bb_val = (f"{s.get('bufferbloat_grade')} (+{s.get('bufferbloat_delta_ms'):.1f} ms)"
+                      if s.get('bufferbloat_grade') and s.get('bufferbloat_delta_ms') is not None else "-")
 
             # IP & Detected ISP Provider
             v4 = s.get('client_ip')
             v6 = s.get('client_ipv6')
-            row_isp = s.get('isp_name') or report.isp_name or "Internet Provider"
+            row_isp = "LAN" if s.get("scope") == "lan" else (s.get('isp_name') or report.isp_name or "-")
 
             if v4 and v6:
                 client_ip_html = f"<div style='font-size:11px; font-family:monospace;'><span style='color:#38bdf8;' title='Public IPv4'>{v4}</span><br><span style='color:#a78bfa; font-size:10px;' title='Public IPv6'>{v6}</span><br><span class='badge' style='font-size:9.5px; background:rgba(56,189,248,0.12); color:#38bdf8; border:1px solid rgba(56,189,248,0.25); border-radius:3px; padding:1px 4px; display:inline-block; margin-top:2px;'>{row_isp}</span></div>"
@@ -847,10 +856,12 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
 
             # Benchmark Status Code Display
             status_code = s.get("status_code", 1)
-            if status_code == 1:
+            if s.get("scope") == "lan":
+                status_html = "<span class='badge-status-warn' title='LAN'>LAN</span>"
+            elif status_code == 1:
                 status_html = "<span class='badge-status-1' title='Valid'>1</span>"
             elif status_code == 6:
-                status_label = "6 (SLA Alatt)" if lang_key == "hu" else "6 (Below SLA)"
+                status_label = "6"   # the meaning is in the legend below, in the report's language
                 status_html = f"<span class='badge-status-6' title='{status_label}'>{status_label}</span>"
             elif status_code == 9:
                 status_html = "<span class='badge-status-warn' title='Traffic Quota Exceeded'>9</span>"
@@ -859,7 +870,7 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
             else:
                 status_html = f"<span class='badge-status-err' title='{status_code}'>{status_code}</span>"
 
-            ping_ms_val = f"{(s['ping_us'] // 1000):.0f} ms" if s.get('ping_us') else "-"
+            ping_ms_val = f"{s['ping_us'] / 1000:.0f} ms" if s.get('ping_us') is not None else "-"
             srv_desc = s.get('server_name') or '-'
             engine_badge = (s.get('engine') or '-').upper()
             if s.get("scope") == "lan":
@@ -943,24 +954,27 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
     # Format KPI summary download and statistical speed values
     has_speed_results = bool(s_sum.successful_tests > 0 and report.speed_tests)
     if has_speed_results:
-        kpi_down_val = f"{s_sum.avg_down_mbps or 0:.1f} <span style='font-size: 14px;'>Mb/s</span>"
-        stat_down_avg = f"<strong>{s_sum.avg_down_mbps or 0:.2f} Mb/s</strong>"
-        stat_down_med = f"{s_sum.median_down_mbps or 0:.2f} Mb/s"
-        stat_down_p95 = f"{s_sum.p95_down_mbps or 0:.2f} Mb/s"
-        stat_down_min = f"{s_sum.min_down_mbps or 0:.2f} Mb/s"
-        stat_down_max = f"{s_sum.max_down_mbps or 0:.2f} Mb/s"
-        stat_down_std = f"&plusmn;{s_sum.stddev_down_mbps or 0:.2f} Mb/s"
+        kpi_down_val = (f"{s_sum.avg_down_mbps:.1f} <span style='font-size: 14px;'>Mb/s</span>"
+                        if s_sum.avg_down_mbps is not None else "-")
+        stat_down_avg = f"<strong>{_num(s_sum.avg_down_mbps, 2, ' Mb/s')}</strong>"
+        stat_down_med = _num(s_sum.median_down_mbps, 2, " Mb/s")
+        stat_down_p95 = _num(s_sum.p95_down_mbps, 2, " Mb/s")
+        stat_down_min = _num(s_sum.min_down_mbps, 2, " Mb/s")
+        stat_down_max = _num(s_sum.max_down_mbps, 2, " Mb/s")
+        stat_down_std = _num(s_sum.stddev_down_mbps, 2, " Mb/s", plusminus=True)
 
-        stat_up_avg = f"<strong>{s_sum.avg_up_mbps or 0:.2f} Mb/s</strong>"
-        stat_up_med = f"{s_sum.median_up_mbps or 0:.2f} Mb/s"
-        stat_up_p95 = f"{s_sum.p95_up_mbps or 0:.2f} Mb/s"
-        stat_up_min = f"{s_sum.min_up_mbps or 0:.2f} Mb/s"
-        stat_up_max = f"{s_sum.max_up_mbps or 0:.2f} Mb/s"
-        stat_up_std = f"&plusmn;{s_sum.stddev_up_mbps or 0:.2f} Mb/s"
+        stat_up_avg = f"<strong>{_num(s_sum.avg_up_mbps, 2, ' Mb/s')}</strong>"
+        stat_up_med = _num(s_sum.median_up_mbps, 2, " Mb/s")
+        stat_up_p95 = _num(s_sum.p95_up_mbps, 2, " Mb/s")
+        stat_up_min = _num(s_sum.min_up_mbps, 2, " Mb/s")
+        stat_up_max = _num(s_sum.max_up_mbps, 2, " Mb/s")
+        stat_up_std = _num(s_sum.stddev_up_mbps, 2, " Mb/s", plusminus=True)
 
-        if has_guaranteed_down:
+        if s_sum.avg_down_mbps is None or s_sum.avg_up_mbps is None:
+            kpi_down_sub = ""        # one direction not measured: no sub-line with a 0 in its place
+        elif has_guaranteed_down and s_sum.avg_down_pct_of_guaranteed is not None:
             kpi_down_sub = tr["kpi_down_sub_guar"].format(guar=(s_sum.avg_down_pct_of_guaranteed or 0), up=(s_sum.avg_up_mbps or 0))
-        elif has_contract_down:
+        elif has_contract_down and s_sum.avg_down_pct_of_offered is not None:
             kpi_down_sub = tr["kpi_down_sub_off"].format(off=(s_sum.avg_down_pct_of_offered or 0), up=(s_sum.avg_up_mbps or 0))
         else:
             kpi_down_sub = tr["kpi_down_sub_peak"].format(peak=(s_sum.max_down_mbps or 0), up=(s_sum.avg_up_mbps or 0))
@@ -982,8 +996,10 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
         stat_up_std = "-"
 
     # Format SLA compliance text in verdict banner
-    if has_contract_speeds:
+    if has_contract_speeds and getattr(s_sum, "judged_tests", 1):
         verdict_metric_html = f"{tr['lbl_sla_compliance_rate']} {s_sum.sla_compliance_pct:.1f}%"
+    elif has_contract_speeds:
+        verdict_metric_html = f"{tr['lbl_sla_compliance_rate']} -"
     else:
         success_pct = (s_sum.successful_tests / len(report.speed_tests) * 100.0) if report.speed_tests else 100.0
         verdict_metric_html = f"{tr['lbl_measurement_success_rate']} {success_pct:.1f}%"
@@ -1268,12 +1284,12 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
     </div>
     <div class="kpi-card">
       <div class="kpi-label">{tr['kpi_latency']}</div>
-      <div class="kpi-value">{p_sum.rtt_avg_ms or 0:.1f} <span style="font-size: 14px;">ms</span></div>
-      <div class="kpi-sub">{tr['kpi_latency_sub'].format(med=(p_sum.rtt_median_ms or 0), p95=(p_sum.rtt_p95_ms or 0))}</div>
+      <div class="kpi-value">{_num(p_sum.rtt_avg_ms, 1)} <span style="font-size: 14px;">ms</span></div>
+      <div class="kpi-sub">{tr['kpi_latency_sub'].format(med=p_sum.rtt_median_ms, p95=p_sum.rtt_p95_ms) if p_sum.rtt_median_ms is not None and p_sum.rtt_p95_ms is not None else ''}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">{tr['kpi_loss']}</div>
-      <div class="kpi-value { 'text-green' if p_sum.loss_pct < 0.5 else 'text-red' }">{p_sum.loss_pct:.2f}%</div>
+      <div class="kpi-value { 'text-green' if p_sum.loss_pct < 0.5 else 'text-red' }">{f"{p_sum.loss_pct:.2f}%" if p_sum.total_sent else "-"}</div>
       <div class="kpi-sub">{tr['kpi_loss_sub'].format(lost=p_sum.total_lost, sent=p_sum.total_sent)}</div>
     </div>
     <div class="kpi-card">
@@ -1341,16 +1357,16 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
           </tr>
           <tr>
             <td><strong>{tr['param_lat']}</strong></td>
-            <td>{p_sum.rtt_avg_ms or 0:.1f} ms</td>
-            <td>{p_sum.rtt_median_ms or 0:.1f} ms</td>
-            <td>{p_sum.rtt_p95_ms or 0:.1f} ms</td>
-            <td>{p_sum.rtt_min_ms or 0:.1f} ms</td>
-            <td>{p_sum.rtt_max_ms or 0:.1f} ms</td>
-            <td>&plusmn;{p_sum.rtt_stddev_ms or 0:.1f} ms</td>
+            <td>{_num(p_sum.rtt_avg_ms, 1, " ms")}</td>
+            <td>{_num(p_sum.rtt_median_ms, 1, " ms")}</td>
+            <td>{_num(p_sum.rtt_p95_ms, 1, " ms")}</td>
+            <td>{_num(p_sum.rtt_min_ms, 1, " ms")}</td>
+            <td>{_num(p_sum.rtt_max_ms, 1, " ms")}</td>
+            <td>{_num(p_sum.rtt_stddev_ms, 1, " ms", plusminus=True)}</td>
           </tr>
           <tr>
             <td><strong>{tr['param_jitter']}</strong></td>
-            <td>{p_sum.jitter_avg_ms or 0:.1f} ms</td>
+            <td>{_num(p_sum.jitter_avg_ms, 1, " ms")}</td>
             <td>-</td>
             <td>-</td>
             <td>-</td>
@@ -1359,11 +1375,11 @@ def generate_html_dossier(report: ReportData, lang: str = "en") -> str:
           </tr>
           <tr>
             <td><strong>{tr['param_loss']}</strong></td>
-            <td>{p_sum.loss_pct:.2f}%</td>
+            <td>{f"{p_sum.loss_pct:.2f}%" if p_sum.total_sent else "-"}</td>
             <td>-</td>
             <td>-</td>
-            <td>0.00%</td>
-            <td>{p_sum.loss_pct * 2:.1f}%</td>
+            <td>-</td>
+            <td>-</td>
             <td>-</td>
           </tr>
         </tbody>

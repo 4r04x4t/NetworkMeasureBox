@@ -202,6 +202,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         client_ip = self.client_address[0] if hasattr(self, "client_address") else self.address_string()
         if allows_without_password(getattr(self.server.cfg.web, "public_results", False), self.command, req_path, client_ip):
+            self._no_password = True     # a read without login (public results): kept to small ranges
             return True
         if _is_ip_rate_limited(client_ip):
             log.warning("[AUTH] Rate limited IP %s due to too many failed attempts", client_ip)
@@ -463,6 +464,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             except (ValueError, OverflowError):
                 self._send_json({"status": "error", "error": "from/to must be YYYY-MM-DD, an ISO time or epoch ms; hours/days a positive number"}, status=400)
                 return
+            # The per-minute ping export is the big one (about 8,600 rows a day): at most 31 days without a
+            # login (public results), 120 days (its retention) with one, so no request can make the box build
+            # its whole history in memory.
+            if kind == "ping":
+                max_days = 31 if getattr(self, "_no_password", False) else 120
+                start_ms = max(start_ms, end_ms - max_days * 86_400_000)
             isp = self.server.cfg.isp
             conn = db.connect(readonly=True)
             try:
@@ -3506,8 +3513,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         conn_type = getattr(self.server.cfg.isp, "connection_type", "fiber")
         os_info = detect_os_info()
         dual = interfaces.get_dual_stack_ips(wan_iface)
-        dual_v4 = dual.get("public_ipv4") or dual.get("ipv4")
-        dual_v6 = dual.get("public_ipv6") or dual.get("ipv6")
+        from nmb.common.netaddr import global_ip
+        # Only public addresses are shown as the public IP (the fallback could be the LAN address).
+        dual_v4 = global_ip(dual.get("public_ipv4")) or global_ip(dual.get("ipv4"))
+        dual_v6 = global_ip(dual.get("public_ipv6")) or global_ip(dual.get("ipv6"))
         status_dict = {
             "system_info": {
                 "firmware_version": _installed_version(),

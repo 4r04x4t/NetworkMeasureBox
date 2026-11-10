@@ -23,7 +23,21 @@ from nmb.report.metrics import ReportData
 log = logging.getLogger("nmb.report.smtp")
 
 
-def format_plain_text_summary(report: ReportData) -> str:
+def _gate_text(cfg) -> str:
+    """What the traffic gate really does with these settings (the text claimed "<500 kbps" for every box)."""
+    sp = getattr(cfg, "speedtest", None) if cfg is not None else None
+    if sp is None:
+        return "Bandwidth tests wait for the LAN to be idle before they start."
+    if getattr(sp, "idle_threshold_mode", "percent") == "fixed":
+        limit = f"below {int(getattr(sp, 'idle_threshold_kbps', 500))} kbps of other traffic"
+    else:
+        limit = f"below {getattr(sp, 'idle_threshold_percent', 2.0):g} % of the line's speed in other traffic"
+    stop = (" and stop when other traffic appears" if getattr(sp, "traffic_stop_enabled", False)
+            else "; traffic that starts during a test is not stopped")
+    return f"Bandwidth tests start only when the traffic the box can see is {limit}{stop}."
+
+
+def format_plain_text_summary(report: ReportData, cfg=None) -> str:
     """Format technical plain-text message for ISP ticket systems."""
     now_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -50,7 +64,7 @@ EXECUTIVE TELEMETRY VERDICT: {report.sla_verdict}
    - Total Outage Incidents  : {len(report.outages)}
 
 2. LATENCY & PACKET LOSS (RFC 2681 / RFC 3550):
-   - Overall Packet Loss     : {report.ping_summary.loss_pct:.2f}% ({report.ping_summary.total_lost} lost / {report.ping_summary.total_sent} sent)
+   - Overall Packet Loss     : {f"{report.ping_summary.loss_pct:.2f}%" if report.ping_summary.total_sent else "N/A"} ({report.ping_summary.total_lost} lost / {report.ping_summary.total_sent} sent)
    - Minimum Latency         : {report.ping_summary.rtt_min_ms or 'N/A'} ms
    - Mean Latency (RTT)      : {report.ping_summary.rtt_avg_ms or 'N/A'} ms
    - 95th Percentile (P95)   : {report.ping_summary.rtt_p95_ms or 'N/A'} ms
@@ -59,7 +73,7 @@ EXECUTIVE TELEMETRY VERDICT: {report.sla_verdict}
 3. MEASURED BANDWIDTH & SLA COMPLIANCE:
    - Average Downlink        : {report.speed_summary.avg_down_mbps or 'N/A'} Mbps (Offered: {report.contract_down_mbps:.0f} Mbps{down_pct_str})
    - Average Uplink          : {report.speed_summary.avg_up_mbps or 'N/A'} Mbps (Offered: {report.contract_up_mbps:.0f} Mbps{up_pct_str})
-   - SLA Speed Compliance    : {report.speed_summary.sla_compliance_pct:.0f}% of tests met required 80% SLA threshold
+   - SLA Speed Compliance    : {f"{report.speed_summary.sla_compliance_pct:.0f}%" if report.speed_summary.judged_tests else "N/A"} of tests reached the required speed ({"the guaranteed speed" if (report.guaranteed_down_mbps or report.guaranteed_up_mbps) else "80 % of the offered speed, NMB's rule"})
 
 4. NET-NEUTRALITY & TRAFFIC SHAPING:
    - Throttled/Blocked Ports : {report.throttled_ports_count} detected
@@ -67,8 +81,8 @@ EXECUTIVE TELEMETRY VERDICT: {report.sla_verdict}
 --------------------------------------------------------------------------------
 NOTE FOR TICKET HANDLING TECHNICIAN:
 This report was generated autonomously by customer-premises monitoring equipment.
-Bandwidth tests are strictly executed under traffic-gated idle LAN conditions
-(<500 kbps) to ensure measurements accurately reflect ISP edge/transit performance.
+{_gate_text(cfg)}
+Tests against a server on the local network are not counted for the line.
 Full standalone HTML telemetry dossier and raw CSV telemetry are attached.
 --------------------------------------------------------------------------------
 """
@@ -99,7 +113,7 @@ def send_isp_ticket_email(
     msg["Date"] = smtplib.email.utils.formatdate(localtime=False)
 
     # 1. Plain text & HTML body
-    plain_text = format_plain_text_summary(report)
+    plain_text = format_plain_text_summary(report, cfg)
     html_content = generate_html_dossier(report, lang=getattr(cfg.web, "language", "en"))
 
     alt_part = MIMEMultipart("alternative")

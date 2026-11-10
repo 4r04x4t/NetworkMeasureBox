@@ -225,7 +225,7 @@ def export_detailed_speedtests_csv(
 
     rows = conn.execute(
         """SELECT ts, trigger, status, down_bps, up_bps, ping_us, jitter_us, client_ip, client_ipv6,
-                  connection_type, error, engine, bound_iface
+                  connection_type, error, engine, bound_iface, client_ip_source, server_host
            FROM speedtest WHERE ts >= ? AND ts <= ? ORDER BY ts DESC""",
         (start_ms, end_ms)
     ).fetchall()
@@ -237,18 +237,25 @@ def export_detailed_speedtests_csv(
         d_mbps = r["down_bps"] / 1_000_000.0 if r["down_bps"] is not None else None
         u_mbps = r["up_bps"] / 1_000_000.0 if r["up_bps"] is not None else None
         dt = datetime.datetime.fromtimestamp(r["ts"] / 1000.0, tz=datetime.timezone.utc)
-        code, text = classify(r["status"], r["error"], d_mbps, u_mbps, bound_iface=r["bound_iface"],
-                              connection_type=r["connection_type"],
-                              contract_down=contract_down_mbps, contract_up=contract_up_mbps,
-                              guaranteed_down=guaranteed_down_mbps, guaranteed_up=guaranteed_up_mbps)
+        from nmb.report.status_codes import speed_scope
+        lan = speed_scope(r) == "lan"
+        if lan:
+            # a server on the local network: it measured the home network, so it is not judged against
+            # the ISP's speeds and the ISP column stays "LAN"
+            code, text = "", "LAN measurement (home network), not judged"
+        else:
+            code, text = classify(r["status"], r["error"], d_mbps, u_mbps, bound_iface=r["bound_iface"],
+                                  connection_type=r["connection_type"],
+                                  contract_down=contract_down_mbps, contract_up=contract_up_mbps,
+                                  guaranteed_down=guaranteed_down_mbps, guaranteed_up=guaranteed_up_mbps)
         writer.writerow([
             dt.strftime("%Y-%m-%d %H:%M:%S"),
             r["client_ip"] or r["client_ipv6"] or "--",
-            default_isp or "",
+            "LAN" if lan else (default_isp or ""),
             f"{d_mbps:.2f} Mb/s" if d_mbps is not None else "--",
-            pct(d_mbps, contract_down_mbps),
+            "--" if lan else pct(d_mbps, contract_down_mbps),
             f"{u_mbps:.2f} Mb/s" if u_mbps is not None else "--",
-            pct(u_mbps, contract_up_mbps),
+            "--" if lan else pct(u_mbps, contract_up_mbps),
             f"{round(r['ping_us'] / 1000.0)} ms" if r["ping_us"] is not None else "--",
             code,
             "UTC",
@@ -285,7 +292,8 @@ def export_outages_csv(conn: sqlite3.Connection, start_ms: int, end_ms: int) -> 
         span_end = e_ts or now
         counted_ms = sum(b - a for a, b in subtract_spans((r["start_ts"], span_end), windows))
         own_ms = (span_end - r["start_ts"]) - counted_ms
-        kind = "own" if (own_ms > 0 and counted_ms < MIN_ISP_OUTAGE_SEC * 1000) else "isp"
+        began_in_window = any(a <= r["start_ts"] <= b for a, b in windows)
+        kind = "own" if (own_ms > 0 and began_in_window and counted_ms < MIN_ISP_OUTAGE_SEC * 1000) else "isp"
         writer.writerow([
             r["id"],
             _iso(r["start_ts"]),

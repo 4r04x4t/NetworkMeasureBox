@@ -298,9 +298,12 @@ class CommandHandler:
                 log.debug("suppressed exception", exc_info=True)
             isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
 
-            latest_st = next((s for s in rep.speed_tests if s.get("status") == "ok"), {})
-            st_down = f"{latest_st.get('down_mbps', 0):.1f} Mb/s" if latest_st.get("down_mbps") else "--"
-            st_up = f"{latest_st.get('up_mbps', 0):.1f} Mb/s" if latest_st.get("up_mbps") else "--"
+            # The newest test of the line (a LAN server's test measured the home network)
+            latest_st = next((s for s in rep.speed_tests if s.get("status") == "ok" and s.get("scope") != "lan"), {})
+            st_down = f"{latest_st['down_mbps']:.1f} Mb/s" if latest_st.get("down_mbps") is not None else "--"
+            st_up = f"{latest_st['up_mbps']:.1f} Mb/s" if latest_st.get("up_mbps") is not None else "--"
+            loss_txt = f"{rep.ping_summary.loss_pct:.2f}%" if rep.ping_summary.total_sent else "--"
+            compliance_txt = f"{rep.speed_summary.sla_compliance_pct:.0f}%" if rep.speed_summary.judged_tests else "--"
 
             outages_cnt = len(rep.outages)
             outages_label = t("outages_label", lang)
@@ -337,8 +340,8 @@ class CommandHandler:
 
 📈 <b>{t('uptime_24h', lang)}:</b> <b>{rep.uptime_pct:.2f}%</b> ({outages_cnt} {outages_label})
 ⏱️ <b>{t('latency_rtt', lang)}:</b> {rtt_avg} ms (Jitter: {jitter_avg} ms)
-📉 <b>{t('packet_loss', lang)}:</b> <b>{rep.ping_summary.loss_pct:.2f}%</b>
-⚖️ <b>{t('sla_verdict', lang)}:</b> <b>{html.escape(sla_verdict_str)}</b> ({t('compliance', lang)}: {rep.speed_summary.sla_compliance_pct:.0f}%){sla_reason_line}
+📉 <b>{t('packet_loss', lang)}:</b> <b>{loss_txt}</b>
+⚖️ <b>{t('sla_verdict', lang)}:</b> <b>{html.escape(sla_verdict_str)}</b> ({t('compliance', lang)}: {compliance_txt}){sla_reason_line}
 🚀 <b>{t('latest_speed', lang)}:</b> ↓ <b>{st_down}</b> | ↑ <b>{st_up}</b>{dc_line}
 
 🛡️ <b>{t('services_security', lang)}:</b>
@@ -440,7 +443,8 @@ class CommandHandler:
             # Only this test's own rows: a scheduled test may have stored one meanwhile (2026-11-09).
             conn = db.connect(readonly=True)
             rows = conn.execute(
-                """SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine, error, client_ip, client_ipv6
+                """SELECT down_bps, up_bps, ping_us, jitter_us, loss_pct, server_name, status, engine, error, client_ip, client_ipv6,
+                          client_ip_source, server_host
                    FROM speedtest WHERE ts >= ? AND trigger = 'telegram' ORDER BY id""", (t0 - 1000,)
             ).fetchall()
             conn.close()
@@ -452,14 +456,19 @@ class CommandHandler:
                 self.client.send_message(chat_id, t("speed_error", lang, error=html.escape(str(err))))
                 return
 
-            down_mbps = (row["down_bps"] or 0) / 1_000_000.0
-            up_mbps = (row["up_bps"] or 0) / 1_000_000.0
+            # A direction the test did not measure stays unknown ("--"), never 0 and never a deficit.
+            down_mbps = row["down_bps"] / 1_000_000.0 if row["down_bps"] is not None else None
+            up_mbps = row["up_bps"] / 1_000_000.0 if row["up_bps"] is not None else None
+            from nmb.report.status_codes import speed_scope
+            lan = speed_scope(dict(row)) == "lan"
             ping_txt = f"{row['ping_us'] / 1000.0:.1f} ms" if row["ping_us"] is not None else "--"
             jitter_txt = f"{row['jitter_us'] / 1000.0:.1f} ms" if row["jitter_us"] is not None else "--"
 
             # The address this test had; no other address in its place (2026-11-10).
             client_ip = row["client_ip"] or row["client_ipv6"] or "--"
-            isp_name = getattr(self.cfg.isp, "name", "Internet Provider")
+            isp_name = "LAN" if lan else getattr(self.cfg.isp, "name", "Internet Provider")
+            if lan and client_ip != "--":
+                client_ip += " (LAN)"
 
             # Only the speeds the owner set: nothing invented (it used 1000/300 Mbit/s and 80 % of them).
             c_down = float(self.cfg.isp.contract_down_mbps or 0.0)
@@ -467,7 +476,9 @@ class CommandHandler:
             g_down = float(self.cfg.isp.guaranteed_down_mbps or 0.0)
             g_up = float(self.cfg.isp.guaranteed_up_mbps or 0.0)
 
-            def _share(got: float, offered: float, minimum: float) -> str:
+            def _share(got: Optional[float], offered: float, minimum: float) -> str:
+                if got is None or lan:
+                    return ""
                 parts = []
                 if offered > 0:
                     parts.append(f"{got / offered * 100.0:.0f}%")
@@ -479,9 +490,10 @@ class CommandHandler:
             up_share = _share(up_mbps, c_up, g_up)
 
             # Result against the guaranteed speeds the owner set; 0 = none set, nothing judged
-            down_low = g_down > 0 and down_mbps < g_down
-            up_low = g_up > 0 and up_mbps < g_up
-            if g_down <= 0 and g_up <= 0:
+            down_low = g_down > 0 and down_mbps is not None and down_mbps < g_down
+            up_low = g_up > 0 and up_mbps is not None and up_mbps < g_up
+            judged = (g_down > 0 and down_mbps is not None) or (g_up > 0 and up_mbps is not None)
+            if lan or not judged:
                 status_code = 0
             elif down_low and up_low:
                 status_code = 6
@@ -502,18 +514,19 @@ class CommandHandler:
 🌐 <b>{t('public_ip', lang)}:</b> <code>{html.escape(client_ip)}</code>
 🏢 <b>{t('isp', lang)}:</b> <b>{html.escape(isp_name)}</b>
 
-📥 <b>{t('download', lang)}:</b> <b>{down_mbps:.1f} Mbps</b>{down_share}
-📤 <b>{t('upload', lang)}:</b> <b>{up_mbps:.1f} Mbps</b>{up_share}
+📥 <b>{t('download', lang)}:</b> <b>{f"{down_mbps:.1f} Mbps" if down_mbps is not None else "--"}</b>{down_share}
+📤 <b>{t('upload', lang)}:</b> <b>{f"{up_mbps:.1f} Mbps" if up_mbps is not None else "--"}</b>{up_share}
 ⏱️ <b>{t('latency_rtt', lang)}:</b> {ping_txt} (Jitter: {jitter_txt})
 🖥️ <b>{t('server', lang)}:</b> {html.escape(str(row['server_name'] or t('edge_server', lang)))}
 
 ⚖️ <b>{t('speed_result_label', lang)}:</b> {status_badge}
-<i>{status_text}</i>
+<i>{status_text if not lan else "LAN"}</i>
 """
             if len(rows) > 1:   # all engines: one line per engine of this test
                 msg += "\n" + "\n".join(
                     f"• {html.escape(str(r['engine'] or '?')).upper()}: "
-                    + (f"{(r['down_bps'] or 0) / 1e6:.1f} / {(r['up_bps'] or 0) / 1e6:.1f} Mbps, {(r['ping_us'] or 0) / 1000:.1f} ms"
+                    + (" / ".join(f"{v / 1e6:.1f}" if v is not None else "--" for v in (r["down_bps"], r["up_bps"])) + " Mbps, "
+                       + (f"{r['ping_us'] / 1000:.1f} ms" if r["ping_us"] is not None else "-- ms")
                        if r["status"] == "ok" else f"— {html.escape(str(r['error'] or r['status'])[:80])}")
                     for r in rows)
             inline_kb = {

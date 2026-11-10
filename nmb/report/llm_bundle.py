@@ -1173,14 +1173,19 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
         deploy_mode = "LAN Probe (Client behind NAT router)"
 
     # 8. Speedtest Results
-    last_speed = conn.execute("SELECT * FROM speedtest ORDER BY ts DESC LIMIT 1").fetchone()
+    # The newest test of the line with a result: not a skipped or failed row (it has no speeds), not a test
+    # against a server on the local network (it measured the home network).
+    from nmb.report.status_codes import speed_scope
+    last_speed_dict = next((dict(r) for r in conn.execute(
+        "SELECT * FROM speedtest WHERE status = 'ok' ORDER BY ts DESC LIMIT 50").fetchall()
+        if speed_scope(dict(r)) != "lan"), {})
     visibility_row = conn.execute("SELECT v FROM kv WHERE k = 'traffic_visibility'").fetchone()
-    last_speed_dict = dict(last_speed) if last_speed else {}
 
     recent_speeds = conn.execute(
-        """SELECT ts, engine, down_bps, up_bps, ping_us, jitter_us, bufferbloat_grade, bufferbloat_delta_ms, raw_json 
-           FROM speedtest 
-           ORDER BY ts DESC 
+        """SELECT ts, engine, status, error, down_bps, up_bps, ping_us, jitter_us, bufferbloat_grade, bufferbloat_delta_ms,
+                  raw_json, client_ip_source, server_host
+           FROM speedtest
+           ORDER BY ts DESC
            LIMIT 5"""
     ).fetchall()
 
@@ -1308,7 +1313,8 @@ def generate_llm_diagnostic_bundle(cfg: Config, force_refresh: bool = False) -> 
 
     # Resolve GeoIP and Wi-Fi Regulatory Context
     from nmb.netd.geoip import get_public_geoip, get_wifi_regulatory_domain
-    pub_ip = (last_speed_dict.get("client_ip") if last_speed_dict else None) or dual_ips.get("public_ipv4") or dual_ips.get("ipv4")
+    from nmb.common.netaddr import global_ip as _gip
+    pub_ip = (_gip(last_speed_dict.get("client_ip")) if last_speed_dict else None) or _gip(dual_ips.get("public_ipv4")) or _gip(dual_ips.get("ipv4"))
     geoip_data = get_public_geoip(pub_ip)
     pub_ip_hdr = geoip_data.get("ip") or dual_ips.get("public_ipv4") or "N/A"
     geo_loc_hdr = f"(Country: `{geoip_data.get('country_code', '--')} / {geoip_data.get('country', 'Unknown')}`, City: `{geoip_data.get('city', 'Unknown')}`, ASN: `{geoip_data.get('asn', 'N/A')}`)"
@@ -1599,14 +1605,19 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
             # Older RTR rows hold a constant estimate (ping + 15 ms), never a measurement.
             for key in ("bufferbloat_grade", "bufferbloat_delta_ms", "down_loaded_lat_ms", "up_loaded_lat_ms"):
                 last_speed_dict[key] = None
-        down_mbps = (last_speed_dict.get("down_bps") or 0) / 1000000.0
-        up_mbps = (last_speed_dict.get("up_bps") or 0) / 1000000.0
-        lat_ms = (last_speed_dict.get("ping_us") or 0) / 1000.0
+        # Unmeasured values stay unknown ("not measured"), never 0.
+        _mb = lambda bps: bps / 1000000.0 if bps is not None else None
+        down_mbps = _mb(last_speed_dict.get("down_bps"))
+        up_mbps = _mb(last_speed_dict.get("up_bps"))
+        lat_ms = last_speed_dict["ping_us"] / 1000.0 if last_speed_dict.get("ping_us") is not None else None
+        lat_txt = f"{lat_ms:.2f} ms" if lat_ms is not None else "not measured"
+        _jit = last_speed_dict.get("jitter_us")
+        jitter_txt = f"{_jit / 1000:.2f} ms" if _jit is not None else "not measured"
         bb_grade = last_speed_dict.get("bufferbloat_grade") or "N/A"
-        bb_delta = last_speed_dict.get("bufferbloat_delta_ms") or 0.0
+        bb_delta = last_speed_dict.get("bufferbloat_delta_ms")
 
-        down_pct = (down_mbps / contract_down * 100.0) if contract_down > 0 else None
-        up_pct = (up_mbps / contract_up * 100.0) if contract_up > 0 else None
+        down_pct = (down_mbps / contract_down * 100.0) if (contract_down > 0 and down_mbps is not None) else None
+        up_pct = (up_mbps / contract_up * 100.0) if (contract_up > 0 and up_mbps is not None) else None
         down_pct_str = f" (**{down_pct:.1f}%** of ISP offered {contract_down:.0f} Mbps)" if down_pct is not None else ""
         up_pct_str = f" (**{up_pct:.1f}%** of ISP offered {contract_up:.0f} Mbps)" if up_pct is not None else ""
 
@@ -1619,28 +1630,26 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
             f"- **Engine**: `{last_speed_dict.get('engine', 'ookla')}` | **Trigger**: `{last_speed_dict.get('trigger', 'manual')}`",
             f"- **Bound Interface & Source IP**: `{bound_iface_str} ({bound_ip_str})`",
             f"- **Target Server**: {last_speed_dict.get('server_name')} ({last_speed_dict.get('server_host')})",
-            f"- **Download Speed**: **{down_mbps:.2f} Mbps**{down_pct_str}",
-            f"- **Upload Speed**: **{up_mbps:.2f} Mbps**{up_pct_str}",
+            f"- **Download Speed**: " + (f"**{down_mbps:.2f} Mbps**{down_pct_str}" if down_mbps is not None else "not measured"),
+            f"- **Upload Speed**: " + (f"**{up_mbps:.2f} Mbps**{up_pct_str}" if up_mbps is not None else "not measured"),
         ])
 
         # Bufferbloat & Loaded Latency
         down_loaded = last_speed_dict.get("down_loaded_lat_ms")
         up_loaded = last_speed_dict.get("up_loaded_lat_ms")
-        if bb_grade and bb_grade != "N/A":
-            bb_line = f"- **Loaded Latency (Bufferbloat)**: **+{bb_delta:.2f} ms** (Grade {bb_grade}) | Idle RTT: {lat_ms:.2f} ms"
+        if bb_grade and bb_grade != "N/A" and bb_delta is not None:
+            bb_line = f"- **Loaded Latency (Bufferbloat)**: **+{bb_delta:.2f} ms** (Grade {bb_grade}) | Idle RTT: {lat_txt}"
             if down_loaded is not None or up_loaded is not None:
                 d_str = f"{down_loaded:.2f} ms" if down_loaded is not None else "--"
                 u_str = f"{up_loaded:.2f} ms" if up_loaded is not None else "--"
                 bb_line += f" (Download Loaded: {d_str}, Upload Loaded: {u_str})"
             lines.append(bb_line)
-        elif down_loaded is not None or up_loaded is not None:
-            max_loaded = max(down_loaded or 0.0, up_loaded or 0.0)
-            calc_delta = max(0.0, max_loaded - lat_ms) if lat_ms > 0 else 0.0
+        elif (down_loaded is not None or up_loaded is not None) and lat_ms is not None:
             from nmb.speed.ookla import calculate_bufferbloat
-            calc_grade, _ = calculate_bufferbloat(lat_ms, down_loaded or lat_ms, up_loaded or lat_ms)
-            lines.append(f"- **Loaded Latency (Bufferbloat)**: **+{calc_delta:.2f} ms** (Grade {calc_grade}) | Idle RTT: {lat_ms:.2f} ms (Download Loaded: {down_loaded or '--'} ms, Upload Loaded: {up_loaded or '--'} ms)")
+            calc_grade, calc_delta = calculate_bufferbloat(lat_ms, down_loaded, up_loaded)
+            lines.append(f"- **Loaded Latency (Bufferbloat)**: **+{calc_delta:.2f} ms** (Grade {calc_grade}) | Idle RTT: {lat_txt} (Download Loaded: {down_loaded if down_loaded is not None else '--'} ms, Upload Loaded: {up_loaded if up_loaded is not None else '--'} ms)")
         else:
-            lines.append(f"- **Loaded Latency (Bufferbloat)**: Idle RTT: {lat_ms:.2f} ms (Loaded latency not sampled for `{last_speed_dict.get('engine', 'unknown')}`)")
+            lines.append(f"- **Loaded Latency (Bufferbloat)**: Idle RTT: {lat_txt} (Loaded latency not sampled for `{last_speed_dict.get('engine', 'unknown')}`)")
 
         # CPU & SoftIRQ Peak during measurement
         meas_cpu = None
@@ -1665,14 +1674,14 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
         lines.extend([
             f"- **ISP Contracted (Offered) Plan**: {contract_down:.0f} Mbps Down / {contract_up:.0f} Mbps Up",
             f"- **ISP Guaranteed Minimum Plan**: {guar_down:.0f} Mbps Down / {guar_up:.0f} Mbps Up",
-            f"- **Base Latency (RTT)**: **{lat_ms:.2f} ms** (Jitter: {(last_speed_dict.get('jitter_us') or 0)/1000:.2f} ms)",
+            f"- **Base Latency (RTT)**: **{lat_txt}** (Jitter: {jitter_txt})",
             f"- **Client Public IP**: `{pub_ip_hdr}` (Country: `{geoip_data.get('country_code', '--')} / {geoip_data.get('country', 'Unknown')}`, City: `{geoip_data.get('city', 'Unknown')}`, ASN: `{geoip_data.get('asn', 'N/A')}`)",
-            f"- **Client Public IPv4**: `{last_speed_dict.get('client_ip') or dual_ips.get('public_ipv4') or 'N/A'}`",
-            f"- **Client Public IPv6**: `{last_speed_dict.get('client_ipv6') or dual_ips.get('public_ipv6') or 'N/A'}`",
+            f"- **Client Public IPv4 (this test)**: `{last_speed_dict.get('client_ip') or 'not recorded'}`",
+            f"- **Client Public IPv6 (this test)**: `{last_speed_dict.get('client_ipv6') or 'not recorded'}`",
             f"- **Result URL**: {last_speed_dict.get('result_url') or 'N/A'}",
         ])
         if last_speed_dict.get("retransmits") is not None or last_speed_dict.get("tcp_window"):
-            lines.append(f"- **TCP Retransmissions**: `{last_speed_dict.get('retransmits') or 0}` | **TCP Window / Buffer**: `{last_speed_dict.get('tcp_window') or 'Dynamic'}`")
+            lines.append(f"- **TCP Retransmissions**: `{last_speed_dict.get('retransmits') if last_speed_dict.get('retransmits') is not None else 'not reported'}` | **TCP Window**: `{last_speed_dict.get('tcp_window') or 'not reported'}`")
     else:
         lines.append("- No speedtest results recorded yet.")
 
@@ -1683,15 +1692,17 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
     ])
     if recent_speeds:
         lines.extend([
-            "| Timestamp (UTC) | Engine | Down (Mbps) | Up (Mbps) | Latency (RTT) | Bufferbloat | Single-Core Peak |",
-            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+            "| Timestamp (UTC) | Engine | Status | Down (Mbps) | Up (Mbps) | Latency (RTT) | Bufferbloat | Single-Core Peak |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
         ])
         for s in recent_speeds:
             ts_str = datetime.datetime.fromtimestamp(s["ts"] / 1000, tz=datetime.timezone.utc).strftime("%m-%d %H:%M")
-            d_m = f"{(s['down_bps'] or 0)/1000000.0:.1f} Mbps"
-            u_m = f"{(s['up_bps'] or 0)/1000000.0:.1f} Mbps"
-            lat_s = f"{(s['ping_us'] or 0)/1000.0:.1f} ms"
-            bb_s = f"+{s['bufferbloat_delta_ms']:.1f} ms ({s['bufferbloat_grade']})" if s["bufferbloat_grade"] and s["engine"] != "rtr" else "not measured"
+            ok = s["status"] == "ok"
+            d_m = f"{s['down_bps']/1000000.0:.1f} Mbps" if ok and s["down_bps"] is not None else "--"
+            u_m = f"{s['up_bps']/1000000.0:.1f} Mbps" if ok and s["up_bps"] is not None else "--"
+            lat_s = f"{s['ping_us']/1000.0:.1f} ms" if ok and s["ping_us"] is not None else "--"
+            st_s = ("ok" if ok else str(s["status"])) + (" (LAN)" if speed_scope(dict(s)) == "lan" else "")
+            bb_s = f"+{s['bufferbloat_delta_ms']:.1f} ms ({s['bufferbloat_grade']})" if s["bufferbloat_grade"] and s["bufferbloat_delta_ms"] is not None and s["engine"] != "rtr" else "not measured"
             cpu_peak_s = "--"
             if s["raw_json"]:
                 try:
@@ -1701,7 +1712,7 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
                         cpu_peak_s = f"{mc.get('single_core_max_pct', 0)}% ({mc.get('single_core_name', 'CPU0')})"
                 except Exception:
                     log.debug("suppressed exception", exc_info=True)
-            lines.append(f"| `{ts_str}` | `{s['engine']}` | **{d_m}** | **{u_m}** | {lat_s} | {bb_s} | {cpu_peak_s} |")
+            lines.append(f"| `{ts_str}` | `{s['engine']}` | {st_s} | **{d_m}** | **{u_m}** | {lat_s} | {bb_s} | {cpu_peak_s} |")
     else:
         lines.append("- *No prior speedtest runs recorded.*")
 
@@ -1762,7 +1773,11 @@ f"- **NAT Mapping**: `{nat_telemetry.get('nat_mapping', 'unknown')}` (same publi
     explained_runs = sum(v.get("runs_explained", 0) for v in loss_patterns.values())
     if explained_windows:
         lines.append(f"> Loss during the box's own actions (mode change, update, restart) and during recorded outages is left out of the verdict below ({explained_runs} loss burst(s) fell into those times); the table above shows all of it.")
-    if local_gw_loss is not None and local_gw_loss >= 0.5:
+    gw_silent = local_gw_loss is not None and local_gw_loss > 90.0 and (
+        not public_losses or sum(public_losses) / len(public_losses) < 5.0)
+    if gw_silent:
+        lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🟡 **THE LOCAL GATEWAY DOES NOT ANSWER PINGS** ({local_gw_loss:.2f}% to `{local_gw_ip}`) while the internet targets answer, so forwarding works; the gateway filters ping or answers it with low priority. This is not packet loss in the local network.")
+    elif local_gw_loss is not None and local_gw_loss >= 0.5:
         lines.append(f"> **LAN vs. WAN Loss Isolation Verdict**: 🔴 **LOSS INSIDE THE LOCAL NETWORK** ({local_gw_loss:.2f}% scattered loss to the local gateway `{local_gw_ip}`, outside own actions and outages). Possible causes: cabling, a switch port, Wi-Fi, or the router being too busy to answer pings (some routers answer pings with low priority); check the cable and compare with a wired device.")
     elif isp_hop_loss is not None and isp_hop_loss >= 0.5:
         avg_pub = sum(public_losses) / len(public_losses) if public_losses else 0.0

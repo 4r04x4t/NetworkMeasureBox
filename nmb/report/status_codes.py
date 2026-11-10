@@ -22,6 +22,22 @@ FAR_BELOW_OFFERED = 0.40
 WIFI_PREFIXES = ("wlan", "wlp", "wl", "ath", "ra", "mlan")
 
 
+def speed_scope(row) -> str:
+    """'lan' for a test against a server on the local network (it measured the home network, not the
+    ISP's line), else 'internet'. Rows from before client_ip_source existed are recognised by an iPerf3
+    server with a local address."""
+    from nmb.common.netaddr import is_local_ip
+    get = (lambda k: row.get(k)) if isinstance(row, dict) else (lambda k: row[k] if k in row.keys() else None)
+    if get("client_ip_source") == "local":
+        return "lan"
+    host = str(get("server_host") or "").strip()
+    if host.count(":") == 1:          # "address:port" (IPv4 or a name); a bare IPv6 address has several
+        host = host.split(":", 1)[0]
+    if (get("engine") or "") == "iperf3" and is_local_ip(host):
+        return "lan"
+    return "internet"
+
+
 def is_wifi_iface(name: Optional[str]) -> bool:
     n = (name or "").strip().lower()
     return bool(n) and n.startswith(WIFI_PREFIXES) and not n.startswith("wwan")
@@ -49,7 +65,7 @@ def classify(status: str, error: Optional[str], down_mbps: Optional[float], up_m
         return 1, "valid measurement"
     err = str(error or "").lower()
     if status == "skipped_busy":
-        if "traffic" in err or "busy" in err or "in use" in err:
+        if ("traffic" in err and "not visible" not in err) or "busy" in err or "in use" in err:
             return 9, "skipped: other traffic on the line"
         return 10, "skipped: no test could run" + (f" ({str(error)[:80]})" if error else "")
     if status == "error":

@@ -152,7 +152,9 @@ class StatusCodeTest(unittest.TestCase):
         self.assertEqual(classify("ok", None, 250.0, 50.0, bound_iface="wwan0")[0], 1)
 
     def test_skip_reasons(self):
-        self.assertEqual(classify("skipped_busy", "skipped: other devices' traffic is not visible", None, None)[0], 9)
+        self.assertEqual(classify("skipped_busy", "skipped: the line is busy with other traffic", None, None)[0], 9)
+        # "not visible" means the box cannot see other traffic: nothing could run, not "other traffic"
+        self.assertEqual(classify("skipped_busy", "skipped: other devices' traffic is not visible", None, None)[0], 10)
         self.assertEqual(classify("skipped_busy", "skipped: automated speedtest is set to manual mode", None, None)[0], 10)
         self.assertEqual(classify("error", "read timed out", None, None)[0], 7)
 

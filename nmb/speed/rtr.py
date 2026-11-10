@@ -362,6 +362,7 @@ def execute_rtr_speedtest(
         server_name=f"RTR-NetTest ({params.server_addr})",
         server_host=f"{params.server_addr}:{params.server_port}",
         server_location=None,
+        client_ip_source="lookup" if (v4 or v6) else None,
         client_ip=v4,
         client_ipv6=v6,
         result_url=share_url,

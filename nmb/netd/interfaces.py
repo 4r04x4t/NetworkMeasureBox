@@ -920,18 +920,42 @@ PPP_PEER_MEMORY_DAYS = 90
 SILENT_HOP_MIN_SENT = 2000
 
 
+SILENT_HOP_RECHECK_DAYS = 30
+
+
 def first_hop_never_answers(conn, addr: str, now_ms: Optional[int] = None) -> bool:
-    """True when addr, pinged as a target, answered none of at least SILENT_HOP_MIN_SENT pings in 24 h."""
+    """True when addr, pinged as a target, answered none of at least SILENT_HOP_MIN_SENT pings in 24 h.
+
+    The verdict is remembered (kv 'silent_first_hops', per address) for 30 days: once the hop is no longer
+    pinged its lost pings age out of the 24 h window, and it was switched on again every day."""
+    import json as _json
+    import time as _time
+    now = now_ms or int(_time.time() * 1000)
     try:
-        import time as _time
-        now = now_ms or int(_time.time() * 1000)
+        row = conn.execute("SELECT v FROM kv WHERE k = 'silent_first_hops'").fetchone()
+        silent = _json.loads(row[0]) if row and row[0] else {}
+        if not isinstance(silent, dict):
+            silent = {}
+    except Exception:
+        silent = {}
+    seen = silent.get(addr)
+    if isinstance(seen, (int, float)) and now - seen < SILENT_HOP_RECHECK_DAYS * 86_400_000:
+        return True
+    try:
         row = conn.execute(
             "SELECT SUM(m.sent), SUM(m.sent - m.lost) FROM ping_minute m JOIN target t ON t.id = m.target_id "
             "WHERE t.addr = ? AND m.ts >= ?", (addr, now - 86_400_000)).fetchone()
         sent, answered = (row[0] or 0, row[1] or 0) if row else (0, 0)
-        return sent >= SILENT_HOP_MIN_SENT and answered == 0
     except Exception:
         return False
+    verdict = sent >= SILENT_HOP_MIN_SENT and answered == 0
+    if verdict:
+        silent[addr] = now
+        try:
+            conn.execute("INSERT OR REPLACE INTO kv (k, v, ts) VALUES ('silent_first_hops', ?, ?)", (_json.dumps(silent), now))
+        except Exception:
+            log.debug("silent first hop not remembered (read-only connection)", exc_info=True)
+    return verdict
 
 
 def known_ppp_peers(conn=None) -> List[str]:

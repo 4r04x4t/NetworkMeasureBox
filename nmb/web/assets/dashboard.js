@@ -2143,8 +2143,9 @@
 
     if (latest) {
       let ipDisplay = '';
-      const v4 = escapeHtml(latest.client_ip || (data.system_info && data.system_info.public_ipv4) || (data.system_info && data.system_info.wan_ip) || '');
-      const v6 = escapeHtml(latest.client_ipv6 || (data.system_info && data.system_info.public_ipv6) || '');
+      // The test's own addresses only: no current or LAN address in place of one the test did not record.
+      const v4 = escapeHtml(latest.client_ip || '');
+      const v6 = escapeHtml(latest.client_ipv6 || '');
       if (v4 && v6) {
         ipDisplay = `<span style="color:#38bdf8; font-weight:600;" title="IPv4">${v4}</span> <span style="color:var(--text-muted); font-size:11px;">/</span> <span style="color:#a78bfa; font-size:11px; word-break:break-all;" title="IPv6">${v6}</span>`;
       } else if (v4) {
@@ -2584,18 +2585,18 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       const contractUpVal = (data.contract && data.contract.contract_up_mbps) ? parseFloat(data.contract.contract_up_mbps) : 0;
       if (document.getElementById('sla-last-down-pct')) {
         if (data.latest_speedtest && contractDownVal > 0) {
-          const lDownMbps = (data.latest_speedtest.down_bps || 0) / 1000000.0;
-          const lDownPct = (data.latest_speedtest.down_pct_of_offered !== undefined && data.latest_speedtest.down_pct_of_offered !== null) ? data.latest_speedtest.down_pct_of_offered : ((lDownMbps / contractDownVal) * 100.0);
-          document.getElementById('sla-last-down-pct').innerText = lDownPct.toFixed(1) + ' %';
-          document.getElementById('sla-last-down-pct').style.color = lDownPct >= 80 ? '#34d399' : (lDownPct >= 60 ? '#fbbf24' : '#f87171');
-          document.getElementById('sla-last-down-detail').innerText = `${lDownMbps.toFixed(2)} Mbps ${t('of_offered', 'of offered')} ${contractDownVal} Mbps`;
+          const lDownMbps = (data.latest_speedtest.down_bps != null) ? data.latest_speedtest.down_bps / 1000000.0 : null;
+          const lDownPct = (data.latest_speedtest.down_pct_of_offered != null) ? data.latest_speedtest.down_pct_of_offered : (lDownMbps !== null ? (lDownMbps / contractDownVal) * 100.0 : null);
+          document.getElementById('sla-last-down-pct').innerText = lDownPct !== null ? lDownPct.toFixed(1) + ' %' : '--';
+          document.getElementById('sla-last-down-pct').style.color = lDownPct === null ? '' : (lDownPct >= 80 ? '#34d399' : (lDownPct >= 60 ? '#fbbf24' : '#f87171'));
+          document.getElementById('sla-last-down-detail').innerText = lDownMbps !== null ? `${lDownMbps.toFixed(2)} Mbps ${t('of_offered', 'of offered')} ${contractDownVal} Mbps` : '--';
         }
         if (data.latest_speedtest && contractUpVal > 0) {
-          const lUpMbps = (data.latest_speedtest.up_bps || 0) / 1000000.0;
-          const lUpPct = (data.latest_speedtest.up_pct_of_offered !== undefined && data.latest_speedtest.up_pct_of_offered !== null) ? data.latest_speedtest.up_pct_of_offered : ((lUpMbps / contractUpVal) * 100.0);
-          document.getElementById('sla-last-up-pct').innerText = lUpPct.toFixed(1) + ' %';
-          document.getElementById('sla-last-up-pct').style.color = lUpPct >= 80 ? '#34d399' : (lUpPct >= 60 ? '#fbbf24' : '#f87171');
-          document.getElementById('sla-last-up-detail').innerText = `${lUpMbps.toFixed(2)} Mbps ${t('of_offered', 'of offered')} ${contractUpVal} Mbps`;
+          const lUpMbps = (data.latest_speedtest.up_bps != null) ? data.latest_speedtest.up_bps / 1000000.0 : null;
+          const lUpPct = (data.latest_speedtest.up_pct_of_offered != null) ? data.latest_speedtest.up_pct_of_offered : (lUpMbps !== null ? (lUpMbps / contractUpVal) * 100.0 : null);
+          document.getElementById('sla-last-up-pct').innerText = lUpPct !== null ? lUpPct.toFixed(1) + ' %' : '--';
+          document.getElementById('sla-last-up-pct').style.color = lUpPct === null ? '' : (lUpPct >= 80 ? '#34d399' : (lUpPct >= 60 ? '#fbbf24' : '#f87171'));
+          document.getElementById('sla-last-up-detail').innerText = lUpMbps !== null ? `${lUpMbps.toFixed(2)} Mbps ${t('of_offered', 'of offered')} ${contractUpVal} Mbps` : '--';
         }
         if (data.speed && contractDownVal > 0) {
           const avgD = data.speed.avg_down_mbps || 0;
@@ -2839,7 +2840,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       // Speedtest table (Tab 3)
       if (data.speed_tests && data.speed_tests.length > 0) {
         let sHtml = '';
-        let totDown = 0, totUp = 0, totLat = 0, countOk = 0, countLat = 0;
+        let totDown = 0, totUp = 0, totLat = 0, countOk = 0, countLat = 0, countDown = 0, countUp = 0;
         const cDown = (data.contract && data.contract.contract_down_mbps) ? parseFloat(data.contract.contract_down_mbps) : 0;
         const cUp = (data.contract && data.contract.contract_up_mbps) ? parseFloat(data.contract.contract_up_mbps) : 0;
 
@@ -2866,12 +2867,16 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         data.speed_tests.filter(st => st.status === 'ok').forEach(st => {
           const d = new Date(st.ts);
           const dtStr = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-          const dMbps = (st.down_bps || 0) / 1000000.0;
-          const uMbps = (st.up_bps || 0) / 1000000.0;
-          // A test without a ping (iPerf3 has none) is left out of the average, not counted as 0 ms.
+          // A direction or a ping that was not measured is "--" and left out of the averages, never 0;
+          // a test against a server on the local network (LAN) is listed but not averaged with the line.
+          const dMbps = (st.down_bps != null) ? st.down_bps / 1000000.0 : null;
+          const uMbps = (st.up_bps != null) ? st.up_bps / 1000000.0 : null;
           const lat = (st.ping_us !== null && st.ping_us !== undefined) ? st.ping_us / 1000.0 : null;
-          if (st.status === 'ok') {
-            totDown += dMbps; totUp += uMbps; countOk++;
+          const isLan = st.scope === 'lan';
+          if (st.status === 'ok' && !isLan) {
+            countOk++;
+            if (dMbps !== null) { totDown += dMbps; countDown++; }
+            if (uMbps !== null) { totUp += uMbps; countUp++; }
             if (lat !== null) { totLat += lat; countLat++; }
           }
           const bb = st.bufferbloat_grade ? `<span class="badge badge-ok">${escapeHtml(st.bufferbloat_grade)} (+${st.bufferbloat_delta_ms || 0}ms)</span>` : '--';
@@ -2880,7 +2885,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
           if (st.engine === 'ookla') {
             engineBadge = '<span class="badge" style="background:rgba(2,132,199,0.2);color:#38bdf8;border:1px solid #0284c7;">OOKLA</span>';
           } else if (st.engine === 'iperf3') {
-            engineBadge = '<span class="badge" style="background:rgba(168,85,247,0.2);color:#c084fc;border:1px solid #a855f7;">IPERF3</span>';
+            engineBadge = `<span class="badge" style="background:rgba(168,85,247,0.2);color:#c084fc;border:1px solid #a855f7;">IPERF3${isLan ? ' · LAN' : ''}</span>`;
           } else if (st.engine === 'cloudflare') {
             engineBadge = `<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;">CLOUDFLARE ${st.colo ? '[' + escapeHtml(st.colo) + ']' : ''}</span>`;
           } else if (st.engine === 'fastcom') {
@@ -2898,8 +2903,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
             }
           }
 
-          const dPct = (st.down_pct_of_offered !== undefined && st.down_pct_of_offered !== null) ? st.down_pct_of_offered : (cDown > 0 ? (dMbps / cDown) * 100.0 : null);
-          const uPct = (st.up_pct_of_offered !== undefined && st.up_pct_of_offered !== null) ? st.up_pct_of_offered : (cUp > 0 ? (uMbps / cUp) * 100.0 : null);
+          const dPct = (st.down_pct_of_offered !== undefined && st.down_pct_of_offered !== null) ? st.down_pct_of_offered : (cDown > 0 && dMbps !== null ? (dMbps / cDown) * 100.0 : null);
+          const uPct = (st.up_pct_of_offered !== undefined && st.up_pct_of_offered !== null) ? st.up_pct_of_offered : (cUp > 0 && uMbps !== null ? (uMbps / cUp) * 100.0 : null);
 
           let clientIpCell = '';
           const stV4 = escapeHtml(st.client_ip);
@@ -2924,8 +2929,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
               ? `<td colspan="2" style="white-space: nowrap;" title="${escapeHtml(st.error || '')}">— ${escapeHtml(t('speed_skipped', 'Skipped, no measurement'))}</td>`
               : st.status !== 'ok'
               ? `<td colspan="2" style="color:#f87171; white-space: normal; max-width: 320px;" title="${escapeHtml(st.error || '')}">✖ ${escapeHtml(t('speed_failed', 'No result'))}: ${escapeHtml(speedErrorText(st.error))}</td>`
-              : `<td style="white-space: nowrap;"><b>${dMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(dPct)}</td>
-            <td style="white-space: nowrap;"><b>${uMbps.toFixed(2)} Mbps</b> ${renderRowPctBadge(uPct)}</td>`}
+              : `<td style="white-space: nowrap;">${dMbps !== null ? `<b>${dMbps.toFixed(2)} Mbps</b> ${isLan ? '' : renderRowPctBadge(dPct)}` : '--'}</td>
+            <td style="white-space: nowrap;">${uMbps !== null ? `<b>${uMbps.toFixed(2)} Mbps</b> ${isLan ? '' : renderRowPctBadge(uPct)}` : '--'}</td>`}
             <td style="white-space: nowrap;">${st.status === 'ok' && lat !== null ? lat.toFixed(2) + ' ms' : '--'}</td>
             <td style="white-space: nowrap;">${bb}</td>
             <td style="white-space: nowrap;">${clientIpCell}</td>
@@ -2942,12 +2947,12 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
         renderSpeedChart(cachedSpeedTests, currentSpeedChartMode, cachedSpeedContract);
 
         if (countOk > 0) {
-          const avgD = totDown / countOk;
-          const avgU = totUp / countOk;
-          const avgDPct = (data.speed && data.speed.avg_down_pct_of_offered) ? data.speed.avg_down_pct_of_offered : (cDown > 0 ? (avgD / cDown) * 100.0 : null);
-          const avgUPct = (data.speed && data.speed.avg_up_pct_of_offered) ? data.speed.avg_up_pct_of_offered : (cUp > 0 ? (avgU / cUp) * 100.0 : null);
-          document.getElementById('avg-down-display').innerHTML = `<b>${avgD.toFixed(2)} Mbps</b> ${renderRowPctBadge(avgDPct)}`;
-          document.getElementById('avg-up-display').innerHTML = `<b>${avgU.toFixed(2)} Mbps</b> ${renderRowPctBadge(avgUPct)}`;
+          const avgD = countDown ? totDown / countDown : null;
+          const avgU = countUp ? totUp / countUp : null;
+          const avgDPct = (data.speed && data.speed.avg_down_pct_of_offered) ? data.speed.avg_down_pct_of_offered : (cDown > 0 && avgD !== null ? (avgD / cDown) * 100.0 : null);
+          const avgUPct = (data.speed && data.speed.avg_up_pct_of_offered) ? data.speed.avg_up_pct_of_offered : (cUp > 0 && avgU !== null ? (avgU / cUp) * 100.0 : null);
+          document.getElementById('avg-down-display').innerHTML = avgD !== null ? `<b>${avgD.toFixed(2)} Mbps</b> ${renderRowPctBadge(avgDPct)}` : '<b>--</b>';
+          document.getElementById('avg-up-display').innerHTML = avgU !== null ? `<b>${avgU.toFixed(2)} Mbps</b> ${renderRowPctBadge(avgUPct)}` : '<b>--</b>';
           document.getElementById('avg-lat-display').innerHTML = countLat ? `<b>${(totLat / countLat).toFixed(2)} ms</b>` : '<b>--</b>';
         }
       }
@@ -3336,8 +3341,8 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
     const d = new Date(item.ts);
     const dtStr = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
-    const dMbps = (item.down_bps || 0) / 1000000.0;
-    const uMbps = (item.up_bps || 0) / 1000000.0;
+    const dMbps = (item.down_bps != null) ? item.down_bps / 1000000.0 : null;
+    const uMbps = (item.up_bps != null) ? item.up_bps / 1000000.0 : null;
     const lat = (item.ping_us !== null && item.ping_us !== undefined) ? item.ping_us / 1000.0 : null;
     const jitter = item.jitter_ms != null ? `${item.jitter_ms.toFixed(1)} ms` : (item.jitter_us != null ? `${(item.jitter_us / 1000.0).toFixed(1)} ms` : null);
 
@@ -3361,9 +3366,9 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       </div>
       <div style="display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:12px; margin-bottom:6px;">
         <span style="color:#38bdf8; font-weight:600;">${t('speed_tip_down', '⬇️ Download:')}</span>
-        <span style="font-weight:700; color:#f8fafc; text-align:right;">${dMbps.toFixed(2)} Mbps</span>
+        <span style="font-weight:700; color:#f8fafc; text-align:right;">${dMbps !== null ? dMbps.toFixed(2) + ' Mbps' : '--'}</span>
         <span style="color:#34d399; font-weight:600;">${t('speed_tip_up', '⬆️ Upload:')}</span>
-        <span style="font-weight:700; color:#f8fafc; text-align:right;">${uMbps.toFixed(2)} Mbps</span>
+        <span style="font-weight:700; color:#f8fafc; text-align:right;">${uMbps !== null ? uMbps.toFixed(2) + ' Mbps' : '--'}</span>
         <span style="color:#fbbf24; font-weight:600;">🏓 Ping RTT:</span>
         <span style="font-weight:700; color:#f8fafc; text-align:right;">${lat !== null ? lat.toFixed(2) + ' ms' : '--'}</span>
         ${jitter ? `<span style="color:#cbd5e1;">〰️ ${t('js_jitter', 'Jitter')}:</span><span style="text-align:right; color:#cbd5e1;">${jitter}</span>` : ''}

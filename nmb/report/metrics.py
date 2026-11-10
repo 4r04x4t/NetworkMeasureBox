@@ -109,8 +109,10 @@ def own_action_windows(conn, start: int, end: int) -> List[tuple]:
     try:
         first = conn.execute("SELECT MIN(start_ts) FROM own_action").fetchone()
         first_recorded = first[0] if first and first[0] else None
+        # failover_rebuild: the box reacting to the line (USB failover, PPPoE seen or lost); not its own doing
         for r in conn.execute(
-                "SELECT start_ts, end_ts FROM own_action WHERE start_ts <= ? AND COALESCE(end_ts, start_ts + ?) >= ?",
+                "SELECT start_ts, end_ts FROM own_action WHERE kind != 'failover_rebuild' AND start_ts <= ? "
+                "AND COALESCE(end_ts, start_ts + ?) >= ?",
                 (end, MAX_OPEN_MS, start - GRACE_AFTER_MS)).fetchall():
             ws = r[0] - GRACE_BEFORE_MS
             we = (r[1] if r[1] else min(end, r[0] + MAX_OPEN_MS)) + GRACE_AFTER_MS
@@ -129,8 +131,9 @@ def own_action_windows(conn, start: int, end: int) -> List[tuple]:
 
 
 def latest_measured_test(tests: List[dict]) -> Optional[dict]:
-    """Return the newest test with results; a skipped test has no speed to show."""
-    return next((t for t in tests if t.get("status") == "ok"), None)
+    """Return the newest test of the line with results; a skipped test has no speed to show, and a test
+    against a server on the local network measured the home network, not the line."""
+    return next((t for t in tests if t.get("status") == "ok" and t.get("scope") != "lan"), None)
 
 
 def tests_for_display(tests: List[dict], measured: int = 25, skipped: int = 5) -> List[dict]:
@@ -200,6 +203,7 @@ class SpeedtestSummary:
     avg_down_pct_of_guaranteed: Optional[float] = None
     avg_up_pct_of_guaranteed: Optional[float] = None
     sla_compliance_pct: float = 100.0
+    judged_tests: int = 0        # tests judged against a required speed; 0 = compliance unknown
 
 
 @dataclass
@@ -306,7 +310,10 @@ def aggregate_report_data(
             cause=r["cause"] or "Unreachable",
             own_sec=max(0, int(own_ms / 1000)),
         )
-        if own_ms > 0 and rec.duration_sec < MIN_ISP_OUTAGE_SEC:
+        # The box's own only when it began while the box had its line down; one that began before (the
+        # line failed first, the box reacted) stays the line's, for the part outside the windows.
+        began_in_window = any(a <= o_start <= b for a, b in own_windows)
+        if own_ms > 0 and began_in_window and rec.duration_sec < MIN_ISP_OUTAGE_SEC:
             rec.cause_kind = "own"
             rec.duration_sec, rec.own_sec = 0, max(0, int((o_end - o_start) / 1000))
             report.own_outages.append(rec)
@@ -478,16 +485,22 @@ def aggregate_report_data(
         # today's address (or the LAN address) next to tests from days ago.
 
         # Resolved ISP Name (Per-measurement provider detection)
+        # The configured ISP, or one looked up for the row's OWN public address; never today's address or a
+        # LAN address (geoip looks up the current connection when it gets none or a private one).
         isp_name = getattr(cfg.isp, "name", None)
         if not isp_name or isp_name in ("Generic ISP", "Unknown"):
-            try:
-                from nmb.netd.geoip import get_public_geoip
-                geo = get_public_geoip(d_dict.get("client_ip"))
-                if geo.get("isp") and geo["isp"] != "Unknown ISP":
-                    isp_name = geo["isp"]
-            except Exception:
-                log.debug("suppressed exception", exc_info=True)
-        d_dict["isp_name"] = isp_name or "Unknown ISP"
+            isp_name = None
+            from nmb.common.netaddr import global_ip
+            own_ip = global_ip(d_dict.get("client_ip")) or global_ip(d_dict.get("client_ipv6"))
+            if own_ip:
+                try:
+                    from nmb.netd.geoip import get_public_geoip
+                    geo = get_public_geoip(own_ip)
+                    if geo.get("isp") and geo["isp"] != "Unknown ISP":
+                        isp_name = geo["isp"]
+                except Exception:
+                    log.debug("suppressed exception", exc_info=True)
+        d_dict["isp_name"] = isp_name or ""
 
         # Speed percentage achieved compared to contracted (offered) and guaranteed speeds
         d_dict["down_pct_of_offered"] = round((d_mbps / contract_down) * 100.0, 1) if (contract_down > 0 and d_mbps is not None) else None
@@ -509,7 +522,11 @@ def aggregate_report_data(
 
         # A test against a server on the local network measured the LAN, not the ISP's line: listed,
         # but left out of the line's figures.
-        d_dict["scope"] = "lan" if d_dict.get("client_ip_source") == "local" else "internet"
+        from nmb.report.status_codes import speed_scope
+        d_dict["scope"] = speed_scope(d_dict)
+        if d_dict["scope"] == "lan":
+            for k in ("down_pct_of_offered", "up_pct_of_offered", "down_pct_of_guaranteed", "up_pct_of_guaranteed"):
+                d_dict[k] = None          # a LAN test is no share of the ISP's speed
         report.speed_tests.append(d_dict)
 
         if s["status"] == "ok" and d_dict["scope"] == "lan":
@@ -526,16 +543,20 @@ def aggregate_report_data(
             # that was not measured is not judged.
             down_target = guar_down if guar_down > 0 else contract_down * 0.80
             up_target = guar_up if guar_up > 0 else contract_up * 0.80
-            if (d_mbps is None or d_mbps >= down_target) and (u_mbps is None or u_mbps >= up_target):
-                compliant_tests += 1
+            judged = [(got, need) for got, need in ((d_mbps, down_target), (u_mbps, up_target))
+                      if got is not None and need > 0]
+            if judged:
+                report.speed_summary.judged_tests += 1
+                if all(got >= need for got, need in judged):
+                    compliant_tests += 1
 
         elif s["status"] == "skipped_busy":
             report.speed_summary.skipped_busy += 1
 
     report.speed_summary.total_tests = len(speed_rows)
-    if report.speed_summary.successful_tests > 0:
+    if report.speed_summary.judged_tests > 0:
         report.speed_summary.sla_compliance_pct = round(
-            (compliant_tests / report.speed_summary.successful_tests) * 100.0, 1
+            (compliant_tests / report.speed_summary.judged_tests) * 100.0, 1
         )
     if down_mbps_list:
         down_mbps_list.sort()
@@ -596,18 +617,26 @@ def aggregate_report_data(
     # 5. Determine Overall SLA Verdict
     # BREACHED: uptime < 99.0%, packet loss > 2.5%, or under 60% of speed tests met the required speed.
     # DEGRADED: uptime < 99.8%, packet loss > 0.5%, or a throttled or blocked port.
+    # Only what was measured counts: no pings means no loss figure, no judged test no compliance figure;
+    # with neither, there is no verdict ("UNKNOWN") instead of "COMPLIANT" with 100 % and 0 %.
+    loss_known = report.ping_summary.total_sent > 0
+    speed_known = report.speed_summary.judged_tests > 0
+    loss = report.ping_summary.loss_pct if loss_known else 0.0
+    compliance = report.speed_summary.sla_compliance_pct if speed_known else 100.0
     if report.uptime_pct < 99.8:
         report.sla_reasons.append("uptime")
-    if report.ping_summary.loss_pct > 0.5:
+    if loss > 0.5:
         report.sla_reasons.append("loss")
-    if report.speed_summary.sla_compliance_pct < 60.0:
+    if compliance < 60.0:
         report.sla_reasons.append("speed")
     if report.throttled_ports_count > 0:
         report.sla_reasons.append("ports")
 
-    if report.uptime_pct < 99.0 or report.ping_summary.loss_pct > 2.5 or report.speed_summary.sla_compliance_pct < 60.0:
+    if not loss_known and not speed_known:
+        report.sla_verdict = "UNKNOWN"
+    elif report.uptime_pct < 99.0 or loss > 2.5 or compliance < 60.0:
         report.sla_verdict = "BREACHED"
-    elif report.uptime_pct < 99.8 or report.ping_summary.loss_pct > 0.5 or report.throttled_ports_count > 0:
+    elif report.uptime_pct < 99.8 or loss > 0.5 or report.throttled_ports_count > 0:
         report.sla_verdict = "DEGRADED"
     else:
         report.sla_verdict = "COMPLIANT"

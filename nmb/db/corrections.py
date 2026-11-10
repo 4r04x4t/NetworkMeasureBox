@@ -132,10 +132,56 @@ def corrections_for(row: sqlite3.Row) -> List[Tuple[str, Any, Any, str]]:
     return unique
 
 
+# Second pass (found by the independent review of 2026-11-10): placeholders the first pass missed.
+MARKER_B = "data_correction_2026_11_10b"
+# c2d0ed6 went live at this time; older Cloudflare rows could store the idle latency as "loaded".
+CLOUDFLARE_FIX_MS = 1794313356000
+
+
+def corrections_b_for(row: sqlite3.Row) -> List[Tuple[str, Any, Any, str]]:
+    from nmb.common.netaddr import is_local_ip
+    out: List[Tuple[str, Any, Any, str]] = []
+    keys = row.keys()
+
+    def fix(field: str, new: Any, reason: str) -> None:
+        if field in keys and row[field] != new and (row[field] is not None or new is not None):
+            out.append((field, row[field], new, reason))
+
+    engine = (row["engine"] or "").lower()
+    raw = _raw(row)
+    if engine == "cloudflare" and row["jitter_us"] == 0:
+        fix("jitter_us", None, "Cloudflare stored 0 ms jitter when it had fewer than two latency samples")
+    if engine == "rtr" and raw.get("engine") == "rtr-nettest" and "ping_count" not in raw \
+            and raw.get("ping_min_ms") == 15.0 and raw.get("ping_median_ms") == 15.0:
+        fix("ping_us", None, "RTR fallback invented 15 ms when no ping came back")
+    if engine == "cloudflare" and (row["ts"] or 0) < CLOUDFLARE_FIX_MS and row["ping_us"] is not None:
+        idle = round(row["ping_us"] / 1000.0, 2)
+        same = [f for f in ("down_loaded_lat_ms", "up_loaded_lat_ms") if row[f] is not None and round(row[f], 2) == idle]
+        for f in same:
+            fix(f, None, "the idle latency was stored as the latency under load (no sample under load)")
+        if same and row["bufferbloat_grade"] is not None:
+            fix("bufferbloat_grade", None, "graded from the idle latency stored as the loaded one")
+            fix("bufferbloat_delta_ms", None, "graded from the idle latency stored as the loaded one")
+    host = str(row["server_host"] or "")
+    if host.count(":") == 1:
+        host = host.split(":", 1)[0]
+    if engine == "iperf3" and is_local_ip(host) and "client_ip_source" in keys and row["client_ip_source"] != "local":
+        fix("client_ip_source", "local", "a test against a server on the local network (it measured the LAN)")
+        if not row["client_ip"] and row["bound_ip"] and is_local_ip(row["bound_ip"]):
+            fix("client_ip", row["bound_ip"], "a LAN test keeps the box's local address")
+    return out
+
+
 BATCH_ROWS = 300
+PASSES = None   # set below: (marker, rule) in order
 
 
 def apply(conn: sqlite3.Connection, now_ms: Optional[int] = None) -> int:
+    """Every pass that has not run on this database yet; returns the number of changed values."""
+    return sum(_apply_pass(conn, marker, rule, now_ms) for marker, rule in PASSES)
+
+
+def _apply_pass(conn: sqlite3.Connection, marker: str, rule, now_ms: Optional[int] = None) -> int:
     """Run the correction once; returns the number of changed values (0 when it already ran).
 
     Short IMMEDIATE transactions of BATCH_ROWS rows each, so the probe and the other writers never wait
@@ -146,7 +192,7 @@ def apply(conn: sqlite3.Connection, now_ms: Optional[int] = None) -> int:
     if conn.in_transaction:
         return 0
     conn.executescript(SCHEMA)
-    if conn.execute("SELECT 1 FROM kv WHERE k = ?", (MARKER,)).fetchone():
+    if conn.execute("SELECT 1 FROM kv WHERE k = ?", (marker,)).fetchone():
         return 0
     now_ms = now_ms or int(time.time() * 1000)
     ids = [r[0] for r in conn.execute("SELECT id FROM speedtest ORDER BY id").fetchall()]
@@ -162,7 +208,7 @@ def apply(conn: sqlite3.Connection, now_ms: Optional[int] = None) -> int:
                     f"SELECT * FROM speedtest WHERE id IN ({','.join('?' * len(chunk))})", chunk).fetchall()
                 conn.row_factory = prev
                 for row in rows:
-                    for field, old, new, reason in corrections_for(row):
+                    for field, old, new, reason in rule(row):
                         conn.execute(f"UPDATE speedtest SET {field} = ? WHERE id = ?", (new, row["id"]))
                         conn.execute(
                             "INSERT INTO speedtest_correction (speedtest_id, field, old_value, new_value, reason, ts) "
@@ -174,10 +220,13 @@ def apply(conn: sqlite3.Connection, now_ms: Optional[int] = None) -> int:
             except Exception:
                 conn.execute("ROLLBACK")
                 raise
-        conn.execute("INSERT OR REPLACE INTO kv (k, v, ts) VALUES (?, ?, ?)", (MARKER, str(changed), now_ms))
+        conn.execute("INSERT OR REPLACE INTO kv (k, v, ts) VALUES (?, ?, ?)", (marker, str(changed), now_ms))
         conn.commit()
     finally:
         conn.row_factory = prev
     if changed:
         log.info("speed test data: %d made-up values cleared (originals kept in speedtest_correction)", changed)
     return changed
+
+
+PASSES = ((MARKER, corrections_for), (MARKER_B, corrections_b_for))

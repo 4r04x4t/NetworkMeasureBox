@@ -536,7 +536,7 @@ def generate_invasive_snapshot(cfg: Optional[Config] = None, force_write: bool =
     # Check speedtest failures
     if db_health["latest_speedtests"]:
         latest_st = db_health["latest_speedtests"][0]
-        if latest_st.get("download_bps", 0) == 0:
+        if latest_st.get("status") == "ok" and latest_st.get("down_bps") == 0:
             red_flags.append(("Speedtest Benchmark", "WARNING", f"Most recent speedtest (ID: {latest_st.get('id')}) reported 0 Mbps"))
 
     # 5. Build Comprehensive Markdown
@@ -642,9 +642,11 @@ def generate_invasive_snapshot(cfg: Optional[Config] = None, force_write: bool =
         md_lines.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
         for st in db_health["latest_speedtests"]:
             st_dt = datetime.datetime.fromtimestamp(st["ts"] / 1000.0, datetime.timezone.utc).strftime("%m-%d %H:%M")
-            down_mbps = round(st.get("download_bps", 0) / 1_000_000.0, 1)
-            up_mbps = round(st.get("upload_bps", 0) / 1_000_000.0, 1)
-            ping_ms = round(st.get("latency_ms", 0.0), 1)
+            # The real column names (it read download_bps/upload_bps/latency_ms, which do not exist, and so
+            # always showed 0); "-" for what was not measured.
+            down_mbps = round(st["down_bps"] / 1_000_000.0, 1) if st.get("down_bps") is not None else "-"
+            up_mbps = round(st["up_bps"] / 1_000_000.0, 1) if st.get("up_bps") is not None else "-"
+            ping_ms = round(st["ping_us"] / 1000.0, 1) if st.get("ping_us") is not None else "-"
             bb_delta = round(st.get("bufferbloat_delta_ms", 0.0), 1) if st.get("bufferbloat_delta_ms") is not None else "-"
             bb_grade = st.get("bufferbloat_grade", "-")
             srv = f"{st.get('server_name', '')} (#{st.get('server_id', '')})"

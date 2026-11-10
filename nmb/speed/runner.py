@@ -336,7 +336,7 @@ def _run_single_engine(
         cpu_telemetry = sampler.stop()
 
     if res is None or cancel.is_requested():
-        return _record_aborted(conn, trigger, engine, now_ms, cancel.current_reason())
+        return _record_aborted(conn, trigger, engine, now_ms, cancel.current_reason(), started_ms=started_ms)
     if (engine == "iperf3" and trigger == "schedule" and res.status != "ok"
             and any(m in (res.error or "").lower() for m in ("busy", "unable to connect", "connection refused", "timed out"))):
         # A busy or unreachable iPerf3 server is no measurement; the next run tries again.
@@ -418,16 +418,25 @@ def _run_single_engine(
                 _ip_source(res, engine),
             )
         )
+        # Texts say "--" for what was not measured; the numbers below are only for the log line.
         down_mbps = (res.down_bps or 0) / 1_000_000.0
         up_mbps = (res.up_bps or 0) / 1_000_000.0
+        down_txt = f"{res.down_bps / 1e6:.2f} Mbps ({res.down_bps / 8e6:.2f} MB/s)" if res.down_bps is not None else "--"
+        up_txt = f"{res.up_bps / 1e6:.2f} Mbps ({res.up_bps / 8e6:.2f} MB/s)" if res.up_bps is not None else "--"
+        ping_txt = f"{res.ping_us / 1000.0:.2f} ms" if res.ping_us is not None else "--"
+        jitter_txt = f"{res.jitter_us / 1000.0:.2f} ms" if res.jitter_us is not None else "--"
+        bb_txt = (f"{res.bufferbloat_grade} (+{res.bufferbloat_delta_ms} ms)"
+                  if res.bufferbloat_grade and res.bufferbloat_delta_ms is not None else "--")
+        loss_txt = f"{res.loss_pct:.1f}%" if res.loss_pct is not None else "--"
         bb_info = f" (Bufferbloat: {res.bufferbloat_grade}, +{res.bufferbloat_delta_ms}ms)" if res.bufferbloat_grade else ""
         from nmb.config import CONNECTION_TYPES
         type_label = CONNECTION_TYPES.get(conn_type, conn_type)
 
         contract_down = float(getattr(cfg.isp, "contract_down_mbps", 0.0) or 0.0)
         contract_up = float(getattr(cfg.isp, "contract_up_mbps", 0.0) or 0.0)
-        down_pct = (down_mbps / contract_down * 100.0) if contract_down > 0 else None
-        up_pct = (up_mbps / contract_up * 100.0) if contract_up > 0 else None
+        local_test = getattr(res, "client_ip_source", None) == "local"
+        down_pct = (down_mbps / contract_down * 100.0) if (contract_down > 0 and res.down_bps is not None and not local_test) else None
+        up_pct = (up_mbps / contract_up * 100.0) if (contract_up > 0 and res.up_bps is not None and not local_test) else None
         down_pct_str = f" ({down_pct:.1f}% of offered {contract_down:.0f} Mbps)" if down_pct is not None else ""
         up_pct_str = f" ({up_pct:.1f}% of offered {contract_up:.0f} Mbps)" if up_pct is not None else ""
         down_contract_note = f" — ISP offered plan ({contract_down:.0f} Mbps): {down_pct:.1f}%" if down_pct is not None else ""
@@ -437,14 +446,18 @@ def _run_single_engine(
         engine_label = {"ookla": "Ookla", "cloudflare": "Cloudflare", "fastcom": "Fast.com", "rtr": "RTR-NetTest"}.get(used_engine, "iPerf3")
         if used_engine != engine:
             engine_label += f" (fallback for {engine})"
-        parts = [f"Speedtest [{engine_label}] {res.status}: Down: {down_mbps:.1f} Mbps{down_pct_str}, Up: {up_mbps:.1f} Mbps{up_pct_str}{bb_info} [{type_label}]"]
+        d_short = f"{res.down_bps / 1e6:.1f} Mbps" if res.down_bps is not None else "--"
+        u_short = f"{res.up_bps / 1e6:.1f} Mbps" if res.up_bps is not None else "--"
+        parts = [f"Speedtest [{engine_label}] {res.status}: Down: {d_short}{down_pct_str}, Up: {u_short}{up_pct_str}{bb_info} [{type_label}]"
+                 + (" [LAN server]" if local_test else "")]
         client_ipv6_val = getattr(res, "client_ipv6", None)
+        ip_label = "Local IP (LAN test)" if local_test else "Public IP"
         if res.client_ip and client_ipv6_val:
-            parts.append(f"Public IP: IPv4: {res.client_ip} | IPv6: {client_ipv6_val}")
+            parts.append(f"{ip_label}: IPv4: {res.client_ip} | IPv6: {client_ipv6_val}")
         elif res.client_ip:
-            parts.append(f"Public IP (IPv4): {res.client_ip}")
+            parts.append(f"{ip_label} (IPv4): {res.client_ip}")
         elif client_ipv6_val:
-            parts.append(f"Public IP (IPv6): {client_ipv6_val}")
+            parts.append(f"{ip_label} (IPv6): {client_ipv6_val}")
         if res.server_name or res.server_host:
             srv_parts = []
             if res.server_name:
@@ -487,9 +500,9 @@ curl -s -X GET "https://speed.cloudflare.com/__down?bytes=25000000" -o /dev/null
 curl -s -X POST "https://speed.cloudflare.com/__up" --data-binary @chunk_10mb.bin -o /dev/null
 
 # 3. Measured Real Telemetry:
-# Download Speed: {down_mbps:.2f} Mbps ({(down_mbps/8):.2f} MB/s){down_contract_note}
-# Upload Speed: {up_mbps:.2f} Mbps ({(up_mbps/8):.2f} MB/s){up_contract_note}
-# Latency (Ping): {ping_ms_val:.2f} ms | Bufferbloat: {res.bufferbloat_grade or '--'} (+{res.bufferbloat_delta_ms or 0} ms)
+# Download Speed: {down_txt}{down_contract_note}
+# Upload Speed: {up_txt}{up_contract_note}
+# Latency (Ping): {ping_txt} | Bufferbloat: {bb_txt}
 """
         elif engine == "fastcom":
             meroscript = f"""#!/bin/sh
@@ -510,10 +523,10 @@ curl -s "http://<server>/speedtest/range/0-26214400?<query>" -o /dev/null   # do
 curl -s -X POST --data-binary @10mb.bin "http://<server>/speedtest/range/0-10000000?<query>"  # upload
 
 # 3. Measured:
-# Download Speed: {down_mbps:.2f} Mbps ({(down_mbps/8):.2f} MB/s){down_contract_note}
-# Upload Speed: {up_mbps:.2f} Mbps ({(up_mbps/8):.2f} MB/s){up_contract_note}
-# Unloaded latency: {ping_ms_val:.2f} ms | Jitter: {jitter_ms_val:.2f} ms
-# Loaded latency: down {res.down_loaded_lat_ms or '--'} ms, up {res.up_loaded_lat_ms or '--'} ms | Bufferbloat: {res.bufferbloat_grade or '--'} (+{res.bufferbloat_delta_ms or 0} ms)
+# Download Speed: {down_txt}{down_contract_note}
+# Upload Speed: {up_txt}{up_contract_note}
+# Unloaded latency: {ping_txt} | Jitter: {jitter_txt}
+# Loaded latency: down {res.down_loaded_lat_ms or '--'} ms, up {res.up_loaded_lat_ms or '--'} ms | Bufferbloat: {bb_txt}
 """
         elif engine == "rtr":
             meroscript = f"""#!/bin/sh
@@ -533,9 +546,9 @@ curl -s -X POST "https://c01.netztest.at/RMBTControlServer/testRequest" \\
 # 2. WebSocket Data Transfer Benchmark (Open-RMBT Protocol)
 
 # 3. Measured Real Telemetry:
-# Download Speed: {down_mbps:.2f} Mbps ({(down_mbps/8):.2f} MB/s){down_contract_note}
-# Upload Speed: {up_mbps:.2f} Mbps ({(up_mbps/8):.2f} MB/s){up_contract_note}
-# Latency (Ping): {ping_ms_val:.2f} ms | Bufferbloat: {res.bufferbloat_grade or '--'} (+{res.bufferbloat_delta_ms or 0} ms)
+# Download Speed: {down_txt}{down_contract_note}
+# Upload Speed: {up_txt}{up_contract_note}
+# Latency (Ping): {ping_txt} | Bufferbloat: {bb_txt}
 # Verified Sharing Link: {res.result_url or '--'}
 """
         elif engine == "iperf3":
@@ -564,7 +577,7 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
 
 # 3. Measured Real Telemetry:
 # Throughput: {through_mbps:.2f} Mbps ({(through_mbps/8):.2f} MB/s)
-# Ping / RTT: {ping_ms_val:.2f} ms | Retransmits / Loss: {res.loss_pct or 0}%
+# Ping / RTT: {ping_txt} | Retransmits / Loss: {loss_txt}
 """
         else:
             # Ookla Speedtest CLI
@@ -590,11 +603,11 @@ iperf3 -c {ipf_target} -p {ipf_port} {dur_flag} {par_flag} {proto_flag} {rev_fla
 /usr/local/bin/speedtest --accept-license --accept-gdpr --format=json{target_flag}
 
 # 3. Measured Real Telemetry:
-# Download Speed: {down_mbps:.2f} Mbps ({(down_mbps/8):.2f} MB/s){down_contract_note}
-# Upload Speed: {up_mbps:.2f} Mbps ({(up_mbps/8):.2f} MB/s){up_contract_note}
-# Ping Latency: {ping_ms_val:.2f} ms | Jitter: {jitter_ms_val:.2f} ms | Packet Loss: {loss_pct_str}
+# Download Speed: {down_txt}{down_contract_note}
+# Upload Speed: {up_txt}{up_contract_note}
+# Ping Latency: {ping_txt} | Jitter: {jitter_txt} | Packet Loss: {loss_txt}
 # Loaded Latency: Download: {res.down_loaded_lat_ms or '--'} ms | Upload: {res.up_loaded_lat_ms or '--'} ms
-# Bufferbloat Grade: {res.bufferbloat_grade or '--'} (+{res.bufferbloat_delta_ms or 0} ms delta)
+# Bufferbloat Grade: {bb_txt}
 # Official Result URL: {res.result_url or '--'}
 """
 
@@ -751,7 +764,9 @@ def _engine_due(conn, cfg: Config, engine: str, now_ms: int) -> bool:
     minutes = int(getattr(cfg.speedtest, f"{engine}_interval_min", 0) or 0)
     if minutes <= 0:
         return True
-    row = conn.execute("SELECT MAX(ts) FROM speedtest WHERE engine = ? AND status != 'skipped_busy'", (engine,)).fetchone()
+    # The run's start (cycle_ts) counts, not the engine's own start within the run: iPerf3 often starts
+    # minutes into an hourly mixed run, and its own ts would make the next hourly run look too early.
+    row = conn.execute("SELECT MAX(COALESCE(cycle_ts, ts)) FROM speedtest WHERE engine = ? AND status != 'skipped_busy'", (engine,)).fetchone()
     last = row[0] if row and row[0] else 0
     # 30 s of slack, so a run that started a little late does not skip a whole interval.
     due = now_ms - last >= minutes * 60_000 - 30_000
@@ -760,14 +775,16 @@ def _engine_due(conn, cfg: Config, engine: str, now_ms: int) -> bool:
     return due
 
 
-def _record_aborted(conn, trigger: str, engine: str, now_ms: int, reason: str) -> SpeedtestResult:
+def _record_aborted(conn, trigger: str, engine: str, now_ms: int, reason: str,
+                    started_ms: Optional[int] = None) -> SpeedtestResult:
     """Save an aborted run without values; a partial result would not be a valid measurement."""
     reason = reason or "aborted: user traffic detected during the measurement"
     log.warning("speed test %s", reason)
     with db.tx(conn):
         conn.execute(
-            "INSERT INTO speedtest (ts, trigger, status, error, engine) VALUES (?, ?, 'skipped_busy', ?, ?)",
-            (now_ms, trigger, reason, engine),
+            "INSERT INTO speedtest (ts, trigger, status, error, engine, cycle_ts, nmb_version, box_mode) "
+            "VALUES (?, ?, 'skipped_busy', ?, ?, ?, ?, ?)",
+            (started_ms or now_ms, trigger, reason, engine, now_ms, _nmb_version(), _box_mode(conn)),
         )
         conn.execute(
             "INSERT INTO event (ts, severity, source, kind, detail) VALUES (?, 'warn', 'speed', 'speedtest_aborted', ?)",

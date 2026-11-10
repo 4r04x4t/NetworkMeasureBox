@@ -260,7 +260,9 @@ class NetworkDaemon:
             dials = lambda auto: bool(self.cfg.network.pppoe_enabled or auto)
             if dials(want_ppp) != dials(had_ppp) and self.current_mode_name == "mode_a" and self.current_mode_inst is ma:
                 log.info("auto mode: PPPoE %s; rebuilding router mode", "on" if want_ppp else "off")
-                with own_action.window("mode_rebuild", "netd", f"router mode: PPPoE {'on' if want_ppp else 'off'}"):
+                # A reaction to what the line does (auto mode saw PPPoE appear or go), not the box's own doing:
+                # recorded, but an outage then is still the line's (kind failover_rebuild).
+                with own_action.window("failover_rebuild", "netd", f"router mode: PPPoE {'on' if want_ppp else 'off'}"):
                     ma.teardown()
                     ma.setup()
 
@@ -347,7 +349,8 @@ class NetworkDaemon:
                     self.current_mode_inst.check_usb_wan()
                     if self.current_mode_inst.needs_resetup:
                         log.info("Mode A: WAN source changed; rebuilding the router setup")
-                        with own_action.window("mode_rebuild", "netd", "router mode: WAN source changed"):
+                        # USB failover in or out: the box reacts to the line; the outage stays the line's.
+                        with own_action.window("failover_rebuild", "netd", "router mode: WAN source changed"):
                             self.current_mode_inst.teardown()
                             self.current_mode_inst.setup()
                 else:

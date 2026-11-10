@@ -64,7 +64,19 @@ class PppPeerTest(unittest.TestCase):
         for i in range(30):
             conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (101, ?, 120, 120)", (now - i * 60_000,))
         self.assertTrue(interfaces.first_hop_never_answers(conn, "10.0.0.1"))
-        conn.execute("UPDATE ping_minute SET lost = 119 WHERE ts = (SELECT MAX(ts) FROM ping_minute)")
+        # the verdict is remembered: once the hop is not pinged any more, its lost pings age out of the
+        # 24 h window, and it must not be switched on again the next day
+        conn.execute("DELETE FROM ping_minute")
+        self.assertTrue(interfaces.first_hop_never_answers(conn, "10.0.0.1"))
+        self.assertFalse(interfaces.first_hop_never_answers(conn, "10.0.0.1", now_ms=now + 31 * 86_400_000))
+
+    def test_a_first_hop_that_answers_once_is_pinged(self):
+        conn = _db()
+        conn.execute("INSERT INTO target (id, addr, label, role) VALUES (101, '10.0.0.1', 'ISP First Hop', 'ISP First Hop')")
+        import time
+        now = int(time.time() * 1000)
+        for i in range(30):
+            conn.execute("INSERT INTO ping_minute (target_id, ts, sent, lost) VALUES (101, ?, 120, ?)", (now - i * 60_000, 119 if i == 0 else 120))
         self.assertFalse(interfaces.first_hop_never_answers(conn, "10.0.0.1"))
 
     def test_role_label(self):

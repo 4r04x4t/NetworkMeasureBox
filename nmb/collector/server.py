@@ -40,6 +40,7 @@ SPEED_COLS = (
     "server_location", "down_bps", "up_bps", "ping_us", "jitter_us", "loss_pct",
     "down_loaded_lat_ms", "up_loaded_lat_ms", "bufferbloat_grade", "connection_type",
     "client_ip", "client_ipv6", "result_url", "error", "bound_iface",
+    "cycle_ts", "duration_ms", "nmb_version", "box_mode", "client_ip_source",
 )
 
 SCHEMA = """
@@ -59,6 +60,7 @@ CREATE TABLE IF NOT EXISTS speedtest (
     down_bps INTEGER, up_bps INTEGER, ping_us INTEGER, jitter_us INTEGER, loss_pct REAL,
     down_loaded_lat_ms REAL, up_loaded_lat_ms REAL, bufferbloat_grade TEXT, connection_type TEXT,
     client_ip TEXT, client_ipv6 TEXT, result_url TEXT, error TEXT, bound_iface TEXT,
+    cycle_ts INTEGER, duration_ms INTEGER, nmb_version TEXT, box_mode TEXT, client_ip_source TEXT,
     PRIMARY KEY (box_uid, src_id)
 );
 CREATE INDEX IF NOT EXISTS ix_speed_ts ON speedtest(box_uid, ts);
@@ -165,6 +167,11 @@ def connect(data_dir: Path) -> sqlite3.Connection:
         conn.execute("ALTER TABLE box ADD COLUMN diagnostics_shared INTEGER DEFAULT 0")
     if "remote_allowed" not in cols:
         conn.execute("ALTER TABLE box ADD COLUMN remote_allowed INTEGER DEFAULT 0")
+    speed_cols = {r[1] for r in conn.execute("PRAGMA table_info(speedtest)")}
+    for col, typ in (("cycle_ts", "INTEGER"), ("duration_ms", "INTEGER"), ("nmb_version", "TEXT"),
+                     ("box_mode", "TEXT"), ("client_ip_source", "TEXT")):
+        if col not in speed_cols:
+            conn.execute(f"ALTER TABLE speedtest ADD COLUMN {col} {typ}")
     return conn
 
 
@@ -189,7 +196,7 @@ def _int(v: Any) -> Optional[int]:
 
 
 CORRECTABLE = tuple(c for c in SPEED_COLS if c not in ("src_id", "ts"))
-_INT_COLS = ("ts", "server_id", "down_bps", "up_bps", "ping_us", "jitter_us")
+_INT_COLS = ("ts", "server_id", "down_bps", "up_bps", "ping_us", "jitter_us", "cycle_ts", "duration_ms")
 _NUM_COLS = ("loss_pct", "down_loaded_lat_ms", "up_loaded_lat_ms")
 
 
@@ -199,6 +206,15 @@ def _speed_value(col: str, v: Any) -> Any:
     if col in _NUM_COLS:
         return _num(v)
     return _text(v, 512)
+
+
+def check_owner(conn: sqlite3.Connection, uid: str, token_name: Optional[str], active_tokens: Optional[set]) -> None:
+    """A box belongs to the token it first uploaded with: another token that is still valid may not write
+    into it, take its commands or report results for it (PermissionError -> 403)."""
+    owner = conn.execute("SELECT token_name FROM box WHERE box_uid = ?", (uid,)).fetchone()
+    if owner and owner[0] and token_name is not None and owner[0] != token_name \
+            and (active_tokens is None or owner[0] in active_tokens):
+        raise PermissionError("this box uploads with another token")
 
 
 def ingest(conn: sqlite3.Connection, payload: Dict[str, Any], token_name: str, source_ip: str,
@@ -212,9 +228,7 @@ def ingest(conn: sqlite3.Connection, payload: Dict[str, Any], token_name: str, s
     uid = str(payload.get("box_uid", ""))
     if not uid.startswith("nmb-") or not 10 <= len(uid) <= 40 or not all(c.isalnum() or c == "-" for c in uid):
         raise ValueError("invalid box_uid")
-    owner = conn.execute("SELECT token_name FROM box WHERE box_uid = ?", (uid,)).fetchone()
-    if owner and owner[0] and owner[0] != token_name and (active_tokens is None or owner[0] in active_tokens):
-        raise PermissionError("this box uploads with another token")
+    check_owner(conn, uid, token_name, active_tokens)
     now = int(time.time() * 1000)
     isp = payload.get("isp") if isinstance(payload.get("isp"), dict) else {}
     case_id = _text(payload.get("case_id"), 80) or ""
@@ -327,9 +341,11 @@ def queue_command(conn: sqlite3.Connection, uid: str, kind: str, args: Dict[str,
     return int(cur.lastrowid)
 
 
-def poll(conn: sqlite3.Connection, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Store the box's command results and hand it the queued commands."""
+def poll(conn: sqlite3.Connection, payload: Dict[str, Any], token_name: Optional[str] = None,
+         active_tokens: Optional[set] = None) -> List[Dict[str, Any]]:
+    """Store the box's command results and hand it the queued commands (only to the box's own token)."""
     uid = str(payload.get("box_uid", ""))
+    check_owner(conn, uid, token_name, active_tokens)
     allowed = 1 if payload.get("allow_remote_control") else 0
     now = int(time.time() * 1000)
     with conn:
@@ -369,16 +385,19 @@ def box_summary(conn: sqlite3.Connection, uid: str, days: int = 30) -> Dict[str,
         return {}
     stats = conn.execute(
         """SELECT COUNT(*), AVG(down_bps), AVG(up_bps), AVG(ping_us), MIN(down_bps), MAX(down_bps)
-             FROM speedtest WHERE box_uid = ? AND status = 'ok' AND ts >= ?""", (uid, since)).fetchone()
+             FROM speedtest WHERE box_uid = ? AND status = 'ok' AND ts >= ? AND COALESCE(client_ip_source, '') != 'local'""",
+        (uid, since)).fetchone()
     failed = conn.execute("SELECT COUNT(*) FROM speedtest WHERE box_uid = ? AND status != 'ok' AND ts >= ?", (uid, since)).fetchone()[0]
     below = None
     if box["contract_down_mbps"]:
         below = conn.execute(
-            "SELECT COUNT(*) FROM speedtest WHERE box_uid = ? AND status = 'ok' AND ts >= ? AND down_bps < ?",
+            "SELECT COUNT(*) FROM speedtest WHERE box_uid = ? AND status = 'ok' AND ts >= ? AND down_bps < ? "
+            "AND COALESCE(client_ip_source, '') != 'local'",
             (uid, since, box["contract_down_mbps"] * 1e6 * 0.8)).fetchone()[0]
     per_engine = conn.execute(
         """SELECT engine, COUNT(*), AVG(down_bps), AVG(up_bps) FROM speedtest
-            WHERE box_uid = ? AND status = 'ok' AND ts >= ? GROUP BY engine ORDER BY engine""", (uid, since)).fetchall()
+            WHERE box_uid = ? AND status = 'ok' AND ts >= ? AND COALESCE(client_ip_source, '') != 'local'
+            GROUP BY engine ORDER BY engine""", (uid, since)).fetchall()
     ping = conn.execute(
         """SELECT target, label, SUM(sent), SUM(lost), AVG(rtt_avg_us), MAX(rtt_max_us) FROM ping_hour
             WHERE box_uid = ? AND hour >= ? GROUP BY target ORDER BY target""", (uid, since)).fetchall()
@@ -464,6 +483,15 @@ button{padding:8px 14px;border-radius:6px;border:0;background:#0284c7;color:#fff
 pre{white-space:pre-wrap;word-break:break-word;background:#020617;border:1px solid #1e293b;border-radius:8px;padding:12px;font-size:12px;max-height:70vh;overflow:auto}.card b{display:block;font-size:1.2rem;margin-top:4px}.muted{color:#94a3b8}"""
 
 
+def _ms(us) -> str:
+    """Microseconds as milliseconds, or "--" when not measured (never 0.0 ms)."""
+    return f"{us / 1000:.1f} ms" if us is not None else "--"
+
+
+def _pct(lost, sent) -> str:
+    return f"{100.0 * (lost or 0) / sent:.2f}%" if sent else "--"
+
+
 def _mbps(bps: Any) -> str:
     return f"{bps / 1e6:.1f} Mbps" if bps else "--"
 
@@ -512,7 +540,7 @@ def render_box(conn: sqlite3.Connection, uid: str, lang: str) -> Optional[str]:
     eng = "".join(f'<tr><td>{e(r["engine"] or "")}</td><td>{r["count"]}</td><td>{_mbps(r["avg_down_bps"])}</td><td>{_mbps(r["avg_up_bps"])}</td></tr>' for r in s["per_engine"])
     ping = "".join(
         f'<tr><td>{e(r["label"] or "")} <span class="muted">{e(r["target"])}</span></td>'
-        f'<td>{(r["avg_rtt_us"] or 0) / 1000:.1f} ms</td><td>{(100.0 * (r["lost"] or 0) / r["sent"]) if r["sent"] else 0:.2f}%</td></tr>'
+        f'<td>{_ms(r["avg_rtt_us"])}</td><td>{_pct(r["lost"], r["sent"])}</td></tr>'
         for r in s["ping"])
     cases = ", ".join(e(c["case_id"]) for c in s["cases"]) or "--"
     recent = conn.execute(
@@ -520,7 +548,7 @@ def render_box(conn: sqlite3.Connection, uid: str, lang: str) -> Optional[str]:
         (uid,)).fetchall()
     rec = "".join(
         f'<tr><td>{_when(r["ts"])}</td><td>{e(r["engine"] or "")}</td><td>{e(r["status"] or "")}</td><td>{_mbps(r["down_bps"])}</td>'
-        f'<td>{_mbps(r["up_bps"])}</td><td>{(r["ping_us"] or 0) / 1000:.1f} ms</td><td>{e(r["server_name"] or r["error"] or "")}</td></tr>'
+        f'<td>{_mbps(r["up_bps"])}</td><td>{_ms(r["ping_us"])}</td><td>{e(r["server_name"] or r["error"] or "")}</td></tr>'
         for r in recent)
     events = conn.execute(
         "SELECT ts, severity, source, kind, detail FROM event WHERE box_uid = ? ORDER BY ts DESC LIMIT 100", (uid,)).fetchall()
@@ -661,10 +689,10 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(payload, dict):
                 raise ValueError("expected a JSON object")
             with self.server.db_lock:  # type: ignore[attr-defined]
-                if path == "/api/poll":
-                    self._json(200, {"ok": True, "commands": poll(self.server.conn, payload)})  # type: ignore[attr-defined]
-                    return
                 active = set((self.server.settings.data.get("tokens") or {}).keys())  # type: ignore[attr-defined]
+                if path == "/api/poll":
+                    self._json(200, {"ok": True, "commands": poll(self.server.conn, payload, name, active)})  # type: ignore[attr-defined]
+                    return
                 added = ingest(self.server.conn, payload, name, self.client_address[0], active_tokens=active)  # type: ignore[attr-defined]
         except PermissionError as e:
             self._json(403, {"ok": False, "error": str(e)})
