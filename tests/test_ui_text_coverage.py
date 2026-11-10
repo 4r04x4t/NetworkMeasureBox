@@ -63,3 +63,27 @@ class UiTextCoverageTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoMadeUpStatusTest(unittest.TestCase):
+    """/api/status shows only measured or real values (2026-11-10: fake clients and the NMHH box's firmware
+    number "4047" were shown as the box's own data)."""
+
+    def test_no_fake_values_in_the_code(self):
+        root = Path(__file__).resolve().parent.parent
+        for rel in ("nmb/web/server.py", "nmb/web/assets/dashboard.js"):
+            text = (root / rel).read_text(encoding="utf-8")
+            for fake in ("NettoDX", "Fluxnode", "Firmware: 4047", '"firmware_version": "4047"', "* 64 * 8"):
+                self.assertNotIn(fake, text, f"{rel}: {fake}")
+
+    def test_version_is_the_installed_commit(self):
+        import tempfile
+        from unittest import mock
+        from nmb.common import updater
+        from nmb.web import server
+        tmp = Path(tempfile.mkdtemp(prefix="nmb-test-ver-")) / ".source-commit"
+        tmp.write_text("b624b969b4af6e0184cdc2cc1cbdb2e85bdbba6b\n")
+        with mock.patch.object(updater, "COMMIT_FILE", tmp):
+            self.assertEqual(server._installed_version(), "b624b96")
+        with mock.patch.object(updater, "COMMIT_FILE", tmp.with_name("missing")):
+            self.assertEqual(server._installed_version(), "dev")

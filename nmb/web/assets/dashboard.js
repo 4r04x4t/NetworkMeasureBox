@@ -2422,7 +2422,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       // Header metadata
       if (data.system_info) {
         document.getElementById('hdr-box-id').innerText = data.system_info.box_id || 'nmb-01';
-        document.getElementById('hdr-fw-ver').innerText = data.system_info.firmware_version || '2.5.0';
+        document.getElementById('hdr-fw-ver').innerText = data.system_info.firmware_version || '--';
         const si = data.system_info;
         const modeKey = { mode_a: 'hdr_mode_router', mode_b: 'hdr_mode_bridge', standalone: 'hdr_mode_standalone' }[si.mode];
         const modeEn = { mode_a: 'Router', mode_b: 'Bridge', standalone: 'Standalone' }[si.mode];
@@ -2999,9 +2999,16 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
 
         const clients = data.live_traffic.clients || [];
         let cHtml = '';
+        const maxPackets = Math.max(1, ...clients.map(c => c.packets || 0));
         clients.forEach(c => {
-          const upW = Math.min(100, Math.max(3, (c.up_kbps / 1000.0) * 10));
-          const downW = Math.min(100, Math.max(3, (c.down_kbps / 1000.0) * 10));
+          // Measured rates where they exist; the sniffer only counts packets, shown as such (2026-11-10).
+          const hasRate = typeof c.up_kbps === 'number' && typeof c.down_kbps === 'number';
+          const share = Math.min(100, Math.max(3, ((c.packets || 0) / maxPackets) * 100));
+          const upW = hasRate ? Math.min(100, Math.max(3, (c.up_kbps / 1000.0) * 10)) : share;
+          const downW = hasRate ? Math.min(100, Math.max(3, (c.down_kbps / 1000.0) * 10)) : share;
+          const rates = hasRate
+            ? `<div class="rate-up">${c.up_kbps.toFixed(1)} Kb</div><div class="rate-down">${c.down_kbps.toFixed(1)} Kb</div>`
+            : `<div class="rate-up">${Number(c.packets || 0)} ${escapeHtml(t('js_packets_short', 'pkt'))}</div>`;
           const icon = c.icon === 'speedtest' ? '⚡' : (c.icon === 'desktop' ? '💻' : (c.icon === 'server' ? '🖧' : '📱'));
           cHtml += `<div class="client-row">
             <div class="client-icon">${icon}</div>
@@ -3012,10 +3019,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
               <div class="client-bar-track"><div class="client-bar-fill-up" style="width: ${upW}%;"></div></div>
               <div class="client-bar-track"><div class="client-bar-fill-down" style="width: ${downW}%;"></div></div>
             </div>
-            <div class="client-rates">
-              <div class="rate-up">${c.up_kbps.toFixed(1)} Kb</div>
-              <div class="rate-down">${c.down_kbps.toFixed(1)} Kb</div>
-            </div>
+            <div class="client-rates">${rates}</div>
           </div>`;
         });
         document.getElementById('qos-clients-list').innerHTML = cHtml || '<div style="color:var(--text-muted); text-align:center; padding:10px;">' + t('qos_no_clients', 'No active client traffic detected') + '</div>';
@@ -5737,7 +5741,7 @@ iperf3 -c speedtest.init7.net -p 5203 -J -b 1000M -C bbr
       screen.innerText = 
 `================================================================================
 NetworkMeasureBox ${t('js_term_title', 'Linux Interactive Diagnostics Shell')}
-Box ID: ${boxId} | Firmware: 4047 (Universal)
+Box ID: ${boxId} | NMB: ${(document.getElementById('hdr-fw-ver') || {}).innerText || '--'}
 ${t('js_term_hint_type', 'Type any Linux command below, or click any of the quick shortcuts above.')}
 ${t('js_term_hint_history', 'Use UP/DOWN arrow keys for command history.')}
 ================================================================================

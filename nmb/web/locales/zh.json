@@ -2436,5 +2436,6 @@
  "ssh_keys_only": "SSH 仅限密钥（禁用密码登录）",
  "ssh_keys_only_hint": "更安全：SSH 将只接受 SSH 密钥。只有在某个账户已有密钥时才能开启，因此不会把自己锁在外面。Tailscale SSH 仍可使用。默认关闭。",
  "ssh_keys_only_on": "SSH 现在只接受密钥",
- "ssh_keys_only_off": "SSH 重新接受密码"
+ "ssh_keys_only_off": "SSH 重新接受密码",
+ "js_packets_short": "包"
 }

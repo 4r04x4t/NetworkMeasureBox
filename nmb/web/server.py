@@ -170,6 +170,17 @@ def _fastcom_detail(conn, ts: int) -> Optional[Dict[str, Any]]:
 
 SSH_KEYS_ONLY_DROPIN = "/etc/ssh/sshd_config.d/01-nmb-keys-only.conf"   # written by nmb-helper ssh-keys-only
 
+
+def _installed_version() -> str:
+    """The installed NMB commit (short), or "dev" in a source checkout; never a made-up number (it showed
+    "4047", the firmware number of the NMHH measuring box, until 2026-11-10)."""
+    try:
+        from nmb.common.updater import COMMIT_FILE
+        sha = COMMIT_FILE.read_text(encoding="utf-8").strip()
+        return sha[:7] if re.fullmatch(r"[0-9a-f]{7,40}", sha) else "dev"
+    except (OSError, ImportError):
+        return "dev"
+
 class WebRequestHandler(BaseHTTPRequestHandler):
     server: NMBServer  # type hint
 
@@ -3470,19 +3481,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         for s in sniffer_stats.get("top_sources", [])[:5]:
             ip = s.get("ip", "")
             if ip and ip != "127.0.0.1":
+                # The sniffer counts packets per source; it does not measure a rate, so none is made up here
+                # (until 2026-11-10 a rate was invented from the count, and two fake clients filled an empty list).
                 clients.append({
                     "name": ip,
                     "icon": "client",
                     "priority": "Default",
-                    "up_kbps": round((s.get("count", 1) * 64 * 8) / 1000.0, 1),
-                    "down_kbps": round((s.get("count", 1) * 128 * 8) / 1000.0, 1),
+                    "packets": int(s.get("count", 0) or 0),
+                    "up_kbps": None,
+                    "down_kbps": None,
                 })
-        if not clients:
-            clients = [
-                {"name": "speedtest", "icon": "speedtest", "priority": "Highest", "up_kbps": round(tx_bps / 1000.0, 1), "down_kbps": round(rx_bps / 1000.0, 1)},
-                {"name": "NettoDX (Gateway)", "icon": "desktop", "priority": "Medium", "up_kbps": 12.4, "down_kbps": 34.8},
-                {"name": "Fluxnode", "icon": "server", "priority": "Lowest", "up_kbps": 0.4, "down_kbps": 0.0},
-            ]
 
         conn_type = getattr(self.server.cfg.isp, "connection_type", "fiber")
         os_info = detect_os_info()
@@ -3491,8 +3499,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         dual_v6 = dual.get("public_ipv6") or dual.get("ipv6")
         status_dict = {
             "system_info": {
-                "firmware_version": "4047",
-                "firmware_label": "4047 (NMB v2.5 Universal)",
+                "firmware_version": _installed_version(),
+                "firmware_label": "NMB " + _installed_version(),
                 "kernel_version": platform.release(),
                 "device_model": os_info.get("device_model") or get_hardware_model(),
                 "distro_name": os_info.get("distro_name", "Linux"),
@@ -3503,7 +3511,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "public_ipv4": dual_v4,
                 "public_ipv6": dual_v6,
                 "public_ip": dual_v4 or dual_v6,
-                "wps_pin": "--",
                 "box_id": self.server.cfg.system.box_id,
                 # The mode netd runs now, for the header (it always read "standalone" without this).
                 "mode": active_mode,

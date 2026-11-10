@@ -2436,5 +2436,6 @@
  "ssh_keys_only": "SSH doar cu chei (fără autentificare cu parolă)",
  "ssh_keys_only_hint": "Mai sigur: SSH acceptă atunci doar chei SSH. Se poate activa doar dacă un cont are deja o cheie, ca să nu te blochezi. Tailscale SSH funcționează în continuare. Dezactivat implicit.",
  "ssh_keys_only_on": "SSH acceptă acum doar chei",
- "ssh_keys_only_off": "SSH acceptă din nou parole"
+ "ssh_keys_only_off": "SSH acceptă din nou parole",
+ "js_packets_short": "pach."
 }

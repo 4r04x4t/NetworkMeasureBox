@@ -972,7 +972,8 @@
   "ssh_keys_only": "SSH with keys only (no password login)",
   "ssh_keys_only_hint": "Safer: SSH then accepts only SSH keys. It can be switched on only when an account already has a key, so you cannot lock yourself out. Tailscale SSH keeps working. Off by default.",
   "ssh_keys_only_on": "SSH now accepts keys only",
-  "ssh_keys_only_off": "SSH accepts passwords again"
+  "ssh_keys_only_off": "SSH accepts passwords again",
+  "js_packets_short": "pkt"
  },
  "hu": {
   "ui_ookla": "Ookla",
@@ -1947,7 +1948,8 @@
   "ssh_keys_only": "SSH csak kulccsal (jelszavas belépés nélkül)",
   "ssh_keys_only_hint": "Biztonságosabb: az SSH ekkor csak SSH-kulcsot fogad el. Csak akkor kapcsolható be, ha valamelyik fióknak már van kulcsa, így nem zárhatod ki magad. A Tailscale SSH továbbra is működik. Alapból kikapcsolva.",
   "ssh_keys_only_on": "Az SSH mostantól csak kulcsot fogad el",
-  "ssh_keys_only_off": "Az SSH újra elfogad jelszót"
+  "ssh_keys_only_off": "Az SSH újra elfogad jelszót",
+  "js_packets_short": "csomag"
  },
  "de": {
   "ui_ookla": "Ookla",
@@ -2922,7 +2924,8 @@
   "ssh_keys_only": "SSH nur mit Schlüsseln (ohne Passwort-Anmeldung)",
   "ssh_keys_only_hint": "Sicherer: SSH akzeptiert dann nur SSH-Schlüssel. Es lässt sich nur einschalten, wenn ein Konto bereits einen Schlüssel hat, sodass Sie sich nicht aussperren können. Tailscale SSH funktioniert weiter. Standardmäßig aus.",
   "ssh_keys_only_on": "SSH akzeptiert jetzt nur Schlüssel",
-  "ssh_keys_only_off": "SSH akzeptiert wieder Passwörter"
+  "ssh_keys_only_off": "SSH akzeptiert wieder Passwörter",
+  "js_packets_short": "Pkt."
  },
  "fr": {
   "ui_ookla": "Ookla",
@@ -3897,7 +3900,8 @@
   "ssh_keys_only": "SSH avec clés uniquement (sans mot de passe)",
   "ssh_keys_only_hint": "Plus sûr : SSH n'accepte alors que les clés SSH. Ne peut être activé que si un compte possède déjà une clé, pour que vous ne puissiez pas vous bloquer. Tailscale SSH continue de fonctionner. Désactivé par défaut.",
   "ssh_keys_only_on": "SSH n'accepte plus que les clés",
-  "ssh_keys_only_off": "SSH accepte de nouveau les mots de passe"
+  "ssh_keys_only_off": "SSH accepte de nouveau les mots de passe",
+  "js_packets_short": "paq."
  },
  "uk": {
   "ui_ookla": "Ookla",
@@ -4872,6 +4876,7 @@
   "ssh_keys_only": "SSH лише з ключами (без входу за паролем)",
   "ssh_keys_only_hint": "Безпечніше: SSH прийматиме лише SSH-ключі. Увімкнути можна лише тоді, коли в обліковому записі вже є ключ, тож ви не заблокуєте себе. Tailscale SSH і далі працює. Типово вимкнено.",
   "ssh_keys_only_on": "SSH тепер приймає лише ключі",
-  "ssh_keys_only_off": "SSH знову приймає паролі"
+  "ssh_keys_only_off": "SSH знову приймає паролі",
+  "js_packets_short": "пак."
  }
 }

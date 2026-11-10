@@ -2436,5 +2436,6 @@
  "ssh_keys_only": "SSH só com chaves (sem início de sessão com palavra-passe)",
  "ssh_keys_only_hint": "Mais seguro: o SSH passa a aceitar apenas chaves SSH. Só pode ser ativado quando uma conta já tem uma chave, para não ficar sem acesso. O Tailscale SSH continua a funcionar. Desativado por predefinição.",
  "ssh_keys_only_on": "O SSH aceita agora apenas chaves",
- "ssh_keys_only_off": "O SSH volta a aceitar palavras-passe"
+ "ssh_keys_only_off": "O SSH volta a aceitar palavras-passe",
+ "js_packets_short": "pac."
 }
