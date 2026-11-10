@@ -1138,6 +1138,7 @@ def start_github_update(target_ref: Optional[str] = None, background: bool = Tru
         "error": "" if state in ("started", "success") else status.get("message", ""),
         "checkpoint": status.get("checkpoint", ""),
         "new_version": status.get("commit", ""),
+        "target": (ref or "")[:8],
     }
 
 

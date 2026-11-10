@@ -1,4 +1,5 @@
 """Tests for foreign traffic detection, measurement cancellation and retry timing."""
+import _box_isolation  # noqa: F401  (private measurement lock on a working box)
 import sys
 import threading
 import unittest

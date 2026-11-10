@@ -1,5 +1,6 @@
 """The owner picks the engines of the scheduled mixed run (e.g. Cloudflare, Fast.com and RTR, with iPerf3
 and Ookla left out for a while); tests started by hand still run them all."""
+import _box_isolation  # noqa: F401  (private measurement lock on a working box)
 import sqlite3
 import tempfile
 import unittest

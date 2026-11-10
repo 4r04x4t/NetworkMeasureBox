@@ -1,4 +1,5 @@
 """Ookla results must name the server they used and back off when Ookla rate-limits."""
+import _box_isolation  # noqa: F401  (private measurement lock on a working box)
 import json
 import unittest
 from unittest import mock

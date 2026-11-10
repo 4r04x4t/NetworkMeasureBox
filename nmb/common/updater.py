@@ -276,6 +276,8 @@ def apply(sha: Optional[str] = None) -> Dict[str, Any]:
         with tempfile.TemporaryDirectory(prefix="nmb-verify-") as tmp:
             env = dict(os.environ, NMB_LIVE_DB=f"{tmp}/live.db", NMB_PERSIST_DB=f"{tmp}/persist.db",
                        NMB_OOKLA_COOLDOWN_FILE=f"{tmp}/ookla_cooldown.json",
+                       # the box's own scheduled tests hold the real lock; its DynDNS state is not the tests'
+                       NMB_MEASURE_LOCK=f"{tmp}/speedtest.lock", NMB_DYNDNS_STATE=f"{tmp}/dyndns_state.json",
                        PYTHONPATH=str(src), PYTHONDONTWRITEBYTECODE="1")
             if _run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"], cwd=src, timeout=900, env=env) != 0:
                 return _finish("failed", f"The tests of version {sha[:8]} failed; nothing was changed. See {LOG_FILE}.")

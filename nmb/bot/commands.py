@@ -1254,6 +1254,11 @@ class CommandHandler:
             if res.get("up_to_date"):
                 self.client.send_message(chat_id, t("upd_latest", lang, cur=html.escape(str(res.get("version", "")))))
                 return
+            if res.get("started"):
+                # Only started in the background (a box without Git): it said "update installed, the checks
+                # passed" before anything was tested (2026-11-10).
+                self._say(chat_id, "upd_started", ver=html.escape(str(res.get("target", "") or res.get("new_version", "") or "GitHub")))
+                return
             if res.get("success"):
                 msg = t("upd_done", lang, ver=html.escape(res.get("new_version", "")), cp=html.escape(res.get("checkpoint", "")))
             else:

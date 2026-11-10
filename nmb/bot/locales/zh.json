@@ -233,7 +233,8 @@
   "drivers_recommended": "推荐的软件包",
   "speed_already_running": "测速已在进行中；完成后会发送结果。",
   "data_used_tests": "自 {since} 起测试使用的流量",
-  "wifi_ap_busy": "📶 在路由器模式下，Wi-Fi 无线电是本设备的接入点，因此现在无法连接其他网络。请先切换到独立模式（/mode standalone），或在网页界面中关闭接入点。"
+  "wifi_ap_busy": "📶 在路由器模式下，Wi-Fi 无线电是本设备的接入点，因此现在无法连接其他网络。请先切换到独立模式（/mode standalone），或在网页界面中关闭接入点。",
+  "upd_started": "⏳ 正在后台更新到 <b>{ver}</b>：先在本设备上测试，再备份，然后安装。几分钟后用 /heal updates 查看（网页界面会显示每一步）。"
  },
  "keyboard": [
   [

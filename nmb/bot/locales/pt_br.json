@@ -233,7 +233,8 @@
   "drivers_recommended": "Pacotes recomendados",
   "speed_already_running": "Já há um teste de velocidade em andamento; o resultado será enviado quando terminar.",
   "data_used_tests": "Dados usados pelos testes desde {since}",
-  "wifi_ap_busy": "📶 No modo roteador, o rádio Wi-Fi é o ponto de acesso da caixa, então agora ele não pode se conectar a outra rede. Mude primeiro para o modo autônomo (/mode standalone) ou desligue o ponto de acesso na interface web."
+  "wifi_ap_busy": "📶 No modo roteador, o rádio Wi-Fi é o ponto de acesso da caixa, então agora ele não pode se conectar a outra rede. Mude primeiro para o modo autônomo (/mode standalone) ou desligue o ponto de acesso na interface web.",
+  "upd_started": "⏳ A atualização para <b>{ver}</b> está rodando em segundo plano: testes nesta caixa, um backup e depois a instalação. Confira em alguns minutos com /heal updates (a interface web mostra cada etapa)."
  },
  "keyboard": [
   [

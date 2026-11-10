@@ -3,6 +3,7 @@
 2026-11-09 on the box: while it had no internet, RTR's control-server request raised URLError out of
 the scheduled cycle (24 tracebacks in an hour): no error row, and the engines after it did not run.
 """
+import _box_isolation  # noqa: F401  (private measurement lock on a working box)
 import sqlite3
 import unittest
 import urllib.error

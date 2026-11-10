@@ -754,7 +754,9 @@ def _flag_server_mismatch(res: SpeedtestResult, target_server_id: Optional[int])
     res.raw_json = json.dumps(raw)
 
 
-MEASURE_LOCK = "/run/nmb/speedtest.lock"
+# NMB_MEASURE_LOCK: the update test run (nmb/common/updater.py) uses its own, or a scheduled test on the box
+# holds this one and a test that runs a cycle gets "busy" (an update was refused on 2026-11-10 for that).
+MEASURE_LOCK = os.environ.get("NMB_MEASURE_LOCK", "/run/nmb/speedtest.lock")
 MEASURE_WAIT_SEC = 600   # a manual, web or Telegram test waits this long for a running one
 
 

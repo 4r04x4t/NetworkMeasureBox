@@ -2,6 +2,7 @@
 
 2026-11-09 night on the real 1000/300 PPPoE line: the owner's schedule moved about 800 GB in 4 hours.
 """
+import _box_isolation  # noqa: F401  (private measurement lock on a working box)
 import datetime
 import sqlite3
 import tempfile

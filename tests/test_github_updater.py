@@ -132,3 +132,19 @@ class StatusAndGuardTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BotApplyMessageTest(unittest.TestCase):
+    def test_started_update_is_not_reported_as_installed(self):
+        from nmb.bot.commands import CommandHandler
+        from nmb.common import heal
+        from nmb.config import Config
+        client = mock.MagicMock()
+        h = CommandHandler(Config(), client)
+        with mock.patch.object(heal, "apply_stable_update", return_value={"success": True, "started": True, "target": "bbbbbbbb"}):
+            h.handle_command(1, "/heal apply")
+        text = " ".join(str(c.args[1]) for c in client.send_message.call_args_list)
+        self.assertIn("bbbbbbbb", text)
+        self.assertNotIn("Update installed", text)
+        self.assertNotIn("tests passed", text)
+
