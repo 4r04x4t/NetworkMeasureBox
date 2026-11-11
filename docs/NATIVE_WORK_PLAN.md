@@ -350,6 +350,13 @@ Answered by the owner on 2026-11-10:
    the whole is proposed from what those licences require and allow (for example a copyleft part that is built
    in decides more than a part that is only run). Until it is fixed, no dependency is taken whose licence would
    rule out an open licence, and the repository says that the licence is not decided yet.
+   **Answered (owner, 2026-11-11): MIT**, the same licence as the Python version, with the copyright line
+   "Copyright (c) 2026 NetworkMeasureBox contributors" (also in the Python repository's `LICENSE` file, which was
+   missing). It follows from the licence lists of every planned component (`NetworkMeasureBox-DePyD`
+   `docs/licensing/`): the only part that would force copyleft is the OONI engine (GPL-3.0) if it were built in, so
+   OONI runs as the separate `ooniprobe` program in the strict sandbox of 6B.5 (roadmap 4.7). Nothing built into
+   `nmbd` may be under GPL, LGPL or AGPL; programs that are only run (for example `pppd`, `nft`, `dnsmasq`) keep
+   their own licences, and the images carry their licence texts and source offers.
 
 Answered on 2026-11-11 (the questions of packages F-02 and F-03 and the open points above; each answer is written
 where it applies, and the roadmap or the porting plan is the source):

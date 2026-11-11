@@ -135,6 +135,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The repository has the `LICENSE` file that the README's MIT badge and licence section point to (MIT, "Copyright (c) 2026 NetworkMeasureBox contributors").
+
 - Web UI header: "WAN Interface" showed `eth0` whatever the box used and "System Time" always showed `--` (the page read fields the server never sent); the latency chart's labels were Hungarian in every language. The header now shows the current link and the path to the ISP from the recorded setup.
 - Telegram bot: `/status` and `/mode` showed the raw mode code (`MODE_A`); the diagnostic bundle was rebuilt on every `/ai` request instead of using its cache; the live self-test left its test chats' language rows in the database.
 - Diagnostic bundle: "Deployment Mode" came from the configured mode, so `auto` read as "LAN probe behind a NAT router" also when the box was the router; it now states the active mode with the configured one beside it.

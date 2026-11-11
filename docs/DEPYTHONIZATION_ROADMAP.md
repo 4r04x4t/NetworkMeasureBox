@@ -197,8 +197,8 @@ The native build gets a lighter, faster Web UI with **every function of the Pyth
 - **Current Architecture**: Spawns external `/usr/bin/ooniprobe` CLI or runs Python wrapper subprocesses, consuming 60MB+ RAM during runs.
 - **De-Pythonization Target**: **Go (Golang)**.
 - **Go Blueprint**:
-  - Upstream OONI is written in Go (`github.com/ooni/probe-engine` / `github.com/ooni/probe-cli`).
-  - Import `github.com/ooni/probe-engine/libminiooni` directly as a Go module inside `nmbd`.
+  - Upstream OONI is written in Go (`github.com/ooni/probe-engine` / `github.com/ooni/probe-cli`), under GPL-3.0.
+  - **Decided (owner, 2026-11-11, licence MIT):** the engine is **not** imported into `nmbd`, because a built-in GPL-3.0 part would put the whole program under GPL-3.0. `nmbd` runs the separate `ooniprobe` program in the strict sandbox of 6B.5 and reads its results; the benefits below that depend on importing the engine do not apply.
   - **Benefits**:
     - Zero external process spawning.
     - Zero external package dependencies (no `ooniprobe` Debian package or external PPA required).
@@ -777,7 +777,7 @@ Replacing a Python component is done when it passes the Phase 0 checks and these
 
 ### Phase 3: WireGuard VPN, In-Process OONI & Unified Monolith (`nmbd`)
 - **Step 3.1**: Implement in-process WireGuard control via `wgctrl` and embed SVG/PNG QR generation.
-- **Step 3.2**: Import `ooni/probe-engine` directly into the binary, retiring external Debian packages.
+- **Step 3.2**: Run `ooniprobe` as a separate, sandboxed program (owner, 2026-11-11: the GPL-3.0 engine is not imported into the MIT `nmbd`).
 - **Step 3.3**: Embed Web UI assets using `//go:embed` and combine all daemons into the unified `nmbd` binary.
 
 ### Phase 4: Self-Healing Watchdog, Driver Autodiscovery & OpenWrt Packaging
@@ -1023,7 +1023,7 @@ They are working material for the 6A evaluation, the cross builds and the 6B.3 t
 | **Network Router** | Python + `subprocess(ip)` | **Go** / **C** | `vishvananda/netlink` / `libnl-tiny` | 38MB $\to$ **1.8MB** | `/sbin/ip`, `/sbin/route`, `ethtool` |
 | **Speedtest Engine** | Python + Ookla CLI | **Go** | `net/http` multi-stream + `crypto/tls` | 45MB $\to$ **3.5MB** | Python GIL, ookla binary |
 | **Open-RMBT** | C binary (`rmbt-client`) | **C** / **Go** | Native C TCP chunk client / Go TCP | 18MB $\to$ **1.5MB** | Subprocess fork/exec |
-| **OONI Probe** | Python wrapper + CLI | **Go** | `github.com/ooni/probe-engine` | 65MB $\to$ **8.0MB** | External `ooniprobe` Debian package |
+| **OONI Probe** | Python wrapper + CLI | **Go** (runner only) | `ooniprobe` run as a sandboxed program (GPL-3.0, not built in; owner 2026-11-11) | not measured | none (the program stays) |
 | **iPerf3 Engine** | Python + `subprocess(iperf3)` | **Go** / **C** | Embedded Go iPerf3 protocol / `libiperf.a` | 25MB $\to$ **1.5MB** | External `iperf3` package |
 | **DNS Ad-Blocker** | Python DNS proxy | **Go** | `github.com/miekg/dns` + Radix Tree | 42MB $\to$ **3.5MB** | Python runtime, `/etc/hosts` shell forks |
 | **WireGuard / VPN** | Python + `wg-quick` + `qrencode` | **Go** | `golang.zx2c4.com/wireguard/wgctrl` | 30MB $\to$ **1.5MB** | `wg-quick`, `qrencode`, bash scripts |
