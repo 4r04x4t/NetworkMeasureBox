@@ -297,9 +297,11 @@ The native build gets a lighter, faster Web UI with **every function of the Pyth
     - 📊 Status & Instant Ping Matrix
     - ⚡ On-Demand Speedtest (Ookla, Cloudflare, RMBT, iPerf3)
     - 📑 Regulatory SLA Dossier Export (.html) & LLM Diagnostic Snapshot (.md)
-    - 🛡️ Tailscale, WireGuard & OpenVPN Status & 1-Click QR Delivery
+    - 🛡️ Tailscale, WireGuard & OpenVPN Status & QR Delivery (only under the secrets rule below)
     - 🌐 Multi-language switcher (HU, EN, DE, FR, UK) with zero mixed-language leaks.
   - Zero Python footprint: Consumes **<1.5MB RAM in Go** and **<200KB RAM in C11**.
+  - **Confirmation for every change (owner, 2026-11-11).** Every command that changes the box needs a confirmation tap. A destructive one (for example factory reset, or a data and log purge) also needs its typed word, as `RESET` and `PURGE` in Phase 0.
+  - **Secrets over Telegram are off by default (owner, 2026-11-11).** This covers a WireGuard QR code or `.conf` file and a Wi-Fi password. The user switches sending on for each item separately. When it is on, each sending needs a confirmation tap and shows a warning first. The bot deletes the QR code message after a few minutes and the password message at once. A WireGuard peer sent this way can be withdrawn with one tap.
 
 ### 4.17 Regulatory-Grade Broadband SLA Dossier & Pure SVG Vector Engine
 - **Current Architecture**: Python script rendering HTML dossiers and embedding dynamic SVG charts.
@@ -309,6 +311,7 @@ The native build gets a lighter, faster Web UI with **every function of the Pyth
   - In-process mathematical SVG chart renderer: Emits responsive `<svg viewBox="0 0 800 380">` with cubic bezier curves, dual y-axes (Mbps & ms), SLA threshold baseline indicators, and mobile touch dot overlays.
   - Neutral branding: Strictly regulatory-neutral title (*"Broadband Quality & ISP SLA Performance Dossier"*), compliant with European BEREC guidelines and international telecom standards.
   - Generation time: **<1.5ms**, completely eliminating Python templating and subprocess dependencies.
+  - **Evidence exports carry minute summaries only (owner, 2026-11-11).** The dossier and the CSV exports give the ping figures per minute, with the outages and the events. The raw ping samples are not exported, and no export of them is offered.
 
 ### 4.18 Micro-Outage Detection & Loss Pattern Correlation Engine
 - **Current Architecture**: Post-hoc database analysis in Python.
@@ -383,7 +386,8 @@ The native build gets a lighter, faster Web UI with **every function of the Pyth
     - Telegram Bot Tokens & Chat IDs $\to$ `[REDACTED_CHAT_ID]`
     - ISP Account IDs & Circuit IDs $\to$ `[REDACTED_CIRCUIT_ID]`
     - Dynamic DNS domain names $\to$ `[REDACTED_DDNS]`
-    - Private IP subnets and MAC addresses preserved for network topology diagnostics.
+    - Private IP subnets preserved for network topology diagnostics.
+    - MAC addresses (owner, 2026-11-11): kept as they are in the SLA dossier and in the bundle for the ISP's support; in a bundle meant for an outside LLM each MAC address is replaced by its vendor prefix and a stable pseudonym, so the same device keeps the same name.
 
 ---
 
@@ -391,7 +395,7 @@ The native build gets a lighter, faster Web UI with **every function of the Pyth
 - **Collector client** (`nmb/collector/client.py`): the native box keeps the same protocol, so one `nmb-collector` serves Python and native boxes. `POST /api/ingest` (JSON: `protocol`, `box_uid`, new speed tests, hourly ping summaries, and with consent events and the diagnostics report) and `POST /api/poll` (command results in, queued commands out), both with a bearer token, outgoing HTTPS only. Remote commands stay a fixed list (`speedtest`, `diagnostics`, `upload`). The collector itself stays a server-side program and is not part of the router build.
 - **Collector server** (`nmb/collector/server.py`, `nmb-collector`): it is ported too, not only the client. The server runs on a provider's or a technician's machine rather than on a measuring device, but de-Pythonization covers it all the same: the native `nmb-collector` is one static binary (Go, the same code base as `nmbd`) for Linux x86-64 and ARM64 servers, with the same protocol (`POST /api/ingest`, `GET /api/commands`, `POST /api/command-result`), the same data directory layout and token hashes, so a Python collector's data opens in the native one and Python and native boxes report to either. It keeps the password-protected pages (search by box ID, name, current or earlier case number, customer number and provider; averages against the subscribed speeds; CSV), the three consents and the fixed command list, and serves HTTPS itself (`--cert`, `--key`).
 - **Updater**: routers update by firmware or package (`opkg`), not by downloading the source; the native build keeps only the status file format (`update_status.json`) so the Web UI and `nmb-cli update` work unchanged.
-- **Per-engine intervals**: the scheduler keeps `ookla_interval_min` (never below 60), `rtr_interval_min` and `cloudflare_interval_min`, and the persisted Ookla cooldown (`ookla_cooldown.json`).
+- **Per-engine intervals**: the scheduler keeps `ookla_interval_min` (never below 60), `rtr_interval_min` and `cloudflare_interval_min`, and the persisted Ookla cooldown (`ookla_cooldown.json`). The hourly Ookla limit is for scheduled runs; a test started by a person obeys only the cooldown after a refusal (owner, 2026-11-11; *Rules from fixes*).
 
 ### 4.26 Features Added in November 2026 (the Python Reference the Native Build Must Match)
 Each of these runs on the Raspberry Pi 4 test box and is recorded in `docs/TESTING.md`. The native version keeps the settings, the API endpoints and the behaviour described here.
@@ -403,7 +407,7 @@ Each of these runs on the Raspberry Pi 4 test box and is recorded in `docs/TESTI
 - **Storage guard** (`nmb/common/storage_guard.py`): free-space target from the disk size (15 % ≤ 2 GB, 10 % ≤ 16 GB, 5 % above; 200 MB to 2 GB), deletes in a fixed order (rotated logs, bundles, crash reports; backups but the newest; reports; journal; large active logs; only then measurements, a day at a time, keeping `keep_days`). On routers it applies to the overlay or data partition.
 - **iPerf3 server names**: from the public iPerf3 list, else city, country and ISP of the address from GeoIP, also for older rows that stored only the address; a failed lookup is not repeated for an hour.
 - **USB tethering** (`nmb/netd/usb_uplink.py`): phones, mobile hotspots and modems on USB are recognised by their driver (`rndis_host`, `cdc_ncm`, `cdc_ether`, `ipheth`, `qmi_wwan`, `cdc_mbim`; USB Ethernet dongles stay wired), never as the wired line, and never as a LAN port (the default LAN name `eth1` is often the hotspot). `[usb_uplink]` gives the device its own profile without the default route, a source rule (table 152) and `measurement_link = usb`; results over USB are stored as mobile; tests over USB have their own daily data limit. **Only internet:** when neither Ethernet nor Wi-Fi has a default route, the box adds one through USB (metric 900) and removes it as soon as another comes back, writing both switches as events. **Router mode on USB:** in Mode A, when no DHCP server answers on the WAN port (a PC plugged in is fine, the home router is not), USB becomes the WAN and the single Ethernet port joins the LAN bridge with the Wi-Fi access point, so wired and Wi-Fi clients get the mobile internet; checked every minute, and a DHCP server appearing on the port stops the box's DHCP at once and puts the port back as WAN. **Sharing on the LAN port** (`wifi_share`) takes USB as its upstream when the Wi-Fi uplink is down. Tested with a Netgear Nighthawk M6 Pro (US AT&T model) over 5G. In the native build the same rules apply on every device with a USB port, routers included (a hotspot as backup WAN).
-- **Languages**: the Web UI texts are keyed; the native build reads the same keys and the JSON files in `nmb/web/locales/` and `nmb/report/locales/` (11 languages), and shows a missing text in English.
+- **Languages**: the Web UI texts are keyed; the native build reads the same keys and the JSON files in `nmb/web/locales/` and `nmb/report/locales/` (11 languages). A missing text is never silent (owner, 2026-11-11): the built-in texts are complete in every language, or the build fails (4.4A point 6). A key that is still missing at run time (for example from an add-on) shows the English text, visibly marked as untranslated; it is logged, and it is listed in the self-test and in the diagnostic bundle.
 
 ---
 
@@ -420,7 +424,7 @@ The Python reference (`nmb/netd/usb_uplink.py`, partly tested on the Pi 4 over 5
 1. A tethering interface is **never the wired line** (never chosen by "strict wired priority", never takes the measurement as Ethernet) and **never a LAN port** (never bridged, never gets the box's DHCP server).
 2. **Its own address, no default route by default.** `nmbd` runs the DHCP client on it itself (a small built-in DHCPv4 client, as `nmbd` does elsewhere); the lease's router goes into routing table 152 with the source rule `from <usb address> lookup 152`, not into the main table. The box's traffic and the outage probe stay on the wired or Wi-Fi line.
 3. **Measuring over it** with `measurement_link = usb`, or a test aimed at that interface. Results are stored with `connection_type = fwa` and the mobile public IP; per-engine binding to the USB address.
-4. **Its own daily data limit** (`[usb_uplink] daily_limit_mb`, default 1024 MB, 0 = none), counted on the interface's own byte counters, for every trigger (scheduled and manual).
+4. **Its own daily data limit** (`[usb_uplink] daily_limit_mb`), counted on the interface's own byte counters, for every trigger (scheduled and manual). **No default number (owner, 2026-11-11):** until the user sets a cap or says "unlimited", scheduled tests and tests started by a person over this link wait, and ping keeps running. The Python reference's default of 1024 MB is not carried over (*Rules from fixes*, the metered-link line).
 5. **Only internet:** with no default route through Ethernet or Wi-Fi, a default route through USB with metric 900, removed as soon as another one returns; each switch is an event (`uplink_usb_fallback`, `uplink_usb_fallback_end`, severity `warn`), so reports show when the box ran on the mobile link. Remote access (Tailscale) keeps working over it.
 6. **Router mode on USB:** when no DHCP server answers on the WAN port (a PC plugged in is fine, a router is not), USB becomes the WAN and the Ethernet port joins the LAN bridge with the Wi-Fi access point; checked every minute, and a DHCP server appearing on the port stops the box's DHCP at once and makes the port the WAN again. PPPoE or a static WAN always keep the port as WAN.
 7. **Sharing on the LAN port** (`wifi_share`) takes USB as its upstream when the Wi-Fi uplink is down, with the same DHCP guard.
@@ -511,6 +515,8 @@ To avoid disruption to existing installations, the migration follows a phased hy
 
 > **"Hybrid" applies only to the transition on today's Python boxes**: there, native components replace Python ones one by one, so a box keeps working during the migration. The end state is no Python on any device. Devices that NMB does not run on yet (the routers, NMB's own distribution) never get Python at all: they start with the native `nmbd`.
 
+**The owner's Raspberry Pi 4 is migrated component by component (owner, 2026-11-11).** It is not swapped as a whole. Each native component replaces its Python counterpart once its evidence of Quality Bar point 5 is written down. During the migration the native components and the remaining Python ones share the data through a bridge: the Python database over SQLite WAL, or an API (Phase 1, step 1.1). The bridge contract is defined by package F-04 of the work plan (`NATIVE_WORK_PLAN.md`). The bridge must not carry Python faults into the native code: the native side reads and writes only what the contract defines, checks everything it reads, and the register of known Python faults applies to every value that crosses it.
+
 ```mermaid
 timeline
     title NetworkMeasureBox De-Pythonization Phases
@@ -584,7 +590,7 @@ The native build is not finished when it "mostly works". It replaces a version t
    - **Behaviour that only looks the same is not enough.** If the Python version gives the right answer by luck (an order of tests, a cache left by an earlier run, a file on the developer's PC), the native build must give it by design.
    - **When unsure, ask and write it down.** If it is unclear whether something in Python is a fault or intended, the developer asks the owner and records the answer in this list instead of copying the Python behaviour.
 7. **Every change is searched for security holes, and none is left in** (owner, 2026-11-10). Security review is part of every single change, not a later phase or a release task; a change is not done, merged or shipped while a hole found in it is open. For every change:
-   - **Look for holes in what the change touches**, with a short written check in the change's description: every input from outside (Web UI and API requests, uploaded files and firmware images, the Telegram bot, the collector, DHCP/DNS/PPPoE/UPnP packets, USB sticks, configuration files, file names and paths) is validated by type, length and allowed values; no command is built from input (no shell, arguments as a list); no path leaves its directory; authentication and authorisation are checked on every endpoint and bot command; secrets never reach logs, URLs, command lines, crash reports, diagnostic bundles or the UI; nothing listens on the WAN side unless the owner turned it on; errors fail closed.
+   - **Look for holes in what the change touches**, with a short written check in the change's description: every input from outside (Web UI and API requests, uploaded files and firmware images, the Telegram bot, the collector, DHCP/DNS/PPPoE/UPnP packets, USB sticks, configuration files, file names and paths) is validated by type, length and allowed values; no command is built from input (no shell, arguments as a list); no path leaves its directory; authentication and authorisation are checked on every endpoint and bot command; secrets never reach logs, URLs, command lines, crash reports, diagnostic bundles or the UI; nothing listens on the WAN side unless the owner turned it on, and an uplink network counts as the box's own only when the owner confirmed it, never because of its address class (*Rules from fixes*); errors fail closed.
    - **Automatic checks on every build:** compiler warnings as errors; static analysis (`go vet`, `staticcheck`, `gosec` for Go; `clang-tidy`, `cppcheck` and the compilers' analysers for C); dependency vulnerability scan (`govulncheck` for Go, the advisories of every vendored C library) with no known vulnerability allowed in a release; secret scanning of the repository and of the built image; tests under AddressSanitizer and UndefinedBehaviorSanitizer for C (and the race detector for Go); fuzz tests for every parser (HTTP, JSON, configuration, DNS, DHCP, PPPoE, STUN, firmware headers, translation files).
    - **Hardened by default:** daemons run as their own unprivileged user with only the capabilities they need (for example `CAP_NET_RAW`, `CAP_NET_ADMIN` for the parts that need them), under systemd or procd sandboxing (read-only system, private `/tmp`, no new privileges, a system call filter where the platform has it); C built with stack protection, `_FORTIFY_SOURCE`, PIE, full RELRO and non-executable stacks; the Web UI with a strict Content Security Policy, CSRF protection, secure cookies or headers, rate-limited login and constant-time comparisons; updates and firmware accepted only with a valid signature (section 6B.3).
    - **Every hole found is fixed with a test that fails without the fix,** listed in the CHANGELOG under *Security*, and checked for in the Python version too (it is fixed there or reported). A hole that cannot be fixed at once blocks the release of that component; it is never shipped "for now".
@@ -599,7 +605,7 @@ The native build is not finished when it "mostly works". It replaces a version t
 9. **Nothing tied to Hungary is built in; the box shows what is relevant where it is** (owner, 2026-11-10). The native build is not a Hungarian product with translations: everything that depends on a country is chosen by the box's location, and only the part that applies there is shown.
    - **Location first:** the country comes from the first-start setup (suggested from the regulatory domain, the time zone or GeoIP, confirmed by the user) and can be changed; it sets the Wi-Fi regulatory domain, the time zone, the date, number and unit formats, the default language suggestion and the country data below. No country, time zone, language or currency is a code default.
    - **Country data as separate, replaceable data files**, one per country, never in the code: the telecom regulator and the official measurement tool of that country (for example NMHH and its measuring app in Hungary, RTR in Austria, BNetzA in Germany), the consumer complaint path and the legal references the SLA report may quote, the typical line types and ISP connection settings (PPPoE service names, VLAN IDs) as suggestions, nearby measurement servers, holidays for schedules. A box shows only its own country's file; a country without a file gets the neutral, international version (no regulator, no legal text, plain SLA figures), never another country's.
-   - **Languages are independent of the country:** all 11 (and later more) are always available; no text, report or chart has Hungarian (or English) as a silent default for other languages, and every report and chart label exists in every language.
+   - **Languages are independent of the country:** all 11 (and later more) are always available; no text, report or chart has Hungarian (or English) as a silent default for other languages, and every report and chart label exists in every language. A text still missing at run time is shown in English, visibly marked as untranslated, and reported (4.26, *Languages*; owner, 2026-11-11).
    - **Measurement servers and defaults** are picked by the box's location and line, not from a fixed list centred on Hungary.
    - **Faults of the Python version on this point** (go on the list of point 6): charts default to Hungarian (`nmb/report/svg_charts.py`, `lang="hu"`); one report label exists only in Hungarian and English (`nmb/report/dossier.py`, "6 (SLA Alatt)"); comments and test data name the owner's ISP and places.
 
@@ -678,7 +684,9 @@ Not yet covered by the Python version, and open for the native one: charts, form
 - Check whether a local service runs from the socket table. Do not connect to it: connecting to the iPerf3 port every few seconds logged a failed test each time.
 - Never run code from `/tmp` or from folders the `nmb` user can write to, and verify the checksum of any downloaded binary.
 - Do not put tools with an execution option, such as `ip`, in sudoers. Validate helper arguments, and refuse VPN configs with command lines.
-- The web server must not run as root, and local service ports must refuse public addresses on IPv4 and IPv6.
+- The web server must not run as root.
+- Which networks may reach the box's local services is confirmed per network, never inferred from address classes (owner, 2026-11-11; this replaces the earlier rule that local service ports refuse public addresses). From the uplink side nothing is open until the owner marks that network as the box's own. The first-start setup offers the network it was done from, and the box remembers the choice. An unknown network gets nothing, on IPv4 and on IPv6, whether its addresses are private or public. The LAN side, the VPN and Tailscale are not affected. A rule that trusts private ranges or refuses public ones is wrong both ways: a hotel or café network uses private addresses too, and the owner's own line may hand out public ones.
+- A VPN server that runs while its setting is off is shown and asked about (owner, 2026-11-11). The status shows the mismatch, the firewall keeps the server's port open, and the user chooses to stop the server or to switch the setting on. The box does not decide alone, and the firewall does not cut off a running server because of the setting alone.
 - Keep secrets off the boot partition. The native version must keep the `__KEEP_CURRENT__` mark, so existing boot files stay valid.
 - A skipped test has no values. Show it as skipped, never as 0, and do not let skipped rows replace real results.
 - Save settings one at a time (a lock across threads and processes) and through a temporary file of its own. Two writers sharing one temporary file once left a broken `nmb.conf` that no program could read.
@@ -687,7 +695,8 @@ Not yet covered by the Python version, and open for the native one: charts, form
 - Read DHCP replies from a packet socket. A normal UDP socket did not receive the other server's offer on the box (firewall or reverse-path filtering drops it), so the rogue-DHCP check would have passed while another server answered.
 - Wait long enough for DHCP offers (8 s, three requests): dnsmasq and many routers ping an address for up to 3 s before they offer it.
 - A daemon started by a supervisor must not be told to log to stderr in the foreground (`dnsmasq --log-facility=-`): the start command then never returns and times out.
-- Ookla blocks the public IP address, not the box, and counts refused attempts. Run Ookla at most hourly, pause after a refusal (30 min doubling to 4 h, kept across restarts), store no other engine's result in its place, and never change the IP to get around it. Shown on the test line: a new public IP passed at once while the old one stayed blocked.
+- Ookla blocks the public IP address, not the box, and counts refused attempts. Run Ookla at most hourly, pause after a refusal (30 min doubling to 4 h, kept across restarts), store no other engine's result in its place, and never change the IP to get around it. Shown on the test line: a new public IP passed at once while the old one stayed blocked. A test started by a person (Web UI, CLI, bot) obeys the pause after a refusal, and is then refused with the time left shown, but not the hourly limit, which is for scheduled runs (owner, 2026-11-11).
+- A metered link (mobile, USB tethering, or another connection with a data limit) has no default data cap (owner, 2026-11-11). Until the user sets a cap or says "unlimited", scheduled speed tests and tests started by a person on that link wait; ping keeps running. A cap number is never assumed for the user.
 - When an in-memory pause is cleared on disk, the running process must reload it (or offer a command to clear it); deleting the file alone did not end the pause until `nmb-web` restarted.
 
 **Changelog from the first commit**
@@ -757,7 +766,7 @@ Replacing a Python component is done when it passes the Phase 0 checks and these
 - Many endpoints report failure as HTTP 200 with `"status": "error"`, and the dashboard relies on this. Decide on the API contract before the rewrite. **Left to the developer by the owner (2026-11-10): the native API uses real HTTP status codes and one error body; see `NATIVE_WORK_PLAN.md` section 7.**
 
 ### Phase 1: High-ROI Micro-Engine Replacements
-- **Step 1.1**: Build `nmb-probe` in Go (`cmd/nmb-probe/main.go`). Communicates with existing Python `nmb-web` via SQLite WAL.
+- **Step 1.1**: Build `nmb-probe` in Go (`cmd/nmb-probe/main.go`). Communicates with existing Python `nmb-web` via SQLite WAL. This is the bridge of the component-by-component migration of the owner's box (section 6, the note on "hybrid"); its contract is defined by work plan package F-04.
 - **Step 1.2**: Build `nmb-speed` in Go (`cmd/nmb-speed/main.go`) with integrated Open-RMBT and iPerf3 client protocols.
 - **Step 1.3**: Migrate `/api/system/tasks` to a native Go `/proc` reader module (`pkg/tasks`).
 
@@ -793,6 +802,7 @@ Planned shape:
 - **Storage:** read-only root file system; settings and measurements on a separate data partition; the live database stays in RAM with snapshots, as now; the storage guard sizes its limits from the data partition.
 - **Updates:** two system slots (A/B); an update writes the other slot and boots it, and goes back if the box does not come up. This replaces `setup.sh` upgrades on these boxes.
 - **Targets:** Raspberry Pi 4 (arm64) first, then x86-64; routers keep OpenWrt as their base (see the targets above).
+- **Packages as well as the image (owner, 2026-11-11):** besides NMB's own image, the native build is shipped as packages for every distribution the Python version supports: Debian, Ubuntu, Alpine, Fedora/RHEL and Rocky. Each package is installed and tested in QEMU on its distribution before a release (work plan package P-11).
 - **Build approach (recommended, to confirm):** a Debian-based image assembled with `mmdebstrap`/`debos` from Debian packages plus the Raspberry Pi kernel and firmware packages, because it keeps the stock kernels and their security updates and matches the Debian 13 the Box already runs. Buildroot or Yocto would build everything from source, which mainly pays off when the kernel is also customised; that is not planned.
 - **To decide:** the init system (systemd, as now, or something smaller), how the A/B update is done (RAUC or SWUpdate), image signing, and how settings move over from a `setup.sh` box.
 
@@ -813,14 +823,14 @@ Criteria:
 
 | Base | Type | First assessment (to verify) |
 | :--- | :--- | :--- |
-| **Debian** (`mmdebstrap`/`debos`) | General purpose | Recommended so far: the Box already runs Debian 13, Raspberry Pi kernel and firmware are packaged, long security support, glibc, systemd. Biggest image of the candidates |
+| **Debian** (`mmdebstrap`/`debos`) | General purpose | Recommended so far: the Box already runs Debian 13, Raspberry Pi kernel and firmware are packaged, long security support, glibc, systemd. Biggest image of the candidates. Record I-06: see *Findings from the images* below |
 | **Raspberry Pi OS Lite** | Debian derivative for the Pi | Same packages as Debian with the Pi kernel by default; Pi-only, so x86-64 would need a second base |
-| **OpenWrt** (`bcm27xx/bcm2711`, `x86/64`) | Router / network OS | Made for networking: `procd`, `netifd`, `fw4` (nftables), excellent `hostapd`/Wi-Fi, small, has A/B-style sysupgrade and is already the base planned for the routers, so one base could cover routers and boxes. To check: musl (Ookla and RTR builds), `netifd`/`fw4` coexisting with NMB's own routing and firewall, security support length |
-| **Alpine Linux** | Small general purpose | musl, OpenRC, `apk`, diskless/read-only mode; the Python reference's `setup.sh` already runs on Alpine 3.22, which shows the userland fits. To check: Pi 4 support quality, Ookla/RTR on musl |
+| **OpenWrt** (`bcm27xx/bcm2711`, `x86/64`) | Router / network OS | Made for networking: `procd`, `netifd`, `fw4` (nftables), excellent `hostapd`/Wi-Fi, small, has A/B-style sysupgrade and is already the base planned for the routers, so one base could cover routers and boxes. To check: musl (Ookla and RTR builds), `netifd`/`fw4` coexisting with NMB's own routing and firewall, security support length. Records I-01 to I-05: see *Findings from the images* below |
+| **Alpine Linux** | Small general purpose | musl, OpenRC, `apk`, diskless/read-only mode; the Python reference's `setup.sh` already runs on Alpine 3.22, which shows the userland fits. To check: Pi 4 support quality, Ookla/RTR on musl. Being analysed (I-07) |
 | **VyOS** | Router / network OS (Debian-based) | Strong routing (FRR), nftables; its configuration system owns the network, which would conflict with NMB; long-term releases need a subscription. Probably unsuitable |
 | **IPFire** | Firewall distribution | Built around its own firewall and web UI, which would compete with NMB's; own package manager. Probably unsuitable |
 | **pfSense, OPNsense** | Firewall distributions | FreeBSD, not Linux: NMB is Linux-only (netlink, nftables, nl80211). Excluded |
-| **Fedora IoT** | Atomic (rpm-ostree) | Atomic updates and rollback built in, Pi 4 supported. To check: short release cycle, whether the base image contains Python |
+| **Fedora IoT** | Atomic (rpm-ostree) | Atomic updates and rollback built in, Pi 4 supported. To check: short release cycle, whether the base image contains Python. Being analysed (I-08) |
 | **Ubuntu Core** | Atomic (snaps) | Transactional updates, Pi 4 supported. Everything runs as a snap; low-level network access under snap confinement is awkward, and it ties NMB to Canonical's store |
 | **NixOS** | Declarative | Reproducible, one-command rollback. Steep learning curve; parts of system activation are in Perl (a Rust rewrite is under way); small networking community |
 | **Buildroot, Yocto** | Build systems, not distributions | NMB would assemble its own image; both can include the stock Raspberry Pi kernel unchanged, so they fit the "no own kernel" rule. Smallest and most controlled image, but NMB must follow every package's security fixes itself. **balenaOS** is a ready Yocto-based example (containers, A/B updates); the container layer is not needed for NMB |
@@ -834,6 +844,71 @@ Evaluation plan: for each remaining candidate, build a minimal image for the Pi 
 - **What the stock kernel means for NMB:** the driver finder cannot install firmware packages on a read-only image, so every supported adapter's firmware is in the image; kernel updates arrive as part of an NMB image update (the A/B slot), tested before release like any other change.
 
 Testing plan (to be added to `docs/TESTING.md` when it starts): image builds reproducibly; the kernel in the image is byte-identical to the base's package; first boot on the Pi 4 and in QEMU; every feature row of the testing record again on the image; an A/B update and a forced rollback; power cut during an update; a full data partition.
+
+#### Findings from the images (2026-11-11)
+
+The image records of work plan section 5 (packages I-01 to I-06), in short. Every value comes from the record named
+at the end of its paragraph. QEMU figures are emulation figures (TCG unless KVM is said), not figures for real
+hardware. Alpine (I-07) and Fedora IoT (I-08) are being analysed; the comparison and the proposal are package I-09,
+and the owner decides.
+
+- **OpenWrt 25.12.6 x86-64 (I-01).** Checksums: both combined-efi images OK against the publisher's list, whose gpg
+  signature was good. Kernel 6.12.112: bridge, VLAN, namespaces, seccomp and cgroup2 built in; nftables and PPPoE in
+  the image; bonding, WireGuard, the USB tethering drivers and `mac80211_hwsim` only as published kmods;
+  cfg80211/mac80211 from backports packages; no Landlock. procd, musl 1.2.5, apk-tools 3.0.5 (182 packages).
+  Criterion 3: `nft` 1.1.6, dnsmasq 2.93, pppd 2.5.2, a BusyBox `ip`; hostapd, wpa_supplicant, iw, WireGuard tools and
+  OpenVPN only in the feeds. No Python. netifd and firewall4 switch off with `disable`, but the firewall service's
+  `stop` deletes every nftables table, NMB's too (`fw4 stop` does not). sysupgrade, one root, no A/B. Root 20.4 MB
+  unpacked; 37,140 kB used, 154,232 kB available after boot (256 MB guest). Record: NetworkMeasureBox-DePyD `docs/images/openwrt-25.12.6-x86-64.md`.
+- **OpenWrt 25.12.6 armsr/armv8 (I-02).** Checksums: all 1,258 lines of the tree's own list OK, gpg signature good
+  (the usign signature was not checked). Kernel 6.12.112 arm64 with the same NMB options as I-01; `kmod-wireguard`
+  and `mac80211_hwsim` were installed in the guest and worked (two radios); no Landlock; UEFI boot only. procd,
+  musl 1.2.5, apk-tools 3.0.5 (205 packages). Criterion 3 tools, Python (none) and the netifd and firewall4 results
+  as in I-01. sysupgrade, one root, no A/B. Root 15.4 MB unpacked; 36,032 kB used, 413,520 kB available after boot
+  (512 MB guest). The SDK and toolchain carry GCC 14.3.0, musl 1.2.5 and binutils 2.44.
+  Record: NetworkMeasureBox-DePyD `docs/images/openwrt-25.12.6-armsr-armv8.md`.
+- **OpenWrt 25.12.6 armsr/armv7 (I-03).** Checksums: every file of the tree's own list OK, gpg signature good (usign
+  not checked). Kernel 6.12.112, 32-bit ARM with LPAE and without HIGHMEM; the same NMB options as I-01, no Landlock;
+  boot through U-Boot's UEFI and GRUB. procd, musl 1.2.5 (armhf), apk-tools 3.0.5 (203 packages). Criterion 3 tools,
+  Python (none) and the netifd and firewall4 results as in I-01; the overlay is f2fs. sysupgrade, one root, no A/B.
+  Root 11.7 MB unpacked; 24,128 kB used, 444,788 kB available after boot (512 MB guest; the first boot took about
+  420 s under emulation). It is the 32-bit ARM test guest of F-06.
+  Record: NetworkMeasureBox-DePyD `docs/images/openwrt-25.12.6-armsr-armv7.md`.
+- **OpenWrt 25.12.6 x86/generic (I-04, cross-check of I-01).** Checksums: all 1,282 lines of the tree's list OK, gpg
+  signature good (usign not checked). Kernel 6.12.112, 32-bit (PAE and SSE2 needed, at most 4 CPUs); no NMB option
+  differs from I-01, no Landlock. procd, musl 1.2.5 (i386), apk-tools 3.0.5 (179 packages, the same userland
+  versions). Criterion 3 tools, Python (none), netifd and firewall4 behaviour as in I-01. sysupgrade, one root, no
+  A/B. Root 16.5 MB unpacked; 21,772 kB used, 185,736 kB available after boot (256 MB guest under KVM, init complete
+  about 18 s after kernel start). Record: NetworkMeasureBox-DePyD `docs/images/openwrt-25.12.6-x86-generic.md`.
+- **OpenWrt 25.12.6 Raspberry Pi 4 (I-05).** Taken apart only, not booted (a boot needs the owner's Pi 4 under work
+  plan section 7 point 5). Checksums: both factory images OK against the publisher's list; gpg and usign signatures
+  good. Kernel 6.12.112 arm64 with the same NMB options, GENET and the watchdog built in, `brcmfmac` Wi-Fi with its
+  firmware; no Landlock; the device tree's boot arguments carry `cgroup_disable=memory`. procd, musl 1.2.5, apk (177 packages).
+  Criterion 3 as in I-01, plus hostapd, wpa_supplicant (`wpad-basic-mbedtls`) and iw. No interpreter, but one Python
+  script (`otpset`, `bcm27xx-utils`) that an NMB image must leave out. netifd and firewall4 are I-01's scripts; no WAN
+  by default. sysupgrade, one root, no A/B. Root 17.6 MB unpacked; RAM after boot not determined.
+  Record: NetworkMeasureBox-DePyD `docs/images/openwrt-25.12.6-bcm27xx-bcm2711-rpi-4.md`.
+- **Debian 13.7.0 amd64 and arm64 (I-06).** Checksums: both netinst ISOs OK against Debian's list, gpg signature good.
+  Judged from minimal `mmdebstrap` systems (amd64 booted, arm64 built only). Kernel 6.12.107: every NMB feature, the Pi
+  4 platform on arm64, Landlock active in the amd64 guest. systemd 257, glibc 2.41, apt 3.0.3 (144 packages minimal, 171 with kernel and
+  tools). Criterion 3: all present (`nft` 1.1.3, dnsmasq 2.91, hostapd and wpa_supplicant 2.10, iw 6.9, pppd 2.5.2,
+  WireGuard tools, OpenVPN 2.6.14, full iproute2). No Python interpreter. ifupdown is idle; `nftables.service` wipes
+  all tables, so it stays masked; the hostapd, wpa_supplicant and openvpn units come enabled. apt in place, no A/B.
+  Root 360 MB (amd64), 599.5 MB (arm64 with the Pi firmware); 61,412 kB used, 411,804 kB available after boot (512 MB
+  guest). Record: NetworkMeasureBox-DePyD `docs/images/debian-13.7.0.md`.
+
+The criteria above, filled from the records ("(record)"; empty where no record gives the value):
+
+| Criterion | OpenWrt 25.12.6 (I-01 to I-05) | Debian 13.7.0 (I-06) | Alpine 3.24.4 | Fedora IoT 44 |
+| :--- | :--- | :--- | :--- | :--- |
+| 1. Stock kernel with NMB's features | 6.12.112 on every target; bridge, VLAN, nftables, PPPoE in the image; bonding, WireGuard, the tethering drivers and `mac80211_hwsim` as published kmods; cfg80211/mac80211 from backports packages; no Landlock (record) | 6.12.107 for amd64 and arm64, the Pi 4 platform included; every feature as a module, mac80211 and `mac80211_hwsim` included; Landlock active (record) | being analysed (I-07) | being analysed (I-08) |
+| 2. Security updates for years, free | not in the records | full support to 2028-08-09, LTS to 2030-06-30, no subscription (record) | being analysed (I-07) | being analysed (I-08) |
+| 3. Fits what `nmbd` needs | procd, `nft` 1.1.6, dnsmasq 2.93, pppd 2.5.2 in the image (the Pi 4 image also hostapd, wpa_supplicant, iw); hostapd, wpa_supplicant, iw, WireGuard tools and OpenVPN 2.7.8 in the feeds; `ip` is the BusyBox applet (record) | systemd 257 and every tool of the criterion from `main`, none needing Python (record) | being analysed (I-07) | being analysed (I-08) |
+| 4. Read-only image, A/B, reproducible | read-only squashfs root with an overlay; sysupgrade overwrites the one root, no A/B (record) | apt in place, no A/B; RAUC, SWUpdate, `systemd-repart` and `mmdebstrap` packaged, not tested; byte-for-byte reproducibility not determined (record) | being analysed (I-07) | being analysed (I-08) |
+| 5. Does not fight NMB | netifd and firewall4 switch off with `disable`; the firewall service's `stop` deletes NMB's tables, `fw4 stop` does not; netifd drops foreign addresses on its own devices on `restart` (record; not tested on the Pi 4) | ifupdown idle by default; `nftables.service` must stay masked; the hostapd, wpa_supplicant and openvpn units must be disabled (record) | being analysed (I-07) | being analysed (I-08) |
+| 6. Size, memory, C library | musl 1.2.5; roots 11.7 to 20.4 MB unpacked; 21,772 to 37,140 kB used after boot in the guests, the Pi 4 not booted (record); Ookla and RTR on musl not checked | glibc 2.41; root 360 MB (amd64), 599.5 MB (arm64 with the Pi firmware); 61,412 kB used after boot (record); Ookla and RTR not checked | being analysed (I-07) | being analysed (I-08) |
+| 7. Licence lets NMB ship its image | a licence field per package (BSD-4-Clause for `ppp`), firmware packages of x86-64 and the Pi 4 without one (record) | the minimal base all from `main`; the Pi boot files and Wi-Fi firmware from `non-free-firmware` (record) | being analysed (I-07) | being analysed (I-08) |
+| 8. The base brings no Python | no interpreter in any image; the Pi 4 image carries one Python script without an interpreter (record) | none in the minimal base; Python comes only with the "standard" task or with Recommends (record) | being analysed (I-07) | being analysed (I-08) |
 
 
 ---
@@ -867,7 +942,7 @@ The Python version stays a development and reference build. The native (de-Pytho
 
 - **Every component carries its licence information:** NMB's own code and every part it bundles, builds in, downloads or uses at run time (engines, system tools, libraries, firmware files, fonts, icons) is listed with its licence, its origin and its version, and the full licence texts the licences require are shipped with the image. Code taken from another project keeps its licence file and notices, and files changed by NMB say so.
 - **Shown where users look:** in the documentation, in the Web UI (an about/licences page reachable from every page), in the CLI and the bot, and in the image itself (a licences folder); on a running box the list is built from what is really installed, so it never goes out of date.
-- **A disclaimer on every component and surface:** NMB and each of its parts are provided without warranty, and the liability exclusion the owner decided on is shown with the licence information, in every language of the UI.
+- **A disclaimer on every component and surface:** NMB and each of its parts are provided without warranty, and the liability exclusion the owner decided on (2026-11-11: the open-source "as is" warranty and liability exclusion, plus the note that measurement results are indicative and not a certified measurement, with the country's certified tool named where the country data file has one; exact text in `NATIVE_WORK_PLAN.md` section 7 point 7) is shown with the licence information, in every language of the UI.
 - **Checked on every build:** a missing licence file or notice, an unknown licence, or a component without an entry fails the build (Quality Bar point 7 applies to licences as it does to security).
 
 ### 6B.5 Sandboxing as a built-in option (owner, 2026-11-10)
@@ -876,7 +951,7 @@ The native build can run every part of the box in a sandbox, and the user can se
 
 - **Service sandbox for every daemon.** Each component runs as its own unprivileged user, in its own mount, PID and IPC namespace (and its own network namespace where it does not need the host's network), with a read-only system, write access only to its own directories, only the capabilities it needs, `no_new_privs`, a system call allow-list (seccomp), Landlock file rules where the kernel has them, and cgroup limits for memory, CPU and processes, so a runaway engine cannot starve the ping probe or the Web UI. On OpenWrt the same profile is built with procd `ujail` and seccomp; where a target lacks a feature, the porting plan says what replaces it.
 - **A stricter sandbox for third-party and untrusted code:** the Ookla CLI, `ooniprobe`, iPerf3 and other engines NMB does not write itself, add-ons (themes, colour schemes), and every parser of something uploaded or downloaded (firmware images, backups, configuration files, translation files). Such code never sees `nmb.conf`, keys, tokens or the database; it gets only the network access its job needs, an empty temporary directory that is wiped afterwards, and time and size limits. A firmware or backup check runs in a helper that can only return a verdict, never write.
-- **Sandboxed self-test and update.** As in the Python version (`updater.run_tests_sandboxed`: tests as an unprivileged user, a private copy of the settings, a private `/tmp`), a new version runs its tests and self-test in a sandbox before it is switched to, and is refused when they fail. Tests that touch the network (firewall, DNS, DHCP, routing) run in throwaway network namespaces with virtual cables, never on the real interfaces (as the firewall check of 2026-11-10 did: a LAN address reaches SSH and DNS, a public one does not, the VPN port and ping do).
+- **Sandboxed self-test and update.** As in the Python version (`updater.run_tests_sandboxed`: tests as an unprivileged user, a private copy of the settings, a private `/tmp`), a new version runs its tests and self-test in a sandbox before it is switched to, and is refused when they fail. Tests that touch the network (firewall, DNS, DHCP, routing) run in throwaway network namespaces with virtual cables, never on the real interfaces (as the firewall check of 2026-11-10 did: a LAN address reaches SSH and DNS, a public one does not, the VPN port and ping do). In the native build the same check is made per network, not per address class (*Rules from fixes*): a host on a network the owner confirmed as the box's own reaches SSH and DNS, a host on an unknown network does not, whatever its addresses, and the port of a running VPN server stays reachable.
 - **Try before apply for risky settings.** A firewall rule set, a mode or routing change, DNS settings and VPN configurations are first loaded and checked in a throwaway network namespace (they load, the LAN still reaches the box, the internet does not, the VPN port is open), and only then applied to the real box, with a timer that rolls the change back unless the user confirms that the box is still reachable (as the 15-minute timer of the 2026-11-10 firewall deployment).
 - **The user's control.** The Web UI, the CLI and the bot show for each component its sandbox level (strict, standard or off) and what it may reach. Strict is the default. Loosening a component (for troubleshooting) needs a confirmation, ends by itself after a set time (for example 24 hours), is written to the persistent log, and is shown as a warning in the status, the SLA report and the diagnostic bundle. Third-party engines and upload parsers cannot be taken out of their sandbox.
 - **Checked like everything else (Quality Bar points 1, 4 and 7).** Every sandbox profile has tests that forbidden actions fail (reading `nmb.conf` from an engine, writing outside its directories, raw sockets where not needed, `ptrace`, starting a shell). The measurement results are compared with and without the sandbox on the same box and line, and the sandbox must not cost measurable speed or latency accuracy; the comparison goes into `docs/TESTING.md`.

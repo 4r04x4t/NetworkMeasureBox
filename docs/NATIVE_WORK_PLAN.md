@@ -108,7 +108,7 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 | F-01 | Owner's open decisions | The list of section 7 answered and written into the roadmap |
 | F-02 | Requirements register | Every requirement of both plans, `TESTING.md` (release checklist, *To fix*, *Known limits*), `ARCHITECTURE.md`, the READMEs and the changelog as one numbered list with its source line; each id assigned to a package; a second agent checks that no paragraph is without an id |
 | F-03 | Known Python faults | The roadmap's register plus the private audit and data-quality lists (open security faults by category only), each with the correct behaviour and the package that must prove it |
-| F-04 | Contracts | Configuration format (`nmb.conf` compatible, `%` plain, `__KEEP_CURRENT__`), database schema and on-disk formats (same on every architecture), event and log record, platform interfaces (routes/links, Wi-Fi, firewall, service control, hardware), API contract and route table, translation keys, status file formats |
+| F-04 | Contracts | Configuration format (`nmb.conf` compatible, `%` plain, `__KEEP_CURRENT__`), database schema and on-disk formats (same on every architecture), event and log record, platform interfaces (routes/links, Wi-Fi, firewall, service control, hardware), API contract and route table, translation keys, status file formats; the bridge between the Python and the native version during the migration of the owner's box (roadmap section 6, Phase 1 step 1.1; section 7 point 19) |
 | F-05 | Phase 0 reference | Golden files and checks captured from the Python version, each reviewed against F-03 before use; the comparison harness (Python and native, same input) |
 | F-06 | Test bed | Hermetic helpers: fake clock, network namespaces with virtual cables, `mac80211_hwsim` where the kernel has it, fake servers for every engine and protocol, the QEMU guest runner with its lock |
 | F-07 | Shared specification and conformance vectors | `spec/` (configuration, schema, API, CSV columns, codes, protocol details, limits, texts) and `spec/vectors/` run by every code base; the fault register with a status per code base; the parity table per target (roadmap 6B.8). Built in step 1 for the Go build, so the C build of step 2 starts from it |
@@ -202,13 +202,13 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 | P-02 | Updates: file upload and channel, signature, try and roll back | `common/updater.py` | 6B.3, 7D |
 | P-03 | Backup, restore, USB import, factory reset, unique password per device | `common/backup.py`, `usb_import.py`, `bin/nmb-factory-reset` | QB 7, Phase 0 |
 | P-04 | Sandbox profiles and their tests | `systemd/` units | 6B.5 |
-| P-05 | Maintenance mode and audit log | (new) | 7D |
+| P-05 | Maintenance mode, audit log with its off-device target, browser terminal | (new); browser terminal: `web/server.py` (`/api/terminal/exec`) | 7D |
 | P-06 | Privileged helper with allow-lists | `bin/nmb-helper` | register |
 | P-07 | Self-test and scenarios | `nmb/selftest/` | TESTING |
 | P-08 | Licences page and build check; disclaimer | `common/donate.py` | 6B.3A |
 | P-09 | Add-ons: themes and CLI colour schemes | (new) | 6B.1, 6B.2 |
 | P-10 | `nmbd` single binary, multi-call names, service units | `bin/`, `systemd/`, `os/` | section 5 |
-| P-11 | Packages and images for amd64 and arm64; evaluation of the bases | `setup.sh` | 6A |
+| P-11 | Images for amd64 and arm64, and packages for every distribution the Python version supports, each tested in QEMU; evaluation of the bases | `setup.sh` | 6A |
 | P-12 | User manual and command reference, with their build checks | (new) | 6B.7 |
 | P-13 | Release proof: release checklist, Python against native on the same box and day, outside scan | `docs/TESTING.md` | QB 1, 4, 5, 7 |
 
@@ -327,17 +327,71 @@ Answered by the owner on 2026-11-10:
    copy kept offline by the owner), only the public key in the build; the release step signs, the box verifies
    before anything is written.
 
-Still open:
+7. **Disclaimer: answered (owner, 2026-11-11).** Every native component and surface carries the open-source warranty
+   and liability exclusion together with a note on what the measurements are, in every UI language and from one
+   source text (package P-08):
 
-7. The wording of the disclaimer (6B.3A).
+   > NetworkMeasureBox is provided "as is", without warranty of any kind, express or implied. In no event shall the
+   > authors be liable for any claim, damage or other liability arising from its use. Measurement results are
+   > indicative. They are not a certified measurement. For an official complaint use the certified tool of your country.
+
+   The last sentence names that tool only when the box's country data file has one (Quality Bar 9); without a file it
+   stays general. When the licence is fixed (point 9), the licence's own warranty text is shown as well, unchanged.
+   Written into roadmap 6B.3A.
 8. **The native folder: answered (owner, 2026-11-10).** `NetworkMeasureBox-DePyD/` is its own repository and holds
    every native file, without exception. It is **open, like the Python version** (public; "for everyone" means a
    build whose look pleases and gives a good first impression, not a closed product). Package F-00 makes the
    repository in that folder with its first commit. It is published on GitHub under the same account as the
    Python version, as `NetworkMeasureBox-DePyD` (owner, 2026-11-10). The empty repository has to exist there before
    the first push; before that push the first commit is checked for personal data and secrets (Quality Bar point 8).
+   Commits of the native repository use the GitHub no-reply e-mail address of that account, never a personal
+   address (owner, 2026-11-11).
 9. **Licence of the native build: follows from the development.** It is fixed when the components are known:
    F-00 starts a list of every dependency with its licence (6B.3A), each analyst adds to it, and the licence of
    the whole is proposed from what those licences require and allow (for example a copyleft part that is built
    in decides more than a part that is only run). Until it is fixed, no dependency is taken whose licence would
    rule out an open licence, and the repository says that the licence is not decided yet.
+
+Answered on 2026-11-11 (the questions of packages F-02 and F-03 and the open points above; each answer is written
+where it applies, and the roadmap or the porting plan is the source):
+
+10. **Disclaimer.** The open-source "as is" warranty and liability exclusion plus the note that measurement results
+    are indicative and not certified, with the country's certified tool named only from its country data file.
+    Point 7 above; roadmap 6B.3A.
+11. **Which networks may reach the box.** Trust is confirmed per network, never inferred from address classes.
+    Nothing is open from the uplink side until the owner marks that network as the box's own; the first-start setup
+    offers the network it was done from, and the box remembers the choice. An unknown network gets nothing; the
+    LAN side, the VPN and Tailscale are not affected. Roadmap, Phase 0, *Rules from fixes* (the line on which networks
+    may reach the box), Quality Bar point 7 and 6B.5; porting plan 7D, *Access*.
+12. **Ookla started by a person.** It obeys the refusal pause (it is refused, with the time left shown) but not the
+    hourly limit, which is for scheduled runs. Roadmap, *Rules from fixes* (the Ookla line) and 4.25.
+13. **A VPN server that runs while its setting is off.** The status shows the mismatch, the firewall keeps the
+    server's port open, and the user chooses: stop the server or switch the setting on. Roadmap, *Rules from fixes*.
+14. **Metered links.** No default cap. Scheduled tests and tests started by a person wait until the user sets a cap or
+    says "unlimited"; ping keeps running. Roadmap 4.27 rule 4 and *Rules from fixes*.
+15. **Evidence export.** Minute summaries only; the raw ping samples are not exported. Roadmap 4.17.
+16. **Telegram bot commands.** Every command that changes the box needs a confirmation tap; a destructive one also
+    needs its typed word. Roadmap 4.16.
+17. **Secrets over Telegram** (WireGuard QR code or `.conf`, Wi-Fi password). Off by default and switched on per item;
+    then a confirmation tap and a warning; the bot deletes the QR code message after a few minutes and the password
+    message at once; the peer can be withdrawn with one tap. Roadmap 4.16.
+18. **A translation missing at run time.** The built-in texts are complete in every language, or the build fails. A
+    key still missing at run time (for example from an add-on) shows the English text, visibly marked as
+    untranslated; it is logged and listed in the self-test and the diagnostic bundle. Roadmap 4.26 (*Languages*) and
+    Quality Bar point 9.
+19. **Migration of the owner's box.** Component by component: each native component replaces its Python counterpart
+    once its Quality Bar point 5 evidence is written down, through a bridge shared with the Python version (the Python
+    database over SQLite WAL, or an API). Package F-04 defines the bridge contract, and the bridge must not carry
+    Python faults into the native code. Roadmap section 6 (the note on "hybrid") and Phase 1 step 1.1.
+20. **Distributions.** NMB's own image, plus packages for every distribution the Python version supports (Debian,
+    Ubuntu, Alpine, Fedora/RHEL, Rocky), each tested in QEMU. Roadmap 6A (*Planned shape*); package P-11.
+21. **Browser terminal.** Kept, and hardened: off by default, from the LAN or Tailscale only, only in maintenance
+    mode, the password asked each time, every command in the audit log, off by itself after a set time, running as
+    the service user, root only through the helper. Porting plan 7D, *Access*; package P-05.
+22. **MAC addresses in bundles.** Kept in the SLA dossier and the ISP-support bundle; replaced by the vendor prefix and
+    a stable pseudonym in bundles for outside LLMs. Roadmap 4.24.
+23. **Audit log of the maintenance mode.** The mode does not start without a log target outside the device; entries
+    are sent as they are written, and a hash-chained local log is the second record. Porting plan 7D, *Access*.
+24. **Commit e-mail of the native repository.** The GitHub no-reply address of the account. Point 8 above.
+
+Still open: none.
