@@ -805,6 +805,7 @@ Planned shape:
 - **Packages as well as the image (owner, 2026-11-11):** besides NMB's own image, the native build is shipped as packages for every distribution the Python version supports: Debian, Ubuntu, Alpine, Fedora/RHEL and Rocky. Each package is installed and tested in QEMU on its distribution before a release (work plan package P-11).
 - **Build approach (recommended, to confirm):** a Debian-based image assembled with `mmdebstrap`/`debos` from Debian packages plus the Raspberry Pi kernel and firmware packages, because it keeps the stock kernels and their security updates and matches the Debian 13 the Box already runs. Buildroot or Yocto would build everything from source, which mainly pays off when the kernel is also customised; that is not planned.
 - **To decide:** the init system (systemd, as now, or something smaller), how the A/B update is done (RAUC or SWUpdate), image signing, and how settings move over from a `setup.sh` box.
+- **Decided (owner, 2026-11-11, from the comparison I-09; provisional until its measurements are done, for example a real boot on the Pi 4):** the base is **Debian 13** for the Raspberry Pi 4 and x86-64, with **systemd**; for the A/B update **RAUC and SWUpdate are both tested** on the test bed and the Pi 4 before one is fixed. Image signing is decided (work plan 7 point 6: Ed25519, only NMB-signed updates are accepted). Comparison: `NetworkMeasureBox-DePyD` `docs/images/I-09-comparison.md`.
 
 #### Choosing the base: candidates to evaluate
 
