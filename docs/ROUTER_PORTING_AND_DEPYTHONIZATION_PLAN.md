@@ -698,5 +698,5 @@ If this plan is implemented and the targets are met:
 4. **TP-Link TL-WR1043ND v1.x** and **TP-Link Archer C6 v2.x** would add gigabit-port targets, with throughput limits to be measured on hardware.
 
 ### 7.10 Central Collector Client (opt-in)
-The router build sends to the same `nmb-collector` as the Python box, with the same three consents (`enabled`, `share_diagnostics`, `allow_remote_control`) and the same fixed command list. It only polls outward, so it needs no open port on the router's WAN. On 4 MB flash targets the diagnostics report is left out and only speed tests and ping summaries are sent. The collector server is not ported; it runs on the ISP's or specialist's server.
+The router build sends to the same `nmb-collector` as the Python box, with the same three consents (`enabled`, `share_diagnostics`, `allow_remote_control`) and the same fixed command list. It only polls outward, so it needs no open port on the router's WAN. On 4 MB flash targets the diagnostics report is left out and only speed tests and ping summaries are sent. The collector server is not ported to the router; it runs on the ISP's or specialist's server.
 

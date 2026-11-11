@@ -321,12 +321,11 @@ Answered by the owner on 2026-11-10:
    owner's box. It still measures a real line, so each time: a full backup first (settings, database, and the card's
    image before another system is written to it), a way back that was tried, the time recorded as the box's own
    action so that it is not counted against the ISP, and the Python version put back afterwards until the native
-   one has replaced it (Quality Bar point 5).
+   component has replaced its Python counterpart (Quality Bar point 5; component by component, point 19).
 6. **Signed updates: yes.** Updates and images are accepted only with a valid signature (package P-02). Proposed:
    an Ed25519 key pair made on the development PC, the private key kept outside every repository and image (and a
    copy kept offline by the owner), only the public key in the build; the release step signs, the box verifies
    before anything is written.
-
 7. **Disclaimer: answered (owner, 2026-11-11).** Every native component and surface carries the open-source warranty
    and liability exclusion together with a note on what the measurements are, in every UI language and from one
    source text (package P-08):
