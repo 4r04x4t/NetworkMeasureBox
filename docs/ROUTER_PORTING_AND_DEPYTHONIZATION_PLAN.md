@@ -601,7 +601,7 @@ Per target:
 
 ## 7J. Factory Reset with the Reset or WPS Button (Owner, 2026-11-12; Planned)
 
-On a router with a Reset button, a WPS button or both, holding either button for 10 seconds starts NMB's factory reset, but only when a USB stick is plugged in: the safety backup is written to the stick (plain, like the USB copy of 7I), then everything on the device is erased (settings, measurements, results and logs), as `nmb-factory-reset` does without `--keep-db`. Without a stick, or with a shorter press, nothing happens. The full requirement and the rules (only the device's own button counts, a stuck button is ignored, the backup is read back before anything is erased, the reset is refused when it cannot be written) are `DEPYTHONIZATION_ROADMAP.md` section 4.31; the packages are P-03, N-17, P-06 and P-10 of `NATIVE_WORK_PLAN.md`.
+On a router with a Reset button, a WPS button or both, holding either button for 10 seconds starts NMB's factory reset: everything on the device is erased (settings, measurements, results and logs), as `nmb-factory-reset` does without `--keep-db`. When a USB stick is plugged in, a safety backup is written to it first (plain, like the USB copy of 7I); without a stick the reset runs without a backup. A shorter press does nothing. The full requirement and the rules (only the device's own button counts, a stuck button is ignored, the backup is read back before anything is erased, a failing stick holds the reset until the button is held again without it) are `DEPYTHONIZATION_ROADMAP.md` section 4.31; the packages are P-03, N-17, P-06 and P-10 of `NATIVE_WORK_PLAN.md`.
 
 Rules on routers:
 
@@ -611,11 +611,11 @@ Rules on routers:
 
 Per target:
 
-| Target | Buttons | Button reset (needs a USB port for the stick) |
+| Target | Buttons | Button reset |
 | :--- | :--- | :--- |
-| ASUS RT-AXE7800, RT-AC57U v1 | To verify in each firmware analysis (roadmap *Order of Work*, step 2) | Planned (one USB port, 7I) |
-| TP-Link TL-WR1043ND v1, Archer C6 v2 | To verify; some TP-Link models have one combined WPS/Reset button | Planned if the model has a usable USB port (7I: to verify) |
-| ASUS RT-N12+, TP-Link TL-WR740N | To verify | Not available: no USB port (7I); the Web UI and CLI reset stay |
+| ASUS RT-AXE7800, RT-AC57U v1 | To verify in each firmware analysis (roadmap *Order of Work*, step 2) | Planned, with the backup to a stick in the USB port (7I) |
+| TP-Link TL-WR1043ND v1, Archer C6 v2 | To verify; some TP-Link models have one combined WPS/Reset button | Planned; the backup to a stick only if the model has a usable USB port (7I: to verify) |
+| ASUS RT-N12+, TP-Link TL-WR740N | To verify | Planned, always without a backup: no USB port (7I) |
 | MikroTik on OpenWrt; MediaTek Filogic boards | Per model, to verify (section 1.3) | Planned where the model has a button |
 | MikroTik RouterOS container | The container cannot see the buttons | Not available; RouterOS keeps its own reset |
 
