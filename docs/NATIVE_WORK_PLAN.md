@@ -216,6 +216,8 @@ The setup of roadmap 4.29 is not only C-11: M-01, M-02, M-04, N-01, N-03, R-01 t
 
 The USB copy of logs and results (roadmap 4.30, owner, 2026-11-11) is shared by four packages, and each brief lists it as a requirement: C-08 decides when and how often it is written, how it fits the storage guard, a full or pulled stick and wear; C-03 the logs on the stick; C-02 the form of the results copy; P-03 recognising and mounting a stick and the file systems accepted. The switch to turn it off belongs to C-01.
 
+The factory reset with the device's Reset or WPS button (roadmap 4.31, owner, 2026-11-12) is shared by four packages: P-03 owns the behaviour (hold time, the USB stick it needs, the backup on it, what is erased, the restore offered afterwards), N-17 finds the buttons and LEDs of a device, P-06 runs the privileged reset for the button's caller only, and P-10 brings the button event to `nmbd` on each base system (the input device on systemd bases, procd's button events on OpenWrt). Each brief lists it as a requirement.
+
 The Ookla add-on (roadmap 4.3A, owner, 2026-11-11) is M-10 alone: it is never linked into `nmbd` and never in the images or packages of P-10 and P-11; P-04 gives it the strict sandbox, P-08 lists it with its EULA when it is installed.
 
 F-02 may add, split or merge packages; every Python file, every roadmap section and every `TESTING.md` row
@@ -424,5 +426,12 @@ Decided by the owner later on 2026-11-11, without a package's question:
     and the box's own engines (Cloudflare, RTR-Netztest, Fast.com, iPerf3) stay the built-in ones. Ookla is kept for
     its many servers, ISP-hosted ones included, and the server search by name, sponsor and id stays. This narrows
     point 3. Package M-10; roadmap 4.3A; porting plan 7.8.
+27. **Factory reset with the device's button (owner, 2026-11-12).** If the device has a Reset or a WPS button, as
+    routers do, holding it starts a factory reset. The owner's answers: the button is held 10 seconds (a shorter press
+    does nothing); the reset runs only when a USB stick is plugged in: the safety backup is written to the stick,
+    plain like the USB copy of logs and results (point 25), and then everything on the device is erased (settings,
+    measurements, results and logs), as `nmb-factory-reset` does without `--keep-db`. Without a stick there is no
+    backup and no reset. Designed in P-03 (the backup on the stick, what is erased, the restore offered afterwards), N-17 (which buttons and LEDs a device has), P-06 (the privileged action and who may call it) and P-10
+    (how the button reaches `nmbd` on each base system). Roadmap 4.31; porting plan 7J.
 
 Still open: none.

@@ -599,6 +599,26 @@ Per target:
 | MikroTik on OpenWrt; MediaTek Filogic boards | Per model, to verify (section 1.3) | Planned where the model has a port |
 | MikroTik RouterOS container | The container cannot see USB devices (roadmap 4.27) | Only if RouterOS mounts the drive into the container; to verify |
 
+## 7J. Factory Reset with the Reset or WPS Button (Owner, 2026-11-12; Planned)
+
+On a router with a Reset button, a WPS button or both, holding either button for 10 seconds starts NMB's factory reset, but only when a USB stick is plugged in: the safety backup is written to the stick (plain, like the USB copy of 7I), then everything on the device is erased (settings, measurements, results and logs), as `nmb-factory-reset` does without `--keep-db`. Without a stick, or with a shorter press, nothing happens. The full requirement and the rules (only the device's own button counts, a stuck button is ignored, the backup is read back before anything is erased, the reset is refused when it cannot be written) are `DEPYTHONIZATION_ROADMAP.md` section 4.31; the packages are P-03, N-17, P-06 and P-10 of `NATIVE_WORK_PLAN.md`.
+
+Rules on routers:
+
+- **The button comes from the system.** On OpenWrt, procd reports the buttons of the board (`/etc/rc.button/reset`, `/etc/rc.button/wps`); NMB takes these events instead of OpenWrt's own reset script. On a base with systemd, `nmbd` reads the board's button input device.
+- **One reset, not two.** OpenWrt's own reset (`firstboot`) and the maker's reset on stock firmware erase the overlay or NVRAM. How they fit with NMB's reset, so that the device comes back reachable, is decided per target with its brick-risk line (7D).
+- **Which buttons a model has** is read from its firmware analysis (the device tree's `gpio-keys` node and the maker's button table), not assumed.
+
+Per target:
+
+| Target | Buttons | Button reset (needs a USB port for the stick) |
+| :--- | :--- | :--- |
+| ASUS RT-AXE7800, RT-AC57U v1 | To verify in each firmware analysis (roadmap *Order of Work*, step 2) | Planned (one USB port, 7I) |
+| TP-Link TL-WR1043ND v1, Archer C6 v2 | To verify; some TP-Link models have one combined WPS/Reset button | Planned if the model has a usable USB port (7I: to verify) |
+| ASUS RT-N12+, TP-Link TL-WR740N | To verify | Not available: no USB port (7I); the Web UI and CLI reset stay |
+| MikroTik on OpenWrt; MediaTek Filogic boards | Per model, to verify (section 1.3) | Planned where the model has a button |
+| MikroTik RouterOS container | The container cannot see the buttons | Not available; RouterOS keeps its own reset |
+
 ## 7F. Generic Code First, Routers After
 
 The native code is first written platform- and architecture-independent and proven on a PC (x86-64) and the Raspberry Pi 4 (ARM64), where development continues. The router targets in this plan are added afterwards as backends of the same code (service control, firewall, Wi-Fi, flash layout), not as separate programs. Rules and the build matrix (amd64 and arm64 built and tested; arm, mips and mipsle cross-compiled from the start) are in `DEPYTHONIZATION_ROADMAP.md` (*Generic First*).

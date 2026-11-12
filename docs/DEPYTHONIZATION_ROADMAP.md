@@ -494,6 +494,29 @@ The owner's words: "For many devices that have at least one USB port: by default
 - **Security (Quality Bar point 7):** a stick is input from outside. The copy only writes to it and runs nothing from it; the mount options and the checks are part of P-03's security review.
 - **Switching it off** is a setting (package C-01), since the owner made it a default.
 
+### 4.31 Factory Reset with the Device's Button (Owner, 2026-11-12)
+
+The owner's words: "If the device has a Reset and/or WPS button—like routers do—press it to perform a factory reset." The Python version has no button reset; its reset is `nmb-factory-reset --yes [--keep-db]` and the Web UI, both with an explicit confirmation (*Quality Bar*, the *Factory reset* row and *Behaviour that must carry over*). Holding the button is that confirmation: only someone at the device can give it.
+
+**Decided by the owner:**
+
+- **Where:** every device that has a Reset button, a WPS button, or both (the routers of the porting plan, section 7J; any other device whose kernel reports such a button). Either button starts it.
+- **Hold time:** 10 seconds. A shorter press does nothing.
+- **Only with a USB stick.** The reset runs only when a USB stick is plugged in. The safety backup (the settings and the measurement database) is written to the stick first; then everything on the device is erased (settings, measurements, results and logs), the same as `nmb-factory-reset` without `--keep-db`. Without a stick there is no backup and no reset: holding the button does nothing, and the LED and the log say why.
+- **The backup is written plain**, like the USB copy of logs and results (4.30), so it can be read on any computer. It holds the settings' secrets (Wi-Fi and admin passwords, VPN keys, tokens), so whoever has the stick has them; the owner accepted this (Quality Bar point 7: an owner decision, stated in the manual and in the setup after the reset).
+
+**Rules for the packages (developer's remit; the owner can overrule each):**
+
+- **Only the device's own button counts.** A key of the device's button driver (the Linux `gpio-keys` driver or the board's own) reporting the reset or the WPS key, or procd's `reset` and `wps` button events on OpenWrt. Never a virtual input device, a key from another program, or anything that arrives over the network (Quality Bar point 7).
+- **Timing.** The reset starts when the button is released after being held at least 10 seconds. Released earlier: nothing happens. Held longer than 60 seconds: treated as stuck, nothing happens, and it is logged. A button that is already pressed when the device starts is ignored until it has been released once.
+- **Feedback.** Where the device has a status LED, it blinks fast from 5 seconds on and shows when the reset starts or is refused; a log line and an event in every case.
+- **Backup first, checked.** The backup is written to the stick and read back before anything is erased. If it cannot be written whole (the stick is full, read-only, pulled out or fails), the reset does not run; the LED and the log say so. The reset from the Web UI or `nmb-cli`, with their own confirmation, stays as it is and does not need a stick. The backup is a function of its own (P-03), not part of the USB copy of 4.30, and it is never deleted by that copy's rotation.
+- **After the reset** the device starts with factory settings, a new Wi-Fi password unique to the device (*Quality Bar*, *Factory reset* row), and the setup offers to restore the backup from the stick.
+- **The WPS button** has no other function: NMB does not offer WPS. A short press of either button does nothing.
+- **Devices without such a button** (the Raspberry Pi 4, most x86-64 PCs) have no button reset; the Web UI and `nmb-cli` reset stay. A button wired to the Raspberry Pi's GPIO is not planned; the owner may ask for it later.
+
+**To be designed, and who decides it (work plan packages):** P-03 (the backup's layout and name on the stick, how a stick is chosen when several are plugged in, how it is restored, the order of erasing; the mount rules of 4.30 apply); N-17 (how a device's buttons and LEDs are found: the kernel's input devices and the board data recorded in the image analyses); P-06 (the privileged reset action, callable only by the button watcher and the confirmed Web UI and CLI routes); P-10 (how the button event reaches `nmbd`: the input device on systemd bases, procd's button events on OpenWrt) and, per router, how NMB's reset and the system's own reset (OpenWrt's `firstboot`, the maker's reset on stock firmware) fit together so that the device comes back reachable.
+
 ## 5. Architectural Proposal: The Unified Single-Binary Monolith (`nmbd`)
 
 Instead of maintaining multiple distinct daemons and spawning external helper binaries with high process overhead, the ultimate embedded architecture unifies all components into a single multi-call static binary:
