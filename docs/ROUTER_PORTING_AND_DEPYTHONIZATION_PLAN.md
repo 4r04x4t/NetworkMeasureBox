@@ -225,6 +225,7 @@ Asuswrt-Merlin provides a persistent writable partition at `/jffs`. We integrate
      fi
      ```
    - `services-stop`: Graceful shutdown and database flush to `/jffs/nmb/persist/`.
+5. **USB drive (owner, 2026-11-11):** with a drive in the USB 3.0 port, logs and results are also copied to it (section 7I).
 
 ### 4.3 Broadcom Flow Cache (Runner/fcache) Acceleration Awareness
 Broadcom BCM6756 uses hardware packet acceleration (`bcm_enet`, Runner DHD offload, `fcache`).
@@ -398,7 +399,7 @@ To run NetworkMeasureBox on the TP-Link TL-WR740N v4.23:
 3. **Zero Flash Wear Architecture (100% RAM-Only Execution)**:
    - **Rule**: `nmbd-micro` NEVER writes logs or database records to SPI NOR flash. NOR flash has limited erase cycles (~10,000 to 100,000 cycles), and continuous writes will destroy the router within weeks.
    - All runtime metrics are held in a circular ring buffer in `/tmp/nmb/ring.bin` (tmpfs).
-   - If power is cut, historic telemetry is lost, but flash is preserved forever.
+   - If power is cut, historic telemetry is lost, but flash is preserved forever. (The TL-WR740N has no USB port, so the USB copy of section 7I does not apply here.)
    - For long-term historical reporting, `nmbd-micro` streams daily/hourly rollups to an external NetworkMeasureBox server, syslog server, or cloud endpoint via a single compressed HTTP POST.
 
 ---
@@ -486,12 +487,12 @@ To run NetworkMeasureBox on the TP-Link TL-WR740N v4.23:
 ### 7.8 Native Multi-Engine Speedtest Client in Pure C/Go (Zero-Dep Sockets)
 - **Current Architecture**: Python subprocess invoking official `speedtest` Ookla CLI, RTR-NetTest, or Cloudflare Edge.
 - **Native Implementation (`speedtest_engine.c` / `speedtest.go`)**:
-  - **Ookla Protocol Emulation**: Connects to nearest Speedtest.net server over TCP port 8080 or HTTPS port 5060, streaming parallel unthrottled HTTP chunked GET/POST streams (`/download`, `/upload`).
+  - **Ookla: an optional add-on, not a built-in engine (owner, 2026-11-11).** This section first planned an "Ookla Protocol Emulation" inside `nmbd` (a native client of the Speedtest.net servers) and, in its last line, the removal of the closed-source Ookla binary. Both are withdrawn. Ookla may be offered on routers too, for every architecture Ookla ships a build for, but only as Ookla's own CLI, installed separately as an add-on, never as part of `nmbd` (MIT) and never in an NMB image: the CLI is closed source under Ookla's own EULA, which (clause (f) included) is shown before the user accepts it. It is kept for its many servers, ISP-hosted ones included, with the server search by name, sponsor and id. No Ookla build for MIPS is recorded in the plans, so the MIPS targets of this plan (TL-WR740N, TL-WR1043ND v1, Archer C6 v2, RT-N12+, RT-AC57U v1, the MT7620/MT7621 family, the MikroTik hEX) have no Ookla add-on unless package M-10 finds an official build; the UI says it is not available there. Where it fits on a router with little flash is decided by M-10 per target. Details: `DEPYTHONIZATION_ROADMAP.md` section 4.3A; `NATIVE_WORK_PLAN.md` section 7, point 26.
   - **Cloudflare Edge Engine**: Fetches 25MB, 50MB, 100MB chunk files directly from `speed.cloudflare.com/__down?bytes=...` using pre-warmed keep-alive HTTP/1.1 sockets.
   - **RTR-NetTest / Open-RMBT Protocol**: Implements the official European RTR-NetTest JSON token handshake and multi-thread TCP socket sink.
   - **Fast.com (Netflix) Engine**: The same method as the Python reference (`nmb/speed/fastcom.py`): Fast.com's API for up to five Open Connect servers, `range/0-0` latency, 16 streams over the servers for 15 s each way over plain HTTP, the stable speed, loaded latency and per-server detail. Plain HTTP matters most on routers: TLS decryption on a 880 MHz MIPS or a Cortex-A72 without AES instructions caps the result below a gigabit line.
   - **CPU-Efficient Zero-Copy Sinks**: Incoming packets are received via `splice()` or `recv()` into a static 64 KB buffer without memory allocation, calculating Mbps throughput in real-time.
-  - Eliminates the 22 MB closed-source Ookla binary and all Python runtime overhead.
+  - Eliminates all Python runtime overhead. The built-in engines are Cloudflare, RTR-NetTest (RMBT), Fast.com and iPerf3; the Ookla CLI is not eliminated but stays outside `nmbd` as the optional add-on above (changed 2026-11-11).
 
 ### 7.9 Autonomous Self-Healing & Safety Rollback Engine (`nmb_heal`)
 - **Native Implementation**:
@@ -558,7 +559,7 @@ Terminal interface and changelog in ports:
 
 ## 7G. USB Tethering on Routers
 
-Routers with a USB port get the USB tethering link of the native build (phone, 5G/4G hotspot or modem as a measuring link, as the only internet, and as backup WAN), with the same rules as on the Raspberry Pi 4: never the wired line, never a LAN port, no default route unless nothing else has one, its own data limit, results stored as mobile, and the DHCP guard in router mode. Kernel packages per target, flash limits and the MikroTik container limitation are in `DEPYTHONIZATION_ROADMAP.md` (section 4.27). Targets without USB (TL-WR740N, RT-N12+) do not have it; on the RT-AXE7800, RT-AC57U v1, RB5009 and the Filogic boards it is planned.
+Routers with a USB port get the USB tethering link of the native build (phone, 5G/4G hotspot or modem as a measuring link, as the only internet, and as backup WAN), with the same rules as on the Raspberry Pi 4: never the wired line, never a LAN port, no default route unless nothing else has one, its own data limit, results stored as mobile, and the DHCP guard in router mode. Kernel packages per target, flash limits and the MikroTik container limitation are in `DEPYTHONIZATION_ROADMAP.md` (section 4.27). Targets without USB (TL-WR740N, RT-N12+) do not have it; on the RT-AXE7800, RT-AC57U v1, RB5009 and the Filogic boards it is planned. The same USB port also takes the drive for the copy of logs and results (7I).
 
 ## 7H. Missing Parts: Looking in the Maker's Firmware (Owner, 2026-11-10; Planned)
 
@@ -574,6 +575,29 @@ When something a target needs does not work under OpenWrt or the other candidate
 5. **Security.** Stock parts are often old: their version is recorded and checked against known vulnerabilities, they never face the WAN, and a part with a known exploitable hole is not used. Quality Bar point 7 applies to them as to NMB's own code.
 6. **Written down per target, before use.** Each target gets a table: what is missing in OpenWrt (or the other system); where it was found in the stock firmware (file path, version, SHA-256, firmware file it came from); how it is used (open driver plus firmware file, rebuilt from GPL source, vendor kernel only, sandboxed tool, or *not usable*, with the reason); its licence; and the real-device test. A part that cannot be used makes the feature **unavailable on that target**, said plainly in the UI; it is never faked.
 7. **Material and method.** The stock firmware files downloaded on 2026-11-10 (roadmap section 6B.4) are unpacked and inventoried read-only on the development PC (never flashed for this), with the firmware-analysis procedure: kernel version and configuration, modules, `/lib/firmware`, NVRAM defaults, device tree, user-space tools and their libraries. Findings go into the table above; tests on the real device follow section 7D (recovery path first).
+
+## 7I. Logs and Results on a USB Drive (Owner, 2026-11-11; Planned)
+
+On every router with at least one USB port, the logs and the results are saved also to a USB drive, by default, before the internal flash fills up, and so that they are there after a power cut. This matters most on the routers with very little flash, where the logs otherwise live only in a RAM ring buffer (7D) and are lost when the power goes. Any USB stick is used automatically, without a confirmation per stick, and the copy is written plain, not encrypted. The full requirement, and which package designs what the owner left open (when and how often it is written, file systems, wear, a full or pulled stick), is `DEPYTHONIZATION_ROADMAP.md` section 4.30; the packages are C-03, C-08, C-02 and P-03 of `NATIVE_WORK_PLAN.md`.
+
+Rules on routers:
+
+- **Before the flash fills, not after.** The copy is written before the overlay or data partition is full; how it fits the storage guard is decided in package C-08.
+- **The flash rules stay.** The flash-safe logging of 7D and the no-flash-writes rule of section 6.2 are not loosened by the USB copy; on a target that writes nothing to flash, the drive is the only place the data survives a power cut.
+- **Kernel packages:** a USB storage driver and the file systems that P-03 accepts must fit the target's image; on 8 MiB flash that is checked when the image is built. A target where they do not fit has no USB copy, and the UI says so (the parity table of `DEPYTHONIZATION_ROADMAP.md` 6B.8).
+- **One port, two uses.** On a router with one USB port, the port holds either the drive or a USB hotspot (7G), unless a hub is used.
+
+Per target:
+
+| Target | USB port | USB copy |
+| :--- | :--- | :--- |
+| ASUS RT-AXE7800 | 1x USB 3.0 (section 4.1) | Planned, beside the `/jffs` snapshots of section 4.2 |
+| ASUS RT-AC57U v1 | 1x USB 2.0 (section 1.2) | Planned |
+| TP-Link TL-WR1043ND v1 | Not recorded in section 1.2; to verify in its firmware analysis (roadmap *Order of Work*, step 2) | Planned if it has a usable port (8 MiB flash) |
+| TP-Link Archer C6 v2 | Not recorded in section 1.2; to verify | Only if it has a usable port |
+| ASUS RT-N12+, TP-Link TL-WR740N | None (sections 1.1 and 5.1) | Not available; the RAM-only rules of sections 5 and 6 stay |
+| MikroTik on OpenWrt; MediaTek Filogic boards | Per model, to verify (section 1.3) | Planned where the model has a port |
+| MikroTik RouterOS container | The container cannot see USB devices (roadmap 4.27) | Only if RouterOS mounts the drive into the container; to verify |
 
 ## 7F. Generic Code First, Routers After
 
@@ -616,7 +640,7 @@ Per target: on 8 MiB flash WireGuard and `dropbear` fit; on the 4 MiB TL-WR740N 
 
 - **Structured logs** (one JSON object per line: time, level, component, event, values) from every component, so people and LLM agents can search and parse them.
 - **Debug level switchable at run time,** per component, without a restart, and back to normal automatically after a set time.
-- **Flash-safe:** on routers with small NOR/NAND flash the logs live in a RAM ring buffer (as already required for `nmbd-micro`); they are written to flash only in small, rare blocks, or sent out (syslog, the central collector, or a developer's machine). The storage guard rules of the Pi version apply: logs never fill the disk.
+- **Flash-safe:** on routers with small NOR/NAND flash the logs live in a RAM ring buffer (as already required for `nmbd-micro`); they are written to flash only in small, rare blocks, or sent out (syslog, the central collector, or a developer's machine). Where the router has a USB port, they are also copied to a USB drive before the flash fills up (7I, owner, 2026-11-11). The storage guard rules of the Pi version apply: logs never fill the disk.
 - **Crash evidence survives a reboot:** the last log lines, the stack/core summary and the reason of the last restart are kept (in a reserved RAM area or a small dedicated file) and shown after boot.
 - **One command for a full report:** `nmb-cli bundle` (or the Web UI) packs logs, configuration with secrets masked, versions, interfaces, routes and recent events for the developer.
 

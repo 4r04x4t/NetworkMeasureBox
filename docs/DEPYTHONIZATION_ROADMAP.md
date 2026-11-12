@@ -140,8 +140,20 @@ flowchart TD
 - **Go Blueprint**:
   - Multi-stream parallel HTTP/2 and HTTP/1.1 download worker pool (4–16 goroutines).
   - Explicit socket source binding via `net.Dialer.Control` applying `SO_BINDTODEVICE` or `IP_BIND_ADDRESS_NO_PORT` to enforce interface binding (wired Ethernet priority).
-  - Native Ookla HTTP protocol, Cloudflare Speed protocol (`/cdn-cgi/trace` + chunk down/up), and RTR-Netztest RMBT protocol.
+  - Cloudflare Speed protocol (`/cdn-cgi/trace` + chunk down/up), RTR-Netztest RMBT protocol, Fast.com (Netflix) and iPerf3 as the built-in engines. Ookla is not one of them: it is the optional add-on of 4.3A (owner, 2026-11-11; this replaces the "native Ookla HTTP protocol" planned here before).
   - Concurrent background ICMP ping running during speedtest for real-time **Bufferbloat grade calculation**.
+
+### 4.3A Ookla as an Optional Add-on, on Every Architecture Ookla Supports (Owner, 2026-11-11)
+
+Ookla stays in the native build, on the PC, the Pi 4 and the routers, but as an extension. It is not a built-in function and not a built-in measuring engine of `nmbd`.
+
+- **Why Ookla at all:** it has many servers, ISP-hosted ones included, so a customer can measure against a server of the own ISP. The server search by name, sponsor and server id stays, as in the Python reference (`nmb/speed/ookla.py`).
+- **Licence:** the Ookla CLI is closed source under Ookla's own EULA. It is therefore never part of `nmbd` (MIT; work plan section 7, point 9) and never in an NMB image or package. It is a separately installed add-on, fetched from Ookla's own download address and accepted only with a known checksum, as the Python version does (`setup.sh`).
+- **Acceptance first:** Ookla's EULA, its clause (f) included, is shown before the user accepts it; Ookla runs only after that acceptance, and the user can withdraw it. NMB never accepts it for the user (register, *Measurement honesty*). Its other rules stay: the strict sandbox for third-party code (6B.5), the hourly limit for scheduled runs and the pause after a refusal (*Rules from fixes*, 4.25).
+- **The built-in engines stay the box's own:** Cloudflare, RTR-Netztest (RMBT), Fast.com (Netflix) and iPerf3. Without the add-on the box measures fully with them.
+- **Architectures:** the add-on is offered for every architecture Ookla ships a Linux build for. The Python version uses Ookla's builds for `x86_64`, `aarch64` and `armhf`. No Ookla build for MIPS is recorded in these plans, so the MIPS routers have no Ookla add-on unless the analyst of package M-10 finds an official one; there the UI says it is not available (the parity table of 6B.8). Whether Ookla's builds run on musl (OpenWrt) is not checked yet (6A, criterion 6); M-10 checks it per architecture.
+- **Decided in package M-10:** how the add-on is installed, updated and removed, and on a router with little flash where it is kept or whether it fits at all.
+- **On the licence page (6B.3A)** the add-on is listed with its EULA when it is installed.
 
 ### 4.4 Web Server, REST API & Embedded Dashboard (`nmb-web`)
 - **Current Bottleneck**: Python's `ThreadingHTTPServer` spawns OS threads per request and requires Python filesystem access.
@@ -179,6 +191,7 @@ The native build gets a lighter, faster Web UI with **every function of the Pyth
   - Pure Go SQLite driver (`modernc.org/sqlite` or `github.com/glebarez/go-sqlite`).
   - **Zero CGO**: Compiles statically for `mips`, `mipsel`, `arm`, `arm64`, and `x86_64` without installing any C cross-compiler!
   - RAM database on `/run/nmb/live.db` (WAL mode enabled), synchronized to persistent flash storage `/var/lib/nmb/persist/nmb.db` every 15 minutes.
+  - On a device with a USB port, the results are also copied to a USB drive (4.30, owner, 2026-11-11).
 
 ### 4.6 Native RTR-NetzTest (Open-RMBT) Engine (`rmbt-client`)
 - **Current Architecture**: Native C client compiled from `components/open-rmbt/` into `/usr/local/bin/rmbt-client`, invoked as a subprocess by Python's speed engine with JSON stdout parsing.
@@ -295,7 +308,7 @@ The native build gets a lighter, faster Web UI with **every function of the Pyth
   - Asynchronous worker polling Telegram Bot API `getUpdates` over HTTPS.
   - Interactive Inline Keyboards providing touch menus for:
     - 📊 Status & Instant Ping Matrix
-    - ⚡ On-Demand Speedtest (Ookla, Cloudflare, RMBT, iPerf3)
+    - ⚡ On-Demand Speedtest (Cloudflare, RMBT, Fast.com, iPerf3; Ookla only where its add-on of 4.3A is installed and accepted)
     - 📑 Regulatory SLA Dossier Export (.html) & LLM Diagnostic Snapshot (.md)
     - 🛡️ Tailscale, WireGuard & OpenVPN Status & QR Delivery (only under the secrets rule below)
     - 🌐 Multi-language switcher (HU, EN, DE, FR, UK) with zero mixed-language leaks.
@@ -376,6 +389,7 @@ The native build gets a lighter, faster Web UI with **every function of the Pyth
   - Continuous measurement of disk I/O wait percentage (`%iowait`) from `/proc/stat` delta counters to detect failing microSD cards or flash storage bottlenecks.
   - Filesystem wear and free capacity tracking via standard POSIX `statvfs()`.
   - Kernel I/O Error Trap: Reads `/dev/kmsg` non-blocking to filter for hardware storage errors (`mmc0: timeout`, `I/O error`, `EXT4-fs error`, `squashfs corruption`).
+  - Where the device has a USB port, logs and results are also written to a USB drive before the internal storage fills up (4.30, owner, 2026-11-11).
 
 ### 4.24 Sanitized Configuration & PII/Secret Masking Engine
 - **Current Architecture**: Regex filters inside report exporter.
@@ -404,7 +418,7 @@ Each of these runs on the Raspberry Pi 4 test box and is recorded in `docs/TESTI
 - **Measuring over Wi-Fi** (`nmb/netd/wifi_uplink.py`): `[network] measurement_link` = `auto`, `ethernet` or `wifi`; `[wifi_uplink]` with its own NetworkManager profile `nmb-uplink`; a source rule `from <wifi ip> lookup 150` so a test bound to Wi-Fi leaves over Wi-Fi even when Ethernet holds the default route. Also when the Wi-Fi was joined outside NMB.
 - **Wi-Fi shared on a LAN port** (`nmb/netd/wifi_share.py`): own DHCP (dnsmasq with `--port=0`), NAT in its own nftables table, the shared subnet in routing table 151. Never serves DHCP where another server answers: a DHCPDISCOVER sent three times, replies read from a packet socket for 8 s, before starting, every minute, and right after a cable is plugged in with its own DHCP stopped first.
 - **Wireless roles**: each wireless interface is the guest client or the main client, never both; with `interface = auto` the main client skips the radio of an enabled guest client.
-- **Storage guard** (`nmb/common/storage_guard.py`): free-space target from the disk size (15 % ≤ 2 GB, 10 % ≤ 16 GB, 5 % above; 200 MB to 2 GB), deletes in a fixed order (rotated logs, bundles, crash reports; backups but the newest; reports; journal; large active logs; only then measurements, a day at a time, keeping `keep_days`). On routers it applies to the overlay or data partition.
+- **Storage guard** (`nmb/common/storage_guard.py`): free-space target from the disk size (15 % ≤ 2 GB, 10 % ≤ 16 GB, 5 % above; 200 MB to 2 GB), deletes in a fixed order (rotated logs, bundles, crash reports; backups but the newest; reports; journal; large active logs; only then measurements, a day at a time, keeping `keep_days`). On routers it applies to the overlay or data partition. In the native build, on a device with a USB drive in use, logs and results are copied to the drive before the internal storage fills up (4.30).
 - **iPerf3 server names**: from the public iPerf3 list, else city, country and ISP of the address from GeoIP, also for older rows that stored only the address; a failed lookup is not repeated for an hour.
 - **USB tethering** (`nmb/netd/usb_uplink.py`): phones, mobile hotspots and modems on USB are recognised by their driver (`rndis_host`, `cdc_ncm`, `cdc_ether`, `ipheth`, `qmi_wwan`, `cdc_mbim`; USB Ethernet dongles stay wired), never as the wired line, and never as a LAN port (the default LAN name `eth1` is often the hotspot). `[usb_uplink]` gives the device its own profile without the default route, a source rule (table 152) and `measurement_link = usb`; results over USB are stored as mobile; tests over USB have their own daily data limit. **Only internet:** when neither Ethernet nor Wi-Fi has a default route, the box adds one through USB (metric 900) and removes it as soon as another comes back, writing both switches as events. **Router mode on USB:** in Mode A, when no DHCP server answers on the WAN port (a PC plugged in is fine, the home router is not), USB becomes the WAN and the single Ethernet port joins the LAN bridge with the Wi-Fi access point, so wired and Wi-Fi clients get the mobile internet; checked every minute, and a DHCP server appearing on the port stops the box's DHCP at once and puts the port back as WAN. **Sharing on the LAN port** (`wifi_share`) takes USB as its upstream when the Wi-Fi uplink is down. Tested with a Netgear Nighthawk M6 Pro (US AT&T model) over 5G. In the native build the same rules apply on every device with a USB port, routers included (a hotspot as backup WAN).
 - **Languages**: the Web UI texts are keyed; the native build reads the same keys and the JSON files in `nmb/web/locales/` and `nmb/report/locales/` (11 languages). A missing text is never silent (owner, 2026-11-11): the built-in texts are complete in every language, or the build fails (4.4A point 6). A key that is still missing at run time (for example from an add-on) shows the English text, visibly marked as untranslated; it is logged, and it is listed in the self-test and in the diagnostic bundle.
@@ -458,6 +472,27 @@ A result means something else when the box sat behind another router than when i
 - **History:** netd records a row whenever the mode, the link, its kind or its position changes (and at stop), so a ping minute or an outage is read against the setup of its time; an outage takes the last record before it, because during an outage the link may be gone.
 - **Every surface shows it:** the speed, detailed, ping and outage CSVs (codes, appended after the old columns), the SLA dossier (a setup section with the periods, a column in the test and outage tables, a warning for tests behind another router), the diagnostic bundle, the e-mail, the Web UI (latest result, history, header), the bot (`/test`, `/status`), `nmb-cli`, the collector (codes only; the box's own address stays on the box). A report window with more than one setup says so.
 - **Old data:** the native build reads the Python database including these columns and the `network_state` history; the one-time reconstruction of older rows is not repeated.
+
+### 4.30 Copy of Logs and Results on a USB Drive (Owner, 2026-11-11)
+
+The owner's words: "For many devices that have at least one USB port: by default, logs should be saved (also) to the USB drive before the internal storage fills up—for example, on routers with very limited capacity—or before a power outage occurs and the results are needed." There is no Python reference; it is new in the native build.
+
+**Decided by the owner:**
+
+- **Where:** every device with at least one USB port (x86-64 boxes, the Raspberry Pi 4, NMB's own distribution, and the routers with USB; porting plan 7I).
+- **What:** the logs and the measurement results, as a copy beside the internal storage, not instead of it.
+- **When:** before the internal storage fills up, and so that the results are on the drive when a power cut comes.
+- **On by default.** Any USB stick is used automatically; the user does not confirm each stick.
+- **Written plain, not encrypted.** The copy can be read on any computer. It holds no passwords, tokens or keys, because these never reach the logs or the results (Quality Bar point 7, 4.24). It does hold measurement data and the public address. Settings, keys and backups are not part of this copy; a backup to USB stays a function of its own (package P-03).
+
+**To be designed, and who decides it (work plan packages):**
+
+- **C-08 (storage guard, flash health):** when and how often the copy is written, so that a power cut loses as little as possible; how the copy and the storage guard's order of deletion (4.26) fit together, so that what the guard would delete is on the drive first; what happens when the stick is full, fails, or is pulled out during a write; and the wear of the stick.
+- **C-03 (logs):** which logs are copied, their format and rotation on the stick.
+- **C-02 (database, results export):** which results are copied and in which form (for example the CSV files of R-02 or a database snapshot), so that they can be read without the box.
+- **P-03 (USB import and backup):** recognising and mounting a stick, which file systems are accepted, and how the copy lives next to USB import on the same stick.
+- **Security (Quality Bar point 7):** a stick is input from outside. The copy only writes to it and runs nothing from it; the mount options and the checks are part of P-03's security review.
+- **Switching it off** is a setting (package C-01), since the owner made it a default.
 
 ## 5. Architectural Proposal: The Unified Single-Binary Monolith (`nmbd`)
 
@@ -1022,7 +1057,7 @@ They are working material for the 6A evaluation, the cross builds and the 6B.3 t
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Probe Engine** | Python socket / ping | **Go** (Tier 1) / **C** (Tier 2) | `golang.org/x/net/icmp` / `epoll` | 35MB $\to$ **1.2MB** | Python 3, raw ping binary |
 | **Network Router** | Python + `subprocess(ip)` | **Go** / **C** | `vishvananda/netlink` / `libnl-tiny` | 38MB $\to$ **1.8MB** | `/sbin/ip`, `/sbin/route`, `ethtool` |
-| **Speedtest Engine** | Python + Ookla CLI | **Go** | `net/http` multi-stream + `crypto/tls` | 45MB $\to$ **3.5MB** | Python GIL, ookla binary |
+| **Speedtest Engine** | Python + Ookla CLI | **Go** | `net/http` multi-stream + `crypto/tls` | 45MB $\to$ **3.5MB** | Python GIL (the Ookla CLI is not eliminated: it stays a separately installed add-on, 4.3A, owner 2026-11-11) |
 | **Open-RMBT** | C binary (`rmbt-client`) | **C** / **Go** | Native C TCP chunk client / Go TCP | 18MB $\to$ **1.5MB** | Subprocess fork/exec |
 | **OONI Probe** | Python wrapper + CLI | **Go** (runner only) | `ooniprobe` run as a sandboxed program (GPL-3.0, not built in; owner 2026-11-11) | not measured | none (the program stays) |
 | **iPerf3 Engine** | Python + `subprocess(iperf3)` | **Go** / **C** | Embedded Go iPerf3 protocol / `libiperf.a` | 25MB $\to$ **1.5MB** | External `iperf3` package |
@@ -1087,7 +1122,7 @@ upx --best --lzma dist/nmbd-mipsle -o dist/nmbd-mipsle-compressed
 By executing this De-Pythonization blueprint, NetworkMeasureBox will transform from a Python-dependent SBC application into an **industrial-grade, single-binary network appliance (`nmbd`)**:
 - **RAM footprint** drops from ~180MB down to **10MB – 18MB RSS**.
 - **CPU utilization** during idle background monitoring drops from 15% down to **<0.5%**.
-- **External package dependencies** (Python, Pip, OONI package, qrencode, iperf3, pciutils, etc.) are **100% eliminated**.
+- **External package dependencies** (Python, Pip, qrencode, iperf3, pciutils, etc.) are **100% eliminated**. Two programs stay separate on purpose: `ooniprobe` (GPL-3.0, 4.7) and the optional Ookla add-on (closed source, 4.3A).
 - **Line-rate throughput**: Full multi-gigabit (1Gbps – 10Gbps) saturation capability without GIL bottlenecks.
 - **Portability**: Native execution across OpenWrt, Debian, Ubuntu, Alpine, and embedded Busybox environments.
 

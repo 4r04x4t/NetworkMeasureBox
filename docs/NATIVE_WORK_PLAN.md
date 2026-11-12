@@ -118,14 +118,14 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 | Id | Package | Python reference | Roadmap |
 | :--- | :--- | :--- | :--- |
 | C-01 | Configuration: load, validate, defaults, atomic locked save | `nmb/config.py` | Phase 0, rules from fixes |
-| C-02 | Database: RAM live copy, snapshots, retention, migration from a Python database | `nmb/db/` | 4.5 |
-| C-03 | Structured log, run-time debug level, crash evidence | `nmb/devlog.py`, `report/crash_trap.py` | 7D, 4.15 |
+| C-02 | Database: RAM live copy, snapshots, retention, migration from a Python database; the results copy on a USB drive | `nmb/db/` | 4.5, 4.30 |
+| C-03 | Structured log, run-time debug level, crash evidence; the log copy on a USB drive | `nmb/devlog.py`, `report/crash_trap.py` | 7D, 4.15, 4.30 |
 | C-04 | Secret masking | `common/redact.py`, `secret_keep.py` | 4.24 |
 | C-05 | Addresses, version, user agent, monotonic time helpers | `common/netaddr.py`, `version.py`, `user_agent.py` | QB 6 |
 | C-06 | Translations: keys, 11 languages, build checks | `web/i18n.py`, `bot/i18n.py`, the `locales/` folders | 4.26, 4.4A point 6 |
 | C-07 | Events and own-action windows | `common/own_action.py` | register |
 | C-11 | Measurement setup: classification, history, the words in 11 languages | `common/net_setup.py`, `common/setup_texts.py`, `db/setup_backfill.py` | 4.29 |
-| C-08 | Storage guard, purge, memory and flash health | `common/storage_guard.py`, `purge.py`, `memory.py` | 4.23, 4.26 |
+| C-08 | Storage guard, purge, memory and flash health; when the USB copy is written | `common/storage_guard.py`, `purge.py`, `memory.py` | 4.23, 4.26, 4.30 |
 | C-09 | Tasks and load from `/proc`, IRQ and offload telemetry | `common/tasks.py` | 4.13, 4.22 |
 | C-10 | Country data files and location | (new) | QB 9 |
 
@@ -142,7 +142,7 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 | M-07 | Fast.com engine | `speed/fastcom.py` | 4.26 |
 | M-08 | RTR (RMBT) engine | `speed/rtr.py`, `components/open-rmbt` | 4.6 |
 | M-09 | iPerf3 client, server names, local server | `speed/iperf.py`, `iperf_directory.py` | 4.8 |
-| M-10 | Ookla engine (see section 7) | `speed/ookla.py` | 4.3 |
+| M-10 | Ookla as a separately installed add-on, not a built-in engine (see section 7) | `speed/ookla.py` | 4.3, 4.3A |
 | M-11 | Traceroute, port check, packet capture | `speed/traceroute.py`, `port_checker.py`, `sniffer/` | — |
 | M-12 | DNS audit, STUN and NAT, public address | `netd/dns.py`, `netd/geoip.py` | 4.20, 4.21 |
 | M-13 | OONI | `probe/ooni.py` | 4.7 |
@@ -200,7 +200,7 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 | :--- | :--- | :--- | :--- |
 | P-01 | Self-healing watchdog | `common/heal.py` | 4.12 |
 | P-02 | Updates: file upload and channel, signature, try and roll back | `common/updater.py` | 6B.3, 7D |
-| P-03 | Backup, restore, USB import, factory reset, unique password per device | `common/backup.py`, `usb_import.py`, `bin/nmb-factory-reset` | QB 7, Phase 0 |
+| P-03 | Backup, restore, USB import, recognising and mounting USB drives (also for the copy of 4.30), factory reset, unique password per device | `common/backup.py`, `usb_import.py`, `bin/nmb-factory-reset` | QB 7, Phase 0, 4.30 |
 | P-04 | Sandbox profiles and their tests | `systemd/` units | 6B.5 |
 | P-05 | Maintenance mode, audit log with its off-device target, browser terminal | (new); browser terminal: `web/server.py` (`/api/terminal/exec`) | 7D |
 | P-06 | Privileged helper with allow-lists | `bin/nmb-helper` | register |
@@ -214,6 +214,10 @@ of at most about 1,500 lines, or one protocol). A bigger one is split by its ana
 
 The setup of roadmap 4.29 is not only C-11: M-01, M-02, M-04, N-01, N-03, R-01 to R-05, S-02, U-02, S-10, S-11 and S-12/S-13 each show or store it, and their briefs list it as a requirement.
 
+The USB copy of logs and results (roadmap 4.30, owner, 2026-11-11) is shared by four packages, and each brief lists it as a requirement: C-08 decides when and how often it is written, how it fits the storage guard, a full or pulled stick and wear; C-03 the logs on the stick; C-02 the form of the results copy; P-03 recognising and mounting a stick and the file systems accepted. The switch to turn it off belongs to C-01.
+
+The Ookla add-on (roadmap 4.3A, owner, 2026-11-11) is M-10 alone: it is never linked into `nmbd` and never in the images or packages of P-10 and P-11; P-04 gives it the strict sandbox, P-08 lists it with its EULA when it is installed.
+
 F-02 may add, split or merge packages; every Python file, every roadmap section and every `TESTING.md` row
 must end up in exactly one package, and the register's check fails otherwise.
 
@@ -223,6 +227,8 @@ must end up in exactly one package, and the register's check fails otherwise.
 2. Core (C), then in parallel Measuring (M), Network (N) and Reports (R) as their contracts allow.
 3. Surfaces (S, U) on top of them; System and product (P) alongside.
 4. P-10 to P-13 last. Step 1 ends with P-13 accepted and the owner's acceptance of any remaining known limit.
+
+The USB copy of roadmap 4.30 is part of step 1, because the PC and the Pi 4 have USB ports; what only routers need (little flash, the targets' own notes) comes with each router's port. The Ookla add-on of roadmap 4.3A is built in step 1 for the architectures of this step that Ookla ships a build for; for a router it comes with that router's port, and only if Ookla supports its architecture.
 
 ## 5. The downloaded images and firmware: taking apart, analysing, using
 
@@ -314,6 +320,9 @@ Answered by the owner on 2026-11-10:
    and its licence is clear), only after the user has accepted Ookla's terms, and never working around a refusal. A
    native engine replaces it only if it gives the same results on the same line and Ookla's terms allow it; the
    analyst of M-10 reads those terms first and writes the finding into the brief.
+   **Narrowed (owner, 2026-11-11):** Ookla is an extension, not a built-in function or measuring engine, so it
+   stays Ookla's own program installed as a separate add-on, and a native Ookla engine inside `nmbd` is no longer
+   planned. Point 26 below; roadmap 4.3A.
 4. **Base of the own distribution: after the images are analysed.** The images are taken apart so that there is
    material to work from (section 5); the base, the init system and the A/B update tool are chosen from I-09's
    comparison.
@@ -399,5 +408,21 @@ where it applies, and the roadmap or the porting plan is the source):
 23. **Audit log of the maintenance mode.** The mode does not start without a log target outside the device; entries
     are sent as they are written, and a hash-chained local log is the second record. Porting plan 7D, *Access*.
 24. **Commit e-mail of the native repository.** The GitHub no-reply address of the account. Point 8 above.
+
+Decided by the owner later on 2026-11-11, without a package's question:
+
+25. **USB copy of logs and results (owner, 2026-11-11).** On every device with at least one USB port, the logs and
+    the results are saved also to a USB drive, by default, before the internal storage fills up (for example on
+    routers with very little flash) and so that they are there after a power cut. Any USB stick is used
+    automatically, without a confirmation per stick, and the copy is written plain, not encrypted. Packages C-03,
+    C-08, C-02 and P-03 (section 3, the note after the tables); what the owner left open is designed there, as
+    roadmap 4.30 lists. Roadmap 4.30; porting plan 7I.
+26. **Ookla as an optional add-on, also on routers (owner, 2026-11-11).** Ookla may be offered on routers too, for
+    every architecture Ookla supports (none is recorded for MIPS), as an extension, not as a built-in function or a
+    built-in measuring engine. The Ookla CLI is closed source under its own EULA, so it is never part of `nmbd`
+    (MIT, point 9): it is installed separately, its EULA (clause (f) included) is shown before the user accepts it,
+    and the box's own engines (Cloudflare, RTR-Netztest, Fast.com, iPerf3) stay the built-in ones. Ookla is kept for
+    its many servers, ISP-hosted ones included, and the server search by name, sponsor and id stays. This narrows
+    point 3. Package M-10; roadmap 4.3A; porting plan 7.8.
 
 Still open: none.
